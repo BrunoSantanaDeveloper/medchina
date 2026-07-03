@@ -12,6 +12,7 @@
     "icons:stubs": "node scripts/generate-icon-stubs.mjs"
   },
   "dependencies": {
+    "@gogo/ai": "*",
     "@gogo/auth": "*",
     "@gogo/billing": "*",
     "@gogo/db": "*",

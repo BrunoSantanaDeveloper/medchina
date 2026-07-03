@@ -12,6 +12,7 @@ const nextConfig = {
     "@gogo/db",
     "@gogo/email",
     "@gogo/billing",
+    "@gogo/ai",
   ],
   images: {
     formats: ["image/webp", "image/avif"],

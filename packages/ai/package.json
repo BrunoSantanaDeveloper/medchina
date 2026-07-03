@@ -1,0 +1,14 @@
+{
+  "name": "@gogo/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Instruction-driven assistants behind a ChatProvider interface: Anthropic, Gemini and OpenRouter implementations with streaming and image/audio attachments.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.60.0",
+    "@google/genai": "^1.9.0"
+  }
+}

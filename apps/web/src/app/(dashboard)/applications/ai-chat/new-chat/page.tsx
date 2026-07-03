@@ -4,7 +4,7 @@ import ChatMessage from "../components/chat-message";
 import { Conversation } from "../components/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MouseEvent, SyntheticEvent, useEffect, useState } from "react";
+import { MouseEvent, useEffect, useRef, useState } from "react";
 
 import {
   Box,
@@ -12,11 +12,8 @@ import {
   Button,
   Card,
   CardContent,
-  Fade,
+  Chip,
   FormControl,
-  Menu,
-  MenuItem,
-  PopoverVirtualElement,
   TextareaAutosize,
   ToggleButton,
   ToggleButtonGroup,
@@ -26,211 +23,184 @@ import {
 import { Grid } from "@mui/material";
 
 import NiArrowOutUp from "@/icons/nexture/ni-arrow-out-up";
-import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
-import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiSendRight from "@/icons/nexture/ni-send-right";
 import NiSendUpRight from "@/icons/nexture/ni-send-up-right";
 import { cn } from "@/lib/utils";
+import { isSupabaseConfigured } from "@gogo/auth";
+import { createClient } from "@gogo/auth/client";
+
+type AssistantOption = { slug: string; name: string; description: string | null };
+type PendingAttachment = { kind: "image" | "audio"; path: string; mime: string; name: string };
+
+const DEMO_ANSWER = `###### Demo mode
+
+The AI backend is not configured. Set NEXT_PUBLIC_SUPABASE_URL, apply the migrations and add a provider key (ANTHROPIC_API_KEY, GEMINI_API_KEY or OPENROUTER_API_KEY) to chat with a real assistant configured in /admin/ai.`;
 
 export default function NewChat() {
-  // Version select dropdown
-  const [versionSelectAnchorEl, setVersionSelectAnchorEl] = useState<
-    EventTarget | Element | PopoverVirtualElement | null
-  >(null);
-  const versionSelectOpen = Boolean(versionSelectAnchorEl);
-  const handleVersionSelectClick = (event: Event | SyntheticEvent) => {
-    setVersionSelectAnchorEl(event.currentTarget);
-  };
-  const versionSelectHandleClose = () => {
-    setVersionSelectAnchorEl(null);
-  };
+  const router = useRouter();
 
-  // Extension toggles
-  const [extension, setExtension] = useState("flash");
-  const handlePlatform = (_event: MouseEvent<HTMLElement>, newExtension: string) => {
-    setExtension(newExtension);
-  };
-
-  // Conversation and input
-  const dummyAIAnswers: Conversation[] = [
-    {
-      id: crypto.randomUUID(),
-      type: "AI",
-      animate: true,
-      message: `###### AI feature is not active!
-
-##### 🔧 Feature Status Overview
-- **UI is active:** The interface is visible and clickable.
-- **AI functionality is not implemented:** The smart behavior behind the UI hasn't been added.
-- **This is a UI-only template:** It's meant to show how the feature will look and feel.
-- **No backend logic:** The AI or automation that powers the feature is a backend task.
-- **Random Text:** This is some AI explanation to serve as an answer.
-- **One more for the road:** Another unordered list item.
-
-##### 📌 What This Means
-1. It won't perform any intelligent actions.
-2. It won't give any answers but show the UI.`,
-    },
-    {
-      id: crypto.randomUUID(),
-      type: "AI",
-      animate: true,
-      message: `###### Brains not found!
-
-##### 🛠️ Current Feature Status
-- **UI is complete and visible:** Users can see and interact with the interface.
-- **AI functionality is not active:** The smart behavior behind the UI hasn't been added.
-- **This is a UI-only template:** It's meant to show how the feature will look and feel.
-- **No backend logic:** The AI or automation that powers the feature is a backend task.
-
-##### 📣 In Plain Terms
-The feature looks ready on the surface, but it doesn't “do” anything smart yet. It's just the shell — the brains are nowhere to be found.`,
-    },
-    {
-      id: crypto.randomUUID(),
-      type: "AI",
-      animate: true,
-      message: `###### AI is not here!
-
-##### 🧩 Static Text Messages
-- **Markdown enabled:** Markdown works well with the typewriter animation.
-- **UI is complete and visible:** Users can see and interact with the interface.
-- **AI functionality is not active:** The smart behavior behind the UI hasn't been added.
-- **This is a UI-only template:** It's meant to show how the feature will look and feel.
-- **No backend logic:** The AI or automation that powers the feature is a backend task.
-
-##### 📝 In Plain Terms
-The feature looks ready on the surface, but it doesn't “do” anything smart yet. It's just the shell — the brains are nowhere to be found.`,
-    },
-    {
-      id: crypto.randomUUID(),
-      type: "AI",
-      animate: true,
-      message: `
-This is an answer without any markdown and it should be alright.`,
-    },
-  ];
+  // Real assistants (the instruction sets) replace the demo toggle values.
+  const [assistants, setAssistants] = useState<AssistantOption[]>([]);
+  const [assistantSlug, setAssistantSlug] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [sending, setSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [inputValue, setInputValue] = useState("");
   const [conversation, setConversation] = useState<Conversation[]>([]);
-  const handleInputChange = (event: any) => {
-    setInputValue(event.target.value);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!isSupabaseConfigured) return;
+      const supabase = createClient();
+      const [{ data: assistantRows }, userResult] = await Promise.all([
+        supabase.from("assistants").select("slug, name, description").eq("is_active", true).order("sort"),
+        supabase.auth.getUser(),
+      ]);
+      setAssistants(assistantRows ?? []);
+      setAssistantSlug(assistantRows?.[0]?.slug ?? null);
+      const user = userResult.data.user;
+      if (user) {
+        const { data: membership } = await supabase
+          .from("memberships")
+          .select("org_id")
+          .eq("user_id", user.id)
+          .order("created_at")
+          .limit(1)
+          .maybeSingle();
+        setOrgId(membership?.org_id ?? null);
+      }
+    };
+    load();
+  }, []);
+
+  const liveMode = isSupabaseConfigured && assistantSlug !== null && orgId !== null;
+
+  const handleAssistantChange = (_event: MouseEvent<HTMLElement>, slug: string | null) => {
+    if (!slug) return;
+    setAssistantSlug(slug);
+    // Each assistant has its own instructions — start a fresh conversation.
+    setConversationId(null);
+    setConversation([]);
   };
-  const handleInputKeyDown = (event: any) => {
+
+  const handleUploadClick = () => fileInputRef.current?.click();
+
+  const handleFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !orgId) return;
+    const kind = file.type.startsWith("audio") ? "audio" : "image";
+    const path = `${orgId}/${crypto.randomUUID()}-${file.name}`;
+    const supabase = createClient();
+    const { error } = await supabase.storage.from("ai-attachments").upload(path, file);
+    if (!error) {
+      setPendingAttachments((current) => [...current, { kind, path, mime: file.type, name: file.name }]);
+    }
+  };
+
+  const appendMessage = (message: Conversation) => setConversation((prev) => [...prev, message]);
+
+  const sendUserInput = async (text?: string) => {
+    const content = (text ?? inputValue).trim();
+    if ((content === "" && pendingAttachments.length === 0) || sending) return;
+
+    appendMessage({ id: crypto.randomUUID(), type: "User", message: content });
+    setInputValue("");
+
+    if (!liveMode) {
+      setTimeout(
+        () => appendMessage({ id: crypto.randomUUID(), type: "AI", animate: true, message: DEMO_ANSWER }),
+        300,
+      );
+      return;
+    }
+
+    const attachments = pendingAttachments.map(({ kind, path, mime }) => ({ kind, path, mime }));
+    setPendingAttachments([]);
+    setSending(true);
+
+    const aiMessageId = crypto.randomUUID();
+    appendMessage({ id: aiMessageId, type: "AI", animate: false, message: "..." });
+    const updateAiMessage = (message: string) =>
+      setConversation((prev) => prev.map((item) => (item.id === aiMessageId ? { ...item, message } : item)));
+
+    try {
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId, assistantSlug, conversationId, message: content, attachments }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        updateAiMessage(`###### Request failed\n\n${data?.error ?? `HTTP ${response.status}`}`);
+        return;
+      }
+
+      const newConversationId = response.headers.get("X-Conversation-Id");
+      if (newConversationId) setConversationId(newConversationId);
+
+      const reader = response.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let fullText = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+        updateAiMessage(fullText);
+      }
+    } catch (error) {
+      updateAiMessage(`###### Request failed\n\n${error instanceof Error ? error.message : "Network error"}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleInputKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       sendUserInput();
     }
   };
-  const handleInputSendClick = () => {
-    sendUserInput();
-  };
-  const sendUserInput = () => {
-    if (inputValue.trim() === "") {
-      return;
-    }
-    setConversation([
-      ...conversation,
-      {
-        id: crypto.randomUUID(),
-        type: "User",
-        message: inputValue,
-      },
-    ]);
-    setInputValue("");
-    sendDummyAIAnswer();
-  };
-
-  const sendDummyAIAnswer = () => {
-    setTimeout(() => {
-      setConversation((prev) => [...prev, dummyAIAnswers[Math.floor(Math.random() * dummyAIAnswers.length)]]);
-    }, 500);
-  };
-
-  const askFeedbackQuestion = (question: string) => {
-    setConversation([
-      ...conversation,
-      {
-        id: crypto.randomUUID(),
-        type: "User",
-        message: question,
-      },
-    ]);
-    setInputValue("");
-    sendDummyAIAnswer();
-  };
 
   // Scrolling
   const scrollToBottom = () => {
-    window.scrollTo({
-      top: document.body.scrollHeight,
-      left: 0,
-    });
+    window.scrollTo({ top: document.body.scrollHeight, left: 0 });
   };
 
   const [isAnimating, setIsAnimating] = useState(false);
   useEffect(() => {
-    let intervalId: any;
-
-    if (isAnimating) {
-      intervalId = setInterval(() => {
-        scrollToBottom();
-      }, 100);
+    let intervalId: ReturnType<typeof setInterval>;
+    if (isAnimating || sending) {
+      intervalId = setInterval(scrollToBottom, 100);
     }
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [isAnimating]);
+    return () => clearInterval(intervalId);
+  }, [isAnimating, sending]);
 
   useEffect(() => {
     scrollToBottom();
   }, [conversation]);
 
-  const router = useRouter();
+  const activeAssistant = assistants.find((assistant) => assistant.slug === assistantSlug);
 
   return (
     <Box className="relative flex h-full min-h-[calc(100vh-12rem)] flex-col items-center gap-5">
       <Grid container spacing={5} className="w-full" size={12}>
         <Grid container spacing={2.5} className="w-full" size={12}>
           <Grid size={{ md: "grow", xs: 12 }}>
-            <Box className="flex flex-row gap-2">
+            <Box className="flex flex-row items-center gap-2">
               <Typography variant="h1" component="h1" className="mb-0">
                 AI Chat
               </Typography>
-              <Button
-                variant="outlined"
-                size="tiny"
-                color="grey"
-                onClick={handleVersionSelectClick}
-                endIcon={
-                  <NiChevronRightSmall
-                    size="small"
-                    className={cn(
-                      "-ms-1 transition-transform rtl:rotate-180",
-                      versionSelectOpen && "rotate-90 rtl:rotate-90",
-                    )}
-                  />
-                }
-              >
-                <Box className="w-full truncate text-clip">Flash v2.5.0</Box>
-              </Button>
-              <Menu
-                anchorEl={versionSelectAnchorEl as Element}
-                open={versionSelectOpen}
-                onClose={versionSelectHandleClose}
-                className="mt-1"
-                slots={{
-                  transition: Fade,
-                }}
-              >
-                <MenuItem onClick={versionSelectHandleClose} selected>
-                  Flash v2.5
-                </MenuItem>
-                <MenuItem onClick={versionSelectHandleClose}>Code Master 1.4.0</MenuItem>
-                <MenuItem onClick={versionSelectHandleClose}>Story Teller 1.0.0</MenuItem>
-                <MenuItem onClick={versionSelectHandleClose}>Idea Machine 6.1.0</MenuItem>
-              </Menu>
+              {activeAssistant && (
+                <Tooltip title={activeAssistant.description ?? ""}>
+                  <Chip label={activeAssistant.name} size="small" variant="outlined" color="primary" />
+                </Tooltip>
+              )}
             </Box>
 
             <Breadcrumbs>
@@ -251,7 +221,7 @@ This is an answer without any markdown and it should be alright.`,
               variant="contained"
               startIcon={<NiSendUpRight size={"medium"} />}
               onClick={() => {
-                router.push("/applications/ai-chat/premium-plans");
+                router.push("/settings/billing");
               }}
             >
               Upgrade
@@ -272,7 +242,7 @@ This is an answer without any markdown and it should be alright.`,
               variant="h1"
               className="from-primary-dark via-primary to-primary-light inline-block bg-linear-to-r bg-clip-text text-center text-transparent rtl:bg-linear-to-l"
             >
-              Welcome Laura, how can I help?
+              How can I help?
             </Typography>
 
             <Box className="mt-2 flex flex-col items-center gap-1">
@@ -280,31 +250,17 @@ This is an answer without any markdown and it should be alright.`,
                 variant="outlined"
                 color="grey"
                 className="hover:text-primary"
-                onClick={() => {
-                  askFeedbackQuestion("What's a common myth in tech?");
-                }}
+                onClick={() => sendUserInput("What can you help me with?")}
               >
-                What's a common myth in tech?
+                What can you help me with?
               </Button>
               <Button
                 variant="outlined"
                 color="grey"
                 className="hover:text-primary"
-                onClick={() => {
-                  askFeedbackQuestion("Explain the universe");
-                }}
+                onClick={() => sendUserInput("Summarize what this product does.")}
               >
-                Explain the universe
-              </Button>
-              <Button
-                variant="outlined"
-                color="grey"
-                className="hover:text-primary"
-                onClick={() => {
-                  askFeedbackQuestion("How would you name an app?");
-                }}
-              >
-                How would you name an app?
+                Summarize what this product does.
               </Button>
             </Box>
           </Box>
@@ -320,7 +276,7 @@ This is an answer without any markdown and it should be alright.`,
                 onAnimationEnd={() => {
                   setIsAnimating(false);
                 }}
-                onFeedbackQuestionClick={askFeedbackQuestion}
+                onFeedbackQuestionClick={(question) => sendUserInput(question)}
               />
             );
           })
@@ -334,28 +290,28 @@ This is an answer without any markdown and it should be alright.`,
               <TextareaAutosize
                 minRows={2}
                 maxRows={3}
-                className="MuiInputBase-root MuiInput-root outlined autosize bg-background-paper! w-full resize-none pe-28! outline-none!"
+                className="MuiInputBase-root MuiInput-root outlined autosize bg-background-paper! w-full resize-none pe-20! outline-none!"
                 placeholder="Chat with the AI assistant..."
-                onChange={handleInputChange}
+                onChange={(event) => setInputValue(event.target.value)}
                 onKeyDown={handleInputKeyDown}
                 value={inputValue}
               />
               <Box className="absolute end-0 flex flex-row">
-                <Tooltip title="Talk" arrow enterDelay={2000}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,audio/*"
+                  className="hidden"
+                  onChange={handleFileSelected}
+                />
+                <Tooltip title="Attach image or audio" arrow enterDelay={2000}>
                   <Button
                     className="icon-only"
                     size="medium"
                     color="grey"
                     variant="text"
-                    startIcon={<NiMicrophone size={"medium"} />}
-                  />
-                </Tooltip>
-                <Tooltip title="Upload" arrow enterDelay={2000}>
-                  <Button
-                    className="icon-only"
-                    size="medium"
-                    color="grey"
-                    variant="text"
+                    onClick={handleUploadClick}
+                    disabled={!liveMode}
                     startIcon={<NiArrowOutUp size={"medium"} />}
                   />
                 </Tooltip>
@@ -365,49 +321,51 @@ This is an answer without any markdown and it should be alright.`,
                     size="medium"
                     color="primary"
                     variant="pastel"
-                    onClick={handleInputSendClick}
+                    onClick={() => sendUserInput()}
+                    disabled={sending}
                     startIcon={<NiSendRight size={"medium"} />}
                   />
                 </Tooltip>
               </Box>
             </FormControl>
-            <ToggleButtonGroup
-              size="tiny"
-              color="primary"
-              value={extension}
-              exclusive
-              onChange={handlePlatform}
-              className="mb-2 hidden px-4 md:flex"
-            >
-              <ToggleButton
+
+            {pendingAttachments.length > 0 && (
+              <Box className="flex flex-row flex-wrap gap-1 px-4">
+                {pendingAttachments.map((attachment) => (
+                  <Chip
+                    key={attachment.path}
+                    label={`${attachment.kind}: ${attachment.name}`}
+                    size="small"
+                    variant="outlined"
+                    onDelete={() =>
+                      setPendingAttachments((current) => current.filter((item) => item.path !== attachment.path))
+                    }
+                  />
+                ))}
+              </Box>
+            )}
+
+            {assistants.length > 0 && (
+              <ToggleButtonGroup
                 size="tiny"
-                value="flash"
-                className="[.Mui-selected]:bg-primary/10! [.Mui-selected]:text-primary! px-3!"
+                color="primary"
+                value={assistantSlug}
+                exclusive
+                onChange={handleAssistantChange}
+                className="mb-2 hidden px-4 md:flex"
               >
-                Flash
-              </ToggleButton>
-              <ToggleButton
-                size="tiny"
-                value="code-master"
-                className="[.Mui-selected]:bg-primary/10! [.Mui-selected]:text-primary! px-3!"
-              >
-                Code Master
-              </ToggleButton>
-              <ToggleButton
-                size="tiny"
-                value="story-teller"
-                className="[.Mui-selected]:bg-primary/10! [.Mui-selected]:text-primary! px-3!"
-              >
-                Story Teller
-              </ToggleButton>
-              <ToggleButton
-                size="tiny"
-                value="idea-machine"
-                className="[.Mui-selected]:bg-primary/10! [.Mui-selected]:text-primary! px-3!"
-              >
-                Idea Machine
-              </ToggleButton>
-            </ToggleButtonGroup>
+                {assistants.map((assistant) => (
+                  <ToggleButton
+                    key={assistant.slug}
+                    size="tiny"
+                    value={assistant.slug}
+                    className="[.Mui-selected]:bg-primary/10! [.Mui-selected]:text-primary! px-3!"
+                  >
+                    {assistant.name}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            )}
           </CardContent>
         </Card>
       </Box>
