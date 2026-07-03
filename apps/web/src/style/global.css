@@ -12,12 +12,12 @@
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
-/* --------- Theme --------- */
-@import "./theme/common.css";
-@import "./theme/blue.css";
-@import "./theme/green.css";
-@import "./theme/orange.css";
-@import "./theme/purple.css";
+/* --------- Theme (design tokens: source of truth in packages/design-tokens) --------- */
+@import "@gogo/design-tokens/css/common.css";
+@import "@gogo/design-tokens/css/blue.css";
+@import "@gogo/design-tokens/css/green.css";
+@import "@gogo/design-tokens/css/orange.css";
+@import "@gogo/design-tokens/css/purple.css";
 
 /* --------- Surfaces --------- */
 @import "./surfaces/accordion.css";
