@@ -1,0 +1,14 @@
+{
+  "name": "@gogo/jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Inngest client and helpers for background jobs, queues and cron. Degrades gracefully: without keys, sendEvent reports failure so callers can fall back to inline processing.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./next": "./src/next.ts"
+  },
+  "dependencies": {
+    "inngest": "^3.35.0"
+  }
+}

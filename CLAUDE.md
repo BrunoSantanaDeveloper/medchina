@@ -10,6 +10,7 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - `packages/auth` — Supabase auth clients (browser/server/middleware). Degrades gracefully when Supabase env vars are absent.
 - `packages/email` — Resend + React Email templates (server-only). No-ops without `RESEND_API_KEY`; callers must offer a fallback.
 - `packages/billing` — per-org subscriptions (recurring or credits), add-on modules, coupons, trials; Stripe + Asaas behind one `PaymentProvider` interface. Superadmin console at `/admin/billing`; customer page at `/settings/billing`. See `packages/billing/README.md`.
+- `packages/jobs` — Inngest client + typed event map for background jobs/cron. Functions live in the owning package's `src/jobs.ts`; all are served by `apps/web` at `/api/inngest`. `sendEvent` never throws — callers must fall back to inline processing. See `packages/jobs/README.md`.
 - `packages/ai` — instruction-driven assistants (superadmin-managed rows, not a generic chat): Anthropic/Gemini/OpenRouter behind a `ChatProvider` interface, image+audio attachments, credits debited per message. Console at `/admin/ai`; chat wired at `/applications/ai-chat/new-chat`. See `packages/ai/README.md`.
 - `apps/mobile` — (future) Expo + React Native Paper, consuming the same tokens.
 
@@ -32,5 +33,5 @@ Run `/init-project` right after cloning — an interactive quiz configures brand
 ## Platform (confirmed decisions)
 
 - Deploy: Vercel. Database/auth/storage: Supabase (Postgres + RLS, Auth, Storage; pgvector for future RAG). ORM: Drizzle (`packages/db`).
-- Billing: Stripe behind an interface (`packages/billing`). Email: Resend + React Email (`packages/email`). Jobs/cron: Inngest (`packages/jobs`) when first needed. AI: Anthropic behind a provider interface (`packages/ai`).
+- Billing: Stripe behind an interface (`packages/billing`). Email: Resend + React Email (`packages/email`). Jobs/cron: Inngest (`packages/jobs`). AI: Anthropic behind a provider interface (`packages/ai`).
 - Do not reintroduce Cloudflare-specific services (Workers, D1, R2, Workers AI).

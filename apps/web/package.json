@@ -18,6 +18,7 @@
     "@gogo/db": "*",
     "@gogo/design-tokens": "*",
     "@gogo/email": "*",
+    "@gogo/jobs": "*",
     "@emotion/cache": "11.14.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
