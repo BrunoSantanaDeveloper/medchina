@@ -1,0 +1,17 @@
+{
+  "name": "@gogo/transcribe",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Audio transcription with speaker diarization and timestamps via Gemini, with configurable source-audio retention. Processed by an Inngest job with inline fallback.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.9.0",
+    "@gogo/auth": "*",
+    "@gogo/jobs": "*",
+    "@supabase/supabase-js": "^2.50.0"
+  }
+}

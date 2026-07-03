@@ -16,6 +16,7 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - `packages/connectors` — framework for per-org connections to external APIs: connector registry (`Connector` interface — the template ships no concrete connectors), service-role-only secret storage, sync via Inngest. Customer UI at `/settings/connections`; derived projects register connectors in `apps/web/src/lib/connectors.ts`. See `packages/connectors/README.md`.
 - `packages/knowledge` — knowledge base with trust levels (1 official → 5 opinion) + pgvector RAG; Gemini embeddings; ingestion via Inngest with inline fallback. Superadmin console at `/admin/knowledge`; assistants opt in via `config.knowledge`. See `packages/knowledge/README.md`.
 - `packages/ai` — instruction-driven assistants (superadmin-managed rows, not a generic chat): Anthropic/Gemini/OpenRouter behind a `ChatProvider` interface, image+audio attachments, credits debited per message. Console at `/admin/ai`; chat wired at `/applications/ai-chat/new-chat`. See `packages/ai/README.md`.
+- `packages/transcribe` — audio → diarized transcript (speakers + timestamps) via Gemini; Inngest job with inline fallback; optional source-audio deletion once the transcript is ready. See `packages/transcribe/README.md`.
 - `apps/mobile` — (future) Expo + React Native Paper, consuming the same tokens.
 
 ## Golden rules

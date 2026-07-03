@@ -9,6 +9,8 @@ export type JobEvents = {
   "knowledge/document.ingest": { data: { documentId: string } };
   /** Run one sync cycle for an external connection (@gogo/connectors). */
   "connectors/connection.sync": { data: { connectionId: string } };
+  /** Transcribe an uploaded audio file (@gogo/transcribe). */
+  "transcribe/audio.transcribe": { data: { transcriptionId: string } };
 };
 
 export const isInngestConfigured = Boolean(process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY);
