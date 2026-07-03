@@ -8,6 +8,7 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - `packages/design-tokens` — design system source of truth (CSS tokens + generated TS mirror). See `packages/design-tokens/README.md`.
 - `packages/db` — Drizzle schema + SQL migrations with RLS (multi-tenant: organizations/memberships/invites). See `packages/db/README.md`.
 - `packages/auth` — Supabase auth clients (browser/server/middleware). Degrades gracefully when Supabase env vars are absent.
+- `packages/email` — Resend + React Email templates (server-only). No-ops without `RESEND_API_KEY`; callers must offer a fallback.
 - `apps/mobile` — (future) Expo + React Native Paper, consuming the same tokens.
 
 ## Golden rules

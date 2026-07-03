@@ -1,5 +1,6 @@
 "use client";
 
+import { createInvite } from "../actions";
 import { OrgInvite, OrgRole, OrgSummary } from "./use-organization";
 import { useState } from "react";
 
@@ -25,7 +26,6 @@ import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiLink from "@/icons/nexture/ni-link";
 import { createClient } from "@gogo/auth/client";
 
-const INVITE_EXPIRY_DAYS = 7;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = {
@@ -36,7 +36,8 @@ type Props = {
 
 export default function OrgInvites({ org, invites, onChanged }: Props) {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<OrgRole>("member");
+  // Invites never grant ownership; owners are only made via role change.
+  const [role, setRole] = useState<Exclude<OrgRole, "owner">>("member");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -52,18 +53,18 @@ export default function OrgInvites({ org, invites, onChanged }: Props) {
       return;
     }
     setSending(true);
-    const supabase = createClient();
-    const expiresAt = new Date(Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const { error: insertError } = await supabase
-      .from("invites")
-      .insert({ org_id: org.id, email: email.trim().toLowerCase(), role, expires_at: expiresAt });
+    const result = await createInvite({ orgId: org.id, email, role });
     setSending(false);
-    if (insertError) {
-      setError(insertError.message);
+    if (result.error) {
+      setError(result.error);
       return;
     }
     setEmail("");
-    setInfo("Invite created. Copy the link below and share it — email delivery arrives with packages/email.");
+    setInfo(
+      result.emailSent
+        ? "Invite email sent. The link below can also be shared directly."
+        : "Invite created. Email delivery is not configured (RESEND_API_KEY) — copy the link below and share it.",
+    );
     onChanged();
   };
 
@@ -104,7 +105,7 @@ export default function OrgInvites({ org, invites, onChanged }: Props) {
                   size="small"
                   variant="standard"
                   IconComponent={NiChevronDownSmall}
-                  onChange={(e) => setRole(e.target.value as OrgRole)}
+                  onChange={(e) => setRole(e.target.value as Exclude<OrgRole, "owner">)}
                 >
                   <MenuItem value="member">member</MenuItem>
                   <MenuItem value="admin">admin</MenuItem>

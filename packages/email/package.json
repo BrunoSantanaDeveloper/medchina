@@ -1,0 +1,17 @@
+{
+  "name": "@gogo/email",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Transactional email: Resend client + React Email templates. No-ops gracefully when RESEND_API_KEY is absent.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@react-email/components": "^0.0.36",
+    "resend": "^4.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  }
+}
