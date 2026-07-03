@@ -110,10 +110,10 @@ export default function DocsThemeStyling() {
                 Theme Definitions
               </Typography>
               <Typography variant="body1" component="p">
-                The theme CSS definitions are in the <code>src/style/theme</code> directory. <code>common.css</code>{" "}
-                contains light and dark theme specific values as well as the common values among the themes while
-                specific theme color values are defined in their own files. For example, the <code>blue.css</code> file
-                below has the colors for the blue theme.
+                The theme CSS definitions are in the <code>packages/design-tokens/css</code> directory.{" "}
+                <code>common.css</code> contains light and dark theme specific values as well as the common values among
+                the themes while specific theme color values are defined in their own files. For example, the{" "}
+                <code>blue.css</code> file below has the colors for the blue theme.
               </Typography>
 
               <Box className="bg-grey-20 syntax-highlighter mt-3 rounded-lg p-4">
