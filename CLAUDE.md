@@ -18,6 +18,10 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - Apps never import from other apps (`apps/web` ↛ `apps/mobile` and vice versa); shared code lives in `packages/*`.
 - npm workspaces: always install dependencies from the root (`npm install`), never inside an app.
 
+## Starting a derived project
+
+Run `/init-project` right after cloning — an interactive quiz configures branding, icon set (Nexture/Phosphor via tsconfig alias), auth model, and prunes demo content. The skill is single-use and removes itself.
+
 ## Commands (root)
 
 - `npm run dev` / `build` / `lint:fix` — delegate to `apps/web`

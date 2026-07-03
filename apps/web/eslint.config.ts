@@ -40,6 +40,7 @@ export default [
       "node_modules",
       "package-lock.json",
       "public",
+      "scripts",
       "yarn.lock",
     ],
   },

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "prettier": "prettier --write './src/**/*.{js,jsx,json,ts,tsx,scss,css,md}'"
+    "prettier": "prettier --write './src/**/*.{js,jsx,json,ts,tsx,scss,css,md}'",
+    "icons:stubs": "node scripts/generate-icon-stubs.mjs"
   },
   "dependencies": {
     "@gogo/auth": "*",
@@ -32,6 +33,7 @@
     "@mui/x-date-pickers-pro": "9.7.0",
     "@mui/x-tree-view": "9.7.0",
     "@mui/x-tree-view-pro": "9.7.0",
+    "@phosphor-icons/react": "^2.1.7",
     "@react-spring/web": "10.1.2",
     "@types/autosuggest-highlight": "3.2.3",
     "@types/react-scroll-to-bottom": "4.2.5",
