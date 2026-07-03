@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 
 import { type ChatAttachment, type ChatMessage, getChatProvider } from "@gogo/ai";
 import { createClient } from "@gogo/auth/server";
+import {
+  type AssistantKnowledgeConfig,
+  buildKnowledgeContext,
+  isEmbeddingConfigured,
+  resolveCollectionIds,
+  searchKnowledge,
+} from "@gogo/knowledge";
 
 type AttachmentRef = { kind: "image" | "audio"; path: string; mime: string };
 
@@ -118,6 +125,23 @@ export async function POST(request: Request) {
     attachments: index === (history?.length ?? 0) - 1 ? downloaded : undefined,
   }));
 
+  // Ground the assistant in its configured knowledge collections (RAG).
+  let systemPrompt: string = assistant.system_prompt;
+  const knowledgeConfig = (assistant.config as { knowledge?: AssistantKnowledgeConfig } | null)?.knowledge;
+  if (knowledgeConfig?.collections?.length && body.message.trim() && isEmbeddingConfigured()) {
+    try {
+      const collectionIds = await resolveCollectionIds(supabase, knowledgeConfig.collections);
+      const results = await searchKnowledge(supabase, body.message, {
+        collectionIds,
+        matchCount: knowledgeConfig.matchCount,
+        maxTrust: knowledgeConfig.maxTrust,
+      });
+      systemPrompt += buildKnowledgeContext(results);
+    } catch {
+      // Retrieval must never take the chat down — answer without extra context.
+    }
+  }
+
   const encoder = new TextEncoder();
   let fullText = "";
 
@@ -128,7 +152,7 @@ export async function POST(request: Request) {
           {
             provider: assistant.provider,
             model: assistant.model,
-            systemPrompt: assistant.system_prompt,
+            systemPrompt,
             temperature: Number(assistant.temperature),
             maxTokens: assistant.max_tokens,
           },
