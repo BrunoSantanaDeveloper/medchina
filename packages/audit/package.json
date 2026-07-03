@@ -1,0 +1,13 @@
+{
+  "name": "@gogo/audit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Compliance layer: append-only audit events, immutable row versioning (opt-in per table via enable_row_versioning) and versioned consent records.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0"
+  }
+}
