@@ -1,0 +1,16 @@
+{
+  "name": "@gogo/connectors",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework for per-organization connections to external APIs: connector registry, service-role secret storage, and sync orchestration via Inngest. Ships no concrete connectors — derived projects register their own.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs.ts"
+  },
+  "dependencies": {
+    "@gogo/auth": "*",
+    "@gogo/jobs": "*",
+    "@supabase/supabase-js": "^2.50.0"
+  }
+}

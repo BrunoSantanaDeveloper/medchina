@@ -15,6 +15,7 @@
     "@gogo/ai": "*",
     "@gogo/auth": "*",
     "@gogo/billing": "*",
+    "@gogo/connectors": "*",
     "@gogo/db": "*",
     "@gogo/design-tokens": "*",
     "@gogo/email": "*",

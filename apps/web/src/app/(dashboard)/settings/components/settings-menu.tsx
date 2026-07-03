@@ -13,13 +13,14 @@ import NiListCircle from "@/icons/nexture/ni-list-circle";
 import NiLock from "@/icons/nexture/ni-lock";
 import NiMoneyBag from "@/icons/nexture/ni-money-bag";
 import NiPaintRoller from "@/icons/nexture/ni-paint-roller";
+import NiPlug from "@/icons/nexture/ni-plug";
 import NiReceipt from "@/icons/nexture/ni-receipt";
 import NiStars from "@/icons/nexture/ni-stars";
 import NiUser from "@/icons/nexture/ni-user";
 import NiUsers from "@/icons/nexture/ni-users";
 import NiWallet from "@/icons/nexture/ni-wallet";
 
-export type SettingsMenuActive = "profile" | "organization" | "billing";
+export type SettingsMenuActive = "profile" | "organization" | "connections" | "billing";
 
 type GroupProps = { label: string };
 
@@ -67,6 +68,13 @@ export default function SettingsMenu({ active }: { active: SettingsMenuActive })
           label="Organization"
           icon={<NiBuilding size="medium" />}
           selected={active === "organization"}
+        />
+
+        <Item
+          href="/settings/connections"
+          label="Connections"
+          icon={<NiPlug size="medium" />}
+          selected={active === "connections"}
         />
 
         <Group label="Payment" />
