@@ -19,6 +19,7 @@
     "@gogo/connectors": "*",
     "@gogo/db": "*",
     "@gogo/design-tokens": "*",
+    "@gogo/documents": "*",
     "@gogo/email": "*",
     "@gogo/jobs": "*",
     "@gogo/knowledge": "*",

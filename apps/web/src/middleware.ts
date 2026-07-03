@@ -6,7 +6,7 @@ import { updateSession } from "@gogo/auth/middleware";
 // Prefixes reachable without a session. Everything else requires auth
 // once Supabase is configured (without it, the middleware no-ops and the
 // whole template stays browsable).
-const PUBLIC_PREFIXES = ["/auth", "/landing-page"];
+const PUBLIC_PREFIXES = ["/auth", "/landing-page", "/verify"];
 
 const isPublic = (pathname: string) =>
   pathname === "/" || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));

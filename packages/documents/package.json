@@ -1,0 +1,17 @@
+{
+  "name": "@gogo/documents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Issued documents with versioning, sha256 integrity hash and QR-verifiable public codes. PDF rendering is pluggable — the caller supplies the bytes.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5"
+  }
+}
