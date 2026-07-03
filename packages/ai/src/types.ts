@@ -22,10 +22,25 @@ export interface AssistantConfig {
   maxTokens: number;
 }
 
+/**
+ * Schema-constrained output: the reply is a JSON object validated against
+ * `schema` by the provider, not free text. This is how derived projects
+ * enforce mandatory answer formats (e.g. diagnosis/evidence/action reports).
+ */
+export interface StructuredOutput {
+  /** Identifier ([a-zA-Z0-9_-]) used as the tool/schema name. */
+  name: string;
+  description?: string;
+  /** JSON Schema for the reply object (type: "object" at the root). */
+  schema: Record<string, unknown>;
+}
+
 export interface ChatProvider {
   readonly name: AiProviderName;
   /** True when the given model can accept audio attachments. */
   supportsAudio(model: string): boolean;
   /** Streams the assistant reply as text deltas. */
   streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string>;
+  /** Returns the reply as a JSON object conforming to output.schema (not streamed). */
+  generateStructured(config: AssistantConfig, messages: ChatMessage[], output: StructuredOutput): Promise<unknown>;
 }

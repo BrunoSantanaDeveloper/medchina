@@ -17,6 +17,16 @@ The chat UI never talks to "an AI" — it talks to an **assistant**: a row in th
 
 Audio for Anthropic-backed assistants: route the assistant through Gemini, or add a transcription step (future `packages/jobs`).
 
+## Structured outputs
+
+`provider.generateStructured(config, messages, { name, description, schema })` returns a **JSON object validated against a JSON Schema** instead of free text — how derived projects enforce mandatory answer formats (diagnosis/evidence/action reports, extraction, classification). Not streamed.
+
+Per provider: Anthropic uses forced tool use (`tool_choice`), Gemini uses `responseJsonSchema` (Gemini 2.5+), OpenRouter uses `response_format: json_schema` (model support varies; unsupported models surface a provider error).
+
+## Knowledge grounding
+
+Assistants with `config.knowledge` (see `packages/knowledge/README.md`) get retrieved excerpts appended to their system prompt, labeled by trust level, with instructions to cite `[n]` and never invent evidence.
+
 ## Flow (`/api/ai/chat` in apps/web)
 
 1. Auth + assistant lookup (RLS exposes active ones only).
