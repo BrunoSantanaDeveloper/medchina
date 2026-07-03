@@ -33,7 +33,6 @@ export default [
     ignores: [
       ".cache",
       ".next",
-      ".wrangler",
       "bun.lock",
       "next-env.d.ts",
       "next-eslint-plugin-next.d.ts",

@@ -13,9 +13,6 @@
     "lint": "npm run lint -w @gogo/web",
     "lint:fix": "npm run lint:fix -w @gogo/web",
     "prettier": "npm run prettier -w @gogo/web",
-    "preview": "npm run preview -w @gogo/web",
-    "deploy": "npm run deploy -w @gogo/web",
-    "cf-typegen": "npm run cf-typegen -w @gogo/web",
     "tokens:generate": "npm run generate -w @gogo/design-tokens",
     "prepare": "husky",
     "pre-commit": "lint-staged"

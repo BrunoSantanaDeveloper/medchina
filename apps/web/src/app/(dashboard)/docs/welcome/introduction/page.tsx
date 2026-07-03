@@ -210,15 +210,9 @@ export default function DocsWelcomeIntroduction() {
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "prettier": "prettier --write './src/**/*.{js,jsx,json,ts,tsx,scss,css,md}'",
-    "prepare": "husky",
-    "pre-commit": "lint-staged",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "prettier": "prettier --write './src/**/*.{js,jsx,json,ts,tsx,scss,css,md}'"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "4.20250620.0",
     "@emotion/cache": "11.14.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.0",
@@ -236,7 +230,6 @@ export default function DocsWelcomeIntroduction() {
     "@mui/x-date-pickers-pro": "8.8.0",
     "@mui/x-tree-view": "8.8.0",
     "@mui/x-tree-view-pro": "8.8.0",
-    "@opennextjs/cloudflare": "1.3.1",
     "@react-spring/web": "10.0.1",
     "@types/autosuggest-highlight": "3.2.3",
     "@types/react-scroll-to-bottom": "4.2.5",
@@ -286,8 +279,7 @@ export default function DocsWelcomeIntroduction() {
     "prettier-plugin-tailwindcss": "0.6.13",
     "tailwindcss": "4.1.10",
     "typescript": "5.8.3",
-    "typescript-eslint": "8.34.1",
-    "wrangler": "4.20.5"
+    "typescript-eslint": "8.34.1"
   }
 }`}
                 </SyntaxHighlighter>

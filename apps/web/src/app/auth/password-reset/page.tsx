@@ -3,20 +3,35 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
-import { Box, Button, Divider, FormControl, FormLabel, Input, Paper, Typography } from "@mui/material";
+import { Alert, Box, Button, Divider, FormControl, FormLabel, Input, Paper, Typography } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
-import { DEFAULTS } from "@/config";
+import { isSupabaseConfigured } from "@gogo/auth";
+import { createClient } from "@gogo/auth/client";
 
 export default function Page() {
   const router = useRouter();
   const [data, setData] = useState({
     email: "",
   });
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    router.push(DEFAULTS.appRoot);
+    setServerError(null);
+    if (!isSupabaseConfigured) {
+      setServerError("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/password-new`,
+    });
+    if (error) {
+      setServerError(error.message);
+      return;
+    }
+    router.push("/auth/password-sent");
   };
 
   return (
@@ -49,6 +64,11 @@ export default function Page() {
                     />
                   </FormControl>
 
+                  {serverError && (
+                    <Alert severity="error" className="neutral bg-background-paper/60! mb-4">
+                      {serverError}
+                    </Alert>
+                  )}
                   <Box className="flex flex-col gap-2">
                     <Button type="submit" variant="contained" className="mb-4">
                       Continue

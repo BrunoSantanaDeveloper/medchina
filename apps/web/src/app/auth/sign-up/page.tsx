@@ -26,6 +26,8 @@ import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { cn } from "@/lib/utils";
+import { isSupabaseConfigured } from "@gogo/auth";
+import { createClient } from "@gogo/auth/client";
 
 const validationSchema = yup.object({
   name: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),
@@ -69,6 +71,8 @@ export default function Page() {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
 
+  const [serverError, setServerError] = useState<string | null>(null);
+
   const formik = useFormik({
     initialValues: {
       name: "",
@@ -77,13 +81,52 @@ export default function Page() {
       password: "",
     },
     validationSchema,
-    onSubmit: (values) => {
-      console.log(JSON.stringify(values, null, 2));
-      router.push(DEFAULTS.appRoot);
+    onSubmit: async (values) => {
+      setServerError(null);
+      if (!isSupabaseConfigured) {
+        setServerError("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        return;
+      }
+      const supabase = createClient();
+      // display_name and company feed the handle_new_user trigger, which
+      // creates the profile and the first organization (owner membership).
+      const { data, error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: { display_name: values.name, company: values.company },
+        },
+      });
+      if (error) {
+        setServerError(error.message);
+        return;
+      }
+      if (data.session) {
+        router.push(DEFAULTS.appRoot);
+        router.refresh();
+      } else {
+        // Email confirmation is enabled on the Supabase project.
+        router.push("/auth/get-verification");
+      }
     },
     validateOnBlur: false,
     validateOnMount: false,
   });
+
+  const handleOAuth = async (provider: "google" | "github") => {
+    setServerError(null);
+    if (!isSupabaseConfigured) {
+      setServerError("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) setServerError(error.message);
+  };
 
   const isPasswordLengthValid = () => {
     return formik.values.password.length >= 8;
@@ -157,11 +200,21 @@ export default function Page() {
 
               <Box className="flex flex-col gap-5">
                 <Box className="flex flex-col gap-2 md:flex-row">
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
-                    <Box className="mr-2">{googleSVG()}</Box>Sign in with Google
+                  <Button
+                    variant="outlined"
+                    color="grey"
+                    className="flex-none md:w-1/2"
+                    onClick={() => handleOAuth("google")}
+                  >
+                    <Box className="mr-2">{googleSVG()}</Box>Sign up with Google
                   </Button>
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
-                    <Box className="mr-2">{githubSVG()}</Box>Sign in with Google
+                  <Button
+                    variant="outlined"
+                    color="grey"
+                    className="flex-none md:w-1/2"
+                    onClick={() => handleOAuth("github")}
+                  >
+                    <Box className="mr-2">{githubSVG()}</Box>Sign up with GitHub
                   </Button>
                 </Box>
 
@@ -285,6 +338,14 @@ export default function Page() {
                       </span>
                     </Typography>
                   </FormControl>
+                  {serverError && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Sign up failed</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {serverError}
+                      </Typography>
+                    </Alert>
+                  )}
                   {submitted && !formik.isValid && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
                       <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
@@ -309,7 +370,7 @@ export default function Page() {
                     >
                       Reset Password
                     </Link>
-                    <Button type="submit" variant="contained" className="mb-4">
+                    <Button type="submit" variant="contained" className="mb-4" disabled={formik.isSubmitting}>
                       Continue
                     </Button>
                   </Box>

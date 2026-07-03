@@ -27,6 +27,8 @@ import { DEFAULTS } from "@/config";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
+import { isSupabaseConfigured } from "@gogo/auth";
+import { createClient } from "@gogo/auth/client";
 
 const validationSchema = yup.object({
   email: yup.string().required("The field is required").email("Enter a valid email"),
@@ -55,20 +57,50 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 export default function Page() {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const formik = useFormik({
     initialValues: {
-      email: "info@gogo.dev",
-      password: "nexture",
+      email: "",
+      password: "",
     },
     validationSchema,
-    onSubmit: (values) => {
-      console.log(JSON.stringify(values, null, 2));
-      router.push(DEFAULTS.appRoot);
+    onSubmit: async (values) => {
+      setServerError(null);
+      if (!isSupabaseConfigured) {
+        setServerError("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        return;
+      }
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+      if (error) {
+        setServerError(error.message);
+        return;
+      }
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.push(next ?? DEFAULTS.appRoot);
+      router.refresh();
     },
     validateOnBlur: false,
     validateOnMount: false,
   });
+
+  const handleOAuth = async (provider: "google" | "github") => {
+    setServerError(null);
+    if (!isSupabaseConfigured) {
+      setServerError("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      return;
+    }
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) setServerError(error.message);
+  };
 
   const [showPassword, setShowPassword] = React.useState(false);
 
@@ -139,11 +171,21 @@ export default function Page() {
 
               <Box className="flex flex-col gap-5">
                 <Box className="flex flex-col gap-2 md:flex-row">
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
+                  <Button
+                    variant="outlined"
+                    color="grey"
+                    className="flex-none md:w-1/2"
+                    onClick={() => handleOAuth("google")}
+                  >
                     <Box className="mr-2">{googleSVG()}</Box>Sign in with Google
                   </Button>
-                  <Button variant="outlined" color="grey" className="flex-none md:w-1/2">
-                    <Box className="mr-2">{githubSVG()}</Box>Sign in with Google
+                  <Button
+                    variant="outlined"
+                    color="grey"
+                    className="flex-none md:w-1/2"
+                    onClick={() => handleOAuth("github")}
+                  >
+                    <Box className="mr-2">{githubSVG()}</Box>Sign in with GitHub
                   </Button>
                 </Box>
 
@@ -207,6 +249,14 @@ export default function Page() {
                     />
                   </FormControl>
 
+                  {serverError && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Sign in failed</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {serverError}
+                      </Typography>
+                    </Alert>
+                  )}
                   {submitted && !formik.isValid && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
                       <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
@@ -231,7 +281,7 @@ export default function Page() {
                     >
                       Reset Password
                     </Link>
-                    <Button type="submit" variant="contained" className="mb-4">
+                    <Button type="submit" variant="contained" className="mb-4" disabled={formik.isSubmitting}>
                       Continue
                     </Button>
                   </Box>

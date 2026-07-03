@@ -26,6 +26,8 @@ import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { cn } from "@/lib/utils";
+import { isSupabaseConfigured } from "@gogo/auth";
+import { createClient } from "@gogo/auth/client";
 
 const validationSchema = yup.object({
   password: yup
@@ -66,15 +68,29 @@ export default function Page() {
   const router = useRouter();
 
   const [submitted, setSubmitted] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   const formik = useFormik({
     initialValues: {
       password: "",
     },
     validationSchema,
-    onSubmit: (values) => {
-      console.log(JSON.stringify(values, null, 2));
+    onSubmit: async (values) => {
+      setServerError(null);
+      if (!isSupabaseConfigured) {
+        setServerError("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+        return;
+      }
+      // The recovery link from the reset email lands here with a valid
+      // session (via /auth/callback), so updateUser can set the password.
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password: values.password });
+      if (error) {
+        setServerError(error.message);
+        return;
+      }
       router.push(DEFAULTS.appRoot);
+      router.refresh();
     },
     validateOnBlur: false,
     validateOnMount: false,
@@ -187,6 +203,14 @@ export default function Page() {
                     </Typography>
                   </FormControl>
 
+                  {serverError && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">Could not update password</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {serverError}
+                      </Typography>
+                    </Alert>
+                  )}
                   {submitted && !formik.isValid && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
                       <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>

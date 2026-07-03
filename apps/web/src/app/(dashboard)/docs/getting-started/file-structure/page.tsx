@@ -116,13 +116,11 @@ export default function DocsGettingStartedFileStructure() {
 |-- README.md                             // Details about the project
 |-- middleware.ts                         // Next.js customizations
 |-- next.config.mjs                       // Next.js configuration
-|-- open-next.config.ts                   // Cloudflare Next.js configuration
 |-- package.json                          // List of packages that are used in the project
 |-- package.lock.json                     // List of package versions
 |-- postcss.config.mjs                    // PostCSS configuration
 |-- tailwind.config.ts                    // Tailwind configuration
-|-- tsconfig.json                         // Typescript configuration
-|-- wrangler.jsonc                        // Wrangler configuration`}
+|-- tsconfig.json                         // Typescript configuration`}
                 </SyntaxHighlighter>
               </Box>
             </CardContent>
