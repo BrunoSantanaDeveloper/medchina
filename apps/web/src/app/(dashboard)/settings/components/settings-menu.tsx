@@ -19,7 +19,7 @@ import NiUser from "@/icons/nexture/ni-user";
 import NiUsers from "@/icons/nexture/ni-users";
 import NiWallet from "@/icons/nexture/ni-wallet";
 
-export type SettingsMenuActive = "profile" | "organization";
+export type SettingsMenuActive = "profile" | "organization" | "billing";
 
 type GroupProps = { label: string };
 
@@ -70,7 +70,12 @@ export default function SettingsMenu({ active }: { active: SettingsMenuActive })
         />
 
         <Group label="Payment" />
-        <Item href="/settings" label="Billing" icon={<NiWallet size="medium" />} />
+        <Item
+          href="/settings/billing"
+          label="Billing"
+          icon={<NiWallet size="medium" />}
+          selected={active === "billing"}
+        />
         <Item href="/settings" label="Invoice" icon={<NiReceipt size="medium" />} />
         <Item href="/settings" label="Tax Info" icon={<NiMoneyBag size="medium" />} />
         <Item href="/settings" label="Payment Methods" icon={<NiBasket size="medium" />} />

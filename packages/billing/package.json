@@ -1,0 +1,15 @@
+{
+  "name": "@gogo/billing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Per-organization billing behind a provider interface: Stripe and Asaas implementations for recurring plans, credit purchases, add-on modules, coupons and trials.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./stripe": "./src/providers/stripe.ts",
+    "./asaas": "./src/providers/asaas.ts"
+  },
+  "dependencies": {
+    "stripe": "^18.0.0"
+  }
+}

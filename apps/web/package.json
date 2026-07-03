@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@gogo/auth": "*",
+    "@gogo/billing": "*",
     "@gogo/db": "*",
     "@gogo/design-tokens": "*",
     "@gogo/email": "*",
