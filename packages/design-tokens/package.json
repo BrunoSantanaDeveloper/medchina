@@ -1,0 +1,14 @@
+{
+  "name": "@gogo/design-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Source of truth for the Gogo design system: CSS tokens (consumed by web) and a generated TypeScript mirror (consumed by any platform, e.g. mobile).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css/*": "./css/*"
+  },
+  "scripts": {
+    "generate": "node scripts/generate-tokens.mjs"
+  }
+}

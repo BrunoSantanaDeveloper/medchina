@@ -5,7 +5,7 @@ const withNextIntl = createNextIntlPlugin();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@mui/material-nextjs"],
+  transpilePackages: ["@mui/material-nextjs", "@gogo/design-tokens"],
   images: {
     formats: ["image/webp", "image/avif"],
     qualities: [90],

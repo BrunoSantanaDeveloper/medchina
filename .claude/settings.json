@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(perl -pi -e ' *)"
+      "Bash(npm run lint:*)",
+      "Bash(npm run prettier:*)",
+      "Bash(npm run tokens:generate:*)",
+      "Bash(npx tsc:*)",
+      "PowerShell(npm run lint:*)",
+      "PowerShell(npm run prettier:*)",
+      "PowerShell(npm run tokens:generate:*)"
     ]
   }
 }
