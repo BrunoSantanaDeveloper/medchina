@@ -7,7 +7,7 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - `apps/web` — Next.js 15 (App Router) + MUI v9 + MUI X Premium + Tailwind 4, deployed on Vercel. See `apps/web/CLAUDE.md`.
 - `packages/design-tokens` — design system source of truth (CSS tokens + generated TS mirror). See `packages/design-tokens/README.md`.
 - `packages/db` — Drizzle schema + SQL migrations with RLS (multi-tenant: organizations/memberships/invites). See `packages/db/README.md`.
-- `packages/auth` — Supabase auth clients (browser/server/middleware). Degrades gracefully when Supabase env vars are absent.
+- `packages/auth` — Supabase auth clients (browser/server/middleware). Degrades gracefully when Supabase env vars are absent. 2FA (TOTP): enroll at `/settings/security`; the middleware forces the AAL2 step-up at `/auth/two-factor` for enrolled users.
 - `packages/email` — Resend + React Email templates (server-only). No-ops without `RESEND_API_KEY`; callers must offer a fallback.
 - `packages/billing` — per-org subscriptions (recurring or credits), add-on modules, coupons, trials; Stripe + Asaas behind one `PaymentProvider` interface. Superadmin console at `/admin/billing`; customer page at `/settings/billing`. See `packages/billing/README.md`.
 - `packages/documents` — issued documents with versioning, sha256 hash and QR-verifiable codes (public page `/verify/[code]`); PDF rendering is pluggable (caller supplies bytes). Issued docs are revoked, never deleted. See `packages/documents/README.md`.

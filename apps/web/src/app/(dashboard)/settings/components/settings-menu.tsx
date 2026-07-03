@@ -20,7 +20,7 @@ import NiUser from "@/icons/nexture/ni-user";
 import NiUsers from "@/icons/nexture/ni-users";
 import NiWallet from "@/icons/nexture/ni-wallet";
 
-export type SettingsMenuActive = "profile" | "organization" | "connections" | "billing";
+export type SettingsMenuActive = "profile" | "organization" | "connections" | "billing" | "security";
 
 type GroupProps = { label: string };
 
@@ -90,7 +90,12 @@ export default function SettingsMenu({ active }: { active: SettingsMenuActive })
 
         <Group label="Security" />
         <Item href="/settings" label="Password" icon={<NiLock size="medium" />} />
-        <Item href="/settings" label="Two Factor Auth" icon={<NiCheckSquare size="medium" />} />
+        <Item
+          href="/settings/security"
+          label="Two Factor Auth"
+          icon={<NiCheckSquare size="medium" />}
+          selected={active === "security"}
+        />
         <Item href="/settings" label="Devices" icon={<NiLaptop size="medium" />} />
         <Item href="/settings" label="Logs" icon={<NiListCircle size="medium" />} />
 

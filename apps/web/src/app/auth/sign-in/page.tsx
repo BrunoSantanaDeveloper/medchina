@@ -81,6 +81,13 @@ export default function Page() {
         return;
       }
       const next = new URLSearchParams(window.location.search).get("next");
+      // Accounts with a verified TOTP factor must step up to AAL2 first.
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+        router.push(`/auth/two-factor${next ? `?next=${encodeURIComponent(next)}` : ""}`);
+        router.refresh();
+        return;
+      }
       router.push(next ?? DEFAULTS.appRoot);
       router.refresh();
     },

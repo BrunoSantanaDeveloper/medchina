@@ -6,6 +6,8 @@ import { isSupabaseConfigured, SUPABASE_ANON_KEY, SUPABASE_URL } from "./config"
 export type SessionResult = {
   response: NextResponse;
   user: { id: string; email?: string } | null;
+  /** True when the user enrolled a TOTP factor but this session has not passed it yet (AAL1 -> AAL2 pending). */
+  needsMfa: boolean;
 };
 
 /**
@@ -19,7 +21,7 @@ export async function updateSession(request: NextRequest): Promise<SessionResult
   let response = NextResponse.next({ request });
 
   if (!isSupabaseConfigured) {
-    return { response, user: null };
+    return { response, user: null, needsMfa: false };
   }
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -40,5 +42,13 @@ export async function updateSession(request: NextRequest): Promise<SessionResult
     data: { user },
   } = await supabase.auth.getUser();
 
-  return { response, user };
+  // 2FA enforcement: a password/OAuth session is AAL1; users with a verified
+  // TOTP factor must step up to AAL2 before reaching protected pages.
+  let needsMfa = false;
+  if (user) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    needsMfa = aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2";
+  }
+
+  return { response, user, needsMfa };
 }
