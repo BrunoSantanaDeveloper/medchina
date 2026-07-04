@@ -40,7 +40,8 @@ build/
 # typescript
 next-env.d.ts
 
-# local configuration
+# local configuration — real keys live here, never in git (.env.example is the tracked reference)
+.env
 .env.local
 .claude/settings.local.json
 

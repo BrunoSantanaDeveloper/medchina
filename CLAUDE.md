@@ -30,7 +30,11 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 
 ## Starting a derived project
 
-Run `/init-project` right after cloning — an interactive quiz configures branding (including logo/favicon assets via `brand.ts`), icon set (Nexture/Phosphor via tsconfig alias), auth model, the marketing site (keep + customize copy, or prune), and prunes demo content. The skill is single-use and removes itself.
+1. `git clone <flyee repo> <project>`, then `git remote rename origin template` and push to a new **private** repo — keeping `template` as a remote lets the project pull base improvements later via `git fetch template && git merge template/main`.
+2. Copy `apps/web/.env.example` → `apps/web/.env` (gitignored; real keys never enter git) and `npm install` from the root.
+3. Run `/init-project` — an interactive quiz configures branding (including logo/favicon assets via `brand.ts`), icon set (Nexture/Phosphor via tsconfig alias), auth model, active capability packages, the marketing site (keep + customize copy, or prune), and prunes demo content. The skill is single-use and removes itself.
+
+This repo and its derivatives stay **private**: the UI layer still contains commercially licensed template code (plus the MUI X Premium license).
 
 ## Commands (root)
 
