@@ -50,6 +50,12 @@ const common = {
   dark: commonBlocks.get(".dark") ?? {},
 };
 
+// Marketing tokens are dimensions/motion (no colors), so no light/dark split.
+const marketing = extractBlocks(readCss("marketing")).get(":root") ?? {};
+if (!Object.keys(marketing).length) {
+  throw new Error("Marketing tokens: empty :root block — check css/marketing.css");
+}
+
 const themes = {};
 for (const name of THEME_FILES) {
   const blocks = extractBlocks(readCss(name));
@@ -78,10 +84,14 @@ export const common = ${JSON.stringify(common, null, 2)} as const;
 
 /** Per-color-theme tokens, in light/dark variants. Color values are HSL triplets ("H S% L%"). */
 export const themes = ${JSON.stringify(themes, null, 2)} as const;
+
+/** Marketing-layer tokens (fluid display type scale, section rhythm, motion). Dimension/motion values, no light/dark split. */
+export const marketing = ${JSON.stringify(marketing, null, 2)} as const;
 `;
 
 writeFileSync(outFile, body);
 console.log(
   `tokens.generated.ts updated: ${Object.keys(themes).length} themes, ` +
-    `${Object.keys(common.light).length} common tokens (light) / ${Object.keys(common.dark).length} (dark).`,
+    `${Object.keys(common.light).length} common tokens (light) / ${Object.keys(common.dark).length} (dark), ` +
+    `${Object.keys(marketing).length} marketing tokens.`,
 );

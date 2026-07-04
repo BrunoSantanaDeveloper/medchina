@@ -12,6 +12,9 @@ const config: Config = {
         sans: ["var(--font-body)", "ui-sans-serif"],
         heading: ["var(--font-heading)", "ui-sans-serif"],
         body: ["var(--font-body)", "ui-sans-serif"],
+        // Marketing display slot: defaults to the heading font; derived projects
+        // may load a display font in the root layout and set --font-display.
+        display: ["var(--font-display, var(--font-heading))", "ui-sans-serif"],
       },
       screens: { sm: "480px", md: "960px", lg: "1280px", xl: "1440px", "2xl": "1640px", "3xl": "1900px" } as Screens,
       backgroundImage: {
@@ -32,6 +35,23 @@ const config: Config = {
         "4xl": "var(--border-radius-4xl)",
       },
       fontSize: {
+        // Marketing display scale — fluid via clamp() in @gogo/design-tokens/css/marketing.css
+        "display-2xl": [
+          "var(--display-2xl)",
+          { lineHeight: "var(--display-leading)", letterSpacing: "var(--display-tracking)" },
+        ],
+        "display-xl": [
+          "var(--display-xl)",
+          { lineHeight: "var(--display-leading)", letterSpacing: "var(--display-tracking)" },
+        ],
+        "display-lg": [
+          "var(--display-lg)",
+          { lineHeight: "var(--display-leading)", letterSpacing: "var(--display-tracking)" },
+        ],
+        "display-md": [
+          "var(--display-md)",
+          { lineHeight: "var(--display-leading)", letterSpacing: "var(--display-tracking)" },
+        ],
         xs: "0.6875rem",
         sm: "0.75rem",
         base: "0.875rem",

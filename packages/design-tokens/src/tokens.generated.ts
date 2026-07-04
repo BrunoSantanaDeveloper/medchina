@@ -316,3 +316,22 @@ export const themes = {
     }
   }
 } as const;
+
+/** Marketing-layer tokens (fluid display type scale, section rhythm, motion). Dimension/motion values, no light/dark split. */
+export const marketing = {
+  "display-2xl": "clamp(2.75rem, 1.65rem + 4.7vw, 5.25rem)",
+  "display-xl": "clamp(2.25rem, 1.48rem + 3.3vw, 4rem)",
+  "display-lg": "clamp(1.75rem, 1.28rem + 2vw, 2.815rem)",
+  "display-md": "clamp(1.375rem, 1.14rem + 1vw, 1.9rem)",
+  "display-leading": "1.08",
+  "display-tracking": "-0.02em",
+  "section-space": "clamp(4rem, 2.6rem + 6vw, 7.5rem)",
+  "section-space-sm": "clamp(2.5rem, 1.8rem + 3vw, 4.25rem)",
+  "container-max": "72rem",
+  "container-px": "clamp(1rem, 0.55rem + 1.9vw, 2rem)",
+  "motion-duration-1": "200ms",
+  "motion-duration-2": "450ms",
+  "motion-duration-3": "800ms",
+  "motion-ease": "cubic-bezier(0.22, 1, 0.36, 1)",
+  "motion-reveal-distance": "2.5rem"
+} as const;

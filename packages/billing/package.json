@@ -6,10 +6,12 @@
   "description": "Per-organization billing behind a provider interface: Stripe and Asaas implementations for recurring plans, credit purchases, add-on modules, coupons and trials.",
   "exports": {
     ".": "./src/index.ts",
+    "./public": "./src/public.ts",
     "./stripe": "./src/providers/stripe.ts",
     "./asaas": "./src/providers/asaas.ts"
   },
   "dependencies": {
+    "@gogo/auth": "*",
     "stripe": "^18.0.0"
   }
 }

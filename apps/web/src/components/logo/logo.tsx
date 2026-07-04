@@ -1,5 +1,13 @@
 import { cn } from "@/lib/utils";
 
+/**
+ * The single logo component — admin header AND marketing header/footer render this;
+ * never create a second logo implementation.
+ * Rebrand contract (see src/brand.ts): replace the two SVGs below keeping both
+ * variants (full wordmark + compact mobile mark) and the token-based tinting
+ * (fill-text-primary / hsl(var(--primary-*)) gradients) so the logo follows
+ * every color theme and light/dark mode.
+ */
 export default function Logo({ classNameFull, classNameMobile }: { classNameFull?: string; classNameMobile?: string }) {
   return (
     <>

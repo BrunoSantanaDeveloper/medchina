@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { Resend } from "resend";
 
+import ContactFormEmail, { ContactFormEmailProps } from "./templates/contact-form";
 import OrgInviteEmail, { OrgInviteEmailProps } from "./templates/org-invite";
 
 /** True when transactional email is configured (server-only env var). */
@@ -25,6 +26,31 @@ export async function sendOrgInviteEmail(to: string, props: OrgInviteEmailProps)
     to,
     subject: `You have been invited to join ${props.orgName}`,
     react: createElement(OrgInviteEmail, props),
+  });
+  if (error) {
+    return { sent: false, error: error.message };
+  }
+  return { sent: true };
+}
+
+/**
+ * Forwards a public contact-form submission to CONTACT_FORM_TO (falls back to
+ * EMAIL_FROM). Returns { sent: false } without failing when RESEND_API_KEY or
+ * the destination is absent — the contact page must tell the visitor to use
+ * an alternative channel in that case.
+ */
+export async function sendContactFormEmail(props: ContactFormEmailProps): Promise<SendResult> {
+  const to = process.env.CONTACT_FORM_TO ?? process.env.EMAIL_FROM;
+  if (!isEmailConfigured || !to) {
+    return { sent: false };
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: DEFAULT_FROM,
+    to,
+    replyTo: props.email,
+    subject: `Contact form: ${props.name}`,
+    react: createElement(ContactFormEmail, props),
   });
   if (error) {
     return { sent: false, error: error.message };

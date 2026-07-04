@@ -3,7 +3,7 @@ import { useLocale, useTranslations } from "use-intl";
 
 import { Avatar, Chip, Fade, ListItemIcon, Menu, MenuItem, PopoverVirtualElement } from "@mui/material";
 
-import { LocaleOption } from "@/constants";
+import { LocaleOption, LOCALES } from "@/constants";
 import { setClientLocale } from "@/i18n/locale";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiMessages from "@/icons/nexture/ni-messages";
@@ -38,7 +38,11 @@ export default function UserLanguageSwitch() {
         <div className="w-full"> {t("user-language")}</div>
         <Chip
           size="small"
-          avatar={<Avatar alt={t(locale)} src={`/images/flags/${locale}.jpg`} />}
+          avatar={
+            <Avatar alt={t(locale)} src={`/images/flags/${locale}.jpg`}>
+              {locale.slice(-2).toUpperCase()}
+            </Avatar>
+          }
           label={t(locale)}
           variant="outlined"
         />
@@ -56,54 +60,24 @@ export default function UserLanguageSwitch() {
           transition: Fade,
         }}
       >
-        <MenuItem
-          className={cn(locale === "de" && "active")}
-          onClick={() => {
-            handleCloseLang();
-            handleOnChangeLocale("de");
-          }}
-        >
-          <ListItemIcon>
-            <Avatar className="nano" alt="German" src="/images/flags/de.jpg" />
-          </ListItemIcon>
-          {t("de")}
-        </MenuItem>
-        <MenuItem
-          className={cn(locale === "en" && "active")}
-          onClick={() => {
-            handleCloseLang();
-            handleOnChangeLocale("en");
-          }}
-        >
-          <ListItemIcon>
-            <Avatar className="nano" alt="English" src="/images/flags/en.jpg" />
-          </ListItemIcon>
-          {t("en")}
-        </MenuItem>
-        <MenuItem
-          className={cn(locale === "es" && "active")}
-          onClick={() => {
-            handleCloseLang();
-            handleOnChangeLocale("es");
-          }}
-        >
-          <ListItemIcon>
-            <Avatar className="nano" alt="Spanish" src="/images/flags/es.jpg" />
-          </ListItemIcon>
-          {t("es")}
-        </MenuItem>
-        <MenuItem
-          className={cn(locale === "fr" && "active")}
-          onClick={() => {
-            handleCloseLang();
-            handleOnChangeLocale("fr");
-          }}
-        >
-          <ListItemIcon>
-            <Avatar className="nano" alt="French" src="/images/flags/fr.jpg" />
-          </ListItemIcon>
-          {t("fr")}
-        </MenuItem>
+        {LOCALES.map((option) => (
+          <MenuItem
+            key={option}
+            className={cn(locale === option && "active")}
+            onClick={() => {
+              handleCloseLang();
+              handleOnChangeLocale(option);
+            }}
+          >
+            <ListItemIcon>
+              {/* Locales without a flag image fall back to the code initials. */}
+              <Avatar className="nano" alt={t(option)} src={`/images/flags/${option}.jpg`}>
+                {option.slice(-2).toUpperCase()}
+              </Avatar>
+            </ListItemIcon>
+            {t(option)}
+          </MenuItem>
+        ))}
       </Menu>
     </>
   );

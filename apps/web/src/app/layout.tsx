@@ -10,6 +10,7 @@ import { Suspense } from "react";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 
 import Loading from "@/app/loading";
+import { BRAND } from "@/brand";
 import BackgroundWrapper from "@/components/layout/containers/background-wrapper";
 import SnackbarWrapper from "@/components/layout/containers/snackbar-wrapper";
 import LayoutContextProvider from "@/components/layout/layout-context";
@@ -30,21 +31,26 @@ const urbanist = Urbanist({
 });
 
 export const metadata: Metadata = {
-  title: "Gogo",
-  description: "Gogo Next React Typescript MUI Tailwind Admin Template",
+  metadataBase: new URL(BRAND.siteUrl),
+  title: {
+    default: BRAND.name,
+    template: `%s | ${BRAND.name}`,
+  },
+  description: BRAND.description,
   icons: {
     icon: [
       {
         media: "(prefers-color-scheme: dark)",
-        url: "/favicon/green-dark.png",
-        href: "/favicon/green-dark.png",
+        url: BRAND.favicon.dark,
+        href: BRAND.favicon.dark,
       },
       {
         media: "(prefers-color-scheme: light)",
-        url: "/favicon/green-light.png",
-        href: "/favicon/green-light.png",
+        url: BRAND.favicon.light,
+        href: BRAND.favicon.light,
       },
     ],
+    apple: BRAND.favicon.light,
   },
 };
 

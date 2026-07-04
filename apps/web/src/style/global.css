@@ -18,6 +18,7 @@
 @import "@gogo/design-tokens/css/green.css";
 @import "@gogo/design-tokens/css/orange.css";
 @import "@gogo/design-tokens/css/purple.css";
+@import "@gogo/design-tokens/css/marketing.css";
 
 /* --------- Surfaces --------- */
 @import "./surfaces/accordion.css";

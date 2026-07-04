@@ -1,4 +1,4 @@
-export const LOCALES = ["de", "en", "fr", "es"] as const;
+export const LOCALES = ["de", "en", "fr", "es", "pt-BR"] as const;
 export type LocaleOption = (typeof LOCALES)[number];
 
 export const THEME_OPTIONS = {

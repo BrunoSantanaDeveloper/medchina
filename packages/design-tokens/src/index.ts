@@ -1,4 +1,4 @@
-export { common, themes } from "./tokens.generated";
+export { common, marketing, themes } from "./tokens.generated";
 
 import { themes } from "./tokens.generated";
 
