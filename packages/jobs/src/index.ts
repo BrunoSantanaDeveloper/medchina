@@ -11,6 +11,10 @@ export type JobEvents = {
   "connectors/connection.sync": { data: { connectionId: string } };
   /** Transcribe an uploaded audio file (@gogo/transcribe). */
   "transcribe/audio.transcribe": { data: { transcriptionId: string } };
+  /** Deliver one queued wa_messages row (@gogo/whatsapp). */
+  "whatsapp/message.send": { data: { messageId: string } };
+  /** Inbound WhatsApp message — derived projects handle business logic. */
+  "whatsapp/message.received": { data: { messageId: string; from: string; text: string } };
 };
 
 export const isInngestConfigured = Boolean(process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY);

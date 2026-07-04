@@ -17,6 +17,7 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - `packages/knowledge` — knowledge base with trust levels (1 official → 5 opinion) + pgvector RAG; Gemini embeddings; ingestion via Inngest with inline fallback. Superadmin console at `/admin/knowledge`; assistants opt in via `config.knowledge`. See `packages/knowledge/README.md`.
 - `packages/ai` — instruction-driven assistants (superadmin-managed rows, not a generic chat): Anthropic/Gemini/OpenRouter behind a `ChatProvider` interface, image+audio attachments, credits debited per message. Console at `/admin/ai`; chat wired at `/applications/ai-chat/new-chat`. See `packages/ai/README.md`.
 - `packages/transcribe` — audio → diarized transcript (speakers + timestamps) via Gemini; Inngest job with inline fallback; optional source-audio deletion once the transcript is ready. See `packages/transcribe/README.md`.
+- `packages/whatsapp` — WhatsApp dispatcher behind a provider interface (Meta Cloud API official / Evolution API unofficial): manual, automatic and scheduled sends (Inngest `sleepUntil`), `wa_messages` log, webhook at `/api/webhooks/whatsapp/[provider]`, inbound replies emitted as `whatsapp/message.received`. See `packages/whatsapp/README.md`.
 - `apps/mobile` — (future) Expo + React Native Paper, consuming the same tokens.
 
 ## Golden rules

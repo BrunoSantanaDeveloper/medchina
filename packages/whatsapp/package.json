@@ -1,0 +1,16 @@
+{
+  "name": "@gogo/whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "WhatsApp dispatcher behind a provider interface: Meta Cloud API (official, template-based) and Evolution API (unofficial, free-form). Manual, automatic and scheduled sends via Inngest; inbound replies surfaced as events.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./jobs": "./src/jobs.ts"
+  },
+  "dependencies": {
+    "@gogo/auth": "*",
+    "@gogo/jobs": "*",
+    "@supabase/supabase-js": "^2.50.0"
+  }
+}
