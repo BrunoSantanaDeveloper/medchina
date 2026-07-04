@@ -6,8 +6,8 @@ import React, { useState } from "react";
 import { Alert, Box, Button, Divider, FormControl, FormLabel, Input, Paper, Typography } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 export default function Page() {
   const router = useRouter();

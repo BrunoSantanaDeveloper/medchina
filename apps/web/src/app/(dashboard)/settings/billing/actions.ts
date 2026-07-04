@@ -2,8 +2,8 @@
 
 import { headers } from "next/headers";
 
-import { createClient } from "@gogo/auth/server";
-import { createServiceClient } from "@gogo/auth/service";
+import { createClient } from "@flyee/auth/server";
+import { createServiceClient } from "@flyee/auth/service";
 import {
   applyDiscount,
   type BillingProviderName,
@@ -11,7 +11,7 @@ import {
   type CheckoutModule,
   type CheckoutPlan,
   getProvider,
-} from "@gogo/billing";
+} from "@flyee/billing";
 
 async function requireOrgManager(orgId: string) {
   const supabase = await createClient();

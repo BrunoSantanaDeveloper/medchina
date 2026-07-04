@@ -445,7 +445,7 @@ export default function DocsWelcomeChangelog() {
               <Box>
                 <Typography variant="body1" component="p">
                   <ul className="list-inside list-disc">
-                    <li>Added Gogo-React-Start-With-Auth back</li>
+                    <li>Added Flyee-React-Start-With-Auth back</li>
                     <li>Fixed a small problem with checkboxes that occurs on Firefox</li>
                   </ul>
                 </Typography>

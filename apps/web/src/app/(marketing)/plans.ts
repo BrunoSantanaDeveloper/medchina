@@ -1,7 +1,7 @@
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { PublicPlanDisplay } from "@/components/marketing/pricing-section";
-import { listPublicPlans } from "@gogo/billing/public";
+import { listPublicPlans } from "@flyee/billing/public";
 
 const PLACEHOLDER_SLUGS = ["plan-1", "plan-2", "plan-3"] as const;
 

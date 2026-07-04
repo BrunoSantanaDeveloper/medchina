@@ -2,8 +2,8 @@
 
 import { headers } from "next/headers";
 
-import { createClient } from "@gogo/auth/server";
-import { sendOrgInviteEmail } from "@gogo/email";
+import { createClient } from "@flyee/auth/server";
+import { sendOrgInviteEmail } from "@flyee/email";
 
 const INVITE_EXPIRY_DAYS = 7;
 

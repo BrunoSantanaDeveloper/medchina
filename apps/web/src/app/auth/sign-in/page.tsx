@@ -27,8 +27,8 @@ import { DEFAULTS } from "@/config";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 const validationSchema = yup.object({
   email: yup.string().required("The field is required").email("Enter a valid email"),
@@ -316,7 +316,7 @@ export default function Page() {
                   Get Started
                 </Typography>
                 <Typography variant="body1" className="text-text-secondary">
-                  New to Gogo? Please use your email to{" "}
+                  New to Flyee? Please use your email to{" "}
                   <Link href="/auth/sign-up" className="link-primary link-underline-hover">
                     sign up
                   </Link>

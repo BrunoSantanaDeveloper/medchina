@@ -1,4 +1,4 @@
-# @gogo/billing
+# @flyee/billing
 
 Per-organization billing behind a single `PaymentProvider` interface, with **Stripe** and **Asaas** implementations.
 

@@ -14,7 +14,7 @@ export type Database = ReturnType<typeof createDb>;
  * that role is the service role/postgres. Use it only in trusted server code
  * (route handlers, server actions, jobs) and always scope queries by the
  * caller's organization. For RLS-enforced access from the browser or with
- * the user's JWT, use the Supabase client from @gogo/auth instead.
+ * the user's JWT, use the Supabase client from @flyee/auth instead.
  *
  * On Vercel/serverless, point DATABASE_URL at the Supabase pooler
  * (port 6543) and keep `prepare: false`.

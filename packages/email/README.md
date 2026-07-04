@@ -1,4 +1,4 @@
-# @gogo/email
+# @flyee/email
 
 Transactional email via Resend + React Email templates.
 
@@ -12,7 +12,7 @@ Transactional email via Resend + React Email templates.
 
 ```
 RESEND_API_KEY=        # server-only
-EMAIL_FROM=            # verified sender, e.g. "Gogo <noreply@yourdomain.com>"
+EMAIL_FROM=            # verified sender, e.g. "Flyee <noreply@yourdomain.com>"
 ```
 
 Without a verified domain, Resend only delivers from `onboarding@resend.dev` to your own account email — fine for development.

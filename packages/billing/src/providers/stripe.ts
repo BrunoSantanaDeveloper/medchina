@@ -24,7 +24,7 @@ function getStripe() {
 
 /** Creates (or reuses) a Stripe coupon mirroring ours, so recurring cycles stay discounted. */
 async function ensureStripeCoupon(stripe: Stripe, coupon: CheckoutCoupon, currency: string): Promise<string> {
-  const id = `gogo-${coupon.id}`;
+  const id = `flyee-${coupon.id}`;
   try {
     await stripe.coupons.retrieve(id);
     return id;

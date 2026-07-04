@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 import { BRAND } from "@/brand";
-import { hsl, themes } from "@gogo/design-tokens";
+import { hsl, themes } from "@flyee/design-tokens";
 
 export const alt = `${BRAND.name} — ${BRAND.tagline}`;
 export const size = { width: 1200, height: 630 };

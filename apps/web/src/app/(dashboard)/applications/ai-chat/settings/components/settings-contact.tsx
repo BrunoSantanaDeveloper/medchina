@@ -12,7 +12,7 @@ interface ContactInfoData {
 export default function SettingsContact() {
   const [contactInfo, setContactInfo] = useState<ContactInfoData>({
     id: "4232-0594-3495",
-    emailPrimary: "laura@gogo.dev",
+    emailPrimary: "laura@flyee.dev",
     emailSecondary: "laura.ellis@gmail.com",
     phone: "+6443884455",
   });

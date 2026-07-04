@@ -1,8 +1,8 @@
 "use server";
 
-import { createClient } from "@gogo/auth/server";
-import { sendEvent } from "@gogo/jobs";
-import { processDocument } from "@gogo/knowledge";
+import { createClient } from "@flyee/auth/server";
+import { sendEvent } from "@flyee/jobs";
+import { processDocument } from "@flyee/knowledge";
 
 export type IngestActionResult = { ok: true; queued: boolean } | { ok: false; error: string };
 

@@ -7,12 +7,12 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: [
     "@mui/material-nextjs",
-    "@gogo/design-tokens",
-    "@gogo/auth",
-    "@gogo/db",
-    "@gogo/email",
-    "@gogo/billing",
-    "@gogo/ai",
+    "@flyee/design-tokens",
+    "@flyee/auth",
+    "@flyee/db",
+    "@flyee/email",
+    "@flyee/billing",
+    "@flyee/ai",
   ],
   images: {
     formats: ["image/webp", "image/avif"],

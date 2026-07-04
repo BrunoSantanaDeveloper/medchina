@@ -1,4 +1,4 @@
-# @gogo/knowledge
+# @flyee/knowledge
 
 Knowledge base with **trust levels** and **pgvector** retrieval — the template's RAG layer.
 

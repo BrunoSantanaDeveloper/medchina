@@ -20,7 +20,7 @@ import {
 
 import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
-import { createClient } from "@gogo/auth/client";
+import { createClient } from "@flyee/auth/client";
 
 const ROLES: OrgRole[] = ["owner", "admin", "member"];
 

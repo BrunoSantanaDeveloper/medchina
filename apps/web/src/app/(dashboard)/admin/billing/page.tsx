@@ -9,8 +9,8 @@ import { useEffect, useState } from "react";
 
 import { Alert, Box, Breadcrumbs, Card, CardContent, Grid, Tab, Tabs, Typography } from "@mui/material";
 
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 /**
  * Superadmin billing console. RLS is the real gate (non-superadmins get

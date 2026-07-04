@@ -1,4 +1,4 @@
-import { createServiceClient } from "@gogo/auth/service";
+import { createServiceClient } from "@flyee/auth/service";
 
 /**
  * Plan fields safe to expose on public (unauthenticated) pages — no provider

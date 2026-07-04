@@ -5,13 +5,13 @@ import { EventSchemas, Inngest } from "inngest";
  * here so every `inngest.send` and function trigger stays typed.
  */
 export type JobEvents = {
-  /** Chunk + embed a knowledge document (sent by @gogo/knowledge ingestion). */
+  /** Chunk + embed a knowledge document (sent by @flyee/knowledge ingestion). */
   "knowledge/document.ingest": { data: { documentId: string } };
-  /** Run one sync cycle for an external connection (@gogo/connectors). */
+  /** Run one sync cycle for an external connection (@flyee/connectors). */
   "connectors/connection.sync": { data: { connectionId: string } };
-  /** Transcribe an uploaded audio file (@gogo/transcribe). */
+  /** Transcribe an uploaded audio file (@flyee/transcribe). */
   "transcribe/audio.transcribe": { data: { transcriptionId: string } };
-  /** Deliver one queued wa_messages row (@gogo/whatsapp). */
+  /** Deliver one queued wa_messages row (@flyee/whatsapp). */
   "whatsapp/message.send": { data: { messageId: string } };
   /** Inbound WhatsApp message — derived projects handle business logic. */
   "whatsapp/message.received": { data: { messageId: string; from: string; text: string } };
@@ -25,7 +25,7 @@ export const isInngestConfigured = Boolean(process.env.INNGEST_EVENT_KEY && proc
  * INNGEST_EVENT_KEY + INNGEST_SIGNING_KEY.
  */
 export const inngest = new Inngest({
-  id: "gogo",
+  id: "flyee",
   schemas: new EventSchemas().fromRecord<JobEvents>(),
 });
 

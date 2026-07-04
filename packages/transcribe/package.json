@@ -1,5 +1,5 @@
 {
-  "name": "@gogo/transcribe",
+  "name": "@flyee/transcribe",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@google/genai": "^1.9.0",
-    "@gogo/auth": "*",
-    "@gogo/jobs": "*",
+    "@flyee/auth": "*",
+    "@flyee/jobs": "*",
     "@supabase/supabase-js": "^2.50.0"
   }
 }

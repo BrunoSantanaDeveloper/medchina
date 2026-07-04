@@ -10,7 +10,7 @@ Every icon — original or adapter — is a default-exported component accepting
 
 1. Generate fallback stubs for icons without a real adapter yet:
    ```bash
-   npm run icons:stubs -w @gogo/web
+   npm run icons:stubs -w @flyee/web
    ```
 2. Uncomment the alias line in `apps/web/tsconfig.json`:
    ```jsonc
@@ -23,5 +23,5 @@ Every icon — original or adapter — is a default-exported component accepting
 ## Adding another set (e.g. Lucide, Tabler)
 
 1. Create `src/icons/<set>/` and write adapters following the Phosphor examples (same file names, same contract; import helpers from `../nexture-icons` and the icon lib from its SSR-safe entry point).
-2. Run `npm run icons:stubs -w @gogo/web -- <set>` to fill the gaps with Nexture fallbacks.
+2. Run `npm run icons:stubs -w @flyee/web -- <set>` to fill the gaps with Nexture fallbacks.
 3. Point the tsconfig alias at the new folder.

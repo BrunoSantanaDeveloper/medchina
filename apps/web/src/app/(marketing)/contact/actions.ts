@@ -1,11 +1,11 @@
 "use server";
 
-import { isEmailConfigured, sendContactFormEmail } from "@gogo/email";
+import { isEmailConfigured, sendContactFormEmail } from "@flyee/email";
 
 export type ContactResult = { status: "sent" | "not-configured" | "error" };
 
 /**
- * Forwards the public contact form via @gogo/email. Follows the email
+ * Forwards the public contact form via @flyee/email. Follows the email
  * package's rule: never throws on missing configuration — the page shows an
  * alternative-channel hint instead.
  */

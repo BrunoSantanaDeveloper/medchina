@@ -19,7 +19,7 @@
     ],
     "paths": {
       // Icon set swap: uncomment to use the Phosphor adapters app-wide.
-      // Run `npm run icons:stubs -w @gogo/web` first. See src/icons/README.md.
+      // Run `npm run icons:stubs -w @flyee/web` first. See src/icons/README.md.
       // "@/icons/nexture/*": ["./src/icons/phosphor/*"],
       "@/*": ["./src/*"]
     },

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { configuredProviders } from "@gogo/billing";
+import { configuredProviders } from "@flyee/billing";
 
 /** Which payment providers are configured in this deployment. */
 export async function GET() {

@@ -1,11 +1,11 @@
-# @gogo/auth
+# @flyee/auth
 
 Supabase auth building blocks for the apps.
 
-- `@gogo/auth/client` — `createClient()` for Client Components.
-- `@gogo/auth/server` — `createClient()` / `getUser()` for Server Components, Server Actions and Route Handlers.
-- `@gogo/auth/middleware` — `updateSession(request)` to refresh session cookies and read the user in `middleware.ts`.
-- `@gogo/auth` — `isSupabaseConfigured` flag.
+- `@flyee/auth/client` — `createClient()` for Client Components.
+- `@flyee/auth/server` — `createClient()` / `getUser()` for Server Components, Server Actions and Route Handlers.
+- `@flyee/auth/middleware` — `updateSession(request)` to refresh session cookies and read the user in `middleware.ts`.
+- `@flyee/auth` — `isSupabaseConfigured` flag.
 
 ## Graceful degradation
 

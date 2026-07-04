@@ -9,7 +9,7 @@
 create table public.connections (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations (id) on delete cascade,
-  -- Connector slug registered in @gogo/connectors (e.g. "meta-ads").
+  -- Connector slug registered in @flyee/connectors (e.g. "meta-ads").
   provider text not null,
   name text not null,
   status text not null default 'connected' check (status in ('connected', 'error', 'disabled')),

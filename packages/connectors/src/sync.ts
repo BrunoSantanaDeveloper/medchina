@@ -1,4 +1,4 @@
-import { createServiceClient } from "@gogo/auth/service";
+import { createServiceClient } from "@flyee/auth/service";
 
 import { getConnector } from "./registry";
 import type { ConnectionRecord, ConnectionSecret, SyncResult } from "./types";

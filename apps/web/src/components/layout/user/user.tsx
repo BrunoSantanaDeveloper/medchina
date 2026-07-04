@@ -123,7 +123,7 @@ export default function User() {
                           Laura Ellis
                         </Typography>
                         <Typography variant="body2" component="p" className="text-text-secondary -mt-2">
-                          laura.ellis@gogo.dev
+                          laura.ellis@flyee.dev
                         </Typography>
                       </Box>
 
@@ -163,7 +163,7 @@ export default function User() {
                                     Laura Ellis
                                   </Typography>
                                   <Typography variant="body2" component="div" className="text-text-secondary -mt-1">
-                                    laura@gogo.dev
+                                    laura@flyee.dev
                                   </Typography>
                                 </Box>
                               </MenuItem>
@@ -176,7 +176,7 @@ export default function User() {
                                     Travis Howard
                                   </Typography>
                                   <Typography variant="body2" component="div" className="text-text-secondary -mt-1">
-                                    travis@gogo.dev
+                                    travis@flyee.dev
                                   </Typography>
                                 </Box>
                               </MenuItem>
@@ -189,7 +189,7 @@ export default function User() {
                                     Cindy Baker
                                   </Typography>
                                   <Typography variant="body2" component="div" className="text-text-secondary -mt-1">
-                                    cindy@gogo.dev
+                                    cindy@flyee.dev
                                   </Typography>
                                 </Box>
                               </MenuItem>
@@ -202,7 +202,7 @@ export default function User() {
                                     Agnes Walker
                                   </Typography>
                                   <Typography variant="body2" component="div" className="text-text-secondary -mt-1">
-                                    agnes@gogo.dev
+                                    agnes@flyee.dev
                                   </Typography>
                                 </Box>
                               </MenuItem>

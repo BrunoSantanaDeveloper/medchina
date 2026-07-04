@@ -1,14 +1,14 @@
-# @gogo/jobs
+# @flyee/jobs
 
 Background jobs, queues and cron via [Inngest](https://www.inngest.com), shared by every package that needs async work.
 
 ## Concept
 
-One Inngest client (`inngest`, app id `gogo`) with a typed event map (`JobEvents`). Packages that need async processing declare their event in `JobEvents`, define their functions in their own `src/jobs.ts` (packages may depend on packages, never on apps), and `apps/web/src/app/api/inngest/route.ts` serves the aggregated function list.
+One Inngest client (`inngest`, app id `flyee`) with a typed event map (`JobEvents`). Packages that need async processing declare their event in `JobEvents`, define their functions in their own `src/jobs.ts` (packages may depend on packages, never on apps), and `apps/web/src/app/api/inngest/route.ts` serves the aggregated function list.
 
 ## Graceful degradation
 
-`sendEvent(name, data)` never throws — it returns `{ sent: false, hint }` when Inngest is unreachable. **Callers must offer an inline fallback** (same rule as `@gogo/email`): e.g. knowledge ingestion processes the document synchronously when the event cannot be queued.
+`sendEvent(name, data)` never throws — it returns `{ sent: false, hint }` when Inngest is unreachable. **Callers must offer an inline fallback** (same rule as `@flyee/email`): e.g. knowledge ingestion processes the document synchronously when the event cannot be queued.
 
 ## Local dev
 
@@ -35,7 +35,7 @@ Then register the app URL (`https://<domain>/api/inngest`) in the Inngest dashbo
 2. Create the function in the owning package:
 
 ```ts
-import { inngest } from "@gogo/jobs";
+import { inngest } from "@flyee/jobs";
 
 export const myJob = inngest.createFunction(
   { id: "my-job", retries: 3 },

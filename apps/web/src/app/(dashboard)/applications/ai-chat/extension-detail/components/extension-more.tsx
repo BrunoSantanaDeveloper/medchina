@@ -9,7 +9,7 @@ export default function ExtensionMore() {
     <Card className="mb-5">
       <CardContent>
         <Typography variant="h6" component="h6" className="card-title">
-          More From Gogo
+          More From Flyee
         </Typography>
         <Grid container size={12} className="w-full" spacing={2.5}>
           <Grid size={{ lg: 6, xs: 12 }}>

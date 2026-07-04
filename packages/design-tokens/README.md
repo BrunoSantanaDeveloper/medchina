@@ -1,12 +1,12 @@
-# @gogo/design-tokens
+# @flyee/design-tokens
 
-Source of truth for the Gogo design system, shared across platforms.
+Source of truth for the Flyee design system, shared across platforms.
 
 ## Contract
 
 - **`css/*.css` is the source of truth.** Every visual identity change (colors, themes, shadows, radii) happens here — never hardcoded in an app.
-- The **web** app (`apps/web`) consumes the CSS directly: `@import "@gogo/design-tokens/css/common.css"` in `src/style/global.css`.
-- Other platforms (e.g. **mobile**) consume the TypeScript mirror: `import { themes, common, hsl } from "@gogo/design-tokens"`.
+- The **web** app (`apps/web`) consumes the CSS directly: `@import "@flyee/design-tokens/css/common.css"` in `src/style/global.css`.
+- Other platforms (e.g. **mobile**) consume the TypeScript mirror: `import { themes, common, hsl } from "@flyee/design-tokens"`.
 - The TS mirror (`src/tokens.generated.ts`) is **generated** from the CSS — never edited by hand. After changing any CSS, run:
 
 ```bash

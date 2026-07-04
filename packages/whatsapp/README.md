@@ -1,4 +1,4 @@
-# @gogo/whatsapp
+# @flyee/whatsapp
 
 WhatsApp dispatcher behind a provider interface — manual, automatic and **scheduled** sends, delivery/read tracking and **inbound replies as events**.
 
@@ -16,7 +16,7 @@ WhatsApp dispatcher behind a provider interface — manual, automatic and **sche
 ## Sending
 
 ```ts
-import { sendWhatsApp } from "@gogo/whatsapp";
+import { sendWhatsApp } from "@flyee/whatsapp";
 
 await sendWhatsApp(supabase, {
   orgId,

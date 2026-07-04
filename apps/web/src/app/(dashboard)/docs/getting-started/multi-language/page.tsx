@@ -72,7 +72,7 @@ export default function DocsGettingStartedMultiLanguage() {
                 Next Intl
               </Typography>
               <Typography variant="body1" component="p">
-                Gogo uses next-intl to support multiple languages. Even though we have not fully included all the
+                Flyee uses next-intl to support multiple languages. Even though we have not fully included all the
                 translations, the template is ready to support multilanguage. You may see it in action in the user menu
                 by changing the language with the dropdown.
               </Typography>

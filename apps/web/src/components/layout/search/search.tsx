@@ -356,7 +356,7 @@ export default function Search() {
                               Zoila Vittorino
                             </Typography>
                           }
-                          secondary="zoila.vittorino@gogo.dev"
+                          secondary="zoila.vittorino@flyee.dev"
                         />
                         <Button
                           className="icon-only hover:text-text-primary hover:bg-grey-100 mt-1 flex-none opacity-0 group-hover:opacity-100"
@@ -378,7 +378,7 @@ export default function Search() {
                               Travis Howard
                             </Typography>
                           }
-                          secondary="travis.howard@gogo.dev"
+                          secondary="travis.howard@flyee.dev"
                         />
                         <Button
                           className="icon-only hover:text-text-primary hover:bg-grey-100 mt-1 flex-none opacity-0 group-hover:opacity-100"
@@ -400,7 +400,7 @@ export default function Search() {
                               Olivia Bennett
                             </Typography>
                           }
-                          secondary="olivia.bennett@gogo.dev"
+                          secondary="olivia.bennett@flyee.dev"
                         />
                         <Button
                           className="icon-only hover:text-text-primary hover:bg-grey-100 mt-1 flex-none opacity-0 group-hover:opacity-100"

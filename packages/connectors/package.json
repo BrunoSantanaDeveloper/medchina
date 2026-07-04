@@ -1,5 +1,5 @@
 {
-  "name": "@gogo/connectors",
+  "name": "@flyee/connectors",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     "./jobs": "./src/jobs.ts"
   },
   "dependencies": {
-    "@gogo/auth": "*",
-    "@gogo/jobs": "*",
+    "@flyee/auth": "*",
+    "@flyee/jobs": "*",
     "@supabase/supabase-js": "^2.50.0"
   }
 }

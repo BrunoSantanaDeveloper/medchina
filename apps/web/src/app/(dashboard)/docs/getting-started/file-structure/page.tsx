@@ -70,7 +70,7 @@ export default function DocsGettingStartedFileStructure() {
           <Card>
             <CardContent>
               <Typography variant="h5" component="h5" className="card-title">
-                Gogo MUI Admin - Next.js Version
+                Flyee MUI Admin - Next.js Version
               </Typography>
               <Typography variant="body1" component="p">
                 Project structure and short explanations:

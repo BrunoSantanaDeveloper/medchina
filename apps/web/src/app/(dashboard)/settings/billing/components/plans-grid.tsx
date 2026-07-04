@@ -23,7 +23,7 @@ import {
 } from "@mui/material";
 
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
-import type { BillingProviderName } from "@gogo/billing";
+import type { BillingProviderName } from "@flyee/billing";
 
 const PERIOD_LABEL: Record<string, string> = {
   weekly: "/week",

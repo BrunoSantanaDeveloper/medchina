@@ -1,5 +1,5 @@
 {
-  "name": "gogo-template",
+  "name": "flyee",
   "version": "6.3.0",
   "private": true,
   "workspaces": [
@@ -7,13 +7,13 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @gogo/web",
-    "build": "npm run build -w @gogo/web",
-    "start": "npm run start -w @gogo/web",
-    "lint": "npm run lint -w @gogo/web",
-    "lint:fix": "npm run lint:fix -w @gogo/web",
-    "prettier": "npm run prettier -w @gogo/web",
-    "tokens:generate": "npm run generate -w @gogo/design-tokens",
+    "dev": "npm run dev -w @flyee/web",
+    "build": "npm run build -w @flyee/web",
+    "start": "npm run start -w @flyee/web",
+    "lint": "npm run lint -w @flyee/web",
+    "lint:fix": "npm run lint:fix -w @flyee/web",
+    "prettier": "npm run prettier -w @flyee/web",
+    "tokens:generate": "npm run generate -w @flyee/design-tokens",
     "prepare": "husky",
     "pre-commit": "lint-staged"
   },

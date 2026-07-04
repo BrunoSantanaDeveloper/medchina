@@ -30,7 +30,7 @@ export default function DialogNonModal() {
               <Box className="flex flex-col justify-between gap-2 sm:flex-row">
                 <Box className="flex shrink flex-col self-start sm:self-center">
                   <Typography variant="h6">This website uses cookies</Typography>
-                  <Typography variant="body1">Gogo relies on cookies to improve your experience.</Typography>
+                  <Typography variant="body1">Flyee relies on cookies to improve your experience.</Typography>
                 </Box>
                 <Box className="sm: flex shrink-0 flex-row-reverse gap-2 self-end sm:flex-row sm:self-center">
                   <Button color="primary" onClick={closeBanner} variant="contained">

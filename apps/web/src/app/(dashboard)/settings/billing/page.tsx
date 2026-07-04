@@ -24,7 +24,7 @@ import {
 
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
-import type { BillingProviderName } from "@gogo/billing";
+import type { BillingProviderName } from "@flyee/billing";
 
 export default function BillingSettings() {
   const [openDrawer, setOpenDrawer] = useState(false);

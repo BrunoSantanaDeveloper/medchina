@@ -21,9 +21,9 @@ export default function Page() {
                   Terms and Conditions
                 </Typography>
                 <Typography variant="body1" className="text-text-primary">
-                  Welcome to Gogo! These terms and conditions outline the rules and regulations for the use of Gogo.dev.
-                  By accessing this website we assume you accept these terms and conditions. Do not continue to use
-                  Gogo.dev if you do not agree to all of the terms and conditions stated on this page.
+                  Welcome to Flyee! These terms and conditions outline the rules and regulations for the use of
+                  Flyee.dev. By accessing this website we assume you accept these terms and conditions. Do not continue
+                  to use Flyee.dev if you do not agree to all of the terms and conditions stated on this page.
                 </Typography>
               </Box>
 
@@ -42,7 +42,7 @@ export default function Page() {
                   2. Intellectual Property Rights
                 </Typography>
                 <Typography variant="body1">
-                  Other than the content you own, under these Terms, Gogo and/or its licensors own all the intellectual
+                  Other than the content you own, under these Terms, Flyee and/or its licensors own all the intellectual
                   property rights and materials contained in this Website.
                 </Typography>
                 <br />
@@ -80,7 +80,7 @@ export default function Page() {
                   5. No warranties
                 </Typography>
                 <Typography variant="body1">
-                  This Website is provided “as is,” with all faults, and Gogo expresses no representations or
+                  This Website is provided “as is,” with all faults, and Flyee expresses no representations or
                   warranties.
                 </Typography>
                 <br />
@@ -89,7 +89,7 @@ export default function Page() {
                   6. Limitation of liability
                 </Typography>
                 <Typography variant="body1">
-                  In no event shall Gogo, nor any of its officers, directors and employees, be held liable for anything
+                  In no event shall Flyee, nor any of its officers, directors and employees, be held liable for anything
                   arising out of or in any way connected with your use of this Website.
                 </Typography>
                 <br />
@@ -98,7 +98,7 @@ export default function Page() {
                   7. Indemnification
                 </Typography>
                 <Typography variant="body1">
-                  You hereby indemnify to the fullest extent Gogo from and against any and all liabilities, costs,
+                  You hereby indemnify to the fullest extent Flyee from and against any and all liabilities, costs,
                   demands, causes of action, damages and expenses.
                 </Typography>
                 <br />
@@ -116,7 +116,7 @@ export default function Page() {
                   9. Variation of Terms
                 </Typography>
                 <Typography variant="body1">
-                  Gogo is permitted to revise these Terms at any time as it sees fit.
+                  Flyee is permitted to revise these Terms at any time as it sees fit.
                 </Typography>
                 <br />
 
@@ -133,7 +133,7 @@ export default function Page() {
                   11. Entire Agreement
                 </Typography>
                 <Typography variant="body1">
-                  These Terms constitute the entire agreement between Gogo and you.
+                  These Terms constitute the entire agreement between Flyee and you.
                 </Typography>
                 <br />
 

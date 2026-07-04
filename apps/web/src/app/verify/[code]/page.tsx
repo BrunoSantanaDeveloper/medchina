@@ -1,7 +1,7 @@
 import { Alert, Box, Card, CardContent, Divider, Typography } from "@mui/material";
 
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/server";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/server";
 
 type VerifyRow = {
   kind: string;
@@ -13,7 +13,7 @@ type VerifyRow = {
   organization_name: string;
 };
 
-/** Public QR target: authenticity check for documents issued via @gogo/documents. */
+/** Public QR target: authenticity check for documents issued via @flyee/documents. */
 export default async function VerifyDocument({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
 

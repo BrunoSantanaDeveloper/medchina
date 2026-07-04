@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Alert, Box, Breadcrumbs, Button, Drawer, Grid, Tooltip, Typography } from "@mui/material";
 
 import NiListCircle from "@/icons/nexture/ni-list-circle";
-import { isSupabaseConfigured } from "@gogo/auth";
+import { isSupabaseConfigured } from "@flyee/auth";
 
 export default function SecuritySettings() {
   const [openDrawer, setOpenDrawer] = useState(false);

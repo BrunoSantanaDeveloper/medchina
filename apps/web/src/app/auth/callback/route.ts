@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { DEFAULTS } from "@/config";
-import { createClient } from "@gogo/auth/server";
+import { createClient } from "@flyee/auth/server";
 
 /**
  * OAuth and email-link callback: exchanges the auth code for a session and

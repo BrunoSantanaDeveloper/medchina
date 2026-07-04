@@ -16,7 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 
-import { createClient } from "@gogo/auth/client";
+import { createClient } from "@flyee/auth/client";
 
 type Factor = { id: string; friendly_name?: string | null; status: string };
 

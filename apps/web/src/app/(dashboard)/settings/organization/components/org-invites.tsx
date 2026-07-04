@@ -24,7 +24,7 @@ import {
 import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiLink from "@/icons/nexture/ni-link";
-import { createClient } from "@gogo/auth/client";
+import { createClient } from "@flyee/auth/client";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

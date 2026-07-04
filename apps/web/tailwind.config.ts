@@ -35,7 +35,7 @@ const config: Config = {
         "4xl": "var(--border-radius-4xl)",
       },
       fontSize: {
-        // Marketing display scale — fluid via clamp() in @gogo/design-tokens/css/marketing.css
+        // Marketing display scale — fluid via clamp() in @flyee/design-tokens/css/marketing.css
         "display-2xl": [
           "var(--display-2xl)",
           { lineHeight: "var(--display-leading)", letterSpacing: "var(--display-tracking)" },

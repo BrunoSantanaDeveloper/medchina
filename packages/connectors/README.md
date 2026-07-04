@@ -1,4 +1,4 @@
-# @gogo/connectors
+# @flyee/connectors
 
 Framework for **per-organization connections to external APIs** (ad platforms, CRMs, ERPs...). The template ships the plumbing — connection records, secret storage, sync orchestration, a settings UI — and **zero concrete connectors**: each derived project registers its own.
 
@@ -10,7 +10,7 @@ Framework for **per-organization connections to external APIs** (ad platforms, C
 ## Writing a connector (derived project)
 
 ```ts
-import { registerConnector, type Connector } from "@gogo/connectors";
+import { registerConnector, type Connector } from "@flyee/connectors";
 
 const metaAds: Connector = {
   provider: "meta-ads",

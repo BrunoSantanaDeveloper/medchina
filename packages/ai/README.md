@@ -1,4 +1,4 @@
-# @gogo/ai
+# @flyee/ai
 
 Instruction-driven AI assistants behind a `ChatProvider` interface.
 
@@ -31,7 +31,7 @@ Assistants with `config.knowledge` (see `packages/knowledge/README.md`) get retr
 
 1. Auth + assistant lookup (RLS exposes active ones only).
 2. `org_entitlements()` gate: suspended/no subscription → 402.
-3. `consume_credits()` debits `credits_per_message` from the org ledger — credit plans from `@gogo/billing` are the AI usage currency.
+3. `consume_credits()` debits `credits_per_message` from the org ledger — credit plans from `@flyee/billing` are the AI usage currency.
 4. Conversation + messages persisted per organization (RLS).
 5. Attachments live in the private `ai-attachments` bucket (`<org_id>/...` paths, member-only policies); the latest message's files are sent to the model as base64.
 6. The reply streams as plain text; `X-Conversation-Id` header carries the conversation.

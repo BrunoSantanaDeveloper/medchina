@@ -26,8 +26,8 @@ import NiArrowOutUp from "@/icons/nexture/ni-arrow-out-up";
 import NiSendRight from "@/icons/nexture/ni-send-right";
 import NiSendUpRight from "@/icons/nexture/ni-send-up-right";
 import { cn } from "@/lib/utils";
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 type AssistantOption = { slug: string; name: string; description: string | null };
 type PendingAttachment = { kind: "image" | "audio"; path: string; mime: string; name: string };

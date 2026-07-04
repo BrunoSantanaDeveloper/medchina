@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { sendEvent } from "@gogo/jobs";
+import { sendEvent } from "@flyee/jobs";
 
 import { deliverMessage } from "./deliver";
 import type { TemplateMessage } from "./types";

@@ -1,4 +1,4 @@
-# @gogo/transcribe
+# @flyee/transcribe
 
 Audio → **diarized transcript** (speaker separation + `mm:ss` timestamps) via Gemini, with configurable **source-audio retention**.
 

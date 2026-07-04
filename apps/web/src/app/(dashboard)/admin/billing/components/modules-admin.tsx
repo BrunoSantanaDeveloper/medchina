@@ -19,7 +19,7 @@ import {
 
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
-import { createClient } from "@gogo/auth/client";
+import { createClient } from "@flyee/auth/client";
 
 type ModuleForm = {
   id?: string;

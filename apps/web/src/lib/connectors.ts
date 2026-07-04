@@ -4,7 +4,7 @@
  * functions) sees the same registry — see packages/connectors/README.md.
  *
  * Example:
- *   import { registerConnector } from "@gogo/connectors";
+ *   import { registerConnector } from "@flyee/connectors";
  *   registerConnector(metaAdsConnector);
  */
 export {};

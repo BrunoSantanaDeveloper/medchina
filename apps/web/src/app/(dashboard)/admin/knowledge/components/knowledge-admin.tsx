@@ -25,8 +25,8 @@ import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import NiRefresh from "@/icons/nexture/ni-refresh";
-import { createClient } from "@gogo/auth/client";
-import { TRUST_LEVEL_LABELS } from "@gogo/knowledge";
+import { createClient } from "@flyee/auth/client";
+import { TRUST_LEVEL_LABELS } from "@flyee/knowledge";
 
 type CollectionRow = { id: string; slug: string; name: string; description: string | null };
 type DocumentRow = {

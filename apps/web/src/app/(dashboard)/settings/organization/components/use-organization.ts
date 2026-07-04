@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 export type OrgRole = "owner" | "admin" | "member";
 

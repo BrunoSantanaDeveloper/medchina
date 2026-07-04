@@ -26,8 +26,8 @@ import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { cn } from "@/lib/utils";
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 const validationSchema = yup.object({
   name: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),

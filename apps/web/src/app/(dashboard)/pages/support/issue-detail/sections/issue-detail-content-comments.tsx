@@ -113,7 +113,7 @@ export default function IssueDetailContentComments() {
             <Typography variant="body1" component="p">
               Same here:
             </Typography>
-            <Link href="#">https://gogo.dev/products</Link>
+            <Link href="#">https://flyee.dev/products</Link>
           </Box>
 
           <Box className="flex flex-row items-end gap-1">

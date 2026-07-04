@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 
 import { Alert, Breadcrumbs, Card, CardContent, Grid, Typography } from "@mui/material";
 
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 /** Superadmin console for global knowledge collections (RLS is the real gate). */
 export default function AdminKnowledge() {

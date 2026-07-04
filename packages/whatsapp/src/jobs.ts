@@ -1,5 +1,5 @@
-import { createServiceClient } from "@gogo/auth/service";
-import { inngest } from "@gogo/jobs";
+import { createServiceClient } from "@flyee/auth/service";
+import { inngest } from "@flyee/jobs";
 
 import { deliverMessage } from "./deliver";
 

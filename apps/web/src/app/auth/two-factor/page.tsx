@@ -7,8 +7,8 @@ import { Alert, Box, Button, FormControl, FormLabel, Input, Paper, Typography } 
 
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 /** Step-up screen: verifies the TOTP code and raises the session to AAL2. */
 export default function TwoFactor() {

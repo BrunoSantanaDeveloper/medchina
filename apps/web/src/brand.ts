@@ -8,7 +8,7 @@
  * - email logo → apps/web/public/images/email/logo.svg
  */
 export const BRAND = {
-  name: "Gogo",
+  name: "Flyee",
   tagline: "The admin platform your team already knows how to use",
   description: "Multi-tenant SaaS platform with billing, AI assistants and a complete admin console.",
   /** Canonical site URL — set NEXT_PUBLIC_SITE_URL in production (no trailing slash). */

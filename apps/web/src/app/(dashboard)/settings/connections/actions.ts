@@ -2,15 +2,15 @@
 
 import "@/lib/connectors";
 
-import { createClient } from "@gogo/auth/server";
+import { createClient } from "@flyee/auth/server";
 import {
   type ConnectionSecret,
   getConnector,
   listConnectors,
   runConnectionSync,
   saveConnectionSecret,
-} from "@gogo/connectors";
-import { sendEvent } from "@gogo/jobs";
+} from "@flyee/connectors";
+import { sendEvent } from "@flyee/jobs";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 

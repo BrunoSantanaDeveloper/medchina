@@ -1,11 +1,12 @@
-# Gogo Template — Monorepo
+# Flyee Template — Monorepo
 
 Reusable commercial template (admin + future mobile versions). This repo is the BASE for other projects: changes must stay generic, with no business logic from any specific derived project.
 
 ## Structure
 
 - `apps/web` — Next.js 15 (App Router) + MUI v9 + MUI X Premium + Tailwind 4, deployed on Vercel. See `apps/web/CLAUDE.md`.
-- `packages/design-tokens` — design system source of truth (CSS tokens + generated TS mirror). See `packages/design-tokens/README.md`.
+  - **Marketing layer**: public site at `app/(marketing)` (home, /pricing, /about, /contact, /legal) built from `components/marketing/*` primitives (Section/Container/SectionHeader/Reveal), GSAP motion, per-page SEO + sitemap/robots. Design/copy playbook: `.claude/skills/marketing-page`. Site identity centralized in `apps/web/src/brand.ts`.
+- `packages/design-tokens` — design system source of truth (CSS tokens + generated TS mirror). Includes `css/marketing.css` (fluid display type scale, section rhythm, motion tokens). See `packages/design-tokens/README.md`.
 - `packages/db` — Drizzle schema + SQL migrations with RLS (multi-tenant: organizations/memberships/invites). See `packages/db/README.md`.
 - `packages/auth` — Supabase auth clients (browser/server/middleware). Degrades gracefully when Supabase env vars are absent. 2FA (TOTP): enroll at `/settings/security`; the middleware forces the AAL2 step-up at `/auth/two-factor` for enrolled users.
 - `packages/email` — Resend + React Email templates (server-only). No-ops without `RESEND_API_KEY`; callers must offer a fallback.
@@ -29,7 +30,7 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 
 ## Starting a derived project
 
-Run `/init-project` right after cloning — an interactive quiz configures branding, icon set (Nexture/Phosphor via tsconfig alias), auth model, and prunes demo content. The skill is single-use and removes itself.
+Run `/init-project` right after cloning — an interactive quiz configures branding (including logo/favicon assets via `brand.ts`), icon set (Nexture/Phosphor via tsconfig alias), auth model, the marketing site (keep + customize copy, or prune), and prunes demo content. The skill is single-use and removes itself.
 
 ## Commands (root)
 

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Alert, Box, Button, Card, CardContent, FormControl, FormLabel, Grid, Input, Typography } from "@mui/material";
 
-import { createClient } from "@gogo/auth/client";
+import { createClient } from "@flyee/auth/client";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 

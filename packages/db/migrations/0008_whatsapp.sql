@@ -3,7 +3,7 @@
 -- Every outbound (manual, automatic or scheduled) and inbound
 -- message is recorded here — the auditable trail of what was
 -- sent to whom. Providers (Meta Cloud API / Evolution API) are
--- selected by env in @gogo/whatsapp.
+-- selected by env in @flyee/whatsapp.
 -- ============================================================
 
 create table public.wa_messages (

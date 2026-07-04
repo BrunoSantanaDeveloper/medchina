@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Alert, Box, Chip, FormControl, Input, Switch, Tooltip, Typography } from "@mui/material";
 
-import { createClient } from "@gogo/auth/client";
+import { createClient } from "@flyee/auth/client";
 
 type SubRow = {
   id: string;

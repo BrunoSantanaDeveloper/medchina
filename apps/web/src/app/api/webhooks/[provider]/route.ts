@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { createServiceClient } from "@gogo/auth/service";
-import { type BillingEvent, type BillingPeriod, getProvider } from "@gogo/billing";
+import { createServiceClient } from "@flyee/auth/service";
+import { type BillingEvent, type BillingPeriod, getProvider } from "@flyee/billing";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 

@@ -1,4 +1,4 @@
-import { inngest } from "@gogo/jobs";
+import { inngest } from "@flyee/jobs";
 
 import { runConnectionSync } from "./sync";
 

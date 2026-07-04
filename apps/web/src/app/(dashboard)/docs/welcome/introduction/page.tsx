@@ -72,7 +72,7 @@ export default function DocsWelcomeIntroduction() {
           <Card>
             <CardContent>
               <Typography variant="h5" component="h5" className="card-title">
-                Gogo-Next React MUI Tailwind Admin Template
+                Flyee-Next React MUI Tailwind Admin Template
               </Typography>
               <Box>
                 <Typography variant="body1" component="p">
@@ -170,7 +170,7 @@ export default function DocsWelcomeIntroduction() {
                     color="primary"
                     variant="pastel"
                     startIcon={<NiCatalog size={"medium"} />}
-                    href="https://www.figma.com/design/CCUQejXdGzW2wMj2SCt8Sz/Gogo-Design---Preview?node-id=1381-11546&t=ZvHFuhjjUoY6u9ul-1"
+                    href="https://www.figma.com/design/CCUQejXdGzW2wMj2SCt8Sz/Flyee-Design---Preview?node-id=1381-11546&t=ZvHFuhjjUoY6u9ul-1"
                     target="_blank"
                     component={Link}
                   >
@@ -201,7 +201,7 @@ export default function DocsWelcomeIntroduction() {
                   showLineNumbers
                 >
                   {`{
-  "name": "gogo-next-mui-admin",
+  "name": "flyee-next-mui-admin",
   "version": "6.3.0",
   "private": true,
   "scripts": {

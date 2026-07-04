@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { type ChatAttachment, type ChatMessage, getChatProvider } from "@gogo/ai";
-import { createClient } from "@gogo/auth/server";
+import { type ChatAttachment, type ChatMessage, getChatProvider } from "@flyee/ai";
+import { createClient } from "@flyee/auth/server";
 import {
   type AssistantKnowledgeConfig,
   buildKnowledgeContext,
   isEmbeddingConfigured,
   resolveCollectionIds,
   searchKnowledge,
-} from "@gogo/knowledge";
+} from "@flyee/knowledge";
 
 type AttachmentRef = { kind: "image" | "audio"; path: string; mime: string };
 

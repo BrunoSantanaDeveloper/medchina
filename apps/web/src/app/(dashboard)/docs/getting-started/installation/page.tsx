@@ -73,8 +73,8 @@ export default function DocsGettingStartedInstallation() {
                 Environment
               </Typography>
               <Typography variant="body1" component="p">
-                Gogo contains packages that require Node.js and a package manager to be installed. You may use Npm, Yarn
-                or Bun.
+                Flyee contains packages that require Node.js and a package manager to be installed. You may use Npm,
+                Yarn or Bun.
               </Typography>
 
               <br />

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { createServiceClient } from "@gogo/auth/service";
-import { getWhatsAppProvider, handleWhatsAppWebhookEvents, type WhatsAppProviderName } from "@gogo/whatsapp";
+import { createServiceClient } from "@flyee/auth/service";
+import { getWhatsAppProvider, handleWhatsAppWebhookEvents, type WhatsAppProviderName } from "@flyee/whatsapp";
 
 const PROVIDERS: WhatsAppProviderName[] = ["meta", "evolution"];
 

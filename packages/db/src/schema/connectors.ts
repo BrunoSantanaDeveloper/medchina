@@ -8,7 +8,7 @@ export const connections = pgTable("connections", {
   orgId: uuid("org_id")
     .notNull()
     .references(() => organizations.id, { onDelete: "cascade" }),
-  // Connector slug registered in @gogo/connectors (e.g. "meta-ads").
+  // Connector slug registered in @flyee/connectors (e.g. "meta-ads").
   provider: text("provider").notNull(),
   name: text("name").notNull(),
   status: text("status").notNull().default("connected"),

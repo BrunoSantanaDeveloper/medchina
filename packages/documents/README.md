@@ -1,4 +1,4 @@
-# @gogo/documents
+# @flyee/documents
 
 Issued documents (professional records, prescriptions, invoices, certificates...) with **versioning**, **sha256 integrity hash** and a **QR-verifiable public code**.
 
@@ -13,7 +13,7 @@ Issued documents (professional records, prescriptions, invoices, certificates...
 PDF rendering is **pluggable** — the package hands your renderer the verification context and takes the bytes back:
 
 ```ts
-import { issueDocument } from "@gogo/documents";
+import { issueDocument } from "@flyee/documents";
 
 const result = await issueDocument(
   supabase, // user's server client (RLS applies)

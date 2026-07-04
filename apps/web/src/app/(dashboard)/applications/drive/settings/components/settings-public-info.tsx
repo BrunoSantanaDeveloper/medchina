@@ -46,7 +46,7 @@ export default function SettingsPublicInfo() {
     id: "4232-0594-3495",
     name: "Laura Ellis",
     username: "writerofrohan",
-    company: "Gogo",
+    company: "Flyee",
     location: "Berlin, Deutschland",
     birthday: "10/20/1990",
     gender: "Female",

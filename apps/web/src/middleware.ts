@@ -1,13 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { DEFAULTS } from "@/config";
-import { updateSession } from "@gogo/auth/middleware";
+import { updateSession } from "@flyee/auth/middleware";
 
 // Prefixes reachable without a session. Everything else requires auth
 // once Supabase is configured (without it, the middleware no-ops and the
 // whole template stays browsable). Every route under app/(marketing) must
 // be listed here.
-const PUBLIC_PREFIXES = ["/auth", "/verify", "/pricing", "/about", "/contact", "/legal"];
+const PUBLIC_PREFIXES = [
+  "/auth",
+  "/verify",
+  "/pricing",
+  "/about",
+  "/contact",
+  "/legal",
+  // SEO surfaces crawlers hit anonymously.
+  "/sitemap.xml",
+  "/robots.txt",
+  "/opengraph-image",
+];
 
 const isPublic = (pathname: string) =>
   pathname === "/" || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));

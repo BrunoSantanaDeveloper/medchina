@@ -1,2 +1,2 @@
-// Re-export so apps depend only on @gogo/jobs (inngest may not be hoisted).
+// Re-export so apps depend only on @flyee/jobs (inngest may not be hoisted).
 export { serve } from "inngest/next";

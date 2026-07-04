@@ -7,8 +7,8 @@ import { useEffect, useState } from "react";
 import { Alert, Box, Button, CircularProgress, Paper, Typography } from "@mui/material";
 
 import { DEFAULTS } from "@/config";
-import { isSupabaseConfigured } from "@gogo/auth";
-import { createClient } from "@gogo/auth/client";
+import { isSupabaseConfigured } from "@flyee/auth";
+import { createClient } from "@flyee/auth/client";
 
 type Status = "loading" | "accepted" | "error";
 

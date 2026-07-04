@@ -161,10 +161,10 @@ export default function ChatMessage({
               color="grey"
               className="hover:text-primary"
               onClick={() => {
-                onFeedbackQuestionClick("Gogo is a nice template isn't it?");
+                onFeedbackQuestionClick("Flyee is a nice template isn't it?");
               }}
             >
-              Gogo is a nice template isn't it?
+              Flyee is a nice template isn't it?
             </Button>
           </Box>
         </Fade>

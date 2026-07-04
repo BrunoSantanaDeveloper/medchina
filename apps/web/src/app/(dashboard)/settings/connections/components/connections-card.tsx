@@ -23,7 +23,7 @@ import {
 import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
 import NiPlus from "@/icons/nexture/ni-plus";
 import NiRefresh from "@/icons/nexture/ni-refresh";
-import { createClient } from "@gogo/auth/client";
+import { createClient } from "@flyee/auth/client";
 
 type ConnectionRow = {
   id: string;

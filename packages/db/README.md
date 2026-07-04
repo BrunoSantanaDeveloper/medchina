@@ -1,4 +1,4 @@
-# @gogo/db
+# @flyee/db
 
 Multi-tenant database layer for Supabase Postgres: Drizzle schema, SQL migrations with RLS, and a typed server-side client.
 
@@ -23,16 +23,16 @@ Or run them directly with psql against the project database.
 ## Usage
 
 ```ts
-import { createDb, organizations } from "@gogo/db";
+import { createDb, organizations } from "@flyee/db";
 
 const db = createDb(); // uses DATABASE_URL (Supabase pooler, port 6543)
 const orgs = await db.select().from(organizations);
 ```
 
-**RLS caveat:** `createDb` connects with the `DATABASE_URL` role and bypasses RLS when that role is privileged. Use it in trusted server code only and scope queries by organization. Browser/user-scoped access goes through the Supabase client from `@gogo/auth`, which enforces RLS via the user's JWT.
+**RLS caveat:** `createDb` connects with the `DATABASE_URL` role and bypasses RLS when that role is privileged. Use it in trusted server code only and scope queries by organization. Browser/user-scoped access goes through the Supabase client from `@flyee/auth`, which enforces RLS via the user's JWT.
 
 ## Evolving the schema
 
 1. Edit `src/schema/*` (Drizzle definitions).
-2. `npm run generate -w @gogo/db` to produce the next SQL migration (requires `DATABASE_URL`), or write the SQL by hand in `migrations/`.
+2. `npm run generate -w @flyee/db` to produce the next SQL migration (requires `DATABASE_URL`), or write the SQL by hand in `migrations/`.
 3. Keep RLS policies in the same migration as the tables they protect.
