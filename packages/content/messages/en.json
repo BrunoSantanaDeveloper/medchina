@@ -8,7 +8,6 @@
     "pt-BR": "Português (Brasil)",
     "site-name": "Flyee MUI Admin",
     "site-description": "A premium admin dashboard crafted with Material-UI and TailwindCSS for exceptional modern interfaces.",
-
     "menu-dashboards": "Dashboards",
     "menu-dashboards-description": "Elegant analytics views to visualize and control your data effortlessly.",
     "menu-default": "Default",
@@ -17,7 +16,6 @@
     "menu-visual-description": "Interactive visualizations to enhance user experience and data understanding.",
     "menu-analytics": "Analytics",
     "menu-analytics-description": "Comprehensive analytics tools to track and analyze your application's performance.",
-
     "menu-ui": "UI Elements",
     "menu-ui-description": "A collection of reusable UI components to build modern, responsive interfaces.",
     "menu-inputs": "Inputs",
@@ -46,7 +44,6 @@
     "menu-text-field-description": "Text Fields let users enter and edit text.",
     "menu-toggle-button": "Toggle Button",
     "menu-toggle-button-description": "A Toggle Button can be used to group related options.",
-
     "menu-data-display": "Data Display",
     "menu-data-display-description": "Data display components are used to present data in a clear and concise manner.",
     "menu-avatar": "Avatar",
@@ -69,7 +66,6 @@
     "menu-tooltip-description": "Tooltips display informative text when users hover over, focus on, or tap an element.",
     "menu-typography": "Typography",
     "menu-typography-description": "Use typography to present your design and content as clearly and efficiently as possible.",
-
     "menu-feedback": "Feedback",
     "menu-feedback-description": "Feedback components are used to provide feedback to the user.",
     "menu-alert": "Alert",
@@ -84,7 +80,6 @@
     "menu-skeleton-description": "Display a placeholder preview of your content before the data gets loaded to reduce load-time frustration.",
     "menu-snackbar": "Snackbar",
     "menu-snackbar-description": "Snackbars (also known as toasts) are used for brief notifications of processes that have been or will be performed.",
-
     "menu-surfaces": "Surfaces",
     "menu-surfaces-description": "Surfaces are used to create a paper-like surface on which to display content.",
     "menu-accordion": "Accordion",
@@ -113,7 +108,6 @@
     "menu-stepper-description": "Steppers convey progress through numbered steps. It provides a wizard-like workflow.",
     "menu-tabs": "Tabs",
     "menu-tabs-description": "Tabs make it easy to explore and switch between different views.",
-
     "menu-layout": "Layout",
     "menu-layout-description": "Layout components are used to create a layout for a page.",
     "menu-box": "Box",
@@ -128,7 +122,6 @@
     "menu-image-list-description": "The Image List displays a collection of images in an organized grid.",
     "menu-single-menu": "Single Menu",
     "menu-external-link": "External Link",
-
     "menu-admin-item": "Admin Item",
     "menu-item-1": "Item 1",
     "menu-item-2": "Item 2",
@@ -140,7 +133,6 @@
     "menu-level-four": "Level 4",
     "menu-level-four-subs": "Level 4 Subs",
     "menu-level-five": "Level 5",
-
     "menu-applications": "Applications",
     "menu-applications-ai-chat": "AI Chat",
     "menu-applications-ai-content": "AI Content",
@@ -185,7 +177,6 @@
     "footer-purchase": "Purchase",
     "menu-cta-copy": "Go premium to get all the cool features!",
     "menu-cta-button": "View Plans",
-
     "user-accounts": "Accounts",
     "user-add-account": "Add Account",
     "user-profile": "Profile",
@@ -205,7 +196,6 @@
     "user-documentation": "Documentation",
     "user-help": "Help",
     "user-sign-out": "Sign out",
-
     "menu-utils": "Utils",
     "menu-click-away-listener": "Click-away Listener",
     "menu-modal": "Modal",
@@ -222,7 +212,6 @@
     "menu-portal-description": "The Portal component lets you render its children into a DOM node that exists outside of the Portal's own DOM hierarchy.",
     "menu-textarea-autosize-description": "The Textarea Autosize component automatically adjusts its height to match the length of the content within.",
     "menu-transitions-description": "Transitions help to make a UI expressive and easy to use.",
-
     "menu-mui-x": "MUI X",
     "menu-data-grid": "Data Grid",
     "menu-data-grid-overview": "Overview",
@@ -248,7 +237,6 @@
     "menu-data-grid-clipboard-paste": "Clipboard Paste",
     "menu-data-grid-pivoting": "Pivoting",
     "menu-data-grid-ai-assistant": "AI Assistant",
-
     "menu-mui-x-description": "MUI X is a collection of advanced React UI components for complex use cases.",
     "menu-data-grid-description": "A fast and extensible data table with filtering, sorting, aggregation, and more.",
     "menu-data-grid-overview-description": "Basic examples of the default, pro, and premium packages.",
@@ -274,7 +262,6 @@
     "menu-data-grid-clipboard-paste-description": "Copy and paste selected cells and rows using standard keyboard shortcuts.",
     "menu-data-grid-pivoting-description": "Rearrange rows and columns to view data from multiple perspectives.",
     "menu-data-grid-ai-assistant-description": "Translate natural language into a set of grid state updates.",
-
     "menu-charts": "Charts",
     "menu-charts-description": "Visualize data with various chart types for effective data representation.",
     "menu-charts-overview": "Overview",
@@ -296,7 +283,6 @@
     "menu-tree-view-focus": "Focus",
     "menu-tree-view-editing": "Editing",
     "menu-tree-view-ordering": "Ordering",
-
     "menu-tree-view-description": "It allows users navigate hierarchical lists of data with nested levels.",
     "menu-tree-view-overview-description": "It allows users navigate hierarchical lists of data with nested levels.",
     "menu-tree-view-items-description": "Adds simple data to the Tree View component.",
@@ -306,7 +292,6 @@
     "menu-tree-view-focus-description": "Focuses Tree View items.",
     "menu-tree-view-editing-description": "Edits the label of Tree View items.",
     "menu-tree-view-ordering-description": "Allows dragging and dropping your items to reorder them.",
-
     "menu-date-time-picker": "Date Time Picker",
     "menu-date-time-picker-overview": "Overview",
     "menu-date-time-picker-date": "Date",
@@ -315,7 +300,6 @@
     "menu-date-time-picker-date-range": "Date Range",
     "menu-date-time-picker-time-range": "Time Range",
     "menu-date-time-picker-date-time-range": "Date Time Range",
-
     "menu-date-time-picker-description": "A collection of React UI components for selecting dates, times, and ranges.",
     "menu-date-time-picker-overview-description": "A collection of React UI components for selecting dates, times, and ranges.",
     "menu-date-time-picker-date-description": "The Date Picker and Field components let the users select a date.",
@@ -324,15 +308,12 @@
     "menu-date-time-picker-date-range-description": "The Date Range Picker and Field components let the user select a date range.",
     "menu-date-time-picker-time-range-description": "The Time Range Picker and Field components let the user select a time range.",
     "menu-date-time-picker-date-time-range-description": "The Date Time Range Picker and Field components let the user select a date time range.",
-
     "menu-lab": "Lab",
     "menu-lab-masonry": "Masonry",
     "menu-lab-timeline": "Timeline",
-
     "menu-lab-description": "Hosts the incubator components that are not yet ready to move to the core",
     "menu-lab-masonry-description": "Lays out contents of varying dimensions as blocks of the same width and different height.",
     "menu-lab-timeline-description": "Displays a list of events in chronological order.",
-
     "menu-pages": "Pages",
     "menu-authorization": "Authorization",
     "menu-signin": "Sign in",
@@ -342,7 +323,6 @@
     "menu-password-new": "Password New",
     "menu-get-verification": "Get Verification",
     "menu-set-verification": "Set Verification",
-
     "menu-pages-description": "Fully built layouts for various content that covers different use cases.",
     "menu-authorization-description": "Pages to control access to resources based on permissions.",
     "menu-signin-description": "Verifying users' identity to grant access to the application.",
@@ -352,45 +332,38 @@
     "menu-password-new-description": "New password create page that can be navigated via email.",
     "menu-get-verification-description": "Page to choose two factor authentication type.",
     "menu-set-verification-description": "Completing the two factor authentication process",
-
     "menu-ecommerce": "Ecommerce",
     "menu-products": "Products",
     "menu-product-detail": "Product Detail",
     "menu-orders": "Orders",
     "menu-order-detail": "Order Detail",
     "menu-invoice": "Invoice",
-
     "menu-ecommerce-description": "E-commerce pages showcase products, and enhance the online shopping experience.",
     "menu-products-description": "Shows a searchable and filterable listing page that contains products.",
     "menu-product-detail-description": "Displays product details such as images and purchasing options in editable forms.",
     "menu-orders-description": "Listing orders displays purchase details, statuses, and tracking information for customer transactions.",
     "menu-order-detail-description": "Provides comprehensive information on individual purchases, including status, items, and payment history.",
     "menu-invoice-description": "Presents billing details, payment status, and transaction records for purchases or services.",
-
     "menu-user": "User",
     "menu-overview": "Overview",
     "menu-projects": "Projects",
     "menu-permissions": "Permissions",
     "menu-friends": "Friends",
     "menu-social": "Social",
-
     "menu-user-description": "Display profiles, projects, friends, permissions and personal information for individual users.",
     "menu-overview-description": "Provides a summary of profile details, settings, and activity for easy navigation.",
     "menu-projects-description": "Showcases individual or team work, progress, and management for various tasks or goals.",
     "menu-permissions-description": "Permissions define access levels, determining what users can view, edit, or manage within a system.",
     "menu-friends-description": "Users' friends display connections, interactions, and social relationships within a system.",
     "menu-social-description": "Displays posts, updates, and interactions from their connections in real time.",
-
     "menu-support": "Support",
     "menu-issues": "Issues",
     "menu-issue-detail": "Issue Detail",
     "menu-add-issue": "Add Issue",
-
     "menu-support-description": "Offers help, resources, and contact options for users needing assistance.",
     "menu-issues-description": "Shows a searchable and filterable listing page that contains issues.",
     "menu-issue-detail-description": "Tracks reported problems, statuses, and resolutions for better management and support.",
     "menu-add-issue-description": "Allows creating issues that reports problems and also can contain the solution.",
-
     "menu-miscellaneous": "Miscellaneous",
     "menu-faq": "Faq",
     "menu-knowledge-base": "Knowledge Base",
@@ -399,7 +372,6 @@
     "menu-empty": "Empty",
     "menu-error": "Error",
     "menu-email-templates": "Email Templates",
-
     "menu-miscellaneous-description": "Various layouts containing frequently needed content arranged in pages.",
     "menu-faq-description": "Provides a layout for answers to common questions, helping users find information quickly.",
     "menu-knowledge-base-description": "Organizes helpful articles and resources for users to find answers and information efficiently",
@@ -408,7 +380,6 @@
     "menu-empty-description": "Blank space ready for content or customization.",
     "menu-error-description": "Notifies users of a problem and provides guidance or options to resolve it.",
     "menu-email-templates-description": "Pre-designed layouts for efficient and consistent communication.",
-
     "menu-plugins": "Plugins",
     "menu-plugins-lightbox": "Lightbox",
     "menu-plugins-carousel": "Carousel",
@@ -416,7 +387,6 @@
     "menu-plugins-text-editor": "Text Editor",
     "menu-plugins-dropzone": "Dropzone",
     "menu-plugins-validation": "Validation",
-
     "menu-plugins-description": "Various extensions, offering different features with lots of customization.",
     "menu-plugins-lightbox-description": "Enhances media display by overlaying images or videos in a focused, interactive view.",
     "menu-plugins-carousel-description": "Smooth scrolling through multiple images or content slides in an interactive display.",
@@ -434,20 +404,17 @@
     "nav-open-menu": "Open menu",
     "nav-close-menu": "Close menu",
     "cta-primary": "Create free account",
-
     "home-meta-description": "Billing, teams, AI assistants and audit-ready records in one platform. Set up in an afternoon, start free.",
     "hero-eyebrow": "Multi-tenant SaaS platform",
     "hero-title": "Run your whole operation from one place",
     "hero-subtitle": "Billing, teams, AI assistants and audit-ready records — working on day one, without a setup project.",
     "hero-secondary": "See plans and pricing",
-
     "logos-label": "Teams that run on the platform",
     "logo-1": "Acme Corp",
     "logo-2": "Northwind",
     "logo-3": "Globex",
     "logo-4": "Initech",
     "logo-5": "Umbrella",
-
     "features-eyebrow": "What you get",
     "features-title": "Everything a paying customer expects, already built",
     "features-subtitle": "The parts every SaaS needs and nobody wants to rebuild — ready before your first sale.",
@@ -463,7 +430,6 @@
     "feature-5-description": "AI answers grounded in your own documents and knowledge base, with usage billed per message through credits.",
     "feature-6-title": "Decide from live numbers",
     "feature-6-description": "Dashboards and reports read real product data, scoped by organization and role — no exports, no stale spreadsheets.",
-
     "testimonials-eyebrow": "Results",
     "testimonials-title": "What changed for teams after the switch",
     "testimonial-1-quote": "We replaced three separate tools and cut client onboarding from six weeks to four days.",
@@ -475,7 +441,6 @@
     "testimonial-3-quote": "Our compliance review passed on the first round — the audit trail they asked for was already there.",
     "testimonial-3-name": "Ana Ribeiro",
     "testimonial-3-role": "Head of Operations, healthtech",
-
     "pricing-eyebrow": "Pricing",
     "pricing-title": "Start free, upgrade when clients arrive",
     "pricing-subtitle": "Every plan includes the core platform. Paid tiers raise the limits.",
@@ -491,7 +456,6 @@
     "pricing-feature-credits": "{count} credits included",
     "pricing-feature-members": "Up to {count} team members",
     "pricing-feature-trial": "{days}-day free trial",
-
     "plan-1-name": "Starter",
     "plan-1-description": "For validating the product with your first clients.",
     "plan-1-price": "Free",
@@ -513,7 +477,6 @@
     "plan-3-feature-1": "Unlimited organizations",
     "plan-3-feature-2": "AI assistants and add-on modules",
     "plan-3-feature-3": "Priority support",
-
     "faq-eyebrow": "Questions",
     "faq-title": "Before you decide",
     "faq-1-question": "Can I cancel anytime?",
@@ -524,10 +487,8 @@
     "faq-3-answer": "Cards through Stripe or Asaas, plus Pix and boleto for Brazilian customers through Asaas. The right provider is picked per checkout.",
     "faq-4-question": "What happens to my data if I leave?",
     "faq-4-answer": "You export everything. Documents you issued remain publicly verifiable, and audit records stay immutable — as compliance requires.",
-
     "cta-title": "Onboard your first client today",
     "cta-subtitle": "Create the account, invite the team and send the first charge — before the day ends.",
-
     "about-meta-title": "About",
     "about-meta-description": "Why we build boring, reliable software for operations that cannot afford surprises.",
     "about-eyebrow": "About us",
@@ -543,7 +504,6 @@
     "about-value-2-description": "Row-level isolation, two-factor auth and the audit trail are on for every account, including the free one.",
     "about-value-3-title": "Plain language",
     "about-value-3-description": "Prices, limits and incidents are communicated in words a customer can read once and understand.",
-
     "contact-meta-title": "Contact",
     "contact-meta-description": "Talk to a person about plans, migration or anything else. We answer within one business day.",
     "contact-title": "Talk to a person",
@@ -557,7 +517,6 @@
     "contact-error": "The message could not be sent. Please check the fields and try again.",
     "contact-required": "This field is required",
     "contact-invalid-email": "Enter a valid email address",
-
     "footer-tagline": "The platform base for multi-tenant SaaS products.",
     "footer-product": "Product",
     "footer-company": "Company",
@@ -565,7 +524,6 @@
     "footer-terms": "Terms of Service",
     "footer-privacy": "Privacy Policy",
     "footer-rights": "All rights reserved.",
-
     "legal-updated": "Last updated: January 2026",
     "terms-meta-title": "Terms of Service",
     "terms-title": "Terms of Service",
@@ -587,5 +545,33 @@
     "privacy-3-body": "Data is stored with per-organization isolation enforced at the database level, encrypted in transit, with access restricted by role. Audit events are retained append-only.",
     "privacy-4-title": "4. Your rights",
     "privacy-4-body": "You can request access, correction, export or deletion of your personal data. Consent records are versioned, and you can review what was accepted and when from your account."
+  },
+  "mobile": {
+    "signin-title": "Sign in",
+    "signin-subtitle": "Use your account email and password.",
+    "signin-email": "Email",
+    "signin-password": "Password",
+    "signin-submit": "Sign in",
+    "signin-required": "This field is required",
+    "signin-invalid-email": "Enter a valid email address",
+    "signin-failed": "Email or password is incorrect.",
+    "signin-not-configured": "Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.",
+    "tab-home": "Home",
+    "tab-settings": "Settings",
+    "home-title": "Home",
+    "home-subtitle": "Your product screens start here.",
+    "home-hint": "This placeholder proves the shared identity: colors, radii and type come from the design tokens — the same ones the web app uses.",
+    "settings-title": "Settings",
+    "settings-theme": "Theme",
+    "settings-theme-blue": "Blue",
+    "settings-theme-green": "Green",
+    "settings-theme-orange": "Orange",
+    "settings-theme-purple": "Purple",
+    "settings-mode": "Mode",
+    "settings-mode-light": "Light",
+    "settings-mode-dark": "Dark",
+    "settings-mode-system": "System",
+    "settings-language": "Language",
+    "settings-sign-out": "Sign out"
   }
 }

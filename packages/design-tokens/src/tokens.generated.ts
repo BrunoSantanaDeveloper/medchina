@@ -335,3 +335,57 @@ export const marketing = {
   "motion-ease": "cubic-bezier(0.22, 1, 0.36, 1)",
   "motion-reveal-distance": "2.5rem"
 } as const;
+
+/**
+ * Platform-neutral values for React Native: dimensions in px numbers,
+ * display scale as {min,max} px, easing as cubic-bezier control points.
+ * Colors are NOT duplicated here — use themes/common with the hsl() helper.
+ * Shadows are intentionally omitted (RN uses elevation / Paper surfaces).
+ */
+export const native = {
+  "radius": {
+    "2xs": 10.8,
+    "xs": 12,
+    "sm": 14,
+    "md": 16,
+    "lg": 18,
+    "xl": 22,
+    "2xl": 24,
+    "3xl": 28,
+    "4xl": 32
+  },
+  "spacing": {
+    "mainPadding": 16
+  },
+  "display": {
+    "2xl": {
+      "min": 44,
+      "max": 84
+    },
+    "xl": {
+      "min": 36,
+      "max": 64
+    },
+    "lg": {
+      "min": 28,
+      "max": 45.04
+    },
+    "md": {
+      "min": 22,
+      "max": 30.4
+    }
+  },
+  "displayLeading": 1.08,
+  "motion": {
+    "duration1": 200,
+    "duration2": 450,
+    "duration3": 800,
+    "ease": [
+      0.22,
+      1,
+      0.36,
+      1
+    ],
+    "revealDistance": 40
+  }
+} as const;

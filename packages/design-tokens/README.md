@@ -18,6 +18,7 @@ npm run tokens:generate   # at the monorepo root
 - `css/common.css` — tokens shared by all themes: greys, text, feedback, shadows, radii, in `:root` (light) and `.dark` variants.
 - `css/{blue,green,orange,purple}.css` — per-color-theme tokens (`.theme-<name>` and `.theme-<name>.dark`).
 - `css/marketing.css` — marketing-layer tokens (fluid display type scale via `clamp()`, section rhythm, motion durations/easing). Dimensions and motion only — no colors, so no light/dark split. Exported to TS as `marketing`.
+- **`native` export** (generated) — platform-neutral values for React Native: radii/spacing in px numbers, display scale as `{min,max}` px, durations as numbers, easing as cubic-bezier control points (`Easing.bezier(...ease)`). Colors are not duplicated (use `themes`/`common` + `hsl()`); shadows are intentionally omitted (RN uses elevation/Paper surfaces).
 - Color values are bare HSL triplets (`"191 100% 46%"`), consumed on the web via `hsl(var(--token))` and in TS via the `hsl()` helper.
 
 ## Adding a new theme

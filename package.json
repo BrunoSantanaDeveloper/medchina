@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @flyee/web",
+    "dev:mobile": "npm run start -w @flyee/mobile",
     "build": "npm run build -w @flyee/web",
     "start": "npm run start -w @flyee/web",
     "lint": "npm run lint -w @flyee/web",
@@ -15,10 +16,16 @@
     "prettier": "npm run prettier -w @flyee/web",
     "tokens:generate": "npm run generate -w @flyee/design-tokens",
     "prepare": "husky",
-    "pre-commit": "lint-staged"
+    "pre-commit": "lint-staged",
+    "typecheck": "npm run typecheck -w @flyee/web && npm run typecheck -w @flyee/mobile"
   },
   "devDependencies": {
     "husky": "9.1.7",
     "lint-staged": "16.1.2"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "@types/react": "19.2.7"
   }
 }

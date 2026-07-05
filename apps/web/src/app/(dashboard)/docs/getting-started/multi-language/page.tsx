@@ -79,7 +79,7 @@ export default function DocsGettingStartedMultiLanguage() {
               <br />
               <Typography variant="body1" component="p">
                 All the necessary files can be found in the <code>src/i18n</code> folder. Translations are located in
-                the <code>src/i18n/messages</code> folder.
+                the <code>packages/content/messages</code> folder, shared with the mobile app.
               </Typography>
             </CardContent>
           </Card>

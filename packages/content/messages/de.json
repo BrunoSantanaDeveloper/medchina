@@ -545,5 +545,33 @@
     "privacy-3-body": "Daten werden mit Isolation pro Organisation auf Datenbankebene gespeichert, bei der Übertragung verschlüsselt und mit rollenbasiertem Zugriff geschützt. Audit-Ereignisse werden unveränderlich aufbewahrt.",
     "privacy-4-title": "4. Ihre Rechte",
     "privacy-4-body": "Sie können Auskunft, Berichtigung, Export oder Löschung Ihrer personenbezogenen Daten verlangen. Einwilligungen werden versioniert, und Sie sehen in Ihrem Konto, was wann akzeptiert wurde."
+  },
+  "mobile": {
+    "signin-title": "Anmelden",
+    "signin-subtitle": "Verwenden Sie die E-Mail und das Passwort Ihres Kontos.",
+    "signin-email": "E-Mail",
+    "signin-password": "Passwort",
+    "signin-submit": "Anmelden",
+    "signin-required": "Pflichtfeld",
+    "signin-invalid-email": "Geben Sie eine gültige E-Mail-Adresse ein",
+    "signin-failed": "E-Mail oder Passwort ist falsch.",
+    "signin-not-configured": "Supabase ist nicht konfiguriert. Setzen Sie EXPO_PUBLIC_SUPABASE_URL und EXPO_PUBLIC_SUPABASE_ANON_KEY.",
+    "tab-home": "Start",
+    "tab-settings": "Einstellungen",
+    "home-title": "Start",
+    "home-subtitle": "Hier beginnen die Screens Ihres Produkts.",
+    "home-hint": "Dieser Platzhalter belegt die gemeinsame Identität: Farben, Radien und Typografie kommen aus den Design-Tokens — denselben wie in der Web-App.",
+    "settings-title": "Einstellungen",
+    "settings-theme": "Thema",
+    "settings-theme-blue": "Blau",
+    "settings-theme-green": "Grün",
+    "settings-theme-orange": "Orange",
+    "settings-theme-purple": "Lila",
+    "settings-mode": "Modus",
+    "settings-mode-light": "Hell",
+    "settings-mode-dark": "Dunkel",
+    "settings-mode-system": "System",
+    "settings-language": "Sprache",
+    "settings-sign-out": "Abmelden"
   }
 }

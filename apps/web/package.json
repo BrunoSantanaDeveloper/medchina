@@ -9,7 +9,8 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "prettier": "prettier --write './src/**/*.{js,jsx,json,ts,tsx,scss,css,md}'",
-    "icons:stubs": "node scripts/generate-icon-stubs.mjs"
+    "icons:stubs": "node scripts/generate-icon-stubs.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@emotion/cache": "11.14.0",
@@ -57,8 +58,8 @@
     "next": "15.5.18",
     "next-intl": "4.13.1",
     "notistack": "3.0.2",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-draggable": "4.7.0",
     "react-dropzone": "15.0.0",
     "react-quill-new": "3.8.3",

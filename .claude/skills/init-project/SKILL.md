@@ -19,7 +19,7 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 **Round 2 — platform**
 6. Auth model: multi-tenant organizations (default), single-user (no orgs), or no auth (public site/dashboard)?
 7. Transactional email at launch? (requires a Resend key; invites fall back to copyable links without it; the public contact form also needs `CONTACT_FORM_TO`)
-8. Mobile app (Expo) planned for this project?
+8. Mobile app: keep the scaffolded `apps/mobile` (Expo + RN Paper shell with sign-in, tabs and settings) or prune it?
 9. Which capability packages will this project use at launch? (multiSelect)
    - Billing (Stripe/Asaas subscriptions, credits, coupons — `/admin/billing`, `/settings/billing`)
    - AI assistants (+ optional knowledge base RAG — `/admin/ai`, `/admin/knowledge`)
@@ -36,7 +36,7 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 ## Actions by answer
 
 **Identity**
-- Rewrite `apps/web/src/brand.ts` (name, tagline, description; `NEXT_PUBLIC_SITE_URL` note for production). Root `package.json` name, `apps/web` `NEXT_PUBLIC_TITLE` in `.env`; rewrite root `CLAUDE.md` header: it now describes THIS product (remove "this is the template base" warnings — derived repos hold real business logic; keep structure/commands sections).
+- Rewrite `BRAND` in `packages/content/src/index.ts` (name, tagline, description; `NEXT_PUBLIC_SITE_URL` note for production) — shared by web and mobile. Root `package.json` name, `apps/web` `NEXT_PUBLIC_TITLE` in `.env`; rewrite root `CLAUDE.md` header: it now describes THIS product (remove "this is the template base" warnings — derived repos hold real business logic; keep structure/commands sections).
 - Locale: `DEFAULTS.locale` in `apps/web/src/config.ts`.
 
 **Brand assets**
@@ -69,7 +69,8 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 
 **Email: no** — leave `RESEND_API_KEY` empty (graceful no-op). **Email: yes** — ask for the key later via env, remind about `EMAIL_FROM` domain verification and Supabase SMTP for auth emails.
 
-**Mobile: yes** — keep `packages/design-tokens` TS mirror contract intact; note in CLAUDE.md that `apps/mobile` (Expo + React Native Paper) is planned. Do NOT scaffold it now unless asked.
+**Mobile: keep** — `apps/mobile` (Expo + expo-router + RN Paper) is already scaffolded. Update `apps/mobile/app.json` (name/slug from the brand answers) and its icon/splash assets in `apps/mobile/assets/`; remind about `apps/mobile/.env.example` → `.env` with `EXPO_PUBLIC_SUPABASE_*` (same Supabase project as web); defaults in `apps/mobile/src/config.ts` follow the chosen theme/locale.
+**Mobile: prune** — delete `apps/mobile/`; remove the `dev:mobile` root script; delete the `mobile-screen`, `building-native-ui` and `mobile-app-ui-design` skills plus `.claude/rules/mobile-boundaries.md`; remove the `mobile` namespace from `packages/content/messages/*` and the `native` consumers note in CLAUDE.md (keep the tokens `native` export — it is generated and harmless).
 
 **Marketing site: keep**
 - Load the `marketing-page` skill and rewrite the `marketing` namespace copy in ALL locale files (`de,en,es,fr,pt-BR`) from the branding answers (product, audience, main outcome), following the skill's conversion + anti-AI-copy rules.

@@ -19,7 +19,8 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - `packages/ai` — instruction-driven assistants (superadmin-managed rows, not a generic chat): Anthropic/Gemini/OpenRouter behind a `ChatProvider` interface, image+audio attachments, credits debited per message. Console at `/admin/ai`; chat wired at `/applications/ai-chat/new-chat`. See `packages/ai/README.md`.
 - `packages/transcribe` — audio → diarized transcript (speakers + timestamps) via Gemini; Inngest job with inline fallback; optional source-audio deletion once the transcript is ready. See `packages/transcribe/README.md`.
 - `packages/whatsapp` — WhatsApp dispatcher behind a provider interface (Meta Cloud API official / Evolution API unofficial): manual, automatic and scheduled sends (Inngest `sleepUntil`), `wa_messages` log, webhook at `/api/webhooks/whatsapp/[provider]`, inbound replies emitted as `whatsapp/message.received`. See `packages/whatsapp/README.md`.
-- `apps/mobile` — (future) Expo + React Native Paper, consuming the same tokens.
+- `apps/mobile` — Expo (SDK 57) + expo-router + React Native Paper. Same identity as web: Paper MD3 themes generated from the tokens (4 colors × light/dark), shared copy via `packages/content`, auth via `@flyee/auth/native`. Screen playbook: `.claude/skills/mobile-screen`. See `apps/mobile/CLAUDE.md`.
+- `packages/content` — cross-platform site identity (`BRAND`) + i18n message catalogs (`messages/{de,en,es,fr,pt-BR}.json`), consumed by web (next-intl) and mobile (use-intl) so branding/copy never drift.
 
 ## Golden rules
 
@@ -39,6 +40,8 @@ This repo and its derivatives stay **private**: the UI layer still contains comm
 ## Commands (root)
 
 - `npm run dev` / `build` / `lint:fix` — delegate to `apps/web`
+- `npm run dev:mobile` — Expo dev server for `apps/mobile`
+- `npm run typecheck` — both apps, each with its own pinned TypeScript (web 5.8 / mobile 6.0 — never run a bare root `npx tsc` on apps/web: it picks the hoisted TS 6)
 - `npm run tokens:generate` — regenerate the TS token mirror
 
 ## Platform (confirmed decisions)

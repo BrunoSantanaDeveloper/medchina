@@ -545,5 +545,33 @@
     "privacy-3-body": "Les données sont stockées avec une isolation par organisation appliquée au niveau de la base, chiffrées en transit, avec un accès restreint par rôle. Les événements d'audit sont conservés en mode immuable.",
     "privacy-4-title": "4. Vos droits",
     "privacy-4-body": "Vous pouvez demander l'accès, la correction, l'export ou la suppression de vos données personnelles. Les consentements sont versionnés et votre compte indique ce qui a été accepté et quand."
+  },
+  "mobile": {
+    "signin-title": "Se connecter",
+    "signin-subtitle": "Utilisez l'e-mail et le mot de passe de votre compte.",
+    "signin-email": "E-mail",
+    "signin-password": "Mot de passe",
+    "signin-submit": "Se connecter",
+    "signin-required": "Champ obligatoire",
+    "signin-invalid-email": "Saisissez une adresse e-mail valide",
+    "signin-failed": "E-mail ou mot de passe incorrect.",
+    "signin-not-configured": "Supabase n'est pas configuré. Définissez EXPO_PUBLIC_SUPABASE_URL et EXPO_PUBLIC_SUPABASE_ANON_KEY.",
+    "tab-home": "Accueil",
+    "tab-settings": "Réglages",
+    "home-title": "Accueil",
+    "home-subtitle": "Les écrans de votre produit commencent ici.",
+    "home-hint": "Cet exemple prouve l'identité partagée : couleurs, rayons et typographie viennent des design tokens — les mêmes que l'app web.",
+    "settings-title": "Réglages",
+    "settings-theme": "Thème",
+    "settings-theme-blue": "Bleu",
+    "settings-theme-green": "Vert",
+    "settings-theme-orange": "Orange",
+    "settings-theme-purple": "Violet",
+    "settings-mode": "Mode",
+    "settings-mode-light": "Clair",
+    "settings-mode-dark": "Sombre",
+    "settings-mode-system": "Système",
+    "settings-language": "Langue",
+    "settings-sign-out": "Se déconnecter"
   }
 }

@@ -545,5 +545,33 @@
     "privacy-3-body": "Los datos se almacenan con aislamiento por organización aplicado en la base de datos, cifrados en tránsito y con acceso restringido por rol. Los eventos de auditoría se conservan en modo inmutable.",
     "privacy-4-title": "4. Tus derechos",
     "privacy-4-body": "Puedes solicitar acceso, corrección, exportación o eliminación de tus datos personales. Los consentimientos se versionan y puedes consultar en tu cuenta qué se aceptó y cuándo."
+  },
+  "mobile": {
+    "signin-title": "Iniciar sesión",
+    "signin-subtitle": "Usa el correo y la contraseña de tu cuenta.",
+    "signin-email": "Correo electrónico",
+    "signin-password": "Contraseña",
+    "signin-submit": "Iniciar sesión",
+    "signin-required": "Campo obligatorio",
+    "signin-invalid-email": "Introduce un correo electrónico válido",
+    "signin-failed": "El correo o la contraseña son incorrectos.",
+    "signin-not-configured": "Supabase no está configurado. Define EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY.",
+    "tab-home": "Inicio",
+    "tab-settings": "Ajustes",
+    "home-title": "Inicio",
+    "home-subtitle": "Las pantallas de tu producto empiezan aquí.",
+    "home-hint": "Este ejemplo demuestra la identidad compartida: colores, radios y tipografía vienen de los design tokens — los mismos que usa la app web.",
+    "settings-title": "Ajustes",
+    "settings-theme": "Tema",
+    "settings-theme-blue": "Azul",
+    "settings-theme-green": "Verde",
+    "settings-theme-orange": "Naranja",
+    "settings-theme-purple": "Morado",
+    "settings-mode": "Modo",
+    "settings-mode-light": "Claro",
+    "settings-mode-dark": "Oscuro",
+    "settings-mode-system": "Sistema",
+    "settings-language": "Idioma",
+    "settings-sign-out": "Cerrar sesión"
   }
 }

@@ -8,9 +8,9 @@ Next.js 15 (App Router) + React 19 admin template.
 - **Styling**: MUI theme driven by CSS variables (`hsl(var(--token))`) defined in `@flyee/design-tokens`. MUI component overrides live in `src/style/**/*.css` (organized by category), inside CSS layers (`theme, base, mui, components, utilities`). Tailwind 4 only for layout utilities; classes merged with `tailwind-merge`.
 - **Themes**: 4 color themes × light/dark, switched via classes on `<html>` (`theme-blue dark` etc.) by the `ThemeProvider` (`src/theme/theme-provider.tsx`).
 - **Forms**: Formik + Yup.
-- **i18n**: next-intl — every UI string goes through messages, never hardcoded. Locales: `de,en,es,fr,pt-BR`; public-site copy lives in the `marketing` namespace.
+- **i18n**: next-intl — every UI string goes through messages, never hardcoded. Locales: `de,en,es,fr,pt-BR`; catalogs live in `packages/content/messages/` (shared with apps/mobile); public-site copy lives in the `marketing` namespace.
 - **Path alias**: `@/*` → `./src/*`.
-- **Brand**: site identity (name, tagline, siteUrl, favicon paths) comes from `src/brand.ts`; the logo is the single component `src/components/logo/logo.tsx` (used by admin AND marketing chrome).
+- **Brand**: site identity (name, tagline, siteUrl, favicon paths) comes from `@flyee/content` (`src/brand.ts` is a re-export shim); the logo is the single component `src/components/logo/logo.tsx` (used by admin AND marketing chrome).
 
 ## Marketing layer (public site)
 

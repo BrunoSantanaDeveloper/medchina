@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Supabase auth clients and helpers: browser client, server client (cookies), and middleware session refresh.",
+  "description": "Supabase auth clients and helpers: browser client, server client (cookies), middleware session refresh, and a React Native client (storage injected).",
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./server": "./src/server.ts",
     "./middleware": "./src/middleware.ts",
-    "./service": "./src/service.ts"
+    "./service": "./src/service.ts",
+    "./native": "./src/native.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
