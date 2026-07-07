@@ -11,7 +11,12 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 
 **Round 1 — identity**
 1. Project name, tagline and one-line description? (free text — used for `apps/web/src/brand.ts`, package names, `NEXT_PUBLIC_TITLE`, CLAUDE.md)
-2. Branding: keep the 4 demo color themes with runtime switcher, or lock a single brand palette? If brand: ask for the primary color (hex or HSL) and whether dark mode is needed.
+2. Branding — three levels:
+   a. **Keep the 4 demo color themes** with runtime switcher (nothing else to ask), or lock a **single brand palette**.
+   b. If single palette: does the project have a **full brand manual** or just a primary color?
+      - **Primary only**: ask for the primary (hex or HSL). The agent DERIVES secondary, accents and the light/dark variants of each color.
+      - **Brand manual**: also ask for secondary and up to 4 accent colors (any may be skipped → derived), and whether the light/dark variants of each color should be calculated (default: shift lightness, keep hue/saturation) or provided exactly.
+   c. Dark mode needed? (always asked for single palette)
 3. Brand assets: does the user have logo SVG(s) (wordmark + compact mark) and favicon PNGs ready? Ask for file paths or for the files to be dropped into the repo. Without assets, keep the placeholder and note the fallback: a text wordmark (brand name in `font-display`, primary token color) — nothing ships half-branded.
 4. Icon set: Nexture (default) or Phosphor?
 5. Default locale? (template default: en; available: de, en, es, fr, pt-BR)
@@ -46,9 +51,12 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 - The shared OG image (`app/(marketing)/opengraph-image.tsx`) reads `brand.ts` + tokens — no per-asset work needed.
 
 **Branding (single palette)**
-- Edit `packages/design-tokens/css/green.css` (or the closest hue) with the brand HSL values; keep the light/dark block structure.
-- `npm run tokens:generate` and commit the regenerated mirror.
-- Set `DEFAULTS.themeColor` in `apps/web/src/config.ts`; optionally remove the other theme CSS imports from `src/style/global.css` and their entries in `THEME_OPTIONS` (`src/constants.ts`) to hide the switcher options.
+- Build the full token palette from the answers. Every theme file carries `primary`, `secondary`, `accent-1..4`, EACH with `-light`/`-dark` variants, in light AND dark blocks (`.theme-x` / `.theme-x.dark`) — the structure is mandatory (see `.claude/rules/design-tokens.md`); values are bare HSL triplets.
+- Derivation rules for anything not provided: secondary = primary hue shifted ~30–40° (keep saturation family); accents = harmonic hues (analogous/complementary) at similar saturation; `-light`/`-dark` variants = same hue/saturation, lightness ±12–18%; dark-block values = reduce saturation slightly and adjust lightness for contrast on dark surfaces. Check text contrast (`text-contrast` token) against the resulting primary/secondary.
+- **Show the derived palette for approval BEFORE writing tokens**: render every color as an HSL value list (name → triplet, light and dark) and get an explicit OK — derived colors are a proposal, not a decision.
+- Then edit `packages/design-tokens/css/green.css` (or the closest hue to the primary) with the approved values; keep the light/dark block structure untouched.
+- `npm run tokens:generate` and commit the regenerated mirror (web CSS vars and the mobile Paper theme both come from it — no app-side work).
+- Set `DEFAULTS.themeColor` in `apps/web/src/config.ts` (and `apps/mobile/src/config.ts` if mobile was kept); optionally remove the other theme CSS imports from `src/style/global.css` and their entries in `THEME_OPTIONS` (`src/constants.ts`) to hide the switcher options.
 
 **Icons: Phosphor**
 - `npm run icons:stubs -w @flyee/web`
