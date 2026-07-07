@@ -20,7 +20,8 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - `packages/transcribe` — audio → diarized transcript (speakers + timestamps) via Gemini; Inngest job with inline fallback; optional source-audio deletion once the transcript is ready. See `packages/transcribe/README.md`.
 - `packages/whatsapp` — WhatsApp dispatcher behind a provider interface (Meta Cloud API official / Evolution API unofficial): manual, automatic and scheduled sends (Inngest `sleepUntil`), `wa_messages` log, webhook at `/api/webhooks/whatsapp/[provider]`, inbound replies emitted as `whatsapp/message.received`. See `packages/whatsapp/README.md`.
 - `apps/mobile` — Expo (SDK 57) + expo-router + React Native Paper. Same identity as web: Paper MD3 themes generated from the tokens (4 colors × light/dark), shared copy via `packages/content`, auth via `@flyee/auth/native`. Screen playbook: `.claude/skills/mobile-screen`. See `apps/mobile/CLAUDE.md`.
-- `packages/content` — cross-platform site identity (`BRAND`) + i18n message catalogs (`messages/{de,en,es,fr,pt-BR}.json`), consumed by web (next-intl) and mobile (use-intl) so branding/copy never drift.
+- `packages/content` — cross-platform site identity (`BRAND`) + i18n message catalogs (`messages/{de,en,es,fr,pt-BR}.json`), consumed by web (next-intl) and mobile (use-intl) so branding/copy never drift. Brand master art lives in `packages/content/brand/`.
+- `attachments/` — input inbox: the user drops project material here (brand art, page imagery, briefs); agents route each file to its canonical home per `attachments/README.md` and the folder trends back to empty.
 
 ## Golden rules
 
