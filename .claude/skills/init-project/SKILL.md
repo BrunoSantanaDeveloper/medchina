@@ -5,7 +5,19 @@ description: Interactive quiz to turn a fresh flyee clone into a configured proj
 
 # Initialize a project derived from flyee
 
-You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz below with the AskUserQuestion tool (group related questions, max 4 per call), then apply the mapped actions. Show a summary of planned actions and get confirmation BEFORE any destructive step (deleting demo content). Finish with install, build, and an initial commit.
+You are configuring a NEW project cloned from the flyee monorepo. Run **Step 0 first** (repository safety), then ask the quiz with the AskUserQuestion tool (group related questions, max 4 per call) and apply the mapped actions. Show a summary of planned actions and get confirmation BEFORE any destructive step (deleting demo content). Finish with install, build, and an initial commit.
+
+## Step 0 — repository safety (BEFORE anything else)
+
+The single worst failure mode of this skill is pushing the new project INTO the template repository. Neutralize it before the quiz:
+
+1. `git remote -v`. If a remote named `template` already exists and `origin` points elsewhere, skip to the quiz.
+2. If `origin` points at the flyee template repo (fresh clone): confirm with the user that this working copy is meant to become a NEW project — if they answer "no, this IS the template", STOP: this skill must never run inside the template itself.
+3. `git remote rename origin template` — from this moment no push can reach the template by accident.
+4. Right after Round 1 (the project name is known): create the project's own **private** repository and push the base:
+   - With gh CLI: `gh repo create <project-slug> --private --source . --push`
+   - Without gh: ask the user to create a private repo and give you the URL, then `git remote add origin <url>` and `git push -u origin main`.
+5. From here on, all pushes go to `origin`; `template` is fetch-only (used later by `/update-from-template` and `/add-mobile`).
 
 ## Quiz
 
@@ -123,7 +135,7 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 3. `npm install` (root), `npm run build` — must pass.
 4. Update this repo's `CLAUDE.md` files to reflect the choices (remaining structure, chosen icon set, auth model, active capability packages, product summary + `docs/PRODUCT.md` pointer).
 5. Delete this skill (`.claude/skills/init-project/`) from the derived repo — it is single-use. KEEP `update-from-template` (reusable forever) and, when mobile was pruned, `add-mobile`.
-6. Initial commit: `chore: initialize <project> from flyee`.
+6. Initial commit: `chore: initialize <project> from flyee`. Before pushing, assert `git remote get-url origin` is NOT the template URL (Step 0 guarantee) — then push to `origin`.
 7. Report what was configured, what was pruned, and the pending manual steps:
    - Supabase project + apply ALL migrations in `packages/db/migrations/` in order (0003 enables pgvector) + enable TOTP MFA in Auth settings if 2FA will be used.
    - Vercel project rooted at `apps/web`; env vars mirrored from `.env`.
