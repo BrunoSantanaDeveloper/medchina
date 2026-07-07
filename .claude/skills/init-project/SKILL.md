@@ -17,7 +17,10 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
       - **Primary only**: ask for the primary (hex or HSL). The agent DERIVES secondary, accents and the light/dark variants of each color.
       - **Brand manual**: also ask for secondary and up to 4 accent colors (any may be skipped → derived), and whether the light/dark variants of each color should be calculated (default: shift lightness, keep hue/saturation) or provided exactly.
    c. Dark mode needed? (always asked for single palette)
-3. Brand assets: does the user have logo SVG(s) (wordmark + compact mark) and favicon PNGs ready? Ask for file paths or for the files to be dropped into the repo. Without assets, keep the placeholder and note the fallback: a text wordmark (brand name in `font-display`, primary token color) — nothing ships half-branded.
+3. Brand assets — three levels:
+   - **Full set ready** (logo SVGs wordmark + compact mark, favicon PNGs): ask for file paths or for the files to be dropped into the repo.
+   - **One master logo only** (SVG or PNG ≥1024×1024): the derived assets are GENERATED from it (see Brand assets actions).
+   - **No assets yet**: keep the placeholder and note the fallback: a text wordmark (brand name in `font-display`, primary token color) — nothing ships half-branded.
 4. Icon set: Nexture (default) or Phosphor?
 5. Default locale? (template default: en; available: de, en, es, fr, pt-BR)
 
@@ -37,6 +40,7 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 **Round 3 — content**
 10. **Marketing site**: keep the public site (`app/(marketing)`: home, /pricing, /about, /contact, /legal) or prune it? If keeping, ask which pages stay.
 11. Other demo content to keep as reference vs. prune now. Offer multiSelect: UI showcase (`(dashboard)/ui`, ~518 files), template docs (`(dashboard)/docs`), sample apps (`(dashboard)/applications`, `(dashboard)/pages`, `(dashboard)/dashboards` extras). Recommend keeping UI showcase during development and pruning before launch.
+12. **Product brief** (optional but recommended): does the user have a detailed product description/PRD? Paste it or point to a file. Explain why it matters: it becomes the versioned product memory every future agent session starts from.
 
 ## Actions by answer
 
@@ -47,6 +51,11 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 **Brand assets**
 - Logo: replace the SVGs in `apps/web/src/components/logo/logo.tsx` keeping the contract documented there (full + mobile variants, token tinting). Also replace `apps/web/public/images/email/logo.svg`.
 - Favicons: replace `apps/web/public/favicon/{light,dark}.png` (paths come from `brand.ts` — keep the theme-agnostic names).
+- **Master logo provided → generate the set** (use `npx` tools, do NOT add repo dependencies):
+  - `apps/web/public/favicon/light.png` and `dark.png` at 512×512 (`npx sharp-cli resize`; dark variant = same art unless a dark master was given).
+  - `apps/web/public/favicon.ico` (32+16) via `npx png-to-ico` — legacy fallback for clients that blindly fetch `/favicon.ico` (the template ships none).
+  - Mobile, if kept: `apps/mobile/assets/icon.png` 1024×1024, `android-icon-foreground.png` 1024 (art at ~66% with transparent padding — Android crops a circle), `splash-icon.png` 512.
+  - Visually inspect each generated file (Read the image) before committing — automated resizes can clip or look muddy at 16px.
 - No assets yet: render the brand name as a text wordmark in `logo.tsx` (`font-display`, primary token color) so nothing ships half-branded; revisit when the final SVGs exist.
 - The shared OG image (`app/(marketing)/opengraph-image.tsx`) reads `brand.ts` + tokens — no per-asset work needed.
 
@@ -77,11 +86,18 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 
 **Email: no** — leave `RESEND_API_KEY` empty (graceful no-op). **Email: yes** — ask for the key later via env, remind about `EMAIL_FROM` domain verification and Supabase SMTP for auth emails.
 
-**Mobile: keep** — `apps/mobile` (Expo + expo-router + RN Paper) is already scaffolded. Update `apps/mobile/app.json` (name/slug from the brand answers) and its icon/splash assets in `apps/mobile/assets/`; remind about `apps/mobile/.env.example` → `.env` with `EXPO_PUBLIC_SUPABASE_*` (same Supabase project as web); defaults in `apps/mobile/src/config.ts` follow the chosen theme/locale.
-**Mobile: prune** — delete `apps/mobile/`; remove the `dev:mobile` root script; delete the `mobile-screen`, `building-native-ui` and `mobile-app-ui-design` skills plus `.claude/rules/mobile-boundaries.md`; remove the `mobile` namespace from `packages/content/messages/*` and the `native` consumers note in CLAUDE.md (keep the tokens `native` export — it is generated and harmless).
+**Mobile: keep** — `apps/mobile` (Expo + expo-router + RN Paper) is already scaffolded. Update `apps/mobile/app.json` (name/slug from the brand answers) and its icon/splash assets in `apps/mobile/assets/`; remind about `apps/mobile/.env.example` → `.env` with `EXPO_PUBLIC_SUPABASE_*` (same Supabase project as web); defaults in `apps/mobile/src/config.ts` follow the chosen theme/locale. Delete `.claude/skills/add-mobile/` — it only serves projects that pruned mobile.
+**Mobile: prune** — delete `apps/mobile/`; remove the `dev:mobile` root script; delete the `mobile-screen`, `building-native-ui` and `mobile-app-ui-design` skills plus `.claude/rules/mobile-boundaries.md`; remove the `mobile` namespace from `packages/content/messages/*` and the `native` consumers note in CLAUDE.md (keep the tokens `native` export — it is generated and harmless). KEEP `.claude/skills/add-mobile/` and note in the final report: run `/add-mobile` whenever the project needs the app later — it restores everything from the template remote in the standard pattern.
+
+**Product brief provided**
+- Save it verbatim (light formatting only) to `docs/PRODUCT.md` — the versioned product memory of the derived repo.
+- Add a ~10-line product summary to the rewritten root `CLAUDE.md` with a "See docs/PRODUCT.md" pointer (shallow context always loaded, deep context on demand — same pattern as package READMEs).
+- Use it as the primary input for the marketing copy rewrite, and cross-check the capability selections against it (e.g. the brief mentions patient confirmations via WhatsApp but WhatsApp was not selected → flag the mismatch before finishing).
+
+**No product brief** — recommend creating `docs/PRODUCT.md` in the first working session, before feature work starts; note it in the final report.
 
 **Marketing site: keep**
-- Load the `marketing-page` skill and rewrite the `marketing` namespace copy in ALL locale files (`de,en,es,fr,pt-BR`) from the branding answers (product, audience, main outcome), following the skill's conversion + anti-AI-copy rules.
+- Load the `marketing-page` skill and rewrite the `marketing` namespace copy in ALL locale files (`de,en,es,fr,pt-BR`) from the branding answers AND `docs/PRODUCT.md` when it exists (product, audience, main outcome), following the skill's conversion + anti-AI-copy rules.
 - Remove unwanted pages: delete the page folder under `app/(marketing)/`, its `PUBLIC_PREFIXES` entry in `src/middleware.ts`, its `sitemap.ts` entry, and its header/footer links.
 - Hero imagery: real product screenshots in `<ProductFrame>`; AI generation tools are optional — without one, the `marketing-page` skill produces ready-to-run generation prompts and the token placeholder keeps working meanwhile.
 
@@ -101,8 +117,8 @@ You are configuring a NEW project cloned from the flyee monorepo. Ask the quiz b
 
 1. Copy `apps/web/.env.example` → `apps/web/.env` (gitignored) and fill what is already known (title, locale). Real keys are added by the user later — never commit them.
 2. `npm install` (root), `npm run build` — must pass.
-3. Update this repo's `CLAUDE.md` files to reflect the choices (remaining structure, chosen icon set, auth model, active capability packages).
-4. Delete this skill (`.claude/skills/init-project/`) from the derived repo — it is single-use.
+3. Update this repo's `CLAUDE.md` files to reflect the choices (remaining structure, chosen icon set, auth model, active capability packages, product summary + `docs/PRODUCT.md` pointer).
+4. Delete this skill (`.claude/skills/init-project/`) from the derived repo — it is single-use. KEEP `update-from-template` (reusable forever) and, when mobile was pruned, `add-mobile`.
 5. Initial commit: `chore: initialize <project> from flyee`.
 6. Report what was configured, what was pruned, and the pending manual steps:
    - Supabase project + apply ALL migrations in `packages/db/migrations/` in order (0003 enables pgvector) + enable TOTP MFA in Auth settings if 2FA will be used.

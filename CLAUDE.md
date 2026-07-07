@@ -31,7 +31,7 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 
 ## Starting a derived project
 
-1. `git clone <flyee repo> <project>`, then `git remote rename origin template` and push to a new **private** repo — keeping `template` as a remote lets the project pull base improvements later via `git fetch template && git merge template/main`.
+1. `git clone <flyee repo> <project>`, then `git remote rename origin template` and push to a new **private** repo — keeping `template` as a remote lets the project pull base improvements later via the `/update-from-template` skill (kept in every derivative; `/add-mobile` restores a pruned mobile app the same way).
 2. Copy `apps/web/.env.example` → `apps/web/.env` (gitignored; real keys never enter git) and `npm install` from the root.
 3. Run `/init-project` — an interactive quiz configures branding (including logo/favicon assets via `brand.ts`), icon set (Nexture/Phosphor via tsconfig alias), auth model, active capability packages, the marketing site (keep + customize copy, or prune), and prunes demo content. The skill is single-use and removes itself.
 
