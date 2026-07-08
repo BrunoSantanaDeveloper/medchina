@@ -7,14 +7,27 @@ description: Design/copy playbook for public marketing pages (landing pages, pri
 
 You are designing a public page that must convert visitors, not decorate a template. Work like a boutique studio lead: make deliberate, opinionated choices specific to THIS product — never reach for the statistically-common default.
 
+## Scope: this skill governs ALL marketing work, not just new pages
+
+It applies equally to **creating a page**, **editing an existing page**, and **adding or changing a section**. The `PreToolUse` marketing-guard hook loads it automatically on every Write/Edit to `app/(marketing)/**` or `components/marketing/**` — you do not wait to be asked.
+
+- **New page** → Pass 0 (inherit or commit a direction), then build.
+- **Edit an existing page** → skip the engine; obey `docs/DESIGN.md`; change only what was asked, in the established style.
+- **Add/change a section** → build the section in the committed direction, then run a **whole-page coherence pass**: re-read the entire page and confirm every existing section stays aesthetically aligned with the new one and still passes the premium bar. If the new work raised the bar (a nicer layout, real product media, a depth treatment the old sections lack), bring the older sections up to it. Never leave a page half at the old level and half at the new — a mismatched section is worse than no section.
+
 ## Process: direction engine, two passes, then code
 
-**Pass 0 — Run the direction engine (before any thinking about sections).** Design decisions must be TUNED TO THE PRODUCT, not generically "good":
-1. If the `ui-ux-pro-max` skill is installed (`.claude/skills/ui-ux-pro-max`), query it for this product's category: style, color usage, **font pairing** and layout guidance (its data covers 161 product types and 57 pairings). For premium/expensive-product briefs, also load `premium-frontend-ui` (taste preset: hero architecture, scroll narratives, atmosphere).
-2. Either way, pick ONE named direction from `references/directions.md` (or justify a custom one in writing). The direction fixes: typography pairing, background/depth treatment, layout archetypes, motion character.
-3. **Typography is a blocking decision**: load the display font with `next/font` in the root layout and set `--font-display`. A marketing page shipped on the admin font alone fails review.
+**Pass 0 — Establish the direction.** Design decisions must be TUNED TO THE PRODUCT, not generically "good". Two branches:
 
-**Pass 1 — Commit to a direction (before any code).** Write down: the chosen direction and why it fits this product; how the theme palette will be used on this page (where the one bold moment lives); the type treatment (display scale usage, hierarchy); the layout concept per section (which archetypes: split hero / FeatureRows / BentoGrid / StatBand — never centered-stack all the way down); and ONE signature element that makes the page recognizably this product's. **Spend your boldness in one place** — but quiet ≠ empty: every section still needs a visual anchor (media, background shift, oversized number, illustration).
+**A. `docs/DESIGN.md` already exists (the common case after the first page): INHERIT, do not re-decide.** Read it and build strictly within it — typography, palette usage, depth treatment, layout archetypes, signature element, motion. **STRICT MODE: do NOT re-run the direction engine and do NOT restyle the UI.** Changing the direction is a "redesign" and happens ONLY when the user explicitly asks for it ("redesign", "nova direção", "novo visual"); that request rewrites `docs/DESIGN.md` first, then pages follow the new version.
+
+**B. `docs/DESIGN.md` does NOT exist yet (first public page of the project): run the engine, then WRITE it.**
+1. If the `ui-ux-pro-max` skill is installed (`.claude/skills/ui-ux-pro-max`), query it for this product's category: style, color usage, **font pairing** and layout guidance (161 product types, 57 pairings). For premium/expensive-product briefs, also load `premium-frontend-ui` (hero architecture, scroll narratives, atmosphere).
+2. Pick ONE named direction from `references/directions.md` (or justify a custom one). The direction fixes: typography pairing, background/depth treatment, layout archetypes, motion character.
+3. **Typography is a blocking decision**: load the display font with `next/font` in the root layout and set `--font-display`. A marketing page shipped on the admin font alone fails review.
+4. **Persist it**: write the committed direction to `docs/DESIGN.md` (follow the shape of the template's version). This is what every later page inherits — the whole point of a consistent site.
+
+**Pass 1 — Plan against the committed direction (before any code).** Write down, consistent with `docs/DESIGN.md`: how the palette will be used on this page (where the one bold moment lives); the type treatment (display scale usage, hierarchy); the layout concept per section (which archetypes: split hero / FeatureRows / BentoGrid / StatBand — never centered-stack all the way down); and how this page carries the direction's signature element. **Spend your boldness in one place** — but quiet ≠ empty: every section still needs a visual anchor (media, background shift, oversized number, illustration).
 
 **Pass 2 — Critique against the brief.** Re-read the plan: which choices would appear on any generic SaaS page regardless of subject? Replace them. Only then build.
 

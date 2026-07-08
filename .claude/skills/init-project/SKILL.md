@@ -112,9 +112,13 @@ The single worst failure mode of this skill is pushing the new project INTO the 
 **No product brief** — recommend creating `docs/PRODUCT.md` in the first working session, before feature work starts; note it in the final report.
 
 **Marketing site: keep**
-- Load the `marketing-page` skill and rewrite the `marketing` namespace copy in ALL locale files (`de,en,es,fr,pt-BR`) from the branding answers AND `docs/PRODUCT.md` when it exists (product, audience, main outcome), following the skill's conversion + anti-AI-copy rules.
+- Load the `marketing-page` skill and run its Pass 0 direction engine for THIS product (category + brand answers + `docs/PRODUCT.md`), then **commit the direction to `docs/DESIGN.md`** (rewrite the template's reference values). This is the persisted visual memory every later page inherits — from here on the direction is STRICT (no re-styling without an explicit "redesign").
+- Load the committed display font via `next/font` in the root layout and set `--font-display` (typography is a blocking decision — never leave marketing on the admin font).
+- Rewrite the `marketing` namespace copy in ALL locale files (`de,en,es,fr,pt-BR`) from the branding answers AND `docs/PRODUCT.md`, following the skill's conversion + anti-AI-copy rules. Build the home page to the premium bar (product evidence above the fold, ≥2 archetypes, background varies, density + motion checks).
 - Remove unwanted pages: delete the page folder under `app/(marketing)/`, its `PUBLIC_PREFIXES` entry in `src/middleware.ts`, its `sitemap.ts` entry, and its header/footer links.
-- Hero imagery: real product screenshots in `<ProductFrame>`; AI generation tools are optional — without one, the `marketing-page` skill produces ready-to-run generation prompts and the token placeholder keeps working meanwhile.
+- Hero imagery: real product screenshots in `<ProductFrame glow>` (or `<DataVizPlaceholder>` for data products); AI generation tools are optional — without one, the `marketing-page` skill produces ready-to-run generation prompts and the token placeholder keeps working meanwhile.
+
+**Marketing site: prune** (note below) — also delete `docs/DESIGN.md` (no public pages to govern).
 
 **Marketing site: prune**
 - Delete `apps/web/src/app/(marketing)/` and `apps/web/src/components/marketing/`; make `/` redirect to `/auth/sign-in` (new minimal `app/page.tsx`).
