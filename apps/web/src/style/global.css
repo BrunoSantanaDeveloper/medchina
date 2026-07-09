@@ -62,6 +62,7 @@
 /* --------- Layout --------- */
 @import "./layout/scrollbar.css";
 @import "./layout/image-list.css";
+@import "./layout/backgrounds.css";
 
 /* --------- Feedback --------- */
 @import "./feedback/alert.css";
