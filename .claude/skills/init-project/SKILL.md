@@ -48,6 +48,7 @@ The single worst failure mode of this skill is pushing the new project INTO the 
    - WhatsApp dispatcher (Meta Cloud API or Evolution)
    - Verifiable documents (`/verify/[code]`)
    - Audit/compliance (row versioning + consents — the project marks its tables)
+   - Onboarding/activation (checklists + setup wizards — `@flyee/onboarding`; the project declares the steps)
 
 **Round 3 — content**
 10. **Marketing site**: keep the public site (`app/(marketing)`: home, /pricing, /about, /contact, /legal) or prune it? If keeping, ask which pages stay.
@@ -97,6 +98,7 @@ The single worst failure mode of this skill is pushing the new project INTO the 
 - Connectors: implement `Connector`s and register them in `apps/web/src/lib/connectors.ts`.
 - WhatsApp: `WHATSAPP_PROVIDER` + provider keys; webhook at `/api/webhooks/whatsapp/[provider]`; Meta templates must be approved in the Meta panel.
 - Audit: mark sensitive tables via `select public.enable_row_versioning('public.<table>');` in project migrations.
+- Onboarding: declare the activation steps (`OnboardingStep[]`) in the project's code and render `OnboardingChecklist` on the app home; no env vars. The `product-screen` skill governs every app screen regardless of this selection.
 - Any async capability (knowledge/connectors/transcribe/whatsapp) needs Inngest: local `npx inngest-cli dev`; production `INNGEST_EVENT_KEY`/`INNGEST_SIGNING_KEY`.
 
 **Email: no** — leave `RESEND_API_KEY` empty (graceful no-op). **Email: yes** — ask for the key later via env, remind about `EMAIL_FROM` domain verification and Supabase SMTP for auth emails.
