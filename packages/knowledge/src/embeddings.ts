@@ -1,6 +1,21 @@
 import { GoogleGenAI } from "@google/genai";
 
-export const EMBEDDING_MODEL = "text-embedding-004";
+/**
+ * Google retired `text-embedding-004` (and `embedding-001`): the Gemini API
+ * now 404s them on embedContent. `gemini-embedding-001` is the successor; it
+ * defaults to 3072 dims but honors `outputDimensionality`, so we keep 768 and
+ * the `vector(768)` column from migration 0003 unchanged. Documents and
+ * queries both go through embed() below, so they can never drift apart.
+ *
+ * Truncated (non-3072) vectors are not unit-normalized. That is fine here:
+ * retrieval uses cosine distance (`vector_cosine_ops` / `<=>`), which is
+ * magnitude-invariant. Normalize first if you ever switch the index to an
+ * inner-product operator.
+ *
+ * Changing this model changes the embedding space — chunks embedded with a
+ * previous model must be RE-INDEXED, or queries will retrieve nonsense.
+ */
+export const EMBEDDING_MODEL = "gemini-embedding-001";
 export const EMBEDDING_DIMENSIONS = 768;
 
 export const isEmbeddingConfigured = () => Boolean(process.env.GEMINI_API_KEY);
