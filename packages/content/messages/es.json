@@ -573,5 +573,17 @@
     "settings-mode-system": "Sistema",
     "settings-language": "Idioma",
     "settings-sign-out": "Cerrar sesión"
+  },
+  "product": {
+    "checklistTitle": "Empieza aquí",
+    "checklistSubtitle": "Unos pasos hasta tu primer resultado.",
+    "wizardStep": "Paso {current} de {total}",
+    "back": "Atrás",
+    "continue": "Continuar",
+    "finish": "Finalizar",
+    "onboardingTitle": "Bienvenido",
+    "onboardingHint": "Unos pasos rápidos y verás tu primer resultado.",
+    "onboardingScaffold": "Este asistente es una plantilla. Sustituye estos pasos por la configuración y personalización que tu producto necesita, y termina en una pantalla que muestre lo que desbloquearon las respuestas.",
+    "getStarted": "Empezar"
   }
 }

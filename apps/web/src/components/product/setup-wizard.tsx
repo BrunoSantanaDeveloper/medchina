@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Box, Button, Card, CardContent, Typography } from "@mui/material";
@@ -27,14 +28,16 @@ export type WizardStep = {
 export default function SetupWizard({
   steps,
   onComplete,
-  completeLabel = "Finish",
+  completeLabel,
   className,
 }: {
   steps: WizardStep[];
   onComplete: () => void;
+  /** Defaults to the translated "Finish". */
   completeLabel?: string;
   className?: string;
 }) {
+  const t = useTranslations("product");
   const [index, setIndex] = useState(0);
   const step = steps[index];
   const isLast = index === steps.length - 1;
@@ -58,7 +61,7 @@ export default function SetupWizard({
 
         <Box className="flex flex-col gap-1">
           <Typography variant="body2" className="text-text-secondary">
-            Step {index + 1} of {steps.length}
+            {t("wizardStep", { current: index + 1, total: steps.length })}
           </Typography>
           <Typography variant="h4" component="h2" className="text-text-primary">
             {step.title}
@@ -79,7 +82,7 @@ export default function SetupWizard({
             disabled={index === 0}
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
           >
-            Back
+            {t("back")}
           </Button>
           {isLast ? (
             <Button
@@ -89,7 +92,7 @@ export default function SetupWizard({
               endIcon={<NiCheck size="medium" />}
               onClick={onComplete}
             >
-              {completeLabel}
+              {completeLabel ?? t("finish")}
             </Button>
           ) : (
             <Button
@@ -99,7 +102,7 @@ export default function SetupWizard({
               endIcon={<NiArrowRight size="medium" />}
               onClick={() => setIndex((i) => Math.min(steps.length - 1, i + 1))}
             >
-              Continue
+              {t("continue")}
             </Button>
           )}
         </Box>

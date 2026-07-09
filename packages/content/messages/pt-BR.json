@@ -573,5 +573,17 @@
     "settings-mode-system": "Sistema",
     "settings-language": "Idioma",
     "settings-sign-out": "Sair"
+  },
+  "product": {
+    "checklistTitle": "Comece por aqui",
+    "checklistSubtitle": "Poucos passos até o seu primeiro resultado.",
+    "wizardStep": "Passo {current} de {total}",
+    "back": "Voltar",
+    "continue": "Continuar",
+    "finish": "Concluir",
+    "onboardingTitle": "Boas-vindas",
+    "onboardingHint": "Alguns passos rápidos e você verá o primeiro resultado.",
+    "onboardingScaffold": "Este assistente é um esqueleto. Substitua estes passos pela configuração e personalização que o seu produto precisa — e termine numa tela que mostre o que as respostas desbloquearam.",
+    "getStarted": "Começar"
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { Box, Button, Card, CardContent, Typography } from "@mui/material";
 
@@ -19,18 +20,20 @@ import { computeProgress, type OnboardingStateRow, type OnboardingStep } from "@
  * `state` comes from @flyee/onboarding.
  */
 export default function OnboardingChecklist({
-  title = "Get set up",
+  title,
   steps,
   state,
   onDismiss,
   className,
 }: {
+  /** Defaults to the translated checklist title. */
   title?: string;
   steps: OnboardingStep[];
   state: OnboardingStateRow;
   onDismiss?: () => void;
   className?: string;
 }) {
+  const t = useTranslations("product");
   const progress = computeProgress(steps, state);
   if (state.dismissed || progress.complete) return null;
 
@@ -42,10 +45,10 @@ export default function OnboardingChecklist({
         <Box className="flex flex-row items-start justify-between gap-3">
           <Box>
             <Typography variant="h5" component="h2" className="card-title">
-              {title}
+              {title ?? t("checklistTitle")}
             </Typography>
             <Typography variant="body2" className="text-text-secondary">
-              A few steps to your first result.
+              {t("checklistSubtitle")}
             </Typography>
           </Box>
           <Box className="flex flex-row items-center gap-2">

@@ -573,5 +573,17 @@
     "settings-mode-system": "Système",
     "settings-language": "Langue",
     "settings-sign-out": "Se déconnecter"
+  },
+  "product": {
+    "checklistTitle": "Commencer",
+    "checklistSubtitle": "Quelques étapes jusqu'à votre premier résultat.",
+    "wizardStep": "Étape {current} sur {total}",
+    "back": "Retour",
+    "continue": "Continuer",
+    "finish": "Terminer",
+    "onboardingTitle": "Bienvenue",
+    "onboardingHint": "Quelques étapes rapides et vous verrez votre premier résultat.",
+    "onboardingScaffold": "Cet assistant est une trame. Remplacez ces étapes par la configuration et la personnalisation dont votre produit a besoin, et terminez par un écran qui montre ce que les réponses ont débloqué.",
+    "getStarted": "Démarrer"
   }
 }

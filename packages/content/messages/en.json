@@ -573,5 +573,17 @@
     "settings-mode-system": "System",
     "settings-language": "Language",
     "settings-sign-out": "Sign out"
+  },
+  "product": {
+    "checklistTitle": "Get set up",
+    "checklistSubtitle": "A few steps to your first result.",
+    "wizardStep": "Step {current} of {total}",
+    "back": "Back",
+    "continue": "Continue",
+    "finish": "Finish",
+    "onboardingTitle": "Welcome",
+    "onboardingHint": "A couple of quick steps and you'll see your first result.",
+    "onboardingScaffold": "This wizard is a scaffold. Replace these steps with the setup and personalization your product needs — and end on a screen that shows what the answers unlocked.",
+    "getStarted": "Get started"
   }
 }

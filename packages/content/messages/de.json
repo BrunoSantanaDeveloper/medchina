@@ -573,5 +573,17 @@
     "settings-mode-system": "System",
     "settings-language": "Sprache",
     "settings-sign-out": "Abmelden"
+  },
+  "product": {
+    "checklistTitle": "Einrichten",
+    "checklistSubtitle": "Ein paar Schritte bis zu deinem ersten Ergebnis.",
+    "wizardStep": "Schritt {current} von {total}",
+    "back": "Zurück",
+    "continue": "Weiter",
+    "finish": "Fertig",
+    "onboardingTitle": "Willkommen",
+    "onboardingHint": "Ein paar schnelle Schritte und du siehst dein erstes Ergebnis.",
+    "onboardingScaffold": "Dieser Assistent ist ein Gerüst. Ersetze diese Schritte durch die Einrichtung und Personalisierung, die dein Produkt braucht – und schließe mit einem Bildschirm ab, der zeigt, was die Antworten freigeschaltet haben.",
+    "getStarted": "Loslegen"
   }
 }
