@@ -62,6 +62,19 @@ A page can follow every rule below and still look like a beginner site if it is 
 - **Responsive:** mobile-first — the base layout is the phone; breakpoints only add columns/space. No horizontal scroll at 375px. Verify 375/768/1440.
 - **Routes:** a new public page must be added to `PUBLIC_PREFIXES` in `apps/web/src/middleware.ts` and to `apps/web/src/app/sitemap.ts`, and export its own `metadata`/`generateMetadata`.
 
+## SEO & discoverability (every page earns its ranking)
+
+The template already ships the technical layer — `sitemap.ts`, `robots.ts`, the shared Open Graph image, `Organization`/`WebSite` JSON-LD in the marketing layout, and `FAQPage`/`Product` JSON-LD emitted automatically by `Faq`/`PricingSection`. The committed per-page search direction (target term + intent per page) lives in `docs/SEO.md` — read it the way you read `docs/DESIGN.md`. Your job on each page is the on-page layer:
+
+- **Exactly one `<h1>` — the page title.** A page that opens with `<Hero>` already has it; a page whose lead is a plain section passes `as="h1"` to its first `<SectionHeader>` (or `headingAs="h1"` to `<PricingSection>`). Every other heading is `<h2>`/`<h3>` in a real hierarchy — the display size is set by `text-display-*`, independent of the tag, so NEVER pick a heading level for its size.
+- **Title tag:** `generateMetadata` returns a `title` that leads with the page's target term + the value, ~60 chars, localized — never just the brand name. The home composes `Brand — value proposition` via `title: { absolute }` to skip the `%s | Brand` template.
+- **Meta description:** 150–160 chars, written like ad copy (the outcome + the reason to click), localized, distinct per page — don't let a page inherit the home description.
+- **Answer-first copy:** any section that answers a question (FAQ, feature explainer) opens with the direct answer in the first sentence, then the depth. This is what AI search engines quote and what wins zero-click surfaces.
+- **Target term in the visible places:** the page's keyword belongs in the `<h1>`, the title tag, the URL slug and the first sentence — naturally, never stuffed.
+- **Structured data:** reuse the components that already emit it; if a page adds a new schema-eligible block (article, breadcrumb, how-to), emit it with `<JsonLd>` (`components/marketing/json-ld.tsx`) — never hand-write a `<script>`.
+- **Internal links:** connect a new page to related pages and to the money page (pricing/sign-up) — this is how authority flows and how crawlers discover it.
+- **Indexable language:** i18n is cookie-based, so crawlers only see the default locale (`DEFAULTS.locale`). The primary market's language MUST be the default; a truly multilingual site needs `/[locale]/` routing (an architecture change, not a page edit).
+
 ## Visual vocabulary (the library's expressive range)
 
 Beyond `Section`/`SectionHeader`/`FeatureGrid`/`Testimonials`/`Faq`/`Cta`, the library ships archetypes for expensive-product pages — compose these instead of inventing per-page layouts:
@@ -124,3 +137,5 @@ Rules:
 ## Before finishing
 
 Walk the page at 375px, 768px, 1440px; toggle dark mode and at least two color themes; emulate reduced motion; confirm every string resolves in all 5 locales; run `npm run build` and `npm run lint:fix`.
+
+**SEO pass:** exactly one `<h1>`; `generateMetadata` exports a localized title (target term + value, not just the brand) and a distinct 150–160-char description; the route is in `PUBLIC_PREFIXES` and `sitemap.ts`; structured data is present where applicable (FAQ, pricing, article); every image has descriptive `alt`; the page links to the money page. View source and confirm the JSON-LD and `<h1>` are in the server-rendered HTML.
