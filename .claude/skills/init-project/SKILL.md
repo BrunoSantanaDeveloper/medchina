@@ -34,7 +34,7 @@ The single worst failure mode of this skill is pushing the new project INTO the 
    - **One master logo only** (SVG or PNG ≥1024×1024, dropped into `attachments/`): the derived assets are GENERATED from it (see Brand assets actions).
    - **No assets yet**: keep the placeholder and note the fallback: a text wordmark (brand name in `font-display`, primary token color) — nothing ships half-branded.
 4. Icon set: Nexture (default) or Phosphor?
-5. Default locale? (template default: en; available: de, en, es, fr, pt-BR)
+5. Default locale? (template default: en; available: de, en, es, fr, pt-BR) — **this is the only search-indexable language**: i18n is cookie-based, so crawlers and AI engines see ONLY the default. A Brazil-first project MUST pick pt-BR (otherwise the indexed site is English); a genuinely multilingual, indexable site needs `/[locale]/` routing — flag that as a follow-up, don't silently ship the wrong default.
 
 **Round 2 — platform**
 6. Auth model: multi-tenant organizations (default), single-user (no orgs), or no auth (public site/dashboard)?
@@ -62,7 +62,7 @@ The single worst failure mode of this skill is pushing the new project INTO the 
 
 **Identity**
 - Rewrite `BRAND` in `packages/content/src/index.ts` (name, tagline, description; `NEXT_PUBLIC_SITE_URL` note for production) — shared by web and mobile. Root `package.json` name, `apps/web` `NEXT_PUBLIC_TITLE` in `.env`; rewrite root `CLAUDE.md` header: it now describes THIS product (remove "this is the template base" warnings — derived repos hold real business logic; keep structure/commands sections).
-- Locale: `DEFAULTS.locale` in `apps/web/src/config.ts`.
+- Locale: `DEFAULTS.locale` in `apps/web/src/config.ts`. This is the search-indexable language (cookie-based i18n) — set it to the primary market's language, not a leftover `en`.
 
 **Brand assets**
 - Logo: replace the SVGs in `apps/web/src/components/logo/logo.tsx` keeping the contract documented there (full + mobile variants, token tinting). Also replace `apps/web/public/images/email/logo.svg`.
@@ -115,12 +115,13 @@ The single worst failure mode of this skill is pushing the new project INTO the 
 
 **Marketing site: keep**
 - Load the `marketing-page` skill and run its Pass 0 direction engine for THIS product (category + brand answers + `docs/PRODUCT.md`), then **commit the direction to `docs/DESIGN.md`** (rewrite the template's reference values). This is the persisted visual memory every later page inherits — from here on the direction is STRICT (no re-styling without an explicit "redesign").
+- **Commit the search direction to `docs/SEO.md`**: rewrite the per-page target-term table from `docs/PRODUCT.md` (each kept page → its primary keyword + intent; money pages first), keeping the "what the template guarantees automatically" section intact. This is the SEO counterpart of `docs/DESIGN.md` — the `marketing-page` skill reads it when writing titles and copy. If the marketing site is pruned, delete this file (see below).
 - Load the committed display font via `next/font` in the root layout and set `--font-display` (typography is a blocking decision — never leave marketing on the admin font).
 - Rewrite the `marketing` namespace copy in ALL locale files (`de,en,es,fr,pt-BR`) from the branding answers AND `docs/PRODUCT.md`, following the skill's conversion + anti-AI-copy rules. Build the home page to the premium bar (product evidence above the fold, ≥2 archetypes, background varies, density + motion checks).
 - Remove unwanted pages: delete the page folder under `app/(marketing)/`, its `PUBLIC_PREFIXES` entry in `src/middleware.ts`, its `sitemap.ts` entry, and its header/footer links.
 - Hero imagery: real product screenshots in `<ProductFrame glow>` (or `<DataVizPlaceholder>` for data products); AI generation tools are optional — without one, the `marketing-page` skill produces ready-to-run generation prompts and the token placeholder keeps working meanwhile.
 
-**Marketing site: prune** (note below) — also delete `docs/DESIGN.md` (no public pages to govern).
+**Marketing site: prune** (note below) — also delete `docs/DESIGN.md` and `docs/SEO.md` (no public pages to govern).
 
 **Marketing site: prune**
 - Delete `apps/web/src/app/(marketing)/` and `apps/web/src/components/marketing/`; make `/` redirect to `/auth/sign-in` (new minimal `app/page.tsx`).
@@ -144,6 +145,6 @@ The single worst failure mode of this skill is pushing the new project INTO the 
 6. Initial commit: `chore: initialize <project> from flyee`. Before pushing, assert `git remote get-url origin` is NOT the template URL (Step 0 guarantee) — then push to `origin`.
 7. Report what was configured, what was pruned, and the pending manual steps:
    - Supabase project + apply ALL migrations in `packages/db/migrations/` in order (0003 enables pgvector) + enable TOTP MFA in Auth settings if 2FA will be used.
-   - Vercel project rooted at `apps/web`; env vars mirrored from `.env`.
+   - Vercel project rooted at `apps/web`; env vars mirrored from `.env`, including `NEXT_PUBLIC_SITE_URL` (the canonical origin, no trailing slash) — `sitemap.ts`, `robots.ts`, the OG image and every JSON-LD URL fall back to `localhost` without it.
    - Per selected capability: provider dashboards (Stripe/Asaas webhooks, Meta WhatsApp templates + webhook + verify token, Inngest app URL, Resend domain, OAuth providers).
    - Brand art still pending, if any (logo SVGs, favicons, email logo).
