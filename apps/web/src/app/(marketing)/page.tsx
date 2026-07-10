@@ -1,6 +1,8 @@
 import { getDisplayPlans } from "./plans";
+import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
+import { BRAND } from "@/brand";
 import Cta from "@/components/marketing/cta";
 import Faq from "@/components/marketing/faq";
 import FeatureGrid from "@/components/marketing/feature-grid";
@@ -24,6 +26,13 @@ const FEATURE_ICONS = [
   <NiAi key="ai" />,
   <NiChartLine key="chart" />,
 ];
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("marketing");
+  // `absolute` bypasses the root "%s | Brand" template so the home title reads
+  // as one line: "Brand — value proposition" (keyword-led, under ~60 chars).
+  return { title: { absolute: `${BRAND.name} — ${t("home-meta-title")}` } };
+}
 
 /**
  * Home = conversion funnel: hero (value prop) → logos/testimonials (trust) →

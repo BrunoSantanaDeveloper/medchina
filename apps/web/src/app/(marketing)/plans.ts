@@ -54,6 +54,9 @@ export async function getDisplayPlans(): Promise<PublicPlanDisplay[]> {
       period: plan.kind === "recurring" && plan.period && !plan.isFree ? t(`pricing-period-${plan.period}`) : undefined,
       features,
       highlighted: index === highlightIndex,
+      // Raw values power the Offer JSON-LD (formatted `price` is display-only).
+      priceAmount: plan.isFree ? 0 : plan.priceCents / 100,
+      priceCurrency: plan.currency,
     };
   });
 }
