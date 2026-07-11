@@ -51,7 +51,8 @@ The single worst failure mode of this skill is pushing the new project INTO the 
    - Onboarding/activation (checklists + setup wizards — `@flyee/onboarding`; the project declares the steps)
 
 **Round 3 — content**
-10. **Marketing site**: keep the public site (`app/(marketing)`: home, /pricing, /about, /contact, /legal) or prune it? If keeping, ask which pages stay.
+10. **Marketing site**: keep the public site (`app/(marketing)`: home, /pricing, /about, /contact, /help, /blog, /legal) or prune it? If keeping, ask which pages stay — /help and /blog are DB-managed (superadmin writes content in `/admin/help` and `/admin/blog`, no deploy needed); pruning either also removes its admin console, migration usage note and footer link.
+10b. **Quick-support widget**: which channels for the floating support button (`BRAND.support` in `packages/content/src/index.ts`)? WhatsApp number (digits with country code), support email, both, or none (widget hidden until a human channel is set).
 11. Other demo content to keep as reference vs. prune now. Offer multiSelect: UI showcase (`(dashboard)/ui`, ~518 files), template docs (`(dashboard)/docs`), sample apps (`(dashboard)/applications`, `(dashboard)/pages`, `(dashboard)/dashboards` extras). Recommend keeping UI showcase during development and pruning before launch.
 12. **Product brief** (optional but recommended): does the user have a detailed product description/PRD? Paste it, point to a file, or drop it into `attachments/`. Explain why it matters: it becomes the versioned product memory every future agent session starts from.
 
@@ -145,6 +146,7 @@ The single worst failure mode of this skill is pushing the new project INTO the 
 6. Initial commit: `chore: initialize <project> from flyee`. Before pushing, assert `git remote get-url origin` is NOT the template URL (Step 0 guarantee) — then push to `origin`.
 7. Report what was configured, what was pruned, and the pending manual steps:
    - Supabase project + apply ALL migrations in `packages/db/migrations/` in order (0003 enables pgvector) + enable TOTP MFA in Auth settings if 2FA will be used.
+   - Bootstrap the platform superadmin (`update public.profiles set is_superadmin = true where id = '<uuid>'`) — the `/admin` consoles (metrics, organizations/users, billing, AI, knowledge, audit, announcements, help center, blog) are invisible without it. `SUPABASE_SERVICE_ROLE_KEY` enables user ban/unban and auth-side info in `/admin/organizations`.
    - Vercel project rooted at `apps/web`; env vars mirrored from `.env`, including `NEXT_PUBLIC_SITE_URL` (the canonical origin, no trailing slash) — `sitemap.ts`, `robots.ts`, the OG image and every JSON-LD URL fall back to `localhost` without it.
    - Per selected capability: provider dashboards (Stripe/Asaas webhooks, Meta WhatsApp templates + webhook + verify token, Inngest app URL, Resend domain, OAuth providers).
    - Brand art still pending, if any (logo SVGs, favicons, email logo).
