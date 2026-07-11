@@ -13,6 +13,7 @@ import Main from "@/components/layout/containers/main";
 import ThemeConfiguration from "@/components/layout/containers/theme-configuration";
 import LeftMenu from "@/components/layout/menu/left-menu";
 import MenuBackdrop from "@/components/layout/menu/menu-backdrop";
+import SupportWidget from "@/components/support/support-widget";
 
 LicenseInfo.setLicenseKey(process.env.NEXT_PUBLIC_MUI_X_LICENSE_KEY || "");
 
@@ -33,6 +34,7 @@ export default function DashboardLayout({
       </Main>
       <ThemeConfiguration />
       <MenuBackdrop />
+      <SupportWidget />
     </>
   );
 }
