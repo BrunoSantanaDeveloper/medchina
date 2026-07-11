@@ -15,6 +15,10 @@ const config: Config = {
         // Marketing display slot: defaults to the heading font; derived projects
         // may load a display font in the root layout and set --font-display.
         display: ["var(--font-display, var(--font-heading))", "ui-sans-serif"],
+        // Instrument/data slot (mono eyebrows, readouts, metric indexes).
+        // Optional: derived projects load a mono font via next/font and set
+        // --font-mono; without it this degrades to the system mono stack.
+        mono: ["var(--font-mono, ui-monospace)", "ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
       screens: { sm: "480px", md: "960px", lg: "1280px", xl: "1440px", "2xl": "1640px", "3xl": "1900px" } as Screens,
       backgroundImage: {
