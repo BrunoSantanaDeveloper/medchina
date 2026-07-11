@@ -1,3 +1,4 @@
+import CountUp from "@/components/marketing/count-up";
 import Reveal from "@/components/marketing/reveal";
 import Section from "@/components/marketing/section";
 import { TONE, type Tone } from "@/components/marketing/tone";
@@ -12,21 +13,36 @@ export type Stat = {
 };
 
 /**
- * Full-width contrast band of 3–4 oversized numbers — proof at a glance.
+ * Full-width contrast band of OVERSIZED numbers — proof at a glance. The
+ * number is the payload: display-2xl, extrabold, tabular, left-aligned over
+ * the technical grid, each under a mono index and above a tone gauge bar, and
+ * it COUNTS UP on scroll entry (CountUp is SSR-safe and reduced-motion safe).
  * Only real, defensible numbers: an invented stat is worse than no band.
  */
 export default function StatBand({ stats }: { stats: Stat[] }) {
   return (
-    <Section spacing="compact" background="contrast" decor="gradient-edge">
-      <Reveal stagger={0.1} className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="flex flex-col items-center gap-1 text-center">
-            <span className={cn("font-display text-display-lg font-extrabold", TONE[stat.tone ?? "primary"].text)}>
-              {stat.value}
-            </span>
-            <span className="text-text-secondary max-w-44 text-sm leading-5">{stat.label}</span>
-          </div>
-        ))}
+    <Section background="contrast" decor="grid">
+      <Reveal stagger={0.1} className="grid grid-cols-2 gap-x-8 gap-y-12 md:grid-cols-4">
+        {stats.map((stat, index) => {
+          const tone = TONE[stat.tone ?? "primary"];
+          return (
+            <div key={stat.label} className="flex flex-col gap-4">
+              <span className="text-text-muted font-mono text-xs tracking-widest">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <CountUp
+                value={stat.value}
+                className={cn("font-display text-display-2xl leading-none font-extrabold", tone.text)}
+              />
+              <span
+                aria-hidden
+                className="h-1 w-16 rounded-full"
+                style={{ backgroundColor: `hsl(var(${tone.cssVar}))` }}
+              />
+              <span className="text-text-secondary max-w-56 text-sm leading-5">{stat.label}</span>
+            </div>
+          );
+        })}
       </Reveal>
     </Section>
   );
