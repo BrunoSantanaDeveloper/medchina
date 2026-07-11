@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Alert, Box, Breadcrumbs, Card, CardContent, Grid, Skeleton, Typography } from "@mui/material";
 
 import NiAI from "@/icons/nexture/ni-ai";
+import NiAnnouncement from "@/icons/nexture/ni-announcement";
 import NiBook from "@/icons/nexture/ni-book";
 import NiBuilding from "@/icons/nexture/ni-building";
 import NiCoin from "@/icons/nexture/ni-coin";
@@ -105,6 +106,12 @@ const consoles = [
     icon: <NiShieldCheck size="medium" />,
     title: "Audit & Logs",
     description: "Append-only audit trail and the WhatsApp message log.",
+  },
+  {
+    href: "/admin/announcements",
+    icon: <NiAnnouncement size="medium" />,
+    title: "Announcements",
+    description: "System-wide banners every user sees until dismissed.",
   },
 ];
 

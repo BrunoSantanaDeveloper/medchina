@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { LicenseInfo } from "@mui/x-license";
 
 import Loading from "@/app/loading";
+import AnnouncementBanner from "@/components/layout/announcements/announcement-banner";
 import ContentWrapper from "@/components/layout/containers/content-wrapper";
 import Header from "@/components/layout/containers/header";
 import Main from "@/components/layout/containers/main";
@@ -26,6 +27,7 @@ export default function DashboardLayout({
       <LeftMenu />
       <Main>
         <ContentWrapper>
+          <AnnouncementBanner />
           <Suspense fallback={<Loading />}>{children}</Suspense>
         </ContentWrapper>
       </Main>

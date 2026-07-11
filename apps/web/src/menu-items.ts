@@ -110,6 +110,13 @@ export const leftMenuItems: MenuItem[] = [
         href: "/admin/audit",
         description: "menu-admin-audit-description",
       },
+      {
+        id: "admin-announcements",
+        icon: "NiAnnouncement",
+        label: "menu-admin-announcements",
+        href: "/admin/announcements",
+        description: "menu-admin-announcements-description",
+      },
     ],
   },
   {
