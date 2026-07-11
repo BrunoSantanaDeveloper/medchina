@@ -24,6 +24,7 @@ export default async function PricingPage() {
         plans={plans}
         ctaLabel={t("cta-primary")}
         headingAs="h1"
+        decor="glow"
       />
 
       <Container>

@@ -46,6 +46,7 @@ export default function PricingSection({
   ctaLabel,
   ctaHref = "/auth/sign-up",
   headingAs = "h2",
+  decor = "none",
 }: {
   id?: string;
   eyebrow?: string;
@@ -56,9 +57,11 @@ export default function PricingSection({
   ctaHref?: string;
   /** Set "h1" when this section is the page's lead (e.g. the pricing page). */
   headingAs?: "h1" | "h2";
+  /** Section depth layer — pages that LEAD with pricing use "glow" (same treatment as a hero). */
+  decor?: "none" | "glow" | "grid" | "gradient-edge";
 }) {
   return (
-    <Section id={id}>
+    <Section id={id} decor={decor}>
       {plans
         .filter((plan) => plan.priceAmount !== undefined && plan.priceCurrency)
         .map((plan) => (

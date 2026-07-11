@@ -23,7 +23,7 @@ export default async function AboutPage() {
 
   return (
     <>
-      <Section>
+      <Section decor="glow">
         <SectionHeader eyebrow={t("about-eyebrow")} title={t("about-title")} subtitle={t("about-subtitle")} as="h1" />
         <Reveal>
           <Prose>
