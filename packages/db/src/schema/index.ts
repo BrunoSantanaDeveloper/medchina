@@ -9,3 +9,7 @@ export * from "./documents";
 export * from "./transcriptions";
 export * from "./whatsapp";
 export * from "./onboarding";
+export * from "./announcements";
+export * from "./notifications";
+export * from "./help";
+export * from "./blog";

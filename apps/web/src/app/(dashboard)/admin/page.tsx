@@ -11,6 +11,8 @@ import NiBook from "@/icons/nexture/ni-book";
 import NiBuilding from "@/icons/nexture/ni-building";
 import NiCoin from "@/icons/nexture/ni-coin";
 import NiMoney from "@/icons/nexture/ni-money";
+import NiPen from "@/icons/nexture/ni-pen";
+import NiQuestionHexagon from "@/icons/nexture/ni-question-hexagon";
 import NiReceipt from "@/icons/nexture/ni-receipt";
 import NiShieldCheck from "@/icons/nexture/ni-shield-check";
 import NiUsers from "@/icons/nexture/ni-users";
@@ -112,6 +114,18 @@ const consoles = [
     icon: <NiAnnouncement size="medium" />,
     title: "Announcements",
     description: "System-wide banners every user sees until dismissed.",
+  },
+  {
+    href: "/admin/help",
+    icon: <NiQuestionHexagon size="medium" />,
+    title: "Help Center",
+    description: "Public help articles served at /help, per locale.",
+  },
+  {
+    href: "/admin/blog",
+    icon: <NiPen size="medium" />,
+    title: "Blog",
+    description: "Posts published to /blog and the comment moderation queue.",
   },
 ];
 
