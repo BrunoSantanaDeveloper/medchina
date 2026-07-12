@@ -624,7 +624,18 @@
     "privacy-3-title": "3. Stockage et sécurité",
     "privacy-3-body": "Les données sont stockées avec une isolation par organisation appliquée au niveau de la base, chiffrées en transit, avec un accès restreint par rôle. Les événements d'audit sont conservés en mode immuable.",
     "privacy-4-title": "4. Vos droits",
-    "privacy-4-body": "Vous pouvez demander l'accès, la correction, l'export ou la suppression de vos données personnelles. Les consentements sont versionnés et votre compte indique ce qui a été accepté et quand."
+    "privacy-4-body": "Vous pouvez demander l'accès, la correction, l'export ou la suppression de vos données personnelles. Les consentements sont versionnés et votre compte indique ce qui a été accepté et quand.",
+    "chip-kpi-label": "Organisations actives",
+    "chip-kpi-value": "1 284",
+    "chip-kpi-delta": "+12%",
+    "chip-trend-label": "Revenus du mois",
+    "chip-readout-text": "audit · 3 événements",
+    "breakout-eyebrow": "Salle de contrôle",
+    "breakout-title": "La santé de chaque organisation, sur un écran.",
+    "breakout-body": "Métriques, activité et facturation de tous vos clients dans une seule console — par rôle, exportable, toujours à jour.",
+    "breakout-bullet-1": "Métriques en direct par organisation",
+    "breakout-bullet-2": "Par rôle — aucune donnée ne circule entre clients",
+    "cta-kicker": "Quand vous voulez"
   },
   "mobile": {
     "signin-title": "Se connecter",

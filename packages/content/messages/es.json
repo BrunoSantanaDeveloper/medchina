@@ -624,7 +624,18 @@
     "privacy-3-title": "3. Almacenamiento y seguridad",
     "privacy-3-body": "Los datos se almacenan con aislamiento por organización aplicado en la base de datos, cifrados en tránsito y con acceso restringido por rol. Los eventos de auditoría se conservan en modo inmutable.",
     "privacy-4-title": "4. Tus derechos",
-    "privacy-4-body": "Puedes solicitar acceso, corrección, exportación o eliminación de tus datos personales. Los consentimientos se versionan y puedes consultar en tu cuenta qué se aceptó y cuándo."
+    "privacy-4-body": "Puedes solicitar acceso, corrección, exportación o eliminación de tus datos personales. Los consentimientos se versionan y puedes consultar en tu cuenta qué se aceptó y cuándo.",
+    "chip-kpi-label": "Organizaciones activas",
+    "chip-kpi-value": "1.284",
+    "chip-kpi-delta": "+12%",
+    "chip-trend-label": "Ingresos del mes",
+    "chip-readout-text": "auditoría · 3 eventos",
+    "breakout-eyebrow": "Sala de control",
+    "breakout-title": "La salud de cada organización en una pantalla.",
+    "breakout-body": "Métricas, actividad y cobros de todos tus clientes en una sola consola — por rol, exportable, siempre al día.",
+    "breakout-bullet-1": "Métricas en vivo por organización",
+    "breakout-bullet-2": "Por rol — ningún dato cruza entre clientes",
+    "cta-kicker": "Cuando quieras"
   },
   "mobile": {
     "signin-title": "Iniciar sesión",

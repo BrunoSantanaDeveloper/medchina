@@ -624,7 +624,18 @@
     "privacy-3-title": "3. Storage and security",
     "privacy-3-body": "Data is stored with per-organization isolation enforced at the database level, encrypted in transit, with access restricted by role. Audit events are retained append-only.",
     "privacy-4-title": "4. Your rights",
-    "privacy-4-body": "You can request access, correction, export or deletion of your personal data. Consent records are versioned, and you can review what was accepted and when from your account."
+    "privacy-4-body": "You can request access, correction, export or deletion of your personal data. Consent records are versioned, and you can review what was accepted and when from your account.",
+    "chip-kpi-label": "Active organizations",
+    "chip-kpi-value": "1,284",
+    "chip-kpi-delta": "+12%",
+    "chip-trend-label": "Revenue this month",
+    "chip-readout-text": "audit · 3 events logged",
+    "breakout-eyebrow": "Control room",
+    "breakout-title": "Every organization's health, on one screen.",
+    "breakout-body": "Metrics, activity and billing across all your tenants in a single console — scoped by role, exportable, always current.",
+    "breakout-bullet-1": "Live metrics per organization",
+    "breakout-bullet-2": "Role-scoped — no data crosses between tenants",
+    "cta-kicker": "Ready when you are"
   },
   "mobile": {
     "signin-title": "Sign in",

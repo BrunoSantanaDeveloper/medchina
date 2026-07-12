@@ -624,7 +624,18 @@
     "privacy-3-title": "3. Armazenamento e segurança",
     "privacy-3-body": "Os dados ficam armazenados com isolamento por organização aplicado no banco de dados, criptografados em trânsito e com acesso restrito por papel. Eventos de auditoria são retidos em modo imutável.",
     "privacy-4-title": "4. Seus direitos",
-    "privacy-4-body": "Você pode solicitar acesso, correção, exportação ou exclusão dos seus dados pessoais. Os registros de consentimento são versionados e você consulta na sua conta o que foi aceito e quando."
+    "privacy-4-body": "Você pode solicitar acesso, correção, exportação ou exclusão dos seus dados pessoais. Os registros de consentimento são versionados e você consulta na sua conta o que foi aceito e quando.",
+    "chip-kpi-label": "Organizações ativas",
+    "chip-kpi-value": "1.284",
+    "chip-kpi-delta": "+12%",
+    "chip-trend-label": "Receita no mês",
+    "chip-readout-text": "auditoria · 3 eventos",
+    "breakout-eyebrow": "Sala de controle",
+    "breakout-title": "A saúde de cada organização em uma tela.",
+    "breakout-body": "Métricas, atividade e cobrança de todos os seus clientes em um só console — por papel, exportável, sempre atual.",
+    "breakout-bullet-1": "Métricas ao vivo por organização",
+    "breakout-bullet-2": "Por papel — nenhum dado cruza entre clientes",
+    "cta-kicker": "Quando você quiser"
   },
   "mobile": {
     "signin-title": "Entrar",

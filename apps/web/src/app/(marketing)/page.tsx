@@ -4,17 +4,23 @@ import { getTranslations } from "next-intl/server";
 
 import { BRAND } from "@/brand";
 import BentoGrid from "@/components/marketing/bento-grid";
+import Breakout from "@/components/marketing/breakout";
 import Cta from "@/components/marketing/cta";
 import DataVizPlaceholder from "@/components/marketing/data-viz-placeholder";
 import Faq from "@/components/marketing/faq";
 import FeatureRows from "@/components/marketing/feature-row";
 import Hero from "@/components/marketing/hero";
 import LogoCloud from "@/components/marketing/logo-cloud";
+import Parallax from "@/components/marketing/parallax";
 import PricingSection from "@/components/marketing/pricing-section";
+import ProductComposition from "@/components/marketing/product-composition";
 import ProductFrame from "@/components/marketing/product-frame";
+import { KpiChip, ReadoutChip, TrendChip } from "@/components/marketing/satellite-chips";
+import Section from "@/components/marketing/section";
 import StatBand from "@/components/marketing/stat-band";
 import Testimonials from "@/components/marketing/testimonials";
 import NiAi from "@/icons/nexture/ni-ai";
+import NiCheck from "@/icons/nexture/ni-check";
 import NiCreditCard from "@/icons/nexture/ni-credit-card";
 import NiFlash from "@/icons/nexture/ni-flash";
 import NiShieldCheck from "@/icons/nexture/ni-shield-check";
@@ -27,11 +33,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Home = conversion funnel: hero (value prop + product evidence) → logos
- * (trust) → feature rows (flagship depth, claim next to evidence) → bento
- * (secondary desire) → stat band (proof) → testimonials (trust) → pricing
- * (action) → FAQ (objections) → CTA (recovery). The primary CTA label
- * (cta-primary) repeats verbatim at every action point.
+ * Home = conversion funnel: hero (layered product evidence) → logos (trust) →
+ * feature rows (flagship depth) → breakout (control-room proof) → bento
+ * (secondary desire) → stat band (proof) → testimonials → pricing → FAQ → CTA.
+ * The primary CTA label (cta-primary) repeats verbatim at every action point.
+ *
+ * Reference implementation of docs/DESIGN.md: a layered <ProductComposition>
+ * hero, one <Breakout> full-bleed moment, oversized counting <StatBand>, and a
+ * restrained ambient layer (2 floats + 1 parallax + 1 orbit).
  *
  * Family → hue mapping (consistent site-wide): data/analytics = primary
  * (the bold moment), tenancy/security = secondary, audit = accent-1,
@@ -49,7 +58,45 @@ export default async function Home() {
         subtitle={t("hero-subtitle")}
         primaryCta={{ label: t("cta-primary"), href: "/auth/sign-up" }}
         secondaryCta={{ label: t("hero-secondary"), href: "/pricing" }}
-        media={<ProductFrame glow />}
+        media={
+          <ProductComposition
+            frame={
+              <ProductFrame glow>
+                <DataVizPlaceholder label={t("hero-eyebrow")} />
+              </ProductFrame>
+            }
+            satellites={[
+              {
+                children: (
+                  <KpiChip
+                    label={t("chip-kpi-label")}
+                    value={t("chip-kpi-value")}
+                    delta={t("chip-kpi-delta")}
+                    tone="primary"
+                  />
+                ),
+                position: "top-right",
+                depth: "front",
+                rotate: 3,
+                float: true,
+              },
+              {
+                children: <TrendChip label={t("chip-trend-label")} tone="accent-3" />,
+                position: "bottom-left",
+                depth: "front",
+                rotate: -3,
+                float: true,
+                floatDelay: 0.8,
+              },
+              {
+                children: <ReadoutChip text={t("chip-readout-text")} tone="accent-1" />,
+                position: "left",
+                depth: "back",
+                hideBelow: "md",
+              },
+            ]}
+          />
+        }
       />
 
       <LogoCloud label={t("logos-label")} items={[1, 2, 3, 4, 5].map((index) => ({ name: t(`logo-${index}`) }))} />
@@ -84,7 +131,35 @@ export default async function Home() {
         ]}
       />
 
+      {/* The page's one full-bleed breakout: the control-room console runs off
+          the right edge with a quiet parallax; copy stays in the container. */}
+      <Section bleed decor="dots" className="overflow-x-clip">
+        <Breakout
+          side="right"
+          media={
+            <Parallax speed={8}>
+              <ProductFrame>
+                <DataVizPlaceholder label={t("breakout-eyebrow")} />
+              </ProductFrame>
+            </Parallax>
+          }
+        >
+          <p className="text-primary mb-3 text-sm font-semibold tracking-wide uppercase">{t("breakout-eyebrow")}</p>
+          <h2 className="font-display text-display-lg text-text-primary font-bold">{t("breakout-title")}</h2>
+          <p className="text-text-secondary mt-4 text-lg leading-7">{t("breakout-body")}</p>
+          <ul className="mt-6 flex flex-col gap-3">
+            {[t("breakout-bullet-1"), t("breakout-bullet-2")].map((bullet) => (
+              <li key={bullet} className="text-text-primary flex items-start gap-2.5 leading-6">
+                <NiCheck size="small" className="text-primary mt-0.5 flex-none" />
+                {bullet}
+              </li>
+            ))}
+          </ul>
+        </Breakout>
+      </Section>
+
       <BentoGrid
+        decor="mesh"
         eyebrow={t("bento-eyebrow")}
         title={t("bento-title")}
         items={[
@@ -155,6 +230,8 @@ export default async function Home() {
       />
 
       <Cta
+        kicker={t("cta-kicker")}
+        decor="orbit"
         title={t("cta-title")}
         subtitle={t("cta-subtitle")}
         cta={{ label: t("cta-primary"), href: "/auth/sign-up" }}

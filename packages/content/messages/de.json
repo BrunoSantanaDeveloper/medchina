@@ -624,7 +624,18 @@
     "privacy-3-title": "3. Speicherung und Sicherheit",
     "privacy-3-body": "Daten werden mit Isolation pro Organisation auf Datenbankebene gespeichert, bei der Übertragung verschlüsselt und mit rollenbasiertem Zugriff geschützt. Audit-Ereignisse werden unveränderlich aufbewahrt.",
     "privacy-4-title": "4. Ihre Rechte",
-    "privacy-4-body": "Sie können Auskunft, Berichtigung, Export oder Löschung Ihrer personenbezogenen Daten verlangen. Einwilligungen werden versioniert, und Sie sehen in Ihrem Konto, was wann akzeptiert wurde."
+    "privacy-4-body": "Sie können Auskunft, Berichtigung, Export oder Löschung Ihrer personenbezogenen Daten verlangen. Einwilligungen werden versioniert, und Sie sehen in Ihrem Konto, was wann akzeptiert wurde.",
+    "chip-kpi-label": "Aktive Organisationen",
+    "chip-kpi-value": "1.284",
+    "chip-kpi-delta": "+12%",
+    "chip-trend-label": "Umsatz diesen Monat",
+    "chip-readout-text": "Audit · 3 Ereignisse",
+    "breakout-eyebrow": "Kontrollraum",
+    "breakout-title": "Der Zustand jeder Organisation auf einem Bildschirm.",
+    "breakout-body": "Kennzahlen, Aktivität und Abrechnung aller Mandanten in einer Konsole — rollenbasiert, exportierbar, immer aktuell.",
+    "breakout-bullet-1": "Live-Kennzahlen je Organisation",
+    "breakout-bullet-2": "Rollenbasiert — keine Daten zwischen Mandanten",
+    "cta-kicker": "Wann immer Sie bereit sind"
   },
   "mobile": {
     "signin-title": "Anmelden",
