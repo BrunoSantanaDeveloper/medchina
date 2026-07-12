@@ -1,5 +1,6 @@
 import "@/lib/connectors";
 
+import { backupFunctions } from "@flyee/backup/jobs";
 import { connectorFunctions } from "@flyee/connectors/jobs";
 import { inngest } from "@flyee/jobs";
 import { serve } from "@flyee/jobs/next";
@@ -10,5 +11,11 @@ import { whatsappFunctions } from "@flyee/whatsapp/jobs";
 // Register every Inngest function exposed by packages/* here.
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [...knowledgeFunctions, ...connectorFunctions, ...transcribeFunctions, ...whatsappFunctions],
+  functions: [
+    ...knowledgeFunctions,
+    ...connectorFunctions,
+    ...transcribeFunctions,
+    ...whatsappFunctions,
+    ...backupFunctions,
+  ],
 });

@@ -1,22 +1,20 @@
 "use client";
 
-import AccessEventsAdmin from "./components/access-events-admin";
-import AuditEventsAdmin from "./components/audit-events-admin";
-import WaLogAdmin from "./components/wa-log-admin";
+import InsightsChat from "./components/insights-chat";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Alert, Box, Breadcrumbs, Card, CardContent, Grid, Tab, Tabs, Typography } from "@mui/material";
+import { Alert, Breadcrumbs, Card, CardContent, Grid, Typography } from "@mui/material";
 
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 
 /**
- * Superadmin audit console. RLS is the real gate (non-superadmins get
- * empty reads); the client-side check only improves UX.
+ * Superadmin data-insights console. The API route re-checks is_superadmin
+ * server-side before touching the database — this client check only decides
+ * what to render.
  */
-export default function AdminAudit() {
-  const [tab, setTab] = useState(0);
+export default function AdminInsights() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -43,14 +41,14 @@ export default function AdminAudit() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          Audit & Logs
+          Data Insights
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/dashboards/default">
             Home
           </Link>
           <Typography variant="body2">Admin</Typography>
-          <Typography variant="body2">Audit</Typography>
+          <Typography variant="body2">Insights</Typography>
         </Breadcrumbs>
       </Grid>
 
@@ -66,14 +64,7 @@ export default function AdminAudit() {
         <Grid size={12}>
           <Card component="section">
             <CardContent>
-              <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-6">
-                <Tab label="Audit trail" />
-                <Tab label="Access" />
-                <Tab label="WhatsApp log" />
-              </Tabs>
-              <Box hidden={tab !== 0}>{tab === 0 && <AuditEventsAdmin />}</Box>
-              <Box hidden={tab !== 1}>{tab === 1 && <AccessEventsAdmin />}</Box>
-              <Box hidden={tab !== 2}>{tab === 2 && <WaLogAdmin />}</Box>
+              <InsightsChat />
             </CardContent>
           </Card>
         </Grid>
