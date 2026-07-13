@@ -20,6 +20,20 @@
   },
   "components": [
     {
+      "name": "AnamnesisCard",
+      "file": "anamnesis-card.tsx",
+      "role": "evidence",
+      "props": "title, subtitle?, fields: {label, value?, state: clear|attention|empty, stateLabel}[], source?: {label, quote}, className",
+      "use": "MedChina signature motif (docs/DESIGN.md): structured-anamnesis surface with per-field review states (jade=clear, terracotta=attention, neutral=empty) and optional provenance footnote; the hero frame media and the anamnesis/traceability evidence — fictitious data only (Helena Martins)"
+    },
+    {
+      "name": "PhoneFrame",
+      "file": "phone-frame.tsx",
+      "role": "evidence",
+      "props": "children (screen content), className · RecordingMock{patient, statusLabel, timer, pauseLabel, voiceLabel, finishLabel}",
+      "use": "token phone chrome for the companion-app story (real screenshots when they exist); RecordingMock renders the Modo Consulta screen (recording state + timer + big actions) with translated labels"
+    },
+    {
       "name": "Section",
       "file": "section.tsx",
       "role": "layout",

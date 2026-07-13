@@ -8,5 +8,5 @@ export type LocaleOption = (typeof LOCALES)[number];
 export const DEFAULTS = {
   themeName: "green" as ThemeName,
   modeSetting: "system" as Mode | "system",
-  locale: "en" as LocaleOption,
+  locale: "pt-BR" as LocaleOption,
 };

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Flyee",
-    "slug": "flyee",
-    "scheme": "flyee",
+    "name": "MedChina",
+    "slug": "medchina",
+    "scheme": "medchina",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -12,7 +12,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#EEEBE7",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

@@ -1,6 +1,6 @@
 {
-  "name": "flyee",
-  "version": "6.3.0",
+  "name": "medchina",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
     "apps/*",

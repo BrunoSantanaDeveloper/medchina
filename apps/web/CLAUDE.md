@@ -1,12 +1,12 @@
-# Flyee Web (apps/web)
+# MedChina Web (apps/web)
 
-Next.js 15 (App Router) + React 19 admin template.
+Next.js 15 (App Router) + React 19 — the MedChina platform (web is the primary, complete surface; see root CLAUDE.md and docs/PRODUCT.md).
 
 ## Stack and conventions
 
-- **UI**: MUI v9 is the base — before building a component from scratch, check for an existing MUI or MUI X equivalent (DataGrid Premium, Charts Pro, Date Pickers Pro, Tree View are already installed). Icons: individual named imports from `@mui/icons-material`.
+- **UI**: MUI v9 is the base — before building a component from scratch, check for an existing MUI or MUI X equivalent (DataGrid Premium, Charts Pro, Date Pickers Pro, Tree View are already installed). Icons: **Phosphor** via the `@/icons/nexture/*` tsconfig alias (16 real adapters; the rest are Nexture fallback stubs — replace incrementally, see `src/icons/README.md`).
 - **Styling**: MUI theme driven by CSS variables (`hsl(var(--token))`) defined in `@flyee/design-tokens`. MUI component overrides live in `src/style/**/*.css` (organized by category), inside CSS layers (`theme, base, mui, components, utilities`). Tailwind 4 only for layout utilities; classes merged with `tailwind-merge`.
-- **Themes**: 4 color themes × light/dark, switched via classes on `<html>` (`theme-blue dark` etc.) by the `ThemeProvider` (`src/theme/theme-provider.tsx`).
+- **Themes**: SINGLE locked brand palette (Teal/Camel, written into `@flyee/design-tokens` `css/green.css`) × light/dark, applied via classes on `<html>` (`theme-green dark`) by the `ThemeProvider` (`src/theme/theme-provider.tsx`). `THEME_OPTIONS` holds only GREEN; the color switcher is removed. Display font: TT Chocolates (`src/fonts/tt-chocolates/`, `--font-display` in the root layout).
 - **Forms**: Formik + Yup.
 - **i18n**: next-intl — every UI string goes through messages, never hardcoded. Locales: `de,en,es,fr,pt-BR`; catalogs live in `packages/content/messages/` (shared with apps/mobile); public-site copy lives in the `marketing` namespace.
 - **Path alias**: `@/*` → `./src/*`.
@@ -14,8 +14,8 @@ Next.js 15 (App Router) + React 19 admin template.
 
 ## Marketing layer (public site)
 
-- Routes live in `src/app/(marketing)/` (home `/`, `/pricing`, `/about`, `/contact`, `/help`, `/blog`, `/legal/*`) with their own chrome — no admin layout. Each new public route must be added to `PUBLIC_PREFIXES` (`src/middleware.ts`) and `src/app/sitemap.ts`.
-- `/help` and `/blog` render DB-managed content (superadmin writes it in `/admin/help` and `/admin/blog`) through `src/lib/public-content.ts` (anon client, published rows only, locale with EN fallback); the sitemap includes their published slugs and degrades to the static list without Supabase env. Markdown renders via `components/marketing/markdown-prose.tsx` (react-markdown, raw HTML ignored).
+- Routes live in `src/app/(marketing)/` with Portuguese slugs (home `/`, `/como-funciona`, `/recursos`, `/planos`, `/seguranca`, `/migracao`, `/sobre`, `/contato`, `/ajuda`, `/blog`, `/legal/{termos,privacidade,cookies}`) with their own chrome — no admin layout. Each new public route must be added to `PUBLIC_PREFIXES` (`src/middleware.ts`) and `src/app/sitemap.ts`. The home is built section-by-section from `docs/HOME-SPEC.md` (contractual order); MedChina copy guardrails live in `docs/DESIGN.md` (never imply autonomous diagnosis; no unproven metrics/testimonials; prices are hypotheses from configurable data).
+- `/ajuda` and `/blog` render DB-managed content (superadmin writes it in `/admin/help` and `/admin/blog`) through `src/lib/public-content.ts` (anon client, published rows only, locale with EN fallback); the sitemap includes their published slugs and degrades to the static list without Supabase env. Markdown renders via `components/marketing/markdown-prose.tsx` (react-markdown, raw HTML ignored).
 - Pages compose the primitives in `src/components/marketing/` (`Section`/`Container`/`SectionHeader`; sections like Hero, FeatureGrid, PricingSection) — never hand-tuned spacing/widths. See that folder's README and the `marketing-page` skill (load it before building/editing public pages).
 - Display typography: `font-display text-display-{2xl,xl,lg,md}` (fluid clamp scale from `@flyee/design-tokens/css/marketing.css`).
 - Motion: GSAP only inside marketing client components via `<Reveal>`/`useGSAP` (transforms + `autoAlpha`, honors `prefers-reduced-motion`); never in admin code.
@@ -28,7 +28,7 @@ Next.js 15 (App Router) + React 19 admin template.
 - `/admin/insights` (`api/admin/insights/route.ts`): the model writes SQL from an `information_schema` catalog and each statement executes inside a postgres-js `sql.begin("read only", …)` transaction with a 5s `statement_timeout` — **the read-only transaction is the safety boundary, not the prompt**. Every executed query is audited and shown in the UI. Needs `DATABASE_URL` + one AI provider key; degrades to a 503 hint otherwise.
 - `/admin/backups` (`@flyee/backup`): nightly Inngest cron + "Run backup now" (falls back to an inline run without Inngest keys, bounded by the function timeout). Archives land in the private `backups` bucket; downloads are service-role signed URLs.
 - Real account plumbing: header bell reads the `notifications` table (create rows server-side with `lib/notifications.ts` or DB triggers — see migration 0012); announcements banner in the dashboard layout (per-user dismissal); `/settings` edits the real profile (display name + avatar → `avatars` bucket, migration 0013) and credentials (email/password); the user menu shows the real session and signs out for real.
-- Floating quick-support widget (`components/support/support-widget.tsx`, mounted in both layouts) reads `BRAND.support` from `@flyee/content` — configure WhatsApp/email there; it renders nothing until a human channel is set.
+- Floating quick-support widget (`components/support/support-widget.tsx`, mounted in both layouts) reads the superadmin-managed channels from `platform_settings` ('support' key — console at `/admin/support`, migration 0018, helper `lib/platform-settings.ts`), falling back to `BRAND.support` from `@flyee/content`; it renders nothing until a human channel (WhatsApp/email) is set.
 
 ## Commands (run from the monorepo root)
 

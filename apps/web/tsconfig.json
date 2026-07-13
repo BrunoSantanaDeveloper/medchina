@@ -18,9 +18,9 @@
       }
     ],
     "paths": {
-      // Icon set swap: uncomment to use the Phosphor adapters app-wide.
-      // Run `npm run icons:stubs -w @flyee/web` first. See src/icons/README.md.
-      // "@/icons/nexture/*": ["./src/icons/phosphor/*"],
+      // MedChina uses the Phosphor icon set (16 real adapters; the rest are
+      // Nexture fallbacks — replace incrementally, see src/icons/README.md).
+      "@/icons/nexture/*": ["./src/icons/phosphor/*"],
       "@/*": ["./src/*"]
     },
     "target": "ES2022"

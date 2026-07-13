@@ -1,59 +1,62 @@
 /* --------------------------- */
-/* Theme Green */
+/* Theme Green — MedChina brand palette */
+/* Primary: Teal #177c81 · Secondary: Camel #c09362 (brand manual exact) */
+/* Accents derived outside the main brand colors, for highlights/charts:  */
+/* jade, slate blue, terracotta, plum. Red stays reserved for risk/error. */
 /* --------------------------- */
 
 @layer base {
   .theme-green {
-    --primary: 99 53% 48%;
-    --primary-light: 99 53% 58%;
-    --primary-dark: 99 53% 38%;
+    --primary: 183 70% 30%;
+    --primary-light: 183 70% 40%;
+    --primary-dark: 183 70% 20%;
 
-    --secondary: 150 69% 34%;
-    --secondary-light: 150 69% 44%;
-    --secondary-dark: 150 69% 24%;
+    --secondary: 31 43% 57%;
+    --secondary-light: 31 43% 67%;
+    --secondary-dark: 31 43% 47%;
 
-    --accent-1: 193 86% 55%;
-    --accent-1-light: 193 86% 65%;
-    --accent-1-dark: 193 86% 45%;
+    --accent-1: 158 35% 42%;
+    --accent-1-light: 158 35% 52%;
+    --accent-1-dark: 158 35% 32%;
 
-    --accent-2: 219 82% 59%;
-    --accent-2-light: 219 82% 69%;
-    --accent-2-dark: 219 82% 49%;
+    --accent-2: 210 40% 48%;
+    --accent-2-light: 210 40% 58%;
+    --accent-2-dark: 210 40% 38%;
 
-    --accent-3: 251 78% 63%;
-    --accent-3-light: 251 78% 73%;
-    --accent-3-dark: 251 78% 53%;
+    --accent-3: 16 55% 55%;
+    --accent-3-light: 16 55% 65%;
+    --accent-3-dark: 16 55% 45%;
 
-    --accent-4: 292 78% 61%;
-    --accent-4-light: 292 78% 71%;
-    --accent-4-dark: 292 78% 51%;
+    --accent-4: 327 28% 47%;
+    --accent-4-light: 327 28% 57%;
+    --accent-4-dark: 327 28% 37%;
 
     color-scheme: light;
   }
   .theme-green.dark {
-    --primary: 99 53% 48%;
-    --primary-light: 99 53% 58%;
-    --primary-dark: 99 53% 38%;
+    --primary: 183 55% 40%;
+    --primary-light: 183 55% 50%;
+    --primary-dark: 183 55% 30%;
 
-    --secondary: 150 69% 34%;
-    --secondary-light: 150 69% 44%;
-    --secondary-dark: 150 69% 24%;
+    --secondary: 31 45% 62%;
+    --secondary-light: 31 45% 72%;
+    --secondary-dark: 31 45% 52%;
 
-    --accent-1: 193 86% 55%;
-    --accent-1-light: 193 86% 65%;
-    --accent-1-dark: 193 86% 45%;
+    --accent-1: 158 30% 50%;
+    --accent-1-light: 158 30% 60%;
+    --accent-1-dark: 158 30% 40%;
 
-    --accent-2: 219 82% 59%;
-    --accent-2-light: 219 82% 69%;
-    --accent-2-dark: 219 82% 49%;
+    --accent-2: 210 42% 58%;
+    --accent-2-light: 210 42% 68%;
+    --accent-2-dark: 210 42% 48%;
 
-    --accent-3: 251 78% 63%;
-    --accent-3-light: 251 78% 73%;
-    --accent-3-dark: 251 78% 53%;
+    --accent-3: 16 55% 60%;
+    --accent-3-light: 16 55% 70%;
+    --accent-3-dark: 16 55% 50%;
 
-    --accent-4: 292 78% 61%;
-    --accent-4-light: 292 78% 71%;
-    --accent-4-dark: 292 78% 51%;
+    --accent-4: 327 30% 56%;
+    --accent-4-light: 327 30% 66%;
+    --accent-4-dark: 327 30% 46%;
 
     color-scheme: dark;
   }

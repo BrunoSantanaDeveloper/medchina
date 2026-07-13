@@ -1,6 +1,6 @@
-# Flyee Mobile (apps/mobile)
+# MedChina Mobile (apps/mobile)
 
-Expo (SDK 57) + expo-router + React Native Paper app sharing the flyee identity with `apps/web` through `packages/*`. Before building or editing screens, load the `mobile-screen` skill; Expo/router specifics live in the `building-native-ui` skill, UX patterns in `mobile-app-ui-design`.
+Expo (SDK 57) + expo-router + React Native Paper — the MedChina companion app. Its product scope is CAPTURE, not review (PRD §11, docs/PRODUCT.md): consented audio recording, voice observations, resilient upload queue and processing status. NO checkout/purchase flows ever (store policy, PRD §4.4). Shares the MedChina identity with `apps/web` through `packages/*`. Before building or editing screens, load the `mobile-screen` skill; Expo/router specifics live in the `building-native-ui` skill, UX patterns in `mobile-app-ui-design`.
 
 Expo has changed significantly across versions — see @AGENTS.md and the versioned docs it points to.
 
@@ -12,7 +12,7 @@ Expo has changed significantly across versions — see @AGENTS.md and the versio
 - **i18n**: `use-intl` with the shared catalogs from `@flyee/content/messages/*` (same keys/ICU as web's next-intl). App-shell strings live in the `mobile` namespace; locale names in `dashboard`. Every string goes through messages.
 - **Auth**: `@flyee/auth/native` (supabase-js + AsyncStorage) wired in `src/lib/supabase.ts` reading `EXPO_PUBLIC_SUPABASE_URL/ANON_KEY`. Without env the app stays browsable with a hint (same rule as web).
 - **Icons**: `@/icons/nexture/ni-*` RN adapters (react-native-svg) — port more with `node scripts/port-icons.mjs ni-name` (see `src/icons/README.md`).
-- **Settings**: theme color / mode / locale persisted in AsyncStorage (`src/providers/settings.tsx`), defaults mirror web (`green`, `system`, `en`) in `src/config.ts` — keep in sync with `apps/web/src/config.ts`.
+- **Settings**: theme color / mode / locale persisted in AsyncStorage (`src/providers/settings.tsx`), defaults mirror web (`green` — the locked MedChina Teal/Camel palette, `system`, `pt-BR`) in `src/config.ts` — keep in sync with `apps/web/src/config.ts`.
 - **Path alias**: `@/*` → `./src/*`.
 
 ## Commands

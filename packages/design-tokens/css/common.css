@@ -9,29 +9,30 @@
     /* --------- Globals --------- */
 
     /* --------- Background Colors --------- */
-    --background: 0 0% 98%;
+    /* MedChina warm neutrals: light surfaces tinted toward Parchment #eeebe7 */
+    --background: 34 20% 97%;
     --background-paper: 0 0% 100%;
     /* --------- Background Colors --------- */
 
     /* --------- Grey Scales --------- */
-    --grey-20: 0 0% 98%;
-    --grey-25: 0 0% 97%;
-    --grey-50: 0 0% 95%;
-    --grey-100: 0 0% 91%;
-    --grey-200: 0 0% 87%;
-    --grey-300: 0 0% 83%;
-    --grey-400: 0 0% 79%;
-    --grey-500: 0 0% 75%;
-    --grey-600: 0 0% 71%;
-    --grey-700: 0 0% 67%;
-    --grey-800: 0 0% 63%;
-    --grey-900: 0 0% 59%;
+    --grey-20: 34 14% 97%;
+    --grey-25: 34 13% 96%;
+    --grey-50: 34 12% 94%;
+    --grey-100: 34 10% 90%;
+    --grey-200: 34 9% 86%;
+    --grey-300: 34 8% 82%;
+    --grey-400: 34 7% 78%;
+    --grey-500: 34 6% 74%;
+    --grey-600: 34 6% 70%;
+    --grey-700: 34 5% 66%;
+    --grey-800: 34 5% 62%;
+    --grey-900: 34 4% 58%;
     /* --------- Grey Scales --------- */
 
     /* --------- Text Colors --------- */
-    --text-primary: 0 0% 30%;
-    --text-primary-light: 0 0% 40%;
-    --text-primary-dark: 0 0% 20%;
+    --text-primary: 34 8% 26%;
+    --text-primary-light: 34 8% 36%;
+    --text-primary-dark: 34 8% 16%;
 
     --text-secondary: 0 0% 60%;
     --text-secondary-light: 0 0% 70%;

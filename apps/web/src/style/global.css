@@ -22,10 +22,8 @@
 
 /* --------- Theme (design tokens: source of truth in packages/design-tokens) --------- */
 @import "@flyee/design-tokens/css/common.css";
-@import "@flyee/design-tokens/css/blue.css";
+/* MedChina single brand palette lives in green.css (Teal/Camel) — other theme files stay in the package for template merges but are not loaded. */
 @import "@flyee/design-tokens/css/green.css";
-@import "@flyee/design-tokens/css/orange.css";
-@import "@flyee/design-tokens/css/purple.css";
 @import "@flyee/design-tokens/css/marketing.css";
 
 /* --------- Surfaces --------- */

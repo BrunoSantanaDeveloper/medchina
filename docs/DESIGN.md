@@ -9,25 +9,22 @@
 - **Add or change a section** → the new section obeys this file AND you run a **whole-page coherence pass**: every existing section must stay aesthetically aligned with the new one and pass the premium bar. If new work raises the bar, bring the older sections up — never ship a page half at the old level and half at the new.
 - **Redesign** (changing the direction itself) happens ONLY when the user explicitly asks ("redesign" / "nova direção"). That request rewrites this file first; then pages follow the new version.
 
-Derived projects: `/init-project` rewrites this file when the brand direction is committed. The values below are the flyee template's own reference direction — replace them, keep the shape.
-
 ---
 
-## Committed direction
+## Committed direction — "Cuidado Sereno" (chosen by the user from 3 visual candidates, 2026-07-13)
 
 | Field | Decision |
 |---|---|
-| **Direction** | Premium SaaS / Data-driven (see `.claude/skills/marketing-page/references/directions.md` #1) |
-| **Why** | Multi-tenant admin platform sold to teams; the product IS data and control surfaces, so the site must read as a serious, expensive tool — not a brochure. |
-| **Display type** | Urbanist (geometric sans), loaded via `next/font` as `--font-heading`; marketing `font-display` resolves to it. Tight tracking, extrabold at the top of the fluid scale. |
-| **Body type** | Mulish (`--font-body`), 16–18px, line-height 1.5+. |
-| **Numbers** | Tabular/extrabold in the display face for `StatBand` and KPIs — data credibility. |
-| **Palette usage** | Dark-first, **harmonic — never monochrome**. Primary is reserved for CTAs and the bold moment (hero glow + data viz main series). Categorical elements use the theme's harmonic hues via `tone` (`secondary`, `accent-1..4`): plan tiers, feature families, chart comparison series, icon chips — each family keeps ONE consistent hue across the whole site. Quiet base (neutral surfaces, hairline borders); never more than one saturated focus per viewport. |
-| **Depth treatment** | `Section decor="glow"` on the hero; `decor="grid"` on one technical/feature section; `dots`/`mesh` on quieter chapters; one `background="contrast"` band (StatBand); one `orbit` on the closing CTA. The background MUST change ≥2× down the page. |
-| **Layout archetypes** | Hero `layout="split"` + **`<ProductComposition>`** (layered frame + floating satellite chips); `<FeatureRows>` zig-zag for depth features; ONE breakout moment (`<Band angle>` or `<Breakout side>`); `<BentoGrid>` for secondary; `<StatBand>` for proof. Never centered-stack + equal-card-grid all the way down, never a flat single-rectangle hero. |
-| **Signature element** | The **layered `<ProductComposition>`**: a central data-viz/screenshot frame with floating KPI/trend/readout satellite chips overlapping its edges — product evidence above the fold, always, and never a flat rectangle. A naked text hero is a direction violation. |
-| **Imagery** | Real screenshots via `<ProductShot>` when they exist (pipeline: `npm run shots:marketing`); until then the token `<ProductFrame>`/`<DataVizPlaceholder>` frame inside `<ProductComposition>`. Same `-dark` pair convention. |
-| **Motion** | One orchestrated hero timeline (staggered copy → frame rise → satellites pop via GSAP `useGSAP`); **ambient layer**: floating satellites, `<CountUp>` stat numbers, one desktop `<Parallax>` on a breakout, one `orbit` decor. Quiet `<Reveal>` elsewhere; chart draws on viewport entry. Budget ≤4 Float + ≤2 Parallax; all reduced-motion safe. |
+| **Direction** | Health / Care / Trust (see `.claude/skills/marketing-page/references/directions.md` #3), tuned to the MedChina brand manual and PRD §16 ("sofisticação, acolhimento, silêncio visual, precisão clínica"). |
+| **Why** | The buyer is an autonomous TCM practitioner deciding whether to trust an AI with her patients' clinical records. The page must feel like her practice — calm, warm, precise — not like a tech dashboard. Trust and clinical control are the conversion levers. |
+| **Display type** | **TT Chocolates** (brand manual, commercial) via `next/font/local` as `--font-display`, weights 500/700/800 (`apps/web/src/fonts/tt-chocolates/`). Warm humanist sans — headings at the fluid display scale, bold, `tracking -0.02em`. |
+| **Body type** | Mulish (`--font-body`), 16–18px, line-height 1.6. |
+| **Palette usage** | Light-first over the warm Parchment ground (`--background: 34 20% 97%`). **Teal primary** carries CTAs and the single bold moment per page. **Camel secondary** is the warmth layer: eyebrows, editorial accents, and the metallic-gradient moments (mirrors the logo's "China" gradient — use sparingly, one per page max). Categorical families map to accents with ONE consistent meaning site-wide: **jade `accent-1` = evidência clara / gratuito-manual**, **slate `accent-2` = organização / plataforma-web**, **terracotta `accent-3` = requer atenção / gravação ao vivo**, **plum `accent-4` = inferência da IA / Pro**. Grey-olive neutrals for "não informado". **Red is reserved for risk/error only** (PRD §16.1) — terracotta covers "attention", never red. |
+| **Depth treatment** | Soft and airy: `decor="gradient-edge"` transitions between chapters, `decor="glow"` (teal, low alpha) on the hero, one `background="contrast"` elevated band per page (the library's tinted band with hairlines — the mobile/operational-trust chapter), `dots` on one quiet chapter. The bold moment is the hero glow + primary CTAs (teal). Generous radii (`--border-radius-xl+`), diffuse shadows (`shadow-lg`, never harsh). The background changes ≥2× down the page. |
+| **Layout archetypes** | Hero `layout="split"` + **`<ProductComposition>`** (web anamnesis frame + phone-recording satellite chips — the product duo IS the story); `<FeatureRows>` zig-zag for the clinical-flow features; `<ProcessSteps variant="icon">` for the 4-step consultation flow; `<BentoGrid>` for the MTC specialization map; `<StatBand>` (deep teal) for plan facts; ONE breakout per page. Never centered-stack + equal-card-grid all the way down. |
+| **Signature element** | The **consultation duo**: a phone "recording" card layered over/next to the web anamnesis frame, connected by the field-state language (Evidência clara / Requer atenção / Não informado as jade/terracotta/neutral chips). Field-state chips are the site's recurring motif — they appear in the hero, the anamnesis section and the traceability section, always with the same hues. |
+| **Imagery** | Real product screenshots via `<ProductShot>` once `shots:marketing` can capture them; until then token-driven `<ProductFrame>`/composition mockups with FICTITIOUS data only (patient "Helena Martins", PRD §7.4 script). Linear/abstract illustrations inspired by flow/balance/continuity when a glyph can't carry the idea; **never** stock photos with white coats, caricatured Chinese symbols, robots or holograms (HOME-SPEC §7.3). |
+| **Motion** | Gentle and slow (the PRD's "silêncio visual"): one orchestrated hero timeline (copy stagger → frame rise → satellites drift in) with `--motion-duration-3`-ish pacing; ambient layer = ≤3 `<Float>` satellites + `<CountUp>` on the plan numbers; quiet `<Reveal>` elsewhere. Nothing snaps. All reduced-motion safe. |
 
 ## Premium bar (must all pass before shipping any page)
 
@@ -36,20 +33,29 @@ Derived projects: `/init-project` rewrites this file when the brand direction is
 3. Background changes ≥2× along the scroll.
 4. 1440px density check: no viewport >50% empty.
 5. One orchestrated motion moment + a runtime scroll pass (no `<Reveal>` left un-fired).
-6. Display typography is the committed display font, not the raw admin font.
-7. Harmonic palette in use: at least two hues beyond primary, purposefully mapped (tiers/families/series), via the `tone` prop — never a 100%-primary page and never hues outside the tokens.
+6. Display typography is TT Chocolates, not the raw admin font.
+7. Harmonic palette in use: at least two hues beyond primary, purposefully mapped per the table above, via the `tone` prop — never a 100%-primary page and never hues outside the tokens.
 8. Show, don't tell: text-heavy sections carry a glance-able visual (meaningful icon, figure, chart or conceptual illustration); feature/step cards lead with a meaningful icon in the family hue — no wall of title+paragraph cards.
 9. The hero media is a LAYERED `<ProductComposition>` (≥2 satellite chips) or a real screenshot — never a flat single rectangle.
 10. ≥1 breakout / full-bleed moment (`<Band>` or `<Breakout>`) — the page does not live entirely inside the container.
-11. Ambient motion present but restrained (Float / CountUp / one Parallax / one orbit), within budget and reduced-motion safe.
+11. Ambient motion present but restrained (Float / CountUp / one Parallax), within budget and reduced-motion safe.
+
+## MedChina-specific copy guardrails (blocking, from HOME-SPEC §2.3/§6.3 and PRD §10.10)
+
+- Never say or imply the AI diagnoses, treats, prescribes autonomously or replaces the professional; use "hipótese", "sugestão", "preparado para sua revisão", "requer validação".
+- Never promise "100% seguro/LGPD"; prefer "desenvolvido com requisitos de privacidade desde a concepção".
+- The trial never reads as automatic — it starts only at the first real AI consultation, no card.
+- The mobile app is always "complementar" to the web platform; no purchase language for the app.
+- No fabricated metrics, testimonials, logos or seals (HOME-SPEC §33.5) — plan facts (minutes, trial length, price hypotheses) are the only numbers allowed, loaded from configurable data.
+- Mockup data is always fictitious (patient "Helena Martins").
 
 ## Reference ingredients
 
 <!-- marketing-page Pass 0.R writes here when the user drops reference screenshots in attachments/. Structural ingredients only (composition, depth, breakout, imagery, motion) mapped to library primitives — never copied hex/fonts. -->
-_None ingested yet._
+_None ingested — direction chosen from generated candidates (A · Cuidado Sereno; previews in the session artifact)._
 
-## Open items (template baseline)
+## Open items
 
-- The home page implements this direction end to end (layered ProductComposition hero + satellites, FeatureRows zig-zag with decor="grid", one Breakout with parallax, BentoGrid, oversized counting StatBand, orbit-decor CTA, ambient floats — family→hue mapping documented in `app/(marketing)/page.tsx`). It is the reference implementation new pages read.
-- `/pricing`, `/about` and `/contact` are supporting pages: structurally compliant (single h1, metadata, primitives, lead-section glow) but intentionally quieter than the home. Deepening them further is a normal edit governed by this file.
-- Real product screenshots ship via the `shots:marketing` pipeline once a project can reach its product; the template's reference home stays on the layered composition + token placeholder frame by design (fresh-clone dashboards are auth-gated).
+- The home page (`app/(marketing)/page.tsx`) is the reference implementation of this direction, built section-by-section from `docs/HOME-SPEC.md` (order §8 is contractual).
+- Supporting pages (`/como-funciona`, `/recursos`, `/planos`, `/seguranca`, `/migracao`, `/sobre`, `/contato`) are structurally compliant but quieter than the home.
+- Real product screenshots ship via `shots:marketing` once the dashboards have real MedChina screens; until then the layered composition + token mockups (Helena Martins data) stand in.

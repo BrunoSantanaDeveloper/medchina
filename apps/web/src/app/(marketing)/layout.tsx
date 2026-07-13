@@ -6,6 +6,7 @@ import JsonLd from "@/components/marketing/json-ld";
 import MarketingFooter from "@/components/marketing/marketing-footer";
 import MarketingHeader from "@/components/marketing/marketing-header";
 import SupportWidget from "@/components/support/support-widget";
+import { getSupportChannels } from "@/lib/platform-settings";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
@@ -23,7 +24,8 @@ export async function generateMetadata(): Promise<Metadata> {
  * Public site chrome: no admin layout, no auth required. Every route in this
  * group must be listed as public in src/middleware.ts (PUBLIC_PREFIXES).
  */
-export default function MarketingLayout({ children }: { children: React.ReactNode }) {
+export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
+  const support = await getSupportChannels();
   return (
     <div className="bg-background flex min-h-[100dvh] flex-col">
       {/* Site-wide identity for search + AI engines; rebrands with @flyee/content. */}
@@ -52,7 +54,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <MarketingHeader />
       <main className="flex flex-1 flex-col">{children}</main>
       <MarketingFooter />
-      <SupportWidget />
+      <SupportWidget support={support} />
     </div>
   );
 }

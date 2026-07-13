@@ -2,6 +2,7 @@ import "@/style/global.css";
 
 import { Metadata } from "next";
 import { Mulish, Urbanist } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
@@ -26,6 +27,23 @@ const mulish = Mulish({
 const urbanist = Urbanist({
   subsets: ["latin"],
   variable: "--font-heading",
+  display: "swap",
+  preload: true,
+});
+
+/**
+ * TT Chocolates — MedChina brand display font (marketing headings via
+ * `font-display`; tailwind falls back to --font-heading where unset).
+ * Only the weights the marketing scale uses are wired; the full family
+ * (incl. italics) lives in src/fonts/tt-chocolates/.
+ */
+const ttChocolates = localFont({
+  src: [
+    { path: "../fonts/tt-chocolates/tt-chocolates-medium.otf", weight: "500", style: "normal" },
+    { path: "../fonts/tt-chocolates/tt-chocolates-bold.otf", weight: "700", style: "normal" },
+    { path: "../fonts/tt-chocolates/tt-chocolates-extrabold.otf", weight: "800", style: "normal" },
+  ],
+  variable: "--font-display",
   display: "swap",
   preload: true,
 });
@@ -66,7 +84,7 @@ export default async function RootLayout({
       lang={locale}
       suppressHydrationWarning
       style={{ "--inner-shadow-opacity": "0.6", "--foreground-opacity": "0.6" } as React.CSSProperties}
-      className={`${mulish.variable} ${urbanist.variable}`}
+      className={`${mulish.variable} ${urbanist.variable} ${ttChocolates.variable}`}
     >
       <head>
         {/* We need to include the loader CSS directly to avoid flash of unstyled content */}

@@ -145,6 +145,13 @@ export const leftMenuItems: MenuItem[] = [
         href: "/admin/blog",
         description: "menu-admin-blog-description",
       },
+      {
+        id: "admin-support",
+        icon: "NiHeadset",
+        label: "menu-admin-support",
+        href: "/admin/support",
+        description: "menu-admin-support-description",
+      },
     ],
   },
   {

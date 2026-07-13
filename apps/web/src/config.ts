@@ -4,7 +4,7 @@ import { ModeVariant, ThemeVariant } from "@/constants";
 
 export const DEFAULTS = {
   appRoot: "/dashboards/default",
-  locale: "en",
+  locale: "pt-BR",
   themeColor: "theme-green" as ThemeVariant,
   themeMode: "system" as ModeVariant,
   contentType: ContentType.Boxed,

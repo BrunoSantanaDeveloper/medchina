@@ -16,9 +16,19 @@ export type FaqItem = { question: string; answer: string };
  * Emits FAQPage structured data from the same `items` — an eligible rich
  * result and a strong AI-search signal, with nothing for the page to remember.
  */
-export default function Faq({ eyebrow, title, items }: { eyebrow?: string; title: string; items: FaqItem[] }) {
+export default function Faq({
+  eyebrow,
+  title,
+  items,
+  id,
+}: {
+  eyebrow?: string;
+  title: string;
+  items: FaqItem[];
+  id?: string;
+}) {
   return (
-    <Section>
+    <Section id={id}>
       <JsonLd
         data={{
           "@context": "https://schema.org",

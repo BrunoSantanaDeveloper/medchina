@@ -8,9 +8,9 @@
  *   (apps/mobile/assets/), plus apps/web/public/images/email/logo.svg
  */
 export const BRAND = {
-  name: "Flyee",
-  tagline: "The admin platform your team already knows how to use",
-  description: "Multi-tenant SaaS platform with billing, AI assistants and a complete admin console.",
+  name: "MedChina",
+  tagline: "Atenda olhando para o paciente. O MedChina organiza o restante.",
+  description: "Prontuário inteligente e assistente clínico para Medicina Tradicional Chinesa.",
   /** Canonical site URL — set NEXT_PUBLIC_SITE_URL in production (no trailing slash). */
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   favicon: {
@@ -26,6 +26,6 @@ export const BRAND = {
   support: {
     whatsapp: "",
     email: "",
-    helpCenter: "/help",
+    helpCenter: "/ajuda",
   },
 } as const;

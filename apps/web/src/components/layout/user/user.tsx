@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import UserLanguageSwitch from "./user-language-switch";
 import UserModeSwitch from "./user-mode-switch";
-import UserThemeSwitch from "./user-theme-switch";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useTranslations } from "use-intl";
@@ -151,7 +150,7 @@ export default function User() {
                         <Divider className="large" />
 
                         <UserModeSwitch />
-                        <UserThemeSwitch />
+                        {/* MedChina locks a single brand palette — no color-theme switch (see THEME_OPTIONS). */}
                         <UserLanguageSwitch />
 
                         <Divider className="large" />
@@ -169,7 +168,7 @@ export default function User() {
                         <MenuItem
                           onClick={(event) => {
                             handleClose(event);
-                            router.push("/help");
+                            router.push("/ajuda");
                           }}
                         >
                           <ListItemIcon>

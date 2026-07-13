@@ -45,7 +45,8 @@ export default function FeatureRows({
         {items.map((item, index) => {
           const tone = TONE[item.tone ?? "primary"];
           return (
-            <Reveal key={item.title} className="grid items-center gap-8 md:grid-cols-2 md:gap-14">
+            // grid-cols-1 (minmax(0,1fr)) keeps intrinsically-wide media from inflating the mobile track past the viewport.
+            <Reveal key={item.title} className="grid grid-cols-1 items-center gap-8 md:grid-cols-2 md:gap-14">
               <div className={index % 2 === 1 ? "md:order-2" : undefined}>
                 {item.eyebrow && (
                   <p className={cn("mb-3 text-sm font-semibold tracking-wide uppercase", tone.text)}>{item.eyebrow}</p>

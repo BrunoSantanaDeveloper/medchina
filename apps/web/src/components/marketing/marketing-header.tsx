@@ -10,10 +10,13 @@ import Container from "@/components/marketing/container";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiMenu from "@/icons/nexture/ni-menu";
 
+// HOME-SPEC §9.5: Como funciona · Recursos · Planos · Segurança · Dúvidas.
 const NAV_LINKS = [
-  { key: "nav-pricing", href: "/pricing" },
-  { key: "nav-about", href: "/about" },
-  { key: "nav-contact", href: "/contact" },
+  { key: "nav-how-it-works", href: "/como-funciona" },
+  { key: "nav-features", href: "/recursos" },
+  { key: "nav-pricing", href: "/planos" },
+  { key: "nav-security", href: "/seguranca" },
+  { key: "nav-faq", href: "/#duvidas" },
 ] as const;
 
 /**

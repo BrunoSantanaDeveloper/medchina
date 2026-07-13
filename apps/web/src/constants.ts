@@ -1,11 +1,13 @@
 export const LOCALES = ["de", "en", "fr", "es", "pt-BR"] as const;
 export type LocaleOption = (typeof LOCALES)[number];
 
+/**
+ * MedChina locks a single brand palette (Teal/Camel — written into
+ * packages/design-tokens/css/green.css); the other template themes were
+ * removed from the switcher but their CSS files remain for template merges.
+ */
 export const THEME_OPTIONS = {
   GREEN: "theme-green",
-  PURPLE: "theme-purple",
-  BLUE: "theme-blue",
-  ORANGE: "theme-orange",
 } as const;
 
 export type ThemeVariant = (typeof THEME_OPTIONS)[keyof typeof THEME_OPTIONS];

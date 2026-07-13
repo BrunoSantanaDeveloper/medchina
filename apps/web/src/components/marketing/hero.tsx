@@ -25,6 +25,7 @@ export default function Hero({
   subtitle,
   primaryCta,
   secondaryCta,
+  note,
   media,
   layout = "center",
   decor = "glow",
@@ -34,6 +35,8 @@ export default function Hero({
   subtitle: string;
   primaryCta: HeroCta;
   secondaryCta?: HeroCta;
+  /** Risk-reducing microcopy under the CTAs (e.g. "No card required"). */
+  note?: string;
   /** Product evidence. Required in practice — a hero without it fails the premium bar. */
   media?: React.ReactNode;
   /** "center": stacked, media below. "split": copy left, media right (data/product-heavy pages). */
@@ -91,15 +94,18 @@ export default function Hero({
     </div>
   );
 
+  const noteLine = note ? <p className="text-text-secondary -mt-2 text-sm">{note}</p> : null;
+
   if (layout === "split") {
     return (
       <Section spacing="default" decor={decor} className="overflow-hidden">
-        <div ref={scope} className="grid items-center gap-10 md:grid-cols-[1.05fr_1fr] md:gap-14">
+        <div ref={scope} className="grid grid-cols-1 items-center gap-10 md:grid-cols-[1.05fr_1fr] md:gap-14">
           <div data-hero-copy className="flex flex-col items-start gap-6 text-left">
             {eyebrow && <p className="text-primary text-sm font-semibold tracking-wide uppercase">{eyebrow}</p>}
             <h1 className="font-display text-display-xl text-text-primary font-extrabold">{title}</h1>
             <p className="text-text-secondary text-lg leading-6 md:text-xl md:leading-7">{subtitle}</p>
             {ctas}
+            {noteLine}
           </div>
           {media && (
             <div data-hero-media className="w-full">
@@ -122,6 +128,7 @@ export default function Hero({
           <p className="text-text-secondary max-w-2xl text-lg leading-6 md:text-xl md:leading-7">{subtitle}</p>
 
           {ctas}
+          {noteLine}
         </div>
 
         {media && (
