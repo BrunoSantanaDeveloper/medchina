@@ -27,6 +27,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import ConsultationRecorder from "@/components/product/consultation-recorder";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiLock from "@/icons/nexture/ni-lock";
@@ -393,6 +394,16 @@ export default function ConsultaPage() {
 
       <Grid size={{ xs: 12, lg: 4 }}>
         <Box className="flex flex-col gap-5">
+          {/* Recording is offered only while the consultation is open; a
+              finalized record takes no new audio. */}
+          {!isFinalized && (
+            <ConsultationRecorder
+              orgId={consultation.orgId}
+              patientId={consultation.patientId}
+              consultationId={consultation.id}
+            />
+          )}
+
           <Card component="section">
             <CardContent className="flex flex-col gap-2">
               <Typography variant="h6" component="h2">

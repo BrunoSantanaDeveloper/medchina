@@ -136,15 +136,25 @@ export default function PacienteFicha() {
             </Breadcrumbs>
           </Box>
 
-          {openDraft ? (
-            <Button variant="contained" color="primary" href={`/consultas/${openDraft.id}`} LinkComponent={Link}>
-              {t("patient-resume-consultation")}
+          <Box className="flex flex-row flex-wrap gap-2">
+            <Button
+              variant="outlined"
+              color="grey"
+              href={`/pacientes/${patient.id}/consentimentos`}
+              LinkComponent={Link}
+            >
+              {t("consent-title")}
             </Button>
-          ) : (
-            <Button variant="contained" color="primary" onClick={startConsultation} disabled={starting}>
-              {t("patient-start-consultation")}
-            </Button>
-          )}
+            {openDraft ? (
+              <Button variant="contained" color="primary" href={`/consultas/${openDraft.id}`} LinkComponent={Link}>
+                {t("patient-resume-consultation")}
+              </Button>
+            ) : (
+              <Button variant="contained" color="primary" onClick={startConsultation} disabled={starting}>
+                {t("patient-start-consultation")}
+              </Button>
+            )}
+          </Box>
         </Box>
       </Grid>
 
