@@ -23,19 +23,26 @@ import {
   FormLabel,
   Grid,
   Input,
+  Popover,
   Skeleton,
   Typography,
 } from "@mui/material";
 
 import ConsultationRecorder from "@/components/product/consultation-recorder";
+import RecordingsPanel from "@/components/product/recordings-panel";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
+import NiListCheck from "@/icons/nexture/ni-list-check";
 import NiLock from "@/icons/nexture/ni-lock";
+import NiPlay from "@/icons/nexture/ni-play";
 import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+
+type Provenance = { quote?: string; start?: string; speaker?: string };
+type FieldMeta = { value: string; state: string; source: string; provenance: Provenance };
 
 type Consultation = {
   id: string;
@@ -46,21 +53,28 @@ type Consultation = {
   chiefComplaint: string | null;
   summary: string | null;
   startedAt: string;
+  aiGaps: string[];
 };
 
 type Addendum = { id: string; body: string; reason: string | null; createdAt: string };
 
 /**
- * The consultation record (PRD §8.3/§8.5). The job: capture what the patient
- * said and what I observed, then close the record with confidence.
+ * The consultation record (PRD §8.3/§10.6/§8.5). The job: review what the AI
+ * drafted (or type it manually), decide, and close the record.
  *
- * Two rules the UI must make obvious, because the database enforces them:
- *  - a field left blank stays "não informado" — absence is never a negative
- *    answer (PRD §10.5), so nothing is pre-filled or defaulted;
- *  - once finalized, the record is frozen: corrections become addenda with
- *    author, date and reason (PRD §8.5).
+ * The AI never produces a fact — it produces a DRAFT with, per field, a review
+ * STATE and an ORIGIN, plus PROVENANCE (the transcript excerpt it came from):
+ *  - state: clear (evidence) / attention (ambiguous/sensitive) / edited (the
+ *    professional changed it) — surfaced as a chip so review focuses on what
+ *    needs it (PRD §10.6);
+ *  - origin: patient report vs practitioner observation vs AI inference stay
+ *    visually distinct (PRD §10.3);
+ *  - editing a field flips it to the professional's own words (source
+ *    professional, state edited), so a human decision is never mistaken for AI.
  *
- * Answers save on blur (autosave) so nothing is lost mid-consultation.
+ * Two DB-enforced rules the UI keeps honest: a blank field is "não informado"
+ * (clearing DELETES the answer, PRD §10.5), and a finalized record is frozen
+ * (corrections are addenda, PRD §8.5).
  */
 export default function ConsultaPage() {
   const params = useParams<{ id: string }>();
@@ -68,7 +82,7 @@ export default function ConsultaPage() {
   const t = useTranslations("product");
 
   const [consultation, setConsultation] = useState<Consultation | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [fields, setFields] = useState<Record<string, FieldMeta>>({});
   const [addenda, setAddenda] = useState<Addendum[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -77,8 +91,9 @@ export default function ConsultaPage() {
   const [addendumBody, setAddendumBody] = useState("");
   const [addendumReason, setAddendumReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [provenanceAnchor, setProvenanceAnchor] = useState<{ el: HTMLElement; data: Provenance } | null>(null);
 
-  // Keeps the last persisted value per field so blur only writes real changes.
+  // Last persisted value per field so blur only writes real changes.
   const persisted = useRef<Record<string, string>>({});
 
   const load = useCallback(async () => {
@@ -87,10 +102,13 @@ export default function ConsultaPage() {
     const [{ data: row }, { data: answerRows }, { data: addendaRows }] = await Promise.all([
       supabase
         .from("consultations")
-        .select("id, org_id, patient_id, status, chief_complaint, summary, started_at, patients(full_name)")
+        .select("id, org_id, patient_id, status, chief_complaint, summary, started_at, ai_gaps, patients(full_name)")
         .eq("id", params.id)
         .maybeSingle(),
-      supabase.from("anamnesis_answers").select("block_key, field_key, value").eq("consultation_id", params.id),
+      supabase
+        .from("anamnesis_answers")
+        .select("block_key, field_key, value, state, source, provenance")
+        .eq("consultation_id", params.id),
       supabase
         .from("consultation_addenda")
         .select("id, body, reason, created_at")
@@ -109,15 +127,24 @@ export default function ConsultaPage() {
         chiefComplaint: row.chief_complaint,
         summary: row.summary,
         startedAt: row.started_at,
+        aiGaps: (row.ai_gaps as string[] | null) ?? [],
       });
     }
 
-    const map: Record<string, string> = {};
+    const map: Record<string, FieldMeta> = {};
+    const persistedMap: Record<string, string> = {};
     for (const answer of answerRows ?? []) {
-      map[`${answer.block_key}.${answer.field_key}`] = answer.value as string;
+      const composite = `${answer.block_key}.${answer.field_key}`;
+      map[composite] = {
+        value: answer.value as string,
+        state: (answer.state as string) ?? "clear",
+        source: (answer.source as string) ?? "professional",
+        provenance: (answer.provenance as Provenance) ?? {},
+      };
+      persistedMap[composite] = answer.value as string;
     }
-    setAnswers(map);
-    persisted.current = { ...map };
+    setFields(map);
+    persisted.current = persistedMap;
 
     setAddenda(
       (addendaRows ?? []).map((addendum) => ({
@@ -135,10 +162,18 @@ export default function ConsultaPage() {
 
   const isFinalized = consultation?.status === "finalized";
 
+  const setFieldValue = (composite: string, value: string) =>
+    setFields((current) => ({
+      ...current,
+      [composite]: current[composite]
+        ? { ...current[composite], value }
+        : { value, state: "clear", source: "professional", provenance: {} },
+    }));
+
   const saveAnswer = async (blockKey: string, fieldKey: string) => {
     if (!consultation || isFinalized) return;
     const composite = `${blockKey}.${fieldKey}`;
-    const value = (answers[composite] ?? "").trim();
+    const value = (fields[composite]?.value ?? "").trim();
     if (value === (persisted.current[composite] ?? "")) return;
 
     setSavingKey(composite);
@@ -158,10 +193,23 @@ export default function ConsultaPage() {
         .eq("block_key", blockKey)
         .eq("field_key", fieldKey);
       if (deleteError) setError(deleteError.message);
-      else delete persisted.current[composite];
+      else {
+        delete persisted.current[composite];
+        setFields((current) => {
+          const next = { ...current };
+          delete next[composite];
+          return next;
+        });
+      }
       setSavingKey(null);
       return;
     }
+
+    // A professional edit becomes HER value: source professional, state edited
+    // — an AI draft the human changed is no longer an AI inference.
+    const wasAi = fields[composite]?.source === "ai_inference" || fields[composite]?.source === "patient_report";
+    const source = PROFESSIONAL_OBSERVATION_FIELDS.has(composite) ? "professional_voice" : "professional";
+    const state = wasAi ? "edited" : "clear";
 
     const { error: upsertError } = await supabase.from("anamnesis_answers").upsert(
       {
@@ -170,16 +218,21 @@ export default function ConsultaPage() {
         block_key: blockKey,
         field_key: fieldKey,
         value,
-        // Typed by the professional; voice/AI sources arrive with the AI pipeline.
-        source: PROFESSIONAL_OBSERVATION_FIELDS.has(composite) ? "professional_voice" : "professional",
-        state: "clear",
+        source,
+        state,
         created_by: user?.id ?? null,
       },
       { onConflict: "consultation_id,block_key,field_key" },
     );
 
     if (upsertError) setError(upsertError.message);
-    else persisted.current[composite] = value;
+    else {
+      persisted.current[composite] = value;
+      setFields((current) => ({
+        ...current,
+        [composite]: { ...current[composite], value, source, state },
+      }));
+    }
     setSavingKey(null);
   };
 
@@ -203,11 +256,7 @@ export default function ConsultaPage() {
     } = await supabase.auth.getUser();
     const { error: updateError } = await supabase
       .from("consultations")
-      .update({
-        status: "finalized",
-        finalized_at: new Date().toISOString(),
-        finalized_by: user?.id ?? null,
-      })
+      .update({ status: "finalized", finalized_at: new Date().toISOString(), finalized_by: user?.id ?? null })
       .eq("id", consultation.id);
 
     if (updateError) {
@@ -255,7 +304,11 @@ export default function ConsultaPage() {
     setBusy(false);
   };
 
-  const filledCount = useMemo(() => Object.values(answers).filter((value) => value.trim()).length, [answers]);
+  const filledCount = useMemo(() => Object.values(fields).filter((meta) => meta.value.trim()).length, [fields]);
+  const attentionCount = useMemo(
+    () => Object.values(fields).filter((meta) => meta.state === "attention").length,
+    [fields],
+  );
 
   if (!consultation) {
     return <Skeleton variant="rounded" height={420} className="rounded-3xl" />;
@@ -291,6 +344,17 @@ export default function ConsultaPage() {
           )}
         </Box>
       </Grid>
+
+      {/* An AI-drafted consultation says so, and points review at the exceptions. */}
+      {consultation.status === "awaiting_review" && (
+        <Grid size={12}>
+          <Alert severity="info" icon={<NiListCheck />} className="neutral bg-background-paper/60!">
+            {attentionCount > 0
+              ? t("consultation-review-attention", { count: attentionCount })
+              : t("consultation-review-ready")}
+          </Alert>
+        </Grid>
+      )}
 
       {isFinalized && (
         <Grid size={12}>
@@ -347,15 +411,31 @@ export default function ConsultaPage() {
                 <AccordionDetails className="flex flex-col gap-1 px-5! pt-0! pb-5!">
                   {block.fields.map((field) => {
                     const composite = `${block.key}.${field.key}`;
+                    const meta = fields[composite];
                     const isObservation = PROFESSIONAL_OBSERVATION_FIELDS.has(composite);
                     return (
                       <FormControl key={field.key} className="outlined" variant="standard" size="small">
-                        <FormLabel component="label" className="flex flex-row items-center gap-2">
+                        <FormLabel component="label" className="flex flex-row flex-wrap items-center gap-2">
                           {t(field.label)}
                           {isObservation && (
                             <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
                               {t("field-observation-badge")}
                             </span>
+                          )}
+                          {meta?.value && (
+                            <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
+                          )}
+                          {meta?.provenance?.quote && (
+                            <button
+                              type="button"
+                              className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
+                              onClick={(event) =>
+                                setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
+                              }
+                            >
+                              <NiPlay size="tiny" />
+                              {t("field-provenance")}
+                            </button>
                           )}
                           {savingKey === composite && (
                             <span className="text-text-secondary text-xs">{t("saving")}</span>
@@ -365,10 +445,8 @@ export default function ConsultaPage() {
                           multiline={field.multiline}
                           minRows={field.multiline ? 2 : undefined}
                           disabled={isFinalized}
-                          value={answers[composite] ?? ""}
-                          onChange={(event) =>
-                            setAnswers((current) => ({ ...current, [composite]: event.target.value }))
-                          }
+                          value={meta?.value ?? ""}
+                          onChange={(event) => setFieldValue(composite, event.target.value)}
                           onBlur={() => saveAnswer(block.key, field.key)}
                         />
                       </FormControl>
@@ -394,14 +472,36 @@ export default function ConsultaPage() {
 
       <Grid size={{ xs: 12, lg: 4 }}>
         <Box className="flex flex-col gap-5">
-          {/* Recording is offered only while the consultation is open; a
-              finalized record takes no new audio. */}
           {!isFinalized && (
             <ConsultationRecorder
               orgId={consultation.orgId}
               patientId={consultation.patientId}
               consultationId={consultation.id}
             />
+          )}
+
+          {!isFinalized && <RecordingsPanel consultationId={consultation.id} onProcessed={load} />}
+
+          {/* Gaps are suggestions to investigate — never answers (PRD §10.7). */}
+          {consultation.aiGaps.length > 0 && !isFinalized && (
+            <Card component="section">
+              <CardContent className="flex flex-col gap-2">
+                <Typography variant="h6" component="h2">
+                  {t("consultation-gaps-title")}
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary text-xs">
+                  {t("consultation-gaps-subtitle")}
+                </Typography>
+                <Box component="ul" className="flex flex-col gap-1.5">
+                  {consultation.aiGaps.map((gap) => (
+                    <li key={gap} className="text-text-primary flex items-start gap-2 text-sm leading-5">
+                      <span aria-hidden className="bg-accent-3 mt-1.5 h-1.5 w-1.5 flex-none rounded-full" />
+                      {gap}
+                    </li>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
           )}
 
           <Card component="section">
@@ -440,6 +540,24 @@ export default function ConsultaPage() {
           )}
         </Box>
       </Grid>
+
+      {/* Provenance: the transcript excerpt an AI value came from (PRD §13.1). */}
+      <Popover
+        open={Boolean(provenanceAnchor)}
+        anchorEl={provenanceAnchor?.el ?? null}
+        onClose={() => setProvenanceAnchor(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+      >
+        <Box className="flex max-w-xs flex-col gap-1 p-4">
+          <Typography variant="body2" className="text-text-secondary font-mono text-xs">
+            {provenanceAnchor?.data.speaker}
+            {provenanceAnchor?.data.start ? ` · ${provenanceAnchor.data.start}` : ""}
+          </Typography>
+          <Typography variant="body2" className="text-text-primary leading-6 italic">
+            “{provenanceAnchor?.data.quote}”
+          </Typography>
+        </Box>
+      </Popover>
 
       {/* Finalizing is irreversible — say so before it happens. */}
       <Dialog open={finalizeOpen} onClose={() => setFinalizeOpen(false)}>
@@ -492,5 +610,26 @@ export default function ConsultaPage() {
         </DialogActions>
       </Dialog>
     </Grid>
+  );
+}
+
+/**
+ * The per-field review chip: state (clear/attention/edited) + origin. Colors
+ * map to the site motif — jade = clear evidence, terracotta = needs attention,
+ * neutral = the professional's own edit. Never red (reserved for risk).
+ */
+function StateChip({ state, sourceLabel, t }: { state: string; sourceLabel: string; t: (key: string) => string }) {
+  const style =
+    state === "attention"
+      ? "bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light"
+      : state === "edited"
+        ? "bg-grey-100 text-text-secondary"
+        : "bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light";
+  const label =
+    state === "attention" ? t("state-attention") : state === "edited" ? t("state-edited") : t("state-clear");
+  return (
+    <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", style)} title={sourceLabel}>
+      {label}
+    </span>
   );
 }

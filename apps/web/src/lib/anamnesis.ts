@@ -31,6 +31,9 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
       { key: "intensity", label: "field-intensity" },
       { key: "factors", label: "field-factors", multiline: true },
       { key: "treatments", label: "field-treatments", multiline: true },
+      // Medications are clinically load-bearing (PRD §10.10: they must be
+      // highlighted alongside pregnancy, anticoagulants, pacemaker, allergies).
+      { key: "medications", label: "field-medications", multiline: true },
     ],
   },
   {
