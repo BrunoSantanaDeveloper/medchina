@@ -14,7 +14,7 @@ export default function DataGrid() {
           Data Grid
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Link color="inherit" href="/ui">

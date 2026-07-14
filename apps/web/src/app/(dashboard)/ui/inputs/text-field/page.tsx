@@ -23,7 +23,7 @@ export default function TextFieldPage() {
           Text Field
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Link color="inherit" href="/ui">

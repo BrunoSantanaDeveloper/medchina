@@ -18,7 +18,7 @@ export default function Page() {
           Image List
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Link color="inherit" href="/ui">

@@ -6,8 +6,6 @@ import { useTranslations } from "use-intl";
 import { Box, Paper, Typography } from "@mui/material";
 
 import { AiChatMenuContent } from "@/app/(dashboard)/applications/ai-chat/components/menu-content";
-import { AiContentMenuContent } from "@/app/(dashboard)/applications/ai-content/components/menu-content";
-import { DriveMenuContent } from "@/app/(dashboard)/applications/drive/components/menu-content";
 import { useLayoutContext } from "@/components/layout/layout-context";
 import { PrimaryItem } from "@/components/layout/menu/primary-item";
 import { SecondaryItem } from "@/components/layout/menu/secondary-item";
@@ -120,8 +118,6 @@ export default function LeftMenu() {
 
   const customSecondaryContent = useMemo(() => {
     if (pathname.startsWith("/applications/ai-chat")) return <AiChatMenuContent />;
-    if (pathname.startsWith("/applications/ai-content")) return <AiContentMenuContent />;
-    if (pathname.startsWith("/applications/drive")) return <DriveMenuContent />;
     return null;
   }, [pathname]);
 

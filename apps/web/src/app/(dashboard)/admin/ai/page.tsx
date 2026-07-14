@@ -40,7 +40,7 @@ export default function AdminAi() {
           AI Assistants
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Typography variant="body2">Admin</Typography>

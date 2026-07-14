@@ -15,7 +15,7 @@ export default function Page() {
           UI Elements
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Typography variant="body2">UI Elements</Typography>

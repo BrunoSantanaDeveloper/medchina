@@ -43,7 +43,7 @@ export default function ConnectionsSettings() {
               Connections
             </Typography>
             <Breadcrumbs>
-              <Link color="inherit" href="/dashboards/default">
+              <Link color="inherit" href="/inicio">
                 Home
               </Link>
               <Link color="inherit" href="/settings">

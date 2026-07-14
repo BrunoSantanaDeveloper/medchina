@@ -3,7 +3,6 @@ import Notifications from "../notifications/notifications";
 import Search from "../search/search";
 import Shortcuts from "../shortcuts/shortcuts";
 import User from "../user/user";
-import VersionSelect from "../version-select/version-select";
 import Link from "next/link";
 import * as React from "react";
 import { useEffect, useState } from "react";
@@ -32,7 +31,7 @@ export default function Header() {
         style={{ padding: `0 var(--main-padding)` }}
       >
         <Box className="flex h-full flex-row items-center">
-          <Link href="/dashboards/default">
+          <Link href="/inicio">
             <Logo classNameFull="ml-2 hidden md:block" classNameMobile="ml-2 md:hidden" />
           </Link>
         </Box>
@@ -65,12 +64,11 @@ export default function Header() {
         />
         <Box className="flex h-full flex-row items-center gap-6">
           {/* Logo */}
-          <Link href="/dashboards/default">
+          <Link href="/inicio">
             <Logo classNameFull="ml-2 hidden md:block" classNameMobile="ml-2 md:hidden" />
           </Link>
 
           {/* Version select */}
-          <VersionSelect />
         </Box>
 
         {/* Right buttons */}

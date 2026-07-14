@@ -306,7 +306,7 @@ If you want, I can help you audit your current resume or even rephrase a section
             </Box>
 
             <Breadcrumbs>
-              <Link color="inherit" href="/dashboards/default">
+              <Link color="inherit" href="/inicio">
                 Home
               </Link>
               <Link color="inherit" href="/applications">

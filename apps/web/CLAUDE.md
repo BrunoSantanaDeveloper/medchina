@@ -8,7 +8,7 @@ Next.js 15 (App Router) + React 19 — the MedChina platform (web is the primary
 - **Styling**: MUI theme driven by CSS variables (`hsl(var(--token))`) defined in `@flyee/design-tokens`. MUI component overrides live in `src/style/**/*.css` (organized by category), inside CSS layers (`theme, base, mui, components, utilities`). Tailwind 4 only for layout utilities; classes merged with `tailwind-merge`.
 - **Themes**: SINGLE locked brand palette (Teal/Camel, written into `@flyee/design-tokens` `css/green.css`) × light/dark, applied via classes on `<html>` (`theme-green dark`) by the `ThemeProvider` (`src/theme/theme-provider.tsx`). `THEME_OPTIONS` holds only GREEN; the color switcher is removed. Display font: TT Chocolates (`src/fonts/tt-chocolates/`, `--font-display` in the root layout).
 - **Forms**: Formik + Yup.
-- **i18n**: next-intl — every UI string goes through messages, never hardcoded. Locales: `de,en,es,fr,pt-BR`; catalogs live in `packages/content/messages/` (shared with apps/mobile); public-site copy lives in the `marketing` namespace.
+- **i18n**: next-intl — every UI string goes through messages, never hardcoded. Locales: `de,en,es,fr,pt-BR`; catalogs live in `packages/content/messages/` (shared with apps/mobile). Namespaces: `marketing` (public site), `auth` (sign-in/sign-up/recovery/2FA), `product` (clinical app + onboarding), `dashboard` (chrome/menu). Admin consoles stay EN-only on purpose.
 - **Path alias**: `@/*` → `./src/*`.
 - **Brand**: site identity (name, tagline, siteUrl, favicon paths) comes from `@flyee/content` (`src/brand.ts` is a re-export shim); the logo is the single component `src/components/logo/logo.tsx` (used by admin AND marketing chrome).
 
@@ -20,6 +20,14 @@ Next.js 15 (App Router) + React 19 — the MedChina platform (web is the primary
 - Display typography: `font-display text-display-{2xl,xl,lg,md}` (fluid clamp scale from `@flyee/design-tokens/css/marketing.css`).
 - Motion: GSAP only inside marketing client components via `<Reveal>`/`useGSAP` (transforms + `autoAlpha`, honors `prefers-reduced-motion`); never in admin code.
 - Public pricing reads plans through `@flyee/billing/public` (`listPublicPlans`, service-role, read-only) with i18n placeholder fallback; the contact form sends via `@flyee/email` (`CONTACT_FORM_TO`) with a graceful not-configured hint.
+
+## Clinical core (the MVP product)
+
+- Routes: `/inicio` (app home — `DEFAULTS.appRoot`), `/pacientes` (+ `/novo`, `/[id]`), `/consultas/[id]`, `/onboarding` (start choice, PRD §6.4). Schema + RLS + guards: `packages/db/migrations/0020_clinical.sql` (`patients`, `consultations`, `anamnesis_answers`, `consultation_addenda`; row versioning enabled on all three clinical tables).
+- **Absence is never a negative answer** (PRD §10.5): an anamnesis field with no value has NO row — clearing a field DELETES its answer. Never store an empty string or a "no".
+- **A finalized consultation is frozen** (PRD §8.5): DB triggers reject any edit to the record or its answers; corrections go to `consultation_addenda` (append-only — no update/delete policy). The UI disables the fields and offers "Adicionar adendo".
+- Anamnesis blocks/fields are declared in `src/lib/anamnesis.ts` — the keys are STABLE (they are what the AI pipeline will map extracted values onto); tongue/pulse/palpation are professional observations (`source = professional_voice`), never inferred from patient speech (PRD §10.3).
+- Activation (`src/lib/onboarding.ts`): steps use live predicates over real state; the aha moment is the first FINALIZED manual consultation. `OnboardingChecklistCard` on the home reads those facts.
 
 ## Platform admin & account
 

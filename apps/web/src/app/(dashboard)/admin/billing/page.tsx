@@ -47,7 +47,7 @@ export default function AdminBilling() {
           Billing Administration
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Typography variant="body2">Admin</Typography>

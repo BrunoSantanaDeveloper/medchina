@@ -44,7 +44,7 @@ export default function Page() {
           Chip
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Link color="inherit" href="/ui">

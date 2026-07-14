@@ -13,7 +13,7 @@ export default function HeaderFiltersPage() {
           Header Filters
         </Typography>
         <Breadcrumbs>
-          <Link color="inherit" href="/dashboards/default">
+          <Link color="inherit" href="/inicio">
             Home
           </Link>
           <Link color="inherit" href="/ui">

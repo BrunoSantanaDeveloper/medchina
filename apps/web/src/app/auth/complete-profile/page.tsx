@@ -1,6 +1,7 @@
 "use client";
 import { useFormik } from "formik";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import * as yup from "yup";
 
@@ -10,6 +11,7 @@ import {
   Box,
   Button,
   FormControl,
+  FormHelperText,
   FormLabel,
   Input,
   Paper,
@@ -24,39 +26,32 @@ import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 
-const validationSchema = yup.object({
-  name: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),
-  company: yup.string().required("The field is required").min(3, "Should be at least 3 characters"),
-});
+const InputErrorTooltip = ({ title }: { title: string }) => (
+  <Box className="relative">
+    <Tooltip title={title} arrow className="absolute -top-1.5">
+      <Button
+        startIcon={<NiCrossSquare size="small" />}
+        color="error"
+        size="small"
+        className="group icon-only bg-transparent! outline-0!"
+      ></Button>
+    </Tooltip>
+  </Box>
+);
 
-const InputErrorTooltip = ({ title }: { title: string }) => {
-  return (
-    <Box className="relative">
-      <Tooltip title={title} arrow className="absolute -top-1.5">
-        <Button
-          startIcon={<NiCrossSquare size="small" />}
-          color="error"
-          size="small"
-          className="group icon-only bg-transparent! outline-0!"
-        ></Button>
-      </Tooltip>
-    </Box>
-  );
-};
-
+/** Mirrors the database slugify() (migration 0019) — accents transliterate. */
 const slugify = (value: string) =>
   value
     .toLowerCase()
-    // NFD splits an accented letter into base + combining mark; strip the
-    // marks so the slug stays clean ASCII.
+    // NFD splits an accented letter into base + combining mark; drop the marks.
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
 /**
  * Setup step for a first-time OAuth (Google/GitHub) user: OAuth provisions the
- * account but never runs the sign-up form, so we collect the company name here
+ * account but never runs the sign-up form, so we collect the practice name here
  * and create their first organization (the piece the sign-up trigger does for
  * email/password users). Name is pre-filled from the provider profile.
  *
@@ -65,9 +60,21 @@ const slugify = (value: string) =>
  */
 export default function Page() {
   const router = useRouter();
+  const t = useTranslations("auth");
   const [ready, setReady] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
+  const validationSchema = yup.object({
+    name: yup
+      .string()
+      .required(t("field-required"))
+      .min(3, t("field-min", { count: 3 })),
+    company: yup
+      .string()
+      .required(t("field-required"))
+      .min(3, t("field-min", { count: 3 })),
+  });
 
   const formik = useFormik({
     initialValues: { name: "", company: "" },
@@ -147,78 +154,77 @@ export default function Page() {
     <Box className="bg-waves flex min-h-screen w-full items-center justify-center bg-cover bg-center p-4">
       <Paper elevation={3} className="bg-background-paper shadow-darker-xs w-lg max-w-full rounded-4xl py-14">
         <Box className="flex flex-col gap-4 px-8 sm:px-14">
-          <Box className="flex flex-col">
-            <Box className="mb-14 flex justify-center">
-              <Logo classNameMobile="hidden" />
+          <Box className="mb-14 flex justify-center">
+            <Logo classNameMobile="hidden" />
+          </Box>
+
+          <Box className="flex flex-col gap-10">
+            <Box className="flex flex-col">
+              <Typography variant="h1" component="h1" className="mb-2">
+                {t("complete-title")}
+              </Typography>
+              <Typography variant="body1" className="text-text-primary">
+                {t("complete-subtitle")}
+              </Typography>
             </Box>
 
-            <Box className="flex flex-col gap-10">
-              <Box className="flex flex-col">
-                <Typography variant="h1" component="h1" className="mb-2">
-                  Almost there
-                </Typography>
-                <Typography variant="body1" className="text-text-primary">
-                  Tell us your organization name to finish setting up your account.
-                </Typography>
-              </Box>
+            <Box
+              component="form"
+              onSubmit={(event) => {
+                setSubmitted(true);
+                formik.handleSubmit(event);
+              }}
+              className="flex flex-col"
+            >
+              <FormControl className="outlined" variant="standard" size="small">
+                <FormLabel component="label" className="flex flex-row">
+                  {t("name")}
+                  {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
+                </FormLabel>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formik.values.name}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+              </FormControl>
 
-              <Box
-                component={"form"}
-                onSubmit={(event) => {
-                  setSubmitted(true);
-                  formik.handleSubmit(event);
-                }}
-                className="flex flex-col"
-              >
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" className="flex flex-row">
-                    Name
-                    {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
-                  </FormLabel>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formik.values.name}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                </FormControl>
+              <FormControl className="outlined" variant="standard" size="small">
+                <FormLabel component="label" className="flex flex-row">
+                  {t("practice")}
+                  {formik.touched.company && formik.errors.company && (
+                    <InputErrorTooltip title={formik.errors.company} />
+                  )}
+                </FormLabel>
+                <Input
+                  id="company"
+                  name="company"
+                  value={formik.values.company}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                />
+                <FormHelperText className="text-text-secondary">{t("practice-hint")}</FormHelperText>
+              </FormControl>
 
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" className="flex flex-row">
-                    Company
-                    {formik.touched.company && formik.errors.company && (
-                      <InputErrorTooltip title={formik.errors.company} />
-                    )}
-                  </FormLabel>
-                  <Input
-                    id="company"
-                    name="company"
-                    value={formik.values.company}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                </FormControl>
+              {submitted && !formik.isValid && (
+                <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                  <AlertTitle variant="subtitle2">{t("complete-incomplete")}</AlertTitle>
+                </Alert>
+              )}
 
-                {submitted && !formik.isValid && (
-                  <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
-                    <AlertTitle variant="subtitle2">Please complete the required fields.</AlertTitle>
-                  </Alert>
-                )}
+              {serverError && (
+                <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                  <AlertTitle variant="subtitle2">{t("complete-failed")}</AlertTitle>
+                  <Typography variant="body2" className="text-text-primary">
+                    {serverError}
+                  </Typography>
+                </Alert>
+              )}
 
-                {serverError && (
-                  <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
-                    <AlertTitle variant="subtitle2">Could not finish setup</AlertTitle>
-                    <Typography variant="body2" className="text-text-primary">
-                      {serverError}
-                    </Typography>
-                  </Alert>
-                )}
-
-                <Button type="submit" variant="contained" className="mb-4" disabled={formik.isSubmitting}>
-                  Continue
-                </Button>
-              </Box>
+              <Button type="submit" variant="contained" className="mt-2 mb-4" disabled={formik.isSubmitting}>
+                {t("continue")}
+              </Button>
             </Box>
           </Box>
         </Box>
