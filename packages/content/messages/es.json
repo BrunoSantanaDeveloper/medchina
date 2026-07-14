@@ -849,7 +849,8 @@
     "cookies-2-title": "Cómo las usamos",
     "cookies-2-body": "Las cookies esenciales te mantienen conectada y protegen la plataforma. Las de preferencia recuerdan tus elecciones de interfaz. No usamos cookies para vender datos personales.",
     "cookies-3-title": "Tus opciones",
-    "cookies-3-body": "Puedes borrar o bloquear cookies en la configuración del navegador; las funciones esenciales pueden dejar de funcionar. Ante dudas, habla con el soporte."
+    "cookies-3-body": "Puedes borrar o bloquear cookies en la configuración del navegador; las funciones esenciales pueden dejar de funcionar. Ante dudas, habla con el soporte.",
+    "pricing-feature-audio": "Hasta {minutes, number} minutos de audio al mes (~{sessions} consultas)"
   },
   "mobile": {
     "signin-title": "Iniciar sesión",

@@ -849,7 +849,8 @@
     "cookies-2-title": "How we use them",
     "cookies-2-body": "Essential cookies keep you signed in and protect the platform. Preference cookies remember your interface choices. We do not use cookies to sell personal data.",
     "cookies-3-title": "Your choices",
-    "cookies-3-body": "You can clear or block cookies in your browser settings; essential features may stop working. If in doubt, contact support."
+    "cookies-3-body": "You can clear or block cookies in your browser settings; essential features may stop working. If in doubt, contact support.",
+    "pricing-feature-audio": "Up to {minutes, number} minutes of audio per month (~{sessions} visits)"
   },
   "mobile": {
     "signin-title": "Sign in",

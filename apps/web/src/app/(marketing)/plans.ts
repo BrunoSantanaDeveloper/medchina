@@ -33,7 +33,15 @@ export async function getDisplayPlans(): Promise<PublicPlanDisplay[]> {
     if (plan.kind === "credits" && plan.creditAmount) {
       features.push(t("pricing-feature-credits", { count: plan.creditAmount }));
     }
-    if (typeof plan.limits.members === "number") {
+    // Audio minutes are the real unit of a MedChina paid plan (PRD §5.4/§5.5);
+    // the commercial reference (~50-minute consultations) comes with it.
+    const audioMinutes = plan.limits.audio_minutes;
+    if (typeof audioMinutes === "number" && audioMinutes > 0) {
+      features.push(t("pricing-feature-audio", { minutes: audioMinutes, sessions: Math.floor(audioMinutes / 50) }));
+    }
+    // One professional per workspace in the MVP, so "1 member" is noise —
+    // only surface the seat count when a plan actually adds seats.
+    if (typeof plan.limits.members === "number" && plan.limits.members > 1) {
       features.push(t("pricing-feature-members", { count: plan.limits.members }));
     }
     if (plan.trialDays > 0) {

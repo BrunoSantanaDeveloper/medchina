@@ -849,7 +849,8 @@
     "cookies-2-title": "Comment nous les utilisons",
     "cookies-2-body": "Les cookies essentiels vous gardent connectée et protègent la plateforme. Les cookies de préférence retiennent vos choix d'interface. Nous n'utilisons pas de cookies pour vendre des données personnelles.",
     "cookies-3-title": "Vos choix",
-    "cookies-3-body": "Vous pouvez effacer ou bloquer les cookies dans les réglages du navigateur ; des fonctions essentielles peuvent cesser de fonctionner. En cas de doute, contactez le support."
+    "cookies-3-body": "Vous pouvez effacer ou bloquer les cookies dans les réglages du navigateur ; des fonctions essentielles peuvent cesser de fonctionner. En cas de doute, contactez le support.",
+    "pricing-feature-audio": "Jusqu'à {minutes, number} minutes d'audio par mois (~{sessions} consultations)"
   },
   "mobile": {
     "signin-title": "Se connecter",

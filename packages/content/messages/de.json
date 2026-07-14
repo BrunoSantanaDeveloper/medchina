@@ -849,7 +849,8 @@
     "cookies-2-title": "Wie wir sie nutzen",
     "cookies-2-body": "Essenzielle Cookies halten Sie angemeldet und schützen die Plattform. Präferenz-Cookies merken sich Ihre Oberflächen-Einstellungen. Wir nutzen keine Cookies, um persönliche Daten zu verkaufen.",
     "cookies-3-title": "Ihre Wahl",
-    "cookies-3-body": "Sie können Cookies in den Browser-Einstellungen löschen oder blockieren; essenzielle Funktionen können dann ausfallen. Bei Fragen hilft der Support."
+    "cookies-3-body": "Sie können Cookies in den Browser-Einstellungen löschen oder blockieren; essenzielle Funktionen können dann ausfallen. Bei Fragen hilft der Support.",
+    "pricing-feature-audio": "Bis zu {minutes, number} Audiominuten pro Monat (~{sessions} Termine)"
   },
   "mobile": {
     "signin-title": "Anmelden",
