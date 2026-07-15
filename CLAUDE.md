@@ -34,6 +34,12 @@ Reusable commercial template (admin + future mobile versions). This repo is the 
 - Apps never import from other apps (`apps/web` ↛ `apps/mobile` and vice versa); shared code lives in `packages/*`.
 - npm workspaces: always install dependencies from the root (`npm install`), never inside an app.
 
+## Shared Claude/Codex harness
+
+- `CLAUDE.md`, `apps/*/CLAUDE.md`, `.claude/rules/*`, `.claude/skills/*` and `.claude/hooks/*` are the canonical shared sources. Do not maintain a second hand-written Codex copy.
+- Codex reads the generated `AGENTS.md` mirror and generated `.agents/skills/*` discovery bridges. `.codex/config.toml` points its lifecycle hooks at the same implementations under `.claude/hooks/`.
+- `PostToolUse` automatically runs `scripts/sync-agent-harness.mjs` after canonical harness edits. `npm run harness:check` and `npm run harness:test` are also enforced by the pre-commit hook.
+
 ## Starting a derived project
 
 1. `git clone <flyee repo> <project>` and run `/init-project` — its Step 0 secures the remotes FIRST (renames `origin` → `template`, creates the project's own private repo and pushes) so nothing can be pushed to the template by accident; keeping `template` as a remote lets the project pull base improvements later via the `/update-from-template` skill (kept in every derivative; `/add-mobile` restores a pruned mobile app the same way).
