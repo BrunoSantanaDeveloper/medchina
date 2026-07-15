@@ -30,6 +30,7 @@ import {
 
 import ConsultationRecorder from "@/components/product/consultation-recorder";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
+import PlanPanel from "@/components/product/plan-panel";
 import RecordingsPanel from "@/components/product/recordings-panel";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
@@ -493,6 +494,14 @@ export default function ConsultaPage() {
           <HypothesesPanel
             consultationId={consultation.id}
             patientId={consultation.patientId}
+            canReason={allowance?.clinicalReasoning ?? false}
+            isFinalized={isFinalized}
+          />
+
+          {/* Therapeutic plan (PRD §10.9) — built on the accepted hypotheses,
+              a draft until she validates it (PRD §10.10). */}
+          <PlanPanel
+            consultationId={consultation.id}
             canReason={allowance?.clinicalReasoning ?? false}
             isFinalized={isFinalized}
           />

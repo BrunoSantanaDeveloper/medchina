@@ -1,4 +1,5 @@
 import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
+import { SENSITIVE } from "@/lib/clinical-safety";
 import type { TranscriptResult } from "@flyee/transcribe";
 import { GoogleGenAI } from "@google/genai";
 
@@ -40,14 +41,6 @@ export interface ExtractionResult {
   /** Which diarized label is the practitioner (the rest is the patient). */
   practitionerSpeaker: string | null;
 }
-
-/**
- * Values touching these always come back flagged for review (PRD §10.10),
- * regardless of what the model scored them. Multilingual because the
- * consultation language follows the workspace, not the code.
- */
-const SENSITIVE =
-  /\b(medicaç|medicament|remédio|anticoagul|varfarin|warfarin|marca-?passo|pacemaker|gestante|gr[áa]vida|gravidez|pregnan|amamenta|cirurgi|surgery|alergi|allerg|anticonceptiv)/i;
 
 /** The field catalog the model may fill — nothing outside it is accepted. */
 const fieldCatalog = () =>
