@@ -1,4 +1,5 @@
 import { extractAnamnesis } from "@/lib/clinical-extraction";
+import { billableSeconds, recordAudioUsage } from "@/lib/usage";
 import { processTranscription, type TranscriptResult } from "@flyee/transcribe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -13,6 +14,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *  - the patient must have an ACTIVE ai-processing consent (PRD §9.5) —
  *    recording consent alone does not authorize AI processing;
  *  - the consultation must not be finalized (a closed chart takes no AI draft).
+ *
+ * It deliberately does NOT re-check the audio allowance: a `recordings` row
+ * cannot exist without one (the insert guard in migration 0024), so its
+ * existence IS the authorization to process it. Refusing here would strand an
+ * already-captured consultation — exactly the silent loss PRD §5.8 forbids. The
+ * minutes it consumes are recorded afterwards, and the NEXT recording is the
+ * one that gets refused.
  *
  * Runs with whatever client it is given: the Inngest job passes a service-role
  * client; the inline fallback passes the user's client (RLS applies).
@@ -30,7 +38,7 @@ const fail = async (supabase: SupabaseClient, recordingId: string, error: string
 export async function processRecording(supabase: SupabaseClient, recordingId: string): Promise<PipelineResult> {
   const { data: recording, error: loadError } = await supabase
     .from("recordings")
-    .select("id, org_id, patient_id, consultation_id, status, audio_path, mime, created_by")
+    .select("id, org_id, patient_id, consultation_id, status, audio_path, mime, duration_seconds, created_by")
     .eq("id", recordingId)
     .maybeSingle();
 
@@ -88,6 +96,18 @@ export async function processRecording(supabase: SupabaseClient, recordingId: st
   if (!transcript?.segments?.length) {
     return fail(supabase, recordingId, "Transcript is empty — nothing to extract.");
   }
+
+  // The audio was transcribed: that is what consumes minutes (PRD §5.8), and it
+  // is measured from the transcript, not from what the browser claimed. Recorded
+  // here, right after the work succeeded, so a later failure in extraction never
+  // erases a real cost — and a failed transcription never bills one.
+  await recordAudioUsage(supabase, {
+    orgId: recording.org_id,
+    recordingId: recording.id,
+    transcriptionId: created.id,
+    seconds: billableSeconds(transcript, recording.duration_seconds),
+    createdBy: recording.created_by,
+  });
 
   // ---- 2. Extract the draft anamnesis --------------------------------------
   let extraction;

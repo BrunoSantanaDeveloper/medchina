@@ -3,10 +3,24 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Alert, Box, Button, Card, CardContent, LinearProgress, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  LinearProgress,
+  Typography,
+} from "@mui/material";
 
+import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
+import { trialDaysLeft } from "@/lib/audio-allowance";
 import { recordAudit } from "@/lib/audit";
 import { RECORDING_CONSENT_SLUG } from "@/lib/consents";
 import { cn } from "@/lib/utils";
@@ -43,6 +57,15 @@ export default function ConsultationRecorder({
   const [phase, setPhase] = useState<Phase>("idle");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const {
+    allowance,
+    trialParams,
+    loading: allowanceLoading,
+    reload: reloadAllowance,
+    startTrial,
+  } = useAudioAllowance(orgId);
+  const [trialDialog, setTrialDialog] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -122,8 +145,19 @@ export default function ConsultationRecorder({
         .single();
 
       if (insertError || !recording) {
-        setError(insertError?.message ?? t("recorder-error"));
+        // The DB guard (migration 0024) is the real boundary — if it refused
+        // between pressing record and finishing, say what happened instead of
+        // showing a raw Postgres error.
+        const message = insertError?.message ?? "";
+        setError(
+          message.includes("audio_allowance_exhausted")
+            ? t("recorder-limit-body")
+            : message.includes("trial_not_started")
+              ? t("recorder-trial-body")
+              : (insertError?.message ?? t("recorder-error")),
+        );
         setPhase("error");
+        void reloadAllowance();
         return;
       }
 
@@ -153,7 +187,7 @@ export default function ConsultationRecorder({
       });
       setPhase("uploaded");
     },
-    [orgId, patientId, consultationId, t],
+    [orgId, patientId, consultationId, t, reloadAllowance],
   );
 
   const start = async () => {
@@ -199,9 +233,32 @@ export default function ConsultationRecorder({
     mediaRecorder.current?.stop();
   };
 
+  const confirmTrial = async () => {
+    setStartingTrial(true);
+    const failure = await startTrial();
+    setStartingTrial(false);
+    setTrialDialog(false);
+    if (failure) {
+      setError(failure);
+      setPhase("error");
+    }
+  };
+
   const mmss = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 
-  if (consent === null) return null;
+  if (consent === null || allowanceLoading) return null;
+
+  // The consultation is already being recorded: no allowance state may take the
+  // controls away mid-capture (PRD §5.8).
+  const capturing = phase === "recording" || phase === "paused" || phase === "uploading";
+  const needsTrial = !capturing && allowance?.trialAvailable === true && !allowance.canStart;
+  const exhausted = !capturing && allowance !== null && !allowance.canStart && !allowance.trialAvailable;
+  // Warn while it happens — the opposite of being cut off silently.
+  const overrunning =
+    phase === "recording" &&
+    allowance !== null &&
+    allowance.minutesLimit > 0 &&
+    seconds > allowance.minutesRemaining * 60;
 
   return (
     <Card component="section">
@@ -228,6 +285,33 @@ export default function ConsultationRecorder({
             >
               {t("recorder-grant-consent")}
             </Button>
+          </>
+        ) : needsTrial ? (
+          // The path to value: the trial starts HERE, by a deliberate act, and
+          // only for a real consultation (PRD §5.7/§7.5).
+          <>
+            <Typography variant="body2" className="text-text-secondary leading-6">
+              {t("recorder-trial-body", trialParams)}
+            </Typography>
+            <Button variant="contained" color="primary" onClick={() => setTrialDialog(true)} className="self-start">
+              {t("recorder-trial-start")}
+            </Button>
+            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+              {t("recorder-trial-note")}
+            </Typography>
+          </>
+        ) : exhausted ? (
+          // Out of minutes: manual care never stops, and the chart stays open —
+          // only new AI capture waits for a plan (PRD §5.7).
+          <>
+            <Typography variant="body2" className="text-text-secondary leading-6">
+              {allowance?.suspended ? t("recorder-suspended-body") : t("recorder-limit-body")}
+            </Typography>
+            {!allowance?.suspended && (
+              <Button variant="contained" color="primary" href="/settings/billing" className="self-start">
+                {t("recorder-limit-cta")}
+              </Button>
+            )}
           </>
         ) : (
           <>
@@ -258,6 +342,14 @@ export default function ConsultationRecorder({
                   {mmss}
                 </Typography>
               </Box>
+            )}
+
+            {/* Passing the limit never stops the capture (PRD §5.8): the audio
+                is preserved and the professional is told, not cut off. */}
+            {overrunning && (
+              <Alert severity="info" className="neutral bg-background-paper/60!">
+                {t("recorder-overrun")}
+              </Alert>
             )}
 
             {phase === "uploading" && (
@@ -312,9 +404,42 @@ export default function ConsultationRecorder({
             <Typography variant="body2" className="text-text-secondary text-xs leading-5">
               {t("recorder-note")}
             </Typography>
+
+            {/* What is left, stated plainly — the web is where consumption is
+                shown (PRD §5.8). */}
+            {allowance && allowance.minutesLimit > 0 && (
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {allowance.source === "trial"
+                  ? t("recorder-trial-remaining", {
+                      minutes: allowance.minutesRemaining,
+                      days: trialDaysLeft(allowance) ?? 0,
+                    })
+                  : t("recorder-remaining", { minutes: allowance.minutesRemaining })}
+              </Typography>
+            )}
           </>
         )}
       </CardContent>
+
+      <Dialog open={trialDialog} onClose={() => setTrialDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t("recorder-trial-title")}</DialogTitle>
+        <DialogContent className="flex flex-col gap-2">
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {t("recorder-trial-explain", trialParams)}
+          </Typography>
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {t("recorder-trial-note")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setTrialDialog(false)} disabled={startingTrial}>
+            {t("recorder-trial-cancel")}
+          </Button>
+          <Button variant="contained" color="primary" onClick={confirmTrial} disabled={startingTrial}>
+            {t("recorder-trial-confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }

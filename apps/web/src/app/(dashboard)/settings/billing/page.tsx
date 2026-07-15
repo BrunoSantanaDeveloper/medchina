@@ -22,6 +22,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import AudioUsageCard from "@/components/product/audio-usage-card";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
 import type { BillingProviderName } from "@flyee/billing";
@@ -153,6 +154,11 @@ export default function BillingSettings() {
 
         {currentOrg && (
           <>
+            {/* Minutes are what a MedChina plan actually sells (PRD §5.8), so
+                the billing page states the consumption, not just the price. */}
+            <Grid size={12}>
+              <AudioUsageCard showWhenEmpty />
+            </Grid>
             <CurrentSubscription
               orgId={currentOrg.id}
               subscription={subscription}

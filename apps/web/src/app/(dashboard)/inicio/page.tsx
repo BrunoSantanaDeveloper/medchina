@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Box, Breadcrumbs, Button, Card, CardContent, Grid, Skeleton, Typography } from "@mui/material";
 
 import { TONE } from "@/components/marketing/tone";
+import AudioUsageCard from "@/components/product/audio-usage-card";
 import EmptyState from "@/components/product/empty-state";
 import OnboardingChecklistCard from "@/components/product/onboarding-checklist-card";
 import { useProfile } from "@/hooks/use-profile";
@@ -99,6 +100,12 @@ export default function Inicio() {
 
       <Grid size={12}>
         <OnboardingChecklistCard />
+      </Grid>
+
+      {/* Renders only once the workspace actually has minutes to report — the
+          trial is offered at the consultation, not nagged about here. */}
+      <Grid size={12}>
+        <AudioUsageCard />
       </Grid>
 
       {!data ? (
