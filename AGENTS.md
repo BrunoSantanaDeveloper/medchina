@@ -167,6 +167,19 @@ Expo has changed significantly across versions — see @AGENTS.md and the versio
 - Never import from `apps/web` — shared code lives in `packages/*` (`design-tokens`, `content`, `auth`).
 - Mobile is not shrunken web: thumb-zone actions, tabs+stacks, limited type scale (≤4 sizes/2 weights per screen), ≥44pt touch targets, safe areas always.
 
+===== .claude/rules/agent-commands.md =====
+
+---
+paths: ["**"]
+---
+
+# Agent command workflows
+
+- **Slash Commands Mapping**:
+  - When the user inputs the slash command `/update-from-template`, you MUST load and execute the `update-from-template` skill. Read and follow `.claude/skills/update-from-template/SKILL.md` (or its bridge in `.agents/skills/update-from-template/SKILL.md`) step by step.
+  - When the user inputs the slash command `/init-project`, you MUST load and execute the `init-project` skill. Read and follow `.claude/skills/init-project/SKILL.md` (or its bridge in `.agents/skills/init-project/SKILL.md`) step by step.
+  - When the user inputs the slash command `/add-mobile`, you MUST load and execute the `add-mobile` skill. Read and follow `.claude/skills/add-mobile/SKILL.md` (or its bridge in `.agents/skills/add-mobile/SKILL.md`) step by step.
+
 ===== .claude/rules/app-ux.md =====
 
 ---
