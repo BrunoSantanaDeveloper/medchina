@@ -1,56 +1,127 @@
-import { ScrollView, View } from "react-native";
-import { Card, Text, useTheme } from "react-native-paper";
+import { useCallback, useState } from "react";
+import { RefreshControl, ScrollView, View } from "react-native";
+import { ActivityIndicator, Banner, Card, Chip, Text, useTheme } from "react-native-paper";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslations } from "use-intl";
 
-import { BRAND } from "@flyee/content";
-
-import { GRID, RADIUS } from "@/theme";
+import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
+import { getCurrentOrgId, listTodayConsultations, type TodayConsultation } from "@/lib/clinical";
+import { flushQueue, readQueue, type QueueItem } from "@/lib/recording-queue";
+import { isSupabaseConfigured } from "@/lib/supabase";
+import { GRID, RADIUS, TOUCH_TARGET } from "@/theme";
 
 /**
- * Placeholder home proving the shared identity: every color/radius comes from
- * the token theme, matching apps/web. Derived projects replace this screen
- * with their product's real home (see the mobile-screen skill first).
+ * The app's home: TODAY'S CONSULTATIONS (PRD §11, HOME-SPEC §15.7).
+ *
+ * The job is one thing — see who is coming and start capturing — so the screen
+ * is a short, tappable list of the day, not a dashboard. The agenda that fills
+ * it lives on the web (PRD §9.3); this app captures.
+ *
+ * Every visit also nudges the upload queue: a consultation recorded in a room
+ * with bad signal gets sent as soon as the phone can, without her doing
+ * anything (PRD §11).
  */
-export default function Home() {
+export default function Today() {
   const t = useTranslations("mobile");
   const theme = useTheme();
+  const router = useRouter();
+  const [consultations, setConsultations] = useState<TodayConsultation[] | null>(null);
+  const [pending, setPending] = useState<QueueItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setConsultations([]);
+      return;
+    }
+    const orgId = await getCurrentOrgId();
+    setConsultations(orgId ? await listTodayConsultations(orgId) : []);
+    // Best effort: never block the list on the network.
+    const queue = await flushQueue().catch(() => readQueue());
+    setPending(queue.filter((item) => item.state !== "uploaded"));
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
+  const time = (value: string) =>
+    new Date(value).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ padding: GRID * 2, gap: GRID * 2 }}
+      contentContainerStyle={{ padding: GRID * 2, gap: GRID * 1.5, paddingBottom: GRID * 6 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
-      <View style={{ gap: GRID / 2 }}>
-        <Text variant="headlineMedium">{BRAND.name}</Text>
-        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-          {t("home-subtitle")}
-        </Text>
-      </View>
+      {/* Honest about audio still on the phone (HOME-SPEC §15.5). */}
+      {pending.length > 0 && (
+        <Banner visible icon="upload" style={{ borderRadius: RADIUS.xl, borderCurve: "continuous" }}>
+          {t("today-pending", { count: pending.length })}
+        </Banner>
+      )}
 
-      {/* Token swatch row: primary / secondary / tertiary from the active theme. */}
-      <View style={{ flexDirection: "row", gap: GRID }}>
-        {(["primary", "secondary", "tertiary"] as const).map((key) => (
-          <View
-            key={key}
-            style={{
-              flex: 1,
-              height: GRID * 8,
-              backgroundColor: theme.colors[key],
-              borderRadius: RADIUS.xl,
-              borderCurve: "continuous",
-            }}
-          />
-        ))}
-      </View>
-
-      <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>
-        <Card.Content style={{ gap: GRID }}>
-          <Text variant="titleMedium">{t("home-title")}</Text>
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-            {t("home-hint")}
-          </Text>
-        </Card.Content>
-      </Card>
+      {!consultations ? (
+        <View style={{ paddingVertical: GRID * 6, alignItems: "center" }}>
+          <ActivityIndicator />
+        </View>
+      ) : consultations.length === 0 ? (
+        <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>
+          <Card.Content style={{ gap: GRID, alignItems: "center", paddingVertical: GRID * 4 }}>
+            <NiCalendarClock size="large" color={theme.colors.primary} />
+            <Text variant="titleMedium">{t("today-empty-title")}</Text>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}>
+              {t("today-empty-hint")}
+            </Text>
+          </Card.Content>
+        </Card>
+      ) : (
+        consultations.map((consultation) => (
+          <Card
+            key={consultation.id}
+            mode="outlined"
+            onPress={() => router.push(`/consulta/${consultation.id}`)}
+            style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous", minHeight: TOUCH_TARGET * 1.6 }}
+          >
+            <Card.Content style={{ gap: GRID / 2 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: GRID }}>
+                <Text variant="titleMedium" style={{ fontVariant: ["tabular-nums"] }}>
+                  {time(consultation.startedAt)}
+                </Text>
+                {consultation.status === "in_progress" && (
+                  <Chip compact mode="flat" textStyle={{ fontSize: 11 }}>
+                    {t("today-in-progress")}
+                  </Chip>
+                )}
+              </View>
+              <Text variant="bodyLarge">{consultation.patientName}</Text>
+              {consultation.reason ? (
+                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                  {consultation.reason}
+                </Text>
+              ) : null}
+              {/* Clinical alerts belong BEFORE the consultation, not buried. */}
+              {consultation.alerts.length > 0 && (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: GRID / 2, marginTop: GRID / 2 }}>
+                  {consultation.alerts.map((alert, index) => (
+                    <Chip key={index} compact mode="outlined" textStyle={{ fontSize: 11 }}>
+                      {alert.label}
+                    </Chip>
+                  ))}
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        ))
+      )}
     </ScrollView>
   );
 }

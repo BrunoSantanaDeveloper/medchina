@@ -55,6 +55,9 @@ export default function AppLayout() {
           ),
         }}
       />
+      {/* Modo Consulta is pushed from the day's list — it is a destination, not
+          a tab (its title is set per patient by the screen itself). */}
+      <Tabs.Screen name="consulta/[id]" options={{ href: null }} />
     </Tabs>
   );
 }
