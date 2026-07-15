@@ -1,4 +1,13 @@
-import "server-only";
+// Deliberately NOT `server-only`: that marker forces the "react-server"
+// condition, which resolves React to the RSC build — and @react-pdf/renderer
+// needs the FULL React (its reconciler uses hooks the RSC build does not ship).
+// The module is server-side by construction anyway: only the issuance route
+// imports it, and @react-pdf/renderer would fail loudly in a client bundle.
+//
+// React is imported explicitly because JSX here compiles with the classic
+// runtime outside the Next/SWC pipeline; it is redundant under the automatic
+// runtime and harmless.
+import React from "react";
 
 import type { IssueContext } from "@flyee/documents";
 import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
@@ -73,9 +82,9 @@ const styles = StyleSheet.create({
   safetyTitle: { fontSize: 10, fontFamily: "Helvetica-Bold", color: AMBER_INK, marginBottom: 4 },
   safetyItem: { fontSize: 9, color: AMBER_INK, marginBottom: 2 },
   disclaimer: { fontSize: 8, color: MUTED, fontStyle: "italic", marginTop: 6 },
-  signatureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 28 },
+  signatureRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 16 },
   signatureBlock: { width: 240 },
-  signatureLine: { borderTopWidth: 0.75, borderTopColor: INK, marginTop: 30, paddingTop: 4 },
+  signatureLine: { borderTopWidth: 0.75, borderTopColor: INK, marginTop: 22, paddingTop: 4 },
   signatureName: { fontSize: 10, fontFamily: "Helvetica-Bold" },
   signatureMeta: { fontSize: 8, color: MUTED },
   footer: {
@@ -194,7 +203,9 @@ function PlanDocument({ data, t, ctx }: { data: PlanDocumentData; t: Labels; ctx
 
         <Text style={styles.disclaimer}>{t("plan-disclaimer")}</Text>
 
-        <View style={styles.signatureRow}>
+        {/* Never split the signature across pages — a half-signature is worse
+            than a page break before it. */}
+        <View style={styles.signatureRow} wrap={false}>
           <View style={styles.signatureBlock}>
             <View style={styles.signatureLine}>
               <Text style={styles.signatureName}>{data.professionalName}</Text>
