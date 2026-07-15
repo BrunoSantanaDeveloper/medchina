@@ -23,6 +23,14 @@ export const leftMenuItems: MenuItem[] = [
     href: "/pacientes",
   },
   {
+    id: "agenda",
+    icon: "NiCalendar",
+    label: "menu-agenda",
+    description: "menu-agenda-description",
+    color: "text-primary",
+    href: "/agenda",
+  },
+  {
     id: "assistente",
     icon: "NiSparkle",
     label: "menu-assistente",
