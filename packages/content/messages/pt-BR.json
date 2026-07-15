@@ -1193,7 +1193,22 @@
     "plan-f-region": "Região",
     "plan-f-intensity": "Intensidade",
     "plan-f-duration": "Duração",
-    "plan-f-post-session": "Orientações pós-sessão"
+    "plan-f-post-session": "Orientações pós-sessão",
+    "plan-issue": "Emitir documento",
+    "plan-reissue": "Emitir nova versão",
+    "plan-issue-error": "Não foi possível emitir o documento.",
+    "plan-issue-need-validate": "Valide o plano antes de emitir o documento.",
+    "plan-documents-title": "Documentos emitidos",
+    "plan-doc-download": "Baixar PDF",
+    "plan-doc-verify-link": "Verificar",
+    "plan-doc-superseded": "substituído",
+    "plan-doc-version": "Versão",
+    "plan-doc-issued-at": "Emitido em",
+    "plan-doc-patient": "Paciente",
+    "plan-doc-date": "Data da consulta",
+    "plan-doc-professional": "Profissional responsável",
+    "plan-doc-validated-at": "Validado em",
+    "plan-doc-verify": "Verifique a autenticidade deste documento em"
   },
   "auth": {
     "continue": "Continuar",

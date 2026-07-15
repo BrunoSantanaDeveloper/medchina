@@ -1193,7 +1193,22 @@
     "plan-f-region": "Region",
     "plan-f-intensity": "Intensität",
     "plan-f-duration": "Dauer",
-    "plan-f-post-session": "Hinweise nach der Sitzung"
+    "plan-f-post-session": "Hinweise nach der Sitzung",
+    "plan-issue": "Dokument ausstellen",
+    "plan-reissue": "Neue Version ausstellen",
+    "plan-issue-error": "Das Dokument konnte nicht ausgestellt werden.",
+    "plan-issue-need-validate": "Validieren Sie den Plan, bevor Sie das Dokument ausstellen.",
+    "plan-documents-title": "Ausgestellte Dokumente",
+    "plan-doc-download": "PDF herunterladen",
+    "plan-doc-verify-link": "Prüfen",
+    "plan-doc-superseded": "ersetzt",
+    "plan-doc-version": "Version",
+    "plan-doc-issued-at": "Ausgestellt am",
+    "plan-doc-patient": "Patientin",
+    "plan-doc-date": "Datum der Konsultation",
+    "plan-doc-professional": "Verantwortliche Fachperson",
+    "plan-doc-validated-at": "Validiert am",
+    "plan-doc-verify": "Prüfen Sie die Echtheit dieses Dokuments unter"
   },
   "auth": {
     "continue": "Weiter",

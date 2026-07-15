@@ -20,73 +20,21 @@ import {
 
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiListCheck from "@/icons/nexture/ni-list-check";
+import { type FieldDescriptor, type FieldKind, PLAN_MODALITIES, PLAN_STRATEGIES } from "@/lib/plan-modalities";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
-
-/** Field kinds a modality card can render — drives both view and edit. */
-type FieldKind = "text" | "textarea" | "list" | "strategy";
-type FieldDescriptor = { key: string; label: string; kind: FieldKind };
-
-// The modality shapes of lib/therapeutic-plan.ts, as render descriptors. The
-// order here is the order shown.
-const MODALITIES: { slug: string; fields: FieldDescriptor[] }[] = [
-  {
-    slug: "acupuncture",
-    fields: [
-      { key: "objective", label: "plan-f-objective", kind: "textarea" },
-      { key: "mainPoints", label: "plan-f-main-points", kind: "list" },
-      { key: "complementaryPoints", label: "plan-f-complementary-points", kind: "list" },
-      { key: "meridians", label: "plan-f-meridians", kind: "list" },
-      { key: "strategy", label: "plan-f-strategy", kind: "strategy" },
-      { key: "frequency", label: "plan-f-frequency", kind: "text" },
-    ],
-  },
-  {
-    slug: "diet",
-    fields: [
-      { key: "thermalNature", label: "plan-f-thermal", kind: "text" },
-      { key: "favor", label: "plan-f-favor", kind: "list" },
-      { key: "reduce", label: "plan-f-reduce", kind: "list" },
-      { key: "mealSuggestions", label: "plan-f-meals", kind: "list" },
-      { key: "restrictions", label: "plan-f-restrictions", kind: "textarea" },
-    ],
-  },
-  {
-    slug: "moxibustion",
-    fields: [
-      { key: "technique", label: "plan-f-technique", kind: "text" },
-      { key: "pointsOrRegion", label: "plan-f-points-region", kind: "text" },
-      { key: "objective", label: "plan-f-objective", kind: "textarea" },
-      { key: "contraindicationChecklist", label: "plan-f-checklist", kind: "list" },
-    ],
-  },
-  {
-    slug: "auriculotherapy",
-    fields: [
-      { key: "points", label: "plan-f-points", kind: "list" },
-      { key: "material", label: "plan-f-material", kind: "text" },
-      { key: "side", label: "plan-f-side", kind: "text" },
-      { key: "stimulationGuidance", label: "plan-f-stimulation", kind: "textarea" },
-      { key: "reassessment", label: "plan-f-reassessment", kind: "text" },
-    ],
-  },
-  {
-    slug: "cupping",
-    fields: [
-      { key: "technique", label: "plan-f-technique", kind: "text" },
-      { key: "region", label: "plan-f-region", kind: "text" },
-      { key: "intensity", label: "plan-f-intensity", kind: "text" },
-      { key: "duration", label: "plan-f-duration", kind: "text" },
-      { key: "postSessionGuidance", label: "plan-f-post-session", kind: "textarea" },
-    ],
-  },
-];
-
-const STRATEGIES = ["tonify", "disperse", "harmonize", "warm", "regulate"] as const;
 
 type Modality = Record<string, unknown>;
 type SafetyFlag = { category: string; matchedText: string; fieldKey?: string };
 type Source = { title: string; source: string | null; kind: string };
+type IssuedDocument = {
+  id: string;
+  version: number;
+  verifyCode: string;
+  status: string;
+  issuedAt: string | null;
+  storagePath: string | null;
+};
 
 type Plan = {
   id: string;
@@ -129,6 +77,7 @@ export default function PlanPanel({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<{ objective: string; modalities: Record<string, Modality> } | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [documents, setDocuments] = useState<IssuedDocument[]>([]);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -154,6 +103,28 @@ export default function PlanPanel({
           }
         : null,
     );
+
+    // Documents already issued from this plan (PRD §9.8) — newest first.
+    if (data) {
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("id, version, verify_code, status, issued_at, storage_path")
+        .eq("kind", "therapeutic-plan")
+        .contains("payload", { planId: data.id })
+        .order("version", { ascending: false });
+      setDocuments(
+        (docs ?? []).map((doc) => ({
+          id: doc.id,
+          version: doc.version,
+          verifyCode: doc.verify_code,
+          status: doc.status,
+          issuedAt: doc.issued_at,
+          storagePath: doc.storage_path,
+        })),
+      );
+    } else {
+      setDocuments([]);
+    }
   }, [consultationId]);
 
   useEffect(() => {
@@ -230,12 +201,41 @@ export default function PlanPanel({
     await load();
   };
 
+  const issue = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/plan/issue`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(
+          body.error === "plan_not_validated" ? t("plan-issue-need-validate") : (body.error ?? t("plan-issue-error")),
+        );
+        return;
+      }
+      await load();
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : t("plan-issue-error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = async (doc: IssuedDocument) => {
+    if (!doc.storagePath) return;
+    const supabase = createClient();
+    // The documents bucket is private; a short-lived signed URL is RLS-gated to
+    // members (migration 0006), so this never exposes another org's file.
+    const { data } = await supabase.storage.from("documents").createSignedUrl(doc.storagePath, 120);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+  };
+
   if (plan === undefined) return null;
 
   // Nothing to show and nothing to sell here without the Pro layer (PRD §7.4).
   if (!plan && !canReason) return null;
 
-  const activeModalities = plan ? MODALITIES.filter((m) => plan.modalities[m.slug]?.enabled) : [];
+  const activeModalities = plan ? PLAN_MODALITIES.filter((m) => plan.modalities[m.slug]?.enabled) : [];
   const mustAcknowledge = (plan?.safetyFlags.length ?? 0) > 0;
 
   return (
@@ -388,9 +388,54 @@ export default function PlanPanel({
                           {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
                         </Button>
                       )}
+                      {/* A validated plan can become a signed document (PRD §9.8).
+                          Issuing again supersedes the previous version. */}
+                      {plan.status === "validated" && (
+                        <Button variant="contained" color="primary" onClick={issue} disabled={busy}>
+                          {busy ? (
+                            <CircularProgress size={16} />
+                          ) : documents.some((doc) => doc.status === "issued") ? (
+                            t("plan-reissue")
+                          ) : (
+                            t("plan-issue")
+                          )}
+                        </Button>
+                      )}
                     </Box>
                   </>
                 )}
+              </Box>
+            )}
+
+            {/* Issued documents — viewable and verifiable even after the record
+                is finalized (the plan freezes, the documents remain). */}
+            {documents.length > 0 && (
+              <Box className="flex flex-col gap-1.5">
+                <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+                  {t("plan-documents-title")}
+                </Typography>
+                {documents.map((doc) => (
+                  <Box
+                    key={doc.id}
+                    className="border-grey-100 flex flex-row flex-wrap items-center gap-2 rounded-2xl border px-3 py-2"
+                  >
+                    <Box className="min-w-0 flex-1">
+                      <Typography variant="body2" className="text-text-primary text-xs font-medium">
+                        {t("plan-doc-version")} {doc.version}
+                        {doc.status === "revoked" ? ` · ${t("plan-doc-superseded")}` : ""}
+                      </Typography>
+                      <Typography variant="body2" className="text-text-secondary font-mono text-xs">
+                        {doc.verifyCode}
+                      </Typography>
+                    </Box>
+                    <Button size="small" variant="text" color="grey" onClick={() => download(doc)}>
+                      {t("plan-doc-download")}
+                    </Button>
+                    <Button size="small" variant="text" color="grey" href={`/verify/${doc.verifyCode}`} target="_blank">
+                      {t("plan-doc-verify-link")}
+                    </Button>
+                  </Box>
+                ))}
               </Box>
             )}
           </>
@@ -501,7 +546,7 @@ function FieldEditor({
         onChange={(event) => onChange(event.target.value || null)}
       >
         <MenuItem value="">—</MenuItem>
-        {STRATEGIES.map((strategy) => (
+        {PLAN_STRATEGIES.map((strategy) => (
           <MenuItem key={strategy} value={strategy}>
             {t(`plan-strategy-${strategy}`)}
           </MenuItem>

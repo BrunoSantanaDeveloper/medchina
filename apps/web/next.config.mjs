@@ -5,6 +5,9 @@ const withNextIntl = createNextIntlPlugin();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // @react-pdf/renderer (therapeutic-plan PDF issuance) is a heavy Node-only
+  // renderer — keep it external so Next does not bundle it into the server build.
+  serverExternalPackages: ["@react-pdf/renderer"],
   transpilePackages: [
     "@mui/material-nextjs",
     "@flyee/content",
