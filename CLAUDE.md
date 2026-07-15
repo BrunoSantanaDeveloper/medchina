@@ -48,6 +48,12 @@ Prontuário inteligente e assistente clínico para Medicina Tradicional Chinesa.
 - Display font: TT Chocolates (commercial, `apps/web/src/fonts/tt-chocolates/`, weights 500/700/800 wired as `--font-display` in the root layout).
 - Clinical safety: AI output is always a draft for professional review; never word UI/copy as autonomous diagnosis/prescription; red only for risk/error; prices/limits come from configurable data.
 
+## Shared Claude/Codex harness
+
+- `CLAUDE.md`, `apps/*/CLAUDE.md`, `.claude/rules/*`, `.claude/skills/*` and `.claude/hooks/*` are the canonical shared sources. Do not maintain a second hand-written Codex copy.
+- Codex reads the generated `AGENTS.md` mirror and generated `.agents/skills/*` discovery bridges. `.codex/config.toml` points its lifecycle hooks at the same implementations under `.claude/hooks/`.
+- `PostToolUse` automatically runs `scripts/sync-agent-harness.mjs` after canonical harness edits. `npm run harness:check` and `npm run harness:test` are also enforced by the pre-commit hook.
+
 ## Commands (root)
 
 - `npm run dev` / `build` / `lint:fix` — delegate to `apps/web`

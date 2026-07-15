@@ -1,5 +1,7 @@
 # Run lint-staged per workspace so each tool resolves its own config
 # (eslint.config.ts lives in apps/web, not at the repo root).
+npm run harness:check
+npm run harness:test
 # --concurrent 1: parallel eslint instances OOM-crash (SIGKILL) on large
 # commits (hundreds of staged files); sequential chunks stay within memory
 # and cost nothing on normal-sized commits.
