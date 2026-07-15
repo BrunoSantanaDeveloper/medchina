@@ -25,6 +25,8 @@ export type AudioAllowance = {
   trialAvailable: boolean;
   /** May a NEW recording or a NEW processing run begin right now? */
   canStart: boolean;
+  /** May this workspace use the Pro reasoning layer (PRD §10.8)? */
+  clinicalReasoning: boolean;
 };
 
 export type AllowanceRow = {
@@ -42,6 +44,7 @@ export type AllowanceRow = {
   trial_ends_at: string | null;
   trial_available: boolean;
   can_start: boolean;
+  clinical_reasoning: boolean;
 };
 
 export const toAllowance = (row: AllowanceRow): AudioAllowance => ({
@@ -59,6 +62,7 @@ export const toAllowance = (row: AllowanceRow): AudioAllowance => ({
   trialEndsAt: row.trial_ends_at,
   trialAvailable: row.trial_available,
   canStart: row.can_start,
+  clinicalReasoning: Boolean(row.clinical_reasoning),
 });
 
 /** Days left in the trial, floored at 0. Null when there is no trial running. */

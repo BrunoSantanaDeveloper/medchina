@@ -29,7 +29,9 @@ import {
 } from "@mui/material";
 
 import ConsultationRecorder from "@/components/product/consultation-recorder";
+import HypothesesPanel from "@/components/product/hypotheses-panel";
 import RecordingsPanel from "@/components/product/recordings-panel";
+import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiListCheck from "@/icons/nexture/ni-list-check";
@@ -82,6 +84,9 @@ export default function ConsultaPage() {
   const t = useTranslations("product");
 
   const [consultation, setConsultation] = useState<Consultation | null>(null);
+  // Reasoning is the Pro layer (PRD §10.8) — the same allowance that governs
+  // minutes says whether this workspace has it.
+  const { allowance } = useAudioAllowance(consultation?.orgId ?? null);
   const [fields, setFields] = useState<Record<string, FieldMeta>>({});
   const [addenda, setAddenda] = useState<Addendum[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -481,6 +486,16 @@ export default function ConsultaPage() {
           )}
 
           {!isFinalized && <RecordingsPanel consultationId={consultation.id} onProcessed={load} />}
+
+          {/* Pattern hypotheses (PRD §10.8) — prepared on demand, because a
+              pattern is read from the tongue and pulse, and those are HER
+              observations, never inferred from the recording (PRD §10.3). */}
+          <HypothesesPanel
+            consultationId={consultation.id}
+            patientId={consultation.patientId}
+            canReason={allowance?.clinicalReasoning ?? false}
+            isFinalized={isFinalized}
+          />
 
           {/* Gaps are suggestions to investigate — never answers (PRD §10.7). */}
           {consultation.aiGaps.length > 0 && !isFinalized && (
