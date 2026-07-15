@@ -1,2 +1,13 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-structure";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { TreeStructure } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiStructure({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <TreeStructure
+      className={className}
+      size={sizeHelper(size)}
+      weight={variant === "contained" ? "fill" : "regular"}
+    />
+  );
+}

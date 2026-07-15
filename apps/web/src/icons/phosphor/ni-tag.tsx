@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-tag";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Tag } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiTag({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Tag className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

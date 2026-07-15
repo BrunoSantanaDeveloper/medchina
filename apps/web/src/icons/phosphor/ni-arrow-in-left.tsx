@@ -1,2 +1,13 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-arrow-in-left";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { ArrowLineLeft } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiArrowInLeft({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <ArrowLineLeft
+      className={className}
+      size={sizeHelper(size)}
+      weight={variant === "contained" ? "fill" : "regular"}
+    />
+  );
+}

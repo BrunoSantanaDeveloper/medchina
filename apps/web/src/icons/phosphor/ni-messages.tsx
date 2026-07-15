@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-messages";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Chats } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiMessages({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Chats className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

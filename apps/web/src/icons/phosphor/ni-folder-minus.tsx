@@ -1,2 +1,9 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-folder-minus";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { FolderMinus } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiFolderMinus({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <FolderMinus className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />
+  );
+}

@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-wallet";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Wallet } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiWallet({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Wallet className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

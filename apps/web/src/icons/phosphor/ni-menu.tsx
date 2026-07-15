@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-menu";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { List } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiMenu({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <List className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

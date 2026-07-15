@@ -1,2 +1,9 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-floppy-disk";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { FloppyDisk } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiFloppyDisk({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <FloppyDisk className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />
+  );
+}

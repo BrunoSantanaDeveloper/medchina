@@ -1,2 +1,9 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-loader";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { SpinnerGap } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiLoader({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <SpinnerGap className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />
+  );
+}

@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-moon";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Moon } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiMoon({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Moon className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

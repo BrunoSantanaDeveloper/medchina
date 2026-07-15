@@ -1,2 +1,9 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-face-frown-more";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { SmileyXEyes } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiFaceFrownMore({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <SmileyXEyes className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />
+  );
+}

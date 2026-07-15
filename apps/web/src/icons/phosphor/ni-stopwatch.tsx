@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-stopwatch";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Timer } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiStopwatch({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Timer className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

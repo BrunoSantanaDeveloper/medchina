@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-code";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Code } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiCode({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Code className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

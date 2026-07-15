@@ -1,2 +1,9 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-chevron-left";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { CaretLeft } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiChevronLeft({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <CaretLeft className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />
+  );
+}

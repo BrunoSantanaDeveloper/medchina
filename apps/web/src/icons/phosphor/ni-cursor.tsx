@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-cursor";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Cursor } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiCursor({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Cursor className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

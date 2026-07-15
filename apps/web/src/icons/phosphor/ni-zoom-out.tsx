@@ -1,2 +1,13 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-zoom-out";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { MagnifyingGlassMinus } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiZoomOut({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <MagnifyingGlassMinus
+      className={className}
+      size={sizeHelper(size)}
+      weight={variant === "contained" ? "fill" : "regular"}
+    />
+  );
+}

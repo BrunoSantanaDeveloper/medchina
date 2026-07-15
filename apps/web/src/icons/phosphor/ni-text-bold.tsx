@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-text-bold";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { TextB } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiTextBold({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <TextB className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

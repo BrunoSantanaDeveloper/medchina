@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-phone-handset";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Phone } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiPhoneHandset({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Phone className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

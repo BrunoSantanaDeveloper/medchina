@@ -1,2 +1,9 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-sign";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Signpost } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiSign({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <Signpost className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />
+  );
+}

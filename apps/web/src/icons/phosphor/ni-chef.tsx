@@ -1,2 +1,9 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-chef";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { ChefHat } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiChef({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <ChefHat className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />
+  );
+}

@@ -1,2 +1,7 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-medal";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { Medal } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiMedal({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return <Medal className={className} size={sizeHelper(size)} weight={variant === "contained" ? "fill" : "regular"} />;
+}

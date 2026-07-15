@@ -1,2 +1,13 @@
-// Fallback stub — replace with a real phosphor adapter when needed.
-export { default } from "../nexture/ni-menu-split";
+import { NextureIconsProps, sizeHelper } from "../nexture-icons";
+
+import { SidebarSimple } from "@phosphor-icons/react/dist/ssr";
+
+export default function NiMenuSplit({ className, variant = "outlined", size = "medium" }: NextureIconsProps) {
+  return (
+    <SidebarSimple
+      className={className}
+      size={sizeHelper(size)}
+      weight={variant === "contained" ? "fill" : "regular"}
+    />
+  );
+}
