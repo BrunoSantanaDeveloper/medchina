@@ -639,7 +639,12 @@
     "breakout-body": "Métricas, atividade e cobrança de todos os seus clientes em um só console — por papel, exportável, sempre atual.",
     "breakout-bullet-1": "Métricas ao vivo por organização",
     "breakout-bullet-2": "Por papel — nenhum dado cruza entre clientes",
-    "cta-kicker": "Quando você quiser"
+    "cta-kicker": "Quando você quiser",
+    "cookie-consent-title": "Usamos cookies",
+    "cookie-consent-description": "Usamos cookies para funcionalidades essenciais (login, preferências) e, com a sua permissão, para análises de uso que melhoram o produto. Você pode recusar as análises — todo o resto funciona normalmente.",
+    "cookie-consent-accept": "Entendi",
+    "cookie-consent-reject": "Recusar análises",
+    "cookie-consent-privacy": "Política de privacidade"
   },
   "mobile": {
     "signin-title": "Entrar",

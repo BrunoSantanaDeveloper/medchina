@@ -639,7 +639,12 @@
     "breakout-body": "Metrics, activity and billing across all your tenants in a single console — scoped by role, exportable, always current.",
     "breakout-bullet-1": "Live metrics per organization",
     "breakout-bullet-2": "Role-scoped — no data crosses between tenants",
-    "cta-kicker": "Ready when you are"
+    "cta-kicker": "Ready when you are",
+    "cookie-consent-title": "We use cookies",
+    "cookie-consent-description": "We use cookies for core functionality (sign-in, preferences) and, with your permission, product analytics to improve the product. You can opt out of analytics — everything else works either way.",
+    "cookie-consent-accept": "Got it",
+    "cookie-consent-reject": "Reject analytics",
+    "cookie-consent-privacy": "Privacy policy"
   },
   "mobile": {
     "signin-title": "Sign in",

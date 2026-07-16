@@ -639,7 +639,12 @@
     "breakout-body": "Métricas, actividad y cobros de todos tus clientes en una sola consola — por rol, exportable, siempre al día.",
     "breakout-bullet-1": "Métricas en vivo por organización",
     "breakout-bullet-2": "Por rol — ningún dato cruza entre clientes",
-    "cta-kicker": "Cuando quieras"
+    "cta-kicker": "Cuando quieras",
+    "cookie-consent-title": "Usamos cookies",
+    "cookie-consent-description": "Usamos cookies para funciones esenciales (inicio de sesión, preferencias) y, con tu permiso, para analíticas de uso que mejoran el producto. Puedes rechazar las analíticas: todo lo demás funciona igual.",
+    "cookie-consent-accept": "Entendido",
+    "cookie-consent-reject": "Rechazar analíticas",
+    "cookie-consent-privacy": "Política de privacidad"
   },
   "mobile": {
     "signin-title": "Iniciar sesión",
