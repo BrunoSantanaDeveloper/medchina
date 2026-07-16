@@ -118,6 +118,17 @@ function lint(filePath, content) {
       );
   }
 
+  // Semantic data in a raw TextField — the field catalog exists for these.
+  if (!/\/components\/product\/fields\//.test(p)) {
+    for (const { index, tag } of scanOpeningTags(content, "TextField")) {
+      const semantic = tag.match(/\b(?:phone|celular|whatsapp|cpf|cnpj|cep|postal|zip.?code)\b/i);
+      if (semantic)
+        advisories.push(
+          `[semantic-field?] line ${lineOf(content, index)}: raw <TextField> named "${semantic[0]}" — use the semantic fields (components/product/fields: PhoneField/CpfField/CnpjField/CepField) for mask + check-digit validation + CEP auto-fill; persist onlyDigits().`,
+        );
+    }
+  }
+
   // a11y: standalone Switch/Checkbox without a name (FormControlLabel's control={...} names it).
   for (const tagName of ["Switch", "Checkbox"]) {
     for (const { index, tag } of scanOpeningTags(content, tagName)) {

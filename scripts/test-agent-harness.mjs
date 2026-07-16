@@ -115,14 +115,25 @@ const productLintAdvisory = runHook("product-lint.mjs", {
   hook_event_name: "PostToolUse",
   tool_input: {
     file_path: join(repoRoot, productLintPath),
-    content: "load().catch(() => setRows([]));",
+    content: 'load().catch(() => setRows([]));\nexport const f = <TextField name="cpf" />;',
   },
 });
 assert(
   productLintAdvisory?.hookSpecificOutput?.additionalContext?.includes("[error-as-empty?]") &&
+    productLintAdvisory.hookSpecificOutput.additionalContext.includes("[semantic-field?]") &&
     !productLintAdvisory?.decision,
   "Product lint advisory path failed",
 );
+
+const productLintFieldCatalog = runHook("product-lint.mjs", {
+  cwd: repoRoot,
+  hook_event_name: "PostToolUse",
+  tool_input: {
+    file_path: join(repoRoot, "apps/web/src/components/product/fields/__probe__.tsx"),
+    content: 'export const f = <TextField name="cpf" />;',
+  },
+});
+assert(productLintFieldCatalog === null, "Product lint flagged the field catalog itself");
 
 const productLintMarketing = runHook("product-lint.mjs", {
   cwd: repoRoot,
