@@ -56,3 +56,5 @@ Distilled from the gamification research — most of it is a WARNING:
 ## Before finishing
 
 Walk the screen as a brand-new user (empty data) AND as a returning one. Confirm: no blank empty states; a first-run path to value exists; no CRUD table where a focused view fits the job better; strings translated; tokens only; `npm run build` + `npm run lint:fix` pass.
+
+For a new flow or a substantial edit, run the `product-verify` skill — it drives the real app through the journey (new + returning user, 1440/390, light/dark) and judges dead ends, lost context, error-vs-empty and leftover demo surfaces. Code that was never run is not verified.
