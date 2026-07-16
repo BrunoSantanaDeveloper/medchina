@@ -70,7 +70,9 @@ function hasAccessibleName(tag) {
 
 function lint(filePath, content) {
   const p = filePath.replace(/\\/g, "/");
-  const isScreen = /\/app\/\(dashboard\)\//.test(p);
+  // Admin consoles are intentionally EN-only (apps/web/CLAUDE.md) — the
+  // hardcoded-copy advisory applies to user-facing screens only.
+  const isScreen = /\/app\/\(dashboard\)\//.test(p) && !/\/app\/\(dashboard\)\/admin\//.test(p);
   const violations = [];
   const advisories = [];
   const lines = content.split(/\r?\n/);
