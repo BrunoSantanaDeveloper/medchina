@@ -50,25 +50,29 @@ export default function MarketingFooter() {
   const t = useTranslations("marketing");
 
   return (
-    <footer className="border-grey-100 w-full border-t">
+    // Blueprint §26: the footer joins the deep teal band family (same token
+    // as the mobile/security/final-CTA moments) — the site closes dark.
+    <footer className="bg-primary-dark text-text-contrast w-full">
       <Container className="flex flex-col gap-10 py-12 md:py-16">
         <div className="flex flex-col gap-10 md:flex-row md:justify-between">
           <div className="flex max-w-xs flex-col gap-3">
             <Link href="/" aria-label={t("nav-home")} className="flex items-center">
-              <Logo classNameFull="block" />
+              <Logo classNameFull="block" tone="contrast" />
             </Link>
-            <p className="text-text-secondary text-base leading-5">{t("footer-tagline")}</p>
+            <p className="text-text-contrast/65 text-base leading-5">{t("footer-tagline")}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
             {COLUMNS.map((column) => (
               <div key={column.titleKey} className="flex flex-col gap-2">
-                <p className="text-text-primary text-sm font-semibold tracking-wide uppercase">{t(column.titleKey)}</p>
+                <p className="text-text-contrast/80 text-sm font-semibold tracking-wide uppercase">
+                  {t(column.titleKey)}
+                </p>
                 {column.links.map((link) => (
                   <Link
                     key={link.key}
                     href={link.href}
-                    className="text-text-secondary hover:text-primary text-base leading-6 transition-colors"
+                    className="text-text-contrast/60 hover:text-text-contrast text-base leading-6 transition-colors"
                   >
                     {t(link.key)}
                   </Link>
@@ -78,12 +82,12 @@ export default function MarketingFooter() {
           </div>
         </div>
 
-        <div className="border-grey-100 flex flex-col gap-2 border-t pt-6">
-          <p className="text-text-secondary text-sm">
+        <div className="border-text-contrast/15 flex flex-col gap-2 border-t pt-6">
+          <p className="text-text-contrast/60 text-sm">
             © {new Date().getFullYear()} {BRAND.name}. {t("footer-rights")}
           </p>
           {/* HOME-SPEC §27.2 — the clinical-responsibility disclaimer, site-wide. */}
-          <p className="text-text-secondary/80 max-w-3xl text-xs leading-5">{t("footer-disclaimer")}</p>
+          <p className="text-text-contrast/45 max-w-3xl text-xs leading-5">{t("footer-disclaimer")}</p>
         </div>
       </Container>
     </footer>

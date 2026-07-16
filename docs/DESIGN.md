@@ -54,6 +54,33 @@
 <!-- marketing-page Pass 0.R writes here when the user drops reference screenshots in attachments/. Structural ingredients only (composition, depth, breakout, imagery, motion) mapped to library primitives — never copied hex/fonts. -->
 _None ingested — direction chosen from generated candidates (A · Cuidado Sereno; previews in the session artifact)._
 
+## Reference blueprint (committed 2026-07-15 from `attachments/medchina-clinica/` — HOME structure is FIXED)
+
+The user rebuilt the home externally and asked for the current home to follow it 1:1. Structure comes from the blueprint; identity (Teal/Camel tokens, TT Chocolates, Phosphor icons, `<Logo>`) stays ours. The reference has NO photos/images — every visual is a token-driven mock we rebuild as library components.
+
+| # | Reference section | Our section (primitive + content source) |
+|---|---|---|
+| 1 | Sticky blurred header, 5 links, Entrar + CTA | `MarketingHeader` (existing) + hairline border. |
+| 2 | Hero split (0.84/1.16): eyebrow, two-tone H1 (`t.rich` + `<em>` in primary), subtitle, 2 CTAs (secondary carries the play icon), microcopy, 4 highlight chips; visual = web record-panel + phone recording + orbit rings + dashed flow line + floating notes | `Hero layout="split"` + NEW `ConsultationDuo` — the reference canvas ported 1:1 (690×570, token colors, --duo-scale breakpoints, reduced-motion-safe pulse/wave/travel animations). Hero gained `highlights` + rich `title` + secondary `icon`. |
+| 3 | Trust strip: 4 numbered columns with dividers on cream band | NEW `NumberStrip` (contrast band, camel display ordinals). |
+| 4 | Interactive workflow demo: 4 tabs (Conversa/Anamnese/Análise/Plano), each a copy+evidence panel | NEW `WorkflowDemo` (client): tabbed panels — dialogue+audio strip, quote→field mapping, exception stack, plan review rows. |
+| 5 | Before/After: split intro, two comparison cards joined by a bridge arrow | NEW `Comparison` + `SectionHeader align="start"`. |
+| 6 | Benefits: ruled 3×2 grid, ordinal + abstract circle glyph per cell | NEW `RuledGrid`. Deviation: abstract CSS circles → meaningful Phosphor icons per family hue (premium bar #8); ordinals dropped (carry no information). |
+| 7 | Mobile: dark band, copy + feature list + connection note, 3 fanned phone screens over a ring (agenda/recording/status) | `Section background="deep"` (NEW deep teal band) + NEW `MobileSequence` (reference fan canvas, --seq-scale) with `AgendaMock`/`RecordingMock`/`StatusMock` in `PhoneFrame`. |
+| 8 | Anamnesis demo: fictional quote → arrow → prepared fields card with 3 states + investigation note | NEW `AnamnesisDemo` (quote block → connector → prepared-field rows + investigation footnote). |
+| 9 | Clinical reasoning: intro + CTA right, 3 cards, safety line | `SectionHeader align="start"` + card row (RuledGrid `variant="cards"`) + safety footnote. |
+| 10 | MTC specialization: copy left, 16-cell indexed 2-col ruled grid with accent cells | NEW `IndexGrid`. |
+| 11 | Traceability: field-provenance demo card left, copy + 4-source legend right | NEW `TraceabilityDemo` (card + legend), field-state hues preserved. |
+| 12 | Pricing: status line, 3 cards (middle highlighted), difference footnote | Existing `PricingSection` + NEW `tiers`/`footnote` props. Prices stay catalog-driven (`getDisplayPlans()`), per user decision. |
+| 13 | Security: dark band, copy left + 4 ruled pillars | `Section background="deep"` + `RuledGrid variant="deep"`. |
+| 14 | FAQ: two-column, sticky intro + accordion list | `Faq` + NEW `layout="split"` (subtitle + link). Deviation: ordinals dropped. |
+| 15 | Final CTA: deep band, orbit rings, headline, CTA + demo link, 4 reassurance points | `Cta` + NEW `variant="deep"` (orbit decor, `points`, `secondaryCta`). |
+| 16 | Footer: dark 4-column + clinical-responsibility legal note | `MarketingFooter` restyled to the deep band (disclaimer kept). |
+
+Depth note: on the home, the blueprint's three deep moments (mobile band, security band, final CTA/footer) supersede the old "one contrast band" rule — expressed as the token `deep` background (`--primary-dark`), never a hardcoded ink.
+
+Width note: the blueprint's page width is committed site-wide — `--container-max: 77.5rem` (1240px) in `packages/design-tokens/css/marketing.css`.
+
 ## Open items
 
 - The home page (`app/(marketing)/page.tsx`) is the reference implementation of this direction, built section-by-section from `docs/HOME-SPEC.md` (order §8 is contractual).

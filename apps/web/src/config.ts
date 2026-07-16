@@ -6,7 +6,9 @@ export const DEFAULTS = {
   appRoot: "/inicio",
   locale: "pt-BR",
   themeColor: "theme-green" as ThemeVariant,
-  themeMode: "system" as ModeVariant,
+  // Light-first (docs/DESIGN.md "Cuidado Sereno"): light is the default; dark
+  // stays an explicit user choice via the mode switcher.
+  themeMode: "light" as ModeVariant,
   contentType: ContentType.Boxed,
   leftMenuType: MenuType.Comfort,
   leftMenuWidth: {

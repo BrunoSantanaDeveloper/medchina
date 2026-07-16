@@ -30,15 +30,15 @@
       "name": "PhoneFrame",
       "file": "phone-frame.tsx",
       "role": "evidence",
-      "props": "children (screen content), className · RecordingMock{patient, statusLabel, timer, pauseLabel, voiceLabel, finishLabel}",
+      "props": "children (screen content), className · RecordingMock{patient, statusLabel, timer, pauseLabel, voiceLabel, finishLabel} · AgendaMock{heading, items: {time, name, note}[]} · StatusMock{title, subtitle, steps: {label, note, state: done|current}[]}",
       "use": "token phone chrome for the companion-app story (real screenshots when they exist); RecordingMock renders the Modo Consulta screen (recording state + timer + big actions) with translated labels"
     },
     {
       "name": "Section",
       "file": "section.tsx",
       "role": "layout",
-      "props": "spacing: default|compact, background: default|paper|primary-soft|contrast, decor: none|glow|grid|gradient-edge|dots|mesh|orbit, bleed, id",
-      "use": "vertical rhythm unit wrapping every block; vary background/decor at least twice along a page (premium bar #3); orbit is the one slowly-alive ambient — max one per page"
+      "props": "spacing: default|compact, background: default|paper|primary-soft|contrast|deep, decor: none|glow|grid|gradient-edge|dots|mesh|orbit, bleed, id",
+      "use": "vertical rhythm unit wrapping every block; vary background/decor at least twice along a page (premium bar #3); orbit is the one slowly-alive ambient — max one per page; deep = the blueprint dark band (--primary-dark + text-text-contrast), never pair with light decors"
     },
     {
       "name": "ProductComposition",
@@ -121,7 +121,7 @@
       "name": "Hero",
       "file": "hero.tsx",
       "funnel": "attention + value proposition",
-      "props": "layout: center|split, decor: glow|grid|none, media (evidence slot), eyebrow, title, subtitle, primaryCta, secondaryCta",
+      "props": "layout: center|split, decor: glow|grid|none, media (evidence slot), eyebrow, title (string or rich node — t.rich with <em> renders the two-tone headline), subtitle, primaryCta, secondaryCta{label, href, icon?}, note?, highlights?: string[] (reassurance chips row, split only)",
       "use": "owns the page <h1> AND the page's one orchestrated motion moment (built-in load timeline: copy staggers, media rises); split + <ProductFrame glow> is the committed direction for product-heavy pages; media is required in practice (premium bar #1)"
     },
     {
@@ -191,21 +191,21 @@
       "name": "PricingSection",
       "file": "pricing-section.tsx",
       "funnel": "action",
-      "props": "plans (from getDisplayPlans()), ctaLabel, ctaHref, headingAs: h1|h2, decor, id",
+      "props": "plans (from getDisplayPlans()), ctaLabel, ctaHref, headingAs: h1|h2, decor, id, tiers?: string[] (automation ladder above the grid), footnote? (differentiation line under it)",
       "use": "real plans, one highlighted anchor, tone per tier; emits Product JsonLd; CTA repeats the page's primary action verbatim; decor=\"glow\" when it leads the page; 1–2 plans auto-center instead of stranding in a 3-up grid"
     },
     {
       "name": "Faq",
       "file": "faq.tsx",
       "funnel": "objection handling",
-      "props": "items: {question, answer}",
+      "props": "eyebrow?, title, subtitle?, items: {question, answer}, id?, layout: stack|split (sticky intro + list), link?: {label, href}",
       "use": "REAL purchase objections (price, lock-in, security, migration) answered plainly; emits FAQPage JsonLd"
     },
     {
       "name": "Cta",
       "file": "cta.tsx",
       "funnel": "recovery",
-      "props": "title, subtitle, cta, kicker?, decor: none|orbit|mesh|dots",
+      "props": "title, subtitle, cta, secondaryCta? (deep only), points?: string[] (deep only), kicker?, decor: none|orbit|mesh|dots, variant: panel|deep",
       "use": "last conversion opportunity as a bordered console panel with primary glow + optional mono kicker; repeats the primary CTA verbatim; decor=\"orbit\" is the classic closer"
     },
     {
@@ -228,6 +228,76 @@
       "role": "layout",
       "props": "className, children",
       "use": "long-form reading rhythm (legal pages, articles) without styling each element by hand"
+    },
+    {
+      "name": "ConsultationMock",
+      "file": "consultation-mock.tsx",
+      "role": "evidence",
+      "props": "labels: {brand, search, kicker, title, reviewChip, tabs[], fields (AnamnesisField[]), changesKicker, changesTitle, changes[], changesCta}, ariaLabel, className",
+      "use": "token mock of the MedChina web record panel (blueprint hero frame): topbar + sidebar + field cards in the field-state hues + dark changes panel; role=img, fictitious data only"
+    },
+    {
+      "name": "NumberStrip",
+      "file": "number-strip.tsx",
+      "role": "trust",
+      "props": "items: {title, body}[] (3-4)",
+      "use": "compact contrast band of numbered reassurance items under camel display ordinals (blueprint trust strip); sits right under the hero"
+    },
+    {
+      "name": "WorkflowDemo",
+      "file": "workflow-demo.tsx",
+      "role": "desire (how it works)",
+      "props": "tabsLabel, conversation/mapping/analysis/plan: WorkflowStepCopy & step-specific evidence strings",
+      "use": "interactive 4-tab consultation-flow demo (Conversa→Anamnese→Análise→Plano): the same fictitious information travelling through the product; client only for tab state, arrow-key accessible"
+    },
+    {
+      "name": "Comparison",
+      "file": "comparison.tsx",
+      "role": "desire",
+      "props": "before/after: {label, title, items[]}",
+      "use": "before/with-product cards joined by a bridge arrow — muted paper card vs deep teal card with camel checks; no blame language"
+    },
+    {
+      "name": "RuledGrid",
+      "file": "ruled-grid.tsx",
+      "role": "desire",
+      "props": "items: {icon?, title, body, tone?, link?: {label, href}}[], columns: 2|3, variant: light|deep|cards",
+      "use": "hairline-ruled cell grid (benefits 3-col light, security 2-col deep) or separated cards (reasoning trio); meaningful concept icons in the family hue"
+    },
+    {
+      "name": "IndexGrid",
+      "file": "index-grid.tsx",
+      "role": "desire",
+      "props": "items: string[], accentEvery?: number",
+      "use": "indexed hairline grid of clinical categories (MTC specialization map) with periodic deep accent cells; camel ordinals"
+    },
+    {
+      "name": "AnamnesisDemo",
+      "file": "anamnesis-demo.tsx",
+      "role": "evidence",
+      "props": "quote: {kicker, text, cite}, connectorLabel, prepared: {kicker, title, countChip, rows: {label, value, state, stateLabel}[], investigation: {title, body}}",
+      "use": "quote → supervised-organization connector → prepared-fields card with the three field states + investigation footnote (absence stays blank); fictitious data only"
+    },
+    {
+      "name": "TraceabilityDemo",
+      "file": "traceability-demo.tsx",
+      "role": "evidence",
+      "props": "kicker, chip, field, value, origin: {kicker, quote, timecode}, actions: {listen, edit, reject, validated}, ariaLabel · SourceLegend{items: {label, tone}[]}",
+      "use": "provenance demo: one anamnesis field, its source audio excerpt and the four review actions (role=img); SourceLegend renders the permanent four-source legend (swatch + text, never color alone)"
+    },
+    {
+      "name": "ConsultationDuo",
+      "file": "consultation-duo.tsx",
+      "role": "evidence",
+      "props": "labels: {web (record panel strings/fields), phone (recording screen strings), notes (two floating notes)}, ariaLabel, className",
+      "use": "the blueprint hero visual ported 1:1: 690×570 token canvas with the web record panel in perspective, overlapping phone recording, orbit ellipses, dashed flow line with travelling dots and floating notes; scales via --duo-scale; role=img, fictitious data only"
+    },
+    {
+      "name": "MobileSequence",
+      "file": "mobile-sequence.tsx",
+      "role": "evidence",
+      "props": "back/front/side (screen contents: AgendaMock/RecordingMock/StatusMock), ariaLabel, className",
+      "use": "blueprint §15.7: three companion-app screens fanned over a faint ring on the deep band (agenda behind, recording front, status right); fixed canvas scaled via --seq-scale; role=img"
     }
   ]
 }

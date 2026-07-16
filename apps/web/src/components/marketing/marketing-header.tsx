@@ -28,7 +28,10 @@ export default function MarketingHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <Box component="header" className="bg-background/85 sticky top-0 z-30 w-full backdrop-blur-md">
+    <Box
+      component="header"
+      className="bg-background/85 border-grey-100/80 sticky top-0 z-30 w-full border-b backdrop-blur-md"
+    >
       <Container className="flex h-16 flex-row items-center justify-between md:h-20">
         <Link href="/" aria-label={t("nav-home")} className="flex items-center">
           <Logo classNameFull="hidden md:block" classNameMobile="md:hidden" />

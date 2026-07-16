@@ -10,7 +10,7 @@ export default function PhoneFrame({ children, className }: { children?: React.R
   return (
     <div
       className={cn(
-        "border-grey-100 bg-background-paper shadow-darker-lg w-full max-w-64 rounded-[2rem] border p-2.5",
+        "border-grey-100 bg-background-paper shadow-darker-lg w-full max-w-64 rounded-4xl border p-2.5",
         className,
       )}
     >
@@ -27,6 +27,86 @@ export default function PhoneFrame({ children, className }: { children?: React.R
  * gives the consultation screen (pause / voice note / finish). All labels
  * arrive translated.
  */
+/**
+ * "Consultas de hoje" screen (blueprint §15.7 screen 1): the day's agenda with
+ * fictitious patients. Third row fades — the day continues. Labels translated.
+ */
+export function AgendaMock({
+  heading,
+  items,
+}: {
+  heading: string;
+  items: { time: string; name: string; note: string }[];
+}) {
+  return (
+    <div className="flex flex-col gap-2 p-3.5">
+      <p className="font-display text-text-primary text-sm font-bold">{heading}</p>
+      {items.map((item, index) => (
+        <div
+          key={item.time}
+          className={cn(
+            "bg-background-paper border-grey-100 flex items-center gap-2.5 rounded-xl border px-3 py-2",
+            index === 2 && "opacity-55",
+          )}
+        >
+          <span className="text-primary flex-none font-mono text-xs font-bold tabular-nums">{item.time}</span>
+          <span className="min-w-0">
+            <span className="text-text-primary block truncate text-xs font-bold">{item.name}</span>
+            <span className="text-text-secondary block truncate text-xs">{item.note}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Upload/processing status screen (blueprint §15.7 screen 3): the consultation
+ * arrived safely and the anamnesis is being prepared. States are honest — the
+ * "done" step is jade, the "current" step is camel (in progress, not risk).
+ */
+export function StatusMock({
+  title,
+  subtitle,
+  steps,
+}: {
+  title: string;
+  subtitle: string;
+  steps: { label: string; note: string; state: "done" | "current" }[];
+}) {
+  return (
+    <div className="flex flex-col gap-3 p-3.5">
+      <div className="flex flex-col items-center gap-2 py-3 text-center">
+        <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light grid h-10 w-10 place-items-center rounded-full text-base font-bold">
+          ✓
+        </span>
+        <p className="font-display text-text-primary text-sm leading-4 font-bold">{title}</p>
+        <p className="text-text-secondary text-xs leading-4">{subtitle}</p>
+      </div>
+      <div className="flex flex-col">
+        {steps.map((step) => (
+          <div key={step.label} className="border-grey-100 flex items-center gap-2.5 border-t py-2">
+            <span
+              className={cn(
+                "grid h-6 w-6 flex-none place-items-center rounded-full text-xs font-bold",
+                step.state === "done"
+                  ? "bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light"
+                  : "bg-secondary/15 text-secondary-dark dark:text-secondary-light",
+              )}
+            >
+              {step.state === "done" ? "✓" : "…"}
+            </span>
+            <span className="min-w-0">
+              <span className="text-text-primary block text-xs font-bold">{step.label}</span>
+              <span className="text-text-secondary block text-xs">{step.note}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function RecordingMock({
   patient,
   statusLabel,

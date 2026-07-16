@@ -13,6 +13,13 @@ const BACKGROUND = {
   "primary-soft": "bg-primary/5",
   /** Elevated band: tinted surface + hairline borders — breaks long same-color scrolls. */
   contrast: "bg-background-paper border-grey-100 border-y",
+  /**
+   * Deep teal band (token --primary-dark, white text) — the committed
+   * blueprint's dark moments (mobile / security / final CTA). Content inside
+   * uses text-text-contrast (+ /70 for secondary copy); never pair with the
+   * light decors.
+   */
+  deep: "bg-primary-dark text-text-contrast",
 } as const;
 
 /**

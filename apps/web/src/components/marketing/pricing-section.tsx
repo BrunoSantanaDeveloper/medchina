@@ -47,6 +47,8 @@ export default function PricingSection({
   ctaHref = "/auth/sign-up",
   headingAs = "h2",
   decor = "none",
+  tiers,
+  footnote,
 }: {
   id?: string;
   eyebrow?: string;
@@ -59,6 +61,10 @@ export default function PricingSection({
   headingAs?: "h1" | "h2";
   /** Section depth layer — pages that LEAD with pricing use "glow" (same treatment as a hero). */
   decor?: "none" | "glow" | "grid" | "gradient-edge";
+  /** Automation ladder above the grid (blueprint §20: "Gratuito · Documentação · Raciocínio + plano"). */
+  tiers?: string[];
+  /** Differentiation line under the grid ("Assistente registra… Pro também prepara…"). */
+  footnote?: string;
 }) {
   return (
     <Section id={id} decor={decor}>
@@ -84,6 +90,16 @@ export default function PricingSection({
           />
         ))}
       <SectionHeader eyebrow={eyebrow} title={title} subtitle={subtitle} as={headingAs} />
+      {tiers && tiers.length > 0 && (
+        <p className="text-text-secondary -mt-4 mb-10 flex flex-wrap items-center justify-center gap-3 text-xs font-bold tracking-widest uppercase">
+          {tiers.map((tier, index) => (
+            <span key={tier} className="flex items-center gap-3">
+              {index > 0 && <span aria-hidden className="bg-grey-100 h-px w-8" />}
+              {tier}
+            </span>
+          ))}
+        </p>
+      )}
       <Reveal
         stagger={0.08}
         className={cn(
@@ -146,6 +162,9 @@ export default function PricingSection({
           );
         })}
       </Reveal>
+      {footnote && (
+        <p className="text-text-secondary mx-auto mt-8 max-w-2xl text-center text-base leading-6">{footnote}</p>
+      )}
     </Section>
   );
 }

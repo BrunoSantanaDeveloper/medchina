@@ -327,7 +327,7 @@ export const marketing = {
   "display-tracking": "-0.02em",
   "section-space": "clamp(4rem, 2.6rem + 6vw, 7.5rem)",
   "section-space-sm": "clamp(2.5rem, 1.8rem + 3vw, 4.25rem)",
-  "container-max": "72rem",
+  "container-max": "77.5rem",
   "container-px": "clamp(1rem, 0.55rem + 1.9vw, 2rem)",
   "motion-duration-1": "200ms",
   "motion-duration-2": "450ms",

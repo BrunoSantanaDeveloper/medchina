@@ -23,9 +23,7 @@ const CamelStops = () => (
   </>
 );
 
-const teal = "hsl(var(--primary))";
-
-const Mark = ({ p }: { p: string }) => (
+const Mark = ({ p, teal }: { p: string; teal: string }) => (
   <>
     <path
       d="M10.9966 24.119C9.43867 24.119 8.17407 25.3836 8.17407 26.9415V39.1914C8.17407 40.7454 9.43867 42.0139 10.9966 42.0139H38.4939V40.0484H10.9966C10.5242 40.0484 10.1395 39.6637 10.1395 39.1914V26.9377C10.1395 26.4654 10.5242 26.0807 10.9966 26.0807H55.0975C55.5698 26.0807 55.9583 26.4654 55.9583 26.9377V39.1876C55.9583 39.6599 55.5698 40.0446 55.0975 40.0446H43.5295V42.01H55.0975C56.6554 42.01 57.92 40.7454 57.92 39.1876V26.9377C57.92 25.3836 56.6554 24.1152 55.0975 24.1152H10.9966V24.119Z"
@@ -58,7 +56,7 @@ const MarkDefs = ({ p }: { p: string }) => (
 );
 
 /** "MedChina" — Med in teal (token-tinted), China in metallic camel. Shifted +2.9y for optical centering without the lockup subtitle. */
-const Wordmark = ({ p }: { p: string }) => (
+const Wordmark = ({ p, teal }: { p: string; teal: string }) => (
   <g transform="translate(0 2.9)">
     <path
       d="M100.036 42.9799H98.7223V21.3789L88.9559 35.4647L79.1896 21.3789V42.9799H77.8755V17.2461L88.9559 33.2135L100.036 17.2461V42.9799Z"
@@ -118,7 +116,18 @@ const WordmarkDefs = ({ p }: { p: string }) => (
   </>
 );
 
-export default function Logo({ classNameFull, classNameMobile }: { classNameFull?: string; classNameMobile?: string }) {
+export default function Logo({
+  classNameFull,
+  classNameMobile,
+  tone = "default",
+}: {
+  classNameFull?: string;
+  classNameMobile?: string;
+  /** "contrast": teal shapes go white for the deep/dark bands (footer); the camel gradient already reads on dark. */
+  tone?: "default" | "contrast";
+}) {
+  const teal = tone === "contrast" ? "hsl(var(--text-contrast))" : "hsl(var(--primary))";
+  const p = tone === "contrast" ? "mc_c" : "mc";
   return (
     <>
       <svg
@@ -130,11 +139,11 @@ export default function Logo({ classNameFull, classNameMobile }: { classNameFull
         xmlns="http://www.w3.org/2000/svg"
         aria-label="MedChina"
       >
-        <Mark p="mc_full" />
-        <Wordmark p="mc_full" />
+        <Mark p={`${p}_full`} teal={teal} />
+        <Wordmark p={`${p}_full`} teal={teal} />
         <defs>
-          <MarkDefs p="mc_full" />
-          <WordmarkDefs p="mc_full" />
+          <MarkDefs p={`${p}_full`} />
+          <WordmarkDefs p={`${p}_full`} />
         </defs>
       </svg>
 
@@ -147,9 +156,9 @@ export default function Logo({ classNameFull, classNameMobile }: { classNameFull
         xmlns="http://www.w3.org/2000/svg"
         aria-label="MedChina"
       >
-        <Mark p="mc_mob" />
+        <Mark p={`${p}_mob`} teal={teal} />
         <defs>
-          <MarkDefs p="mc_mob" />
+          <MarkDefs p={`${p}_mob`} />
         </defs>
       </svg>
     </>

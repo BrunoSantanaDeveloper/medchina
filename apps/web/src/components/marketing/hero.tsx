@@ -7,7 +7,7 @@ import { Button } from "@mui/material";
 import { gsap, readMotionToken, tokenSeconds, useGSAP } from "@/components/marketing/motion";
 import Section from "@/components/marketing/section";
 
-export type HeroCta = { label: string; href: string };
+export type HeroCta = { label: string; href: string; icon?: React.ReactNode };
 
 /**
  * Funnel stage: attention + value proposition. Above the fold it must answer
@@ -26,17 +26,24 @@ export default function Hero({
   primaryCta,
   secondaryCta,
   note,
+  highlights,
   media,
   layout = "center",
   decor = "glow",
 }: {
   eyebrow?: string;
-  title: string;
+  /** Accepts rich content (e.g. t.rich with <em> for the two-tone blueprint headline). */
+  title: React.ReactNode;
   subtitle: string;
   primaryCta: HeroCta;
   secondaryCta?: HeroCta;
   /** Risk-reducing microcopy under the CTAs (e.g. "No card required"). */
   note?: string;
+  /**
+   * Short reassurance chips under the copy (blueprint §10.7 — "Feito para MTC",
+   * "IA supervisionada"…). Split layout only; rendered as a hairline-topped row.
+   */
+  highlights?: string[];
   /** Product evidence. Required in practice — a hero without it fails the premium bar. */
   media?: React.ReactNode;
   /** "center": stacked, media below. "split": copy left, media right (data/product-heavy pages). */
@@ -87,7 +94,14 @@ export default function Hero({
         {primaryCta.label}
       </Button>
       {secondaryCta && (
-        <Button size="large" variant="pastel" color="primary" href={secondaryCta.href} LinkComponent={Link}>
+        <Button
+          size="large"
+          variant="pastel"
+          color="primary"
+          href={secondaryCta.href}
+          LinkComponent={Link}
+          startIcon={secondaryCta.icon}
+        >
           {secondaryCta.label}
         </Button>
       )}
@@ -99,13 +113,26 @@ export default function Hero({
   if (layout === "split") {
     return (
       <Section spacing="default" decor={decor} className="overflow-hidden">
-        <div ref={scope} className="grid grid-cols-1 items-center gap-10 md:grid-cols-[1.05fr_1fr] md:gap-14">
+        {/* 0.84/1.16 = the blueprint's copy/visual ratio (attachment hero). */}
+        <div ref={scope} className="grid grid-cols-1 items-center gap-10 md:grid-cols-[0.84fr_1.16fr] md:gap-10">
           <div data-hero-copy className="flex flex-col items-start gap-6 text-left">
             {eyebrow && <p className="text-primary text-sm font-semibold tracking-wide uppercase">{eyebrow}</p>}
-            <h1 className="font-display text-display-xl text-text-primary font-extrabold">{title}</h1>
+            <h1 className="font-display text-display-xl text-text-primary [&_em]:text-primary font-extrabold [&_em]:not-italic">
+              {title}
+            </h1>
             <p className="text-text-secondary text-lg leading-6 md:text-xl md:leading-7">{subtitle}</p>
             {ctas}
             {noteLine}
+            {highlights && highlights.length > 0 && (
+              <ul className="border-grey-100 flex w-full flex-wrap gap-x-5 gap-y-2 border-t pt-4">
+                {highlights.map((item) => (
+                  <li key={item} className="text-text-secondary flex items-center gap-1.5 text-sm font-semibold">
+                    <span aria-hidden className="bg-accent-1 h-1.5 w-1.5 flex-none rounded-full" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           {media && (
             <div data-hero-media className="w-full">
@@ -123,7 +150,9 @@ export default function Hero({
         <div data-hero-copy className="flex flex-col items-center gap-6 text-center">
           {eyebrow && <p className="text-primary text-sm font-semibold tracking-wide uppercase">{eyebrow}</p>}
 
-          <h1 className="font-display text-display-2xl text-text-primary max-w-4xl font-extrabold">{title}</h1>
+          <h1 className="font-display text-display-2xl text-text-primary [&_em]:text-primary max-w-4xl font-extrabold [&_em]:not-italic">
+            {title}
+          </h1>
 
           <p className="text-text-secondary max-w-2xl text-lg leading-6 md:text-xl md:leading-7">{subtitle}</p>
 
