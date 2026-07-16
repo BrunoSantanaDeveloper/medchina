@@ -151,3 +151,4 @@ The single worst failure mode of this skill is pushing the new project INTO the 
    - Vercel project rooted at `apps/web`; env vars mirrored from `.env`, including `NEXT_PUBLIC_SITE_URL` (the canonical origin, no trailing slash) — `sitemap.ts`, `robots.ts`, the OG image and every JSON-LD URL fall back to `localhost` without it.
    - Per selected capability: provider dashboards (Stripe/Asaas webhooks, Meta WhatsApp templates + webhook + verify token, Inngest app URL, Resend domain, OAuth providers).
    - Brand art still pending, if any (logo SVGs, favicons, email logo).
+   - Product analytics, when the project wants it: assign `ANALYTICS_PROVIDER` in `apps/web/src/lib/analytics.ts` (any SDK behind the `AnalyticsProvider` interface) — that single assignment activates the cookie-consent banner, and the SDK loads only after the user grants consent. Without a provider the banner stays hidden (essential cookies are consent-exempt).
