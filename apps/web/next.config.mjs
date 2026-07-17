@@ -14,6 +14,13 @@ const nextConfig = {
     webpackMemoryOptimizations: true,
     cpus: 1,
   },
+  // Type-checking and linting the whole monorepo inside `next build` is the
+  // heaviest memory phase and OOM-killed the Vercel build container. Both are
+  // already enforced as dedicated CI steps (`npm run typecheck` + lint in
+  // .github/workflows/ci.yml), so skipping them here is safe and only removes
+  // redundant work from the production build.
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
   // @react-pdf/renderer (therapeutic-plan PDF issuance) is a heavy Node-only
   // renderer — keep it external so Next does not bundle it into the server build.
   serverExternalPackages: ["@react-pdf/renderer"],
