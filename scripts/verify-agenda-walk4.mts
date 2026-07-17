@@ -116,8 +116,8 @@ async function robustGoto(p: Page, url: string) {
 
 async function login(p: Page, email: string) {
   await robustGoto(p, `${BASE}/auth/sign-in`);
-  await p.locator('input[type="email"]').first().fill(email, { timeout: 60_000 });
-  await p.locator('input[type="password"]').first().fill(PASSWORD);
+  await p.locator('input[name="email"], input[type="email"]').first().fill(email, { timeout: 60_000 });
+  await p.locator('input[name="password"], input[type="password"]').first().fill(PASSWORD);
   await p.locator('button[type="submit"]').first().click();
   const deadline = Date.now() + 120_000;
   for (;;) {
