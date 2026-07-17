@@ -5,6 +5,15 @@ const withNextIntl = createNextIntlPlugin();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Vercel's default build container is 8 GB. This app is large (MUI X Premium,
+  // @react-pdf, many admin/marketing routes), and parallel static-generation
+  // workers collectively exhausted the container (SIGKILL / OOM) after a
+  // successful compile. Cap build parallelism to one worker and enable Next's
+  // webpack memory optimizations so peak build memory stays under the limit.
+  experimental: {
+    webpackMemoryOptimizations: true,
+    cpus: 1,
+  },
   // @react-pdf/renderer (therapeutic-plan PDF issuance) is a heavy Node-only
   // renderer — keep it external so Next does not bundle it into the server build.
   serverExternalPackages: ["@react-pdf/renderer"],
