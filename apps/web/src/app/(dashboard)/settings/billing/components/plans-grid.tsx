@@ -1,141 +1,110 @@
 "use client";
 
 import { startCheckout } from "../actions";
-import { formatMoney, ModuleRow, PlanRow, SubscriptionInfo } from "./use-billing";
-import { useState } from "react";
+import type { PlanRow, SubscriptionInfo } from "./use-billing";
+import { useLocale, useTranslations } from "next-intl";
+import { useRef, useState } from "react";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Checkbox,
-  Chip,
-  FormControl,
-  FormControlLabel,
-  FormLabel,
-  Grid,
-  Input,
-  MenuItem,
-  Select,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Chip, Grid, Typography } from "@mui/material";
 
-import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
-import type { BillingProviderName } from "@flyee/billing";
-
-const PERIOD_LABEL: Record<string, string> = {
-  weekly: "/week",
-  monthly: "/month",
-  yearly: "/year",
-};
-
-type Props = {
+export default function PlansGrid({
+  orgId,
+  subscription,
+  plans,
+  canManage,
+  checkoutAvailable,
+}: {
   orgId: string;
   subscription: SubscriptionInfo | null;
   plans: PlanRow[];
-  modules: ModuleRow[];
-  providers: BillingProviderName[];
   canManage: boolean;
-};
-
-export default function PlansGrid({ orgId, subscription, plans, modules, providers, canManage }: Props) {
-  const [selectedModules, setSelectedModules] = useState<string[]>([]);
-  const [couponCode, setCouponCode] = useState("");
-  const [provider, setProvider] = useState<BillingProviderName>(providers[0] ?? "stripe");
-  const [error, setError] = useState<string | null>(null);
+  checkoutAvailable: boolean;
+}) {
+  const t = useTranslations("product");
+  const locale = useLocale();
+  const [error, setError] = useState(false);
   const [workingPlan, setWorkingPlan] = useState<string | null>(null);
+  const operationKeys = useRef(new Map<string, string>());
 
   if (!canManage) return null;
+  const paidPlans = plans.filter((plan) => !plan.isFree && plan.kind === "recurring" && plan.period);
+  if (!paidPlans.length) return null;
 
-  const toggleModule = (id: string) => {
-    setSelectedModules((current) => (current.includes(id) ? current.filter((m) => m !== id) : [...current, id]));
-  };
-
-  const handleSubscribe = async (plan: PlanRow) => {
-    setError(null);
-    if (providers.length === 0) {
-      setError("No billing provider is configured (STRIPE_SECRET_KEY / ASAAS_API_KEY).");
-      return;
-    }
+  const subscribe = async (plan: PlanRow) => {
+    setError(false);
     setWorkingPlan(plan.id);
-    const result = await startCheckout({
-      orgId,
-      planId: plan.id,
-      moduleIds: selectedModules,
-      couponCode: couponCode || undefined,
-      provider,
-    });
+    const idempotencyKey = operationKeys.current.get(plan.id) ?? crypto.randomUUID();
+    operationKeys.current.set(plan.id, idempotencyKey);
+    const result = await startCheckout({ orgId, planId: plan.id, idempotencyKey });
     setWorkingPlan(null);
-    if (result.error) {
-      setError(result.error);
+    if (!result.url) {
+      setError(true);
       return;
     }
-    if (result.url) window.location.href = result.url;
+    operationKeys.current.delete(plan.id);
+    window.location.assign(result.url);
   };
-
-  const paidPlans = plans.filter((plan) => !plan.isFree);
-  if (paidPlans.length === 0) return null;
 
   return (
     <Grid size={12}>
       <Card component="section">
-        <CardContent>
-          <Typography variant="h5" component="h5" className="card-title">
-            Plans
-          </Typography>
-
-          {error && (
-            <Alert severity="error" className="neutral bg-background-paper/60! mb-4">
-              {error}
-            </Alert>
-          )}
-
+        <CardContent className="flex flex-col gap-4">
+          <Box>
+            <Typography variant="h5" component="h2" className="card-title">
+              {t("billing-plans-title")}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary">
+              {t("billing-plans-body")}
+            </Typography>
+          </Box>
+          {error && <Alert severity="error">{t("billing-checkout-error")}</Alert>}
           <Grid container spacing={2.5}>
             {paidPlans.map((plan) => {
-              const isCurrent = subscription?.planId === plan.id;
+              const current = subscription?.planId === plan.id;
+              const price = new Intl.NumberFormat(locale, { style: "currency", currency: plan.currency }).format(
+                plan.priceCents / 100,
+              );
               return (
-                <Grid key={plan.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                <Grid key={plan.id} size={{ xs: 12, md: 6 }}>
                   <Card variant="outlined" className="h-full">
                     <CardContent className="flex h-full flex-col gap-3">
-                      <Box className="flex flex-row items-center gap-2">
-                        <Typography variant="h6" component="h6">
+                      <Box className="flex flex-wrap items-center gap-2">
+                        <Typography variant="h6" component="h3">
                           {plan.name}
                         </Typography>
-                        {plan.trialDays > 0 && (
-                          <Chip label={`${plan.trialDays}-day trial`} size="small" color="warning" variant="outlined" />
+                        {current && (
+                          <Chip label={t("billing-current-chip")} size="small" color="success" variant="outlined" />
                         )}
-                        {isCurrent && <Chip label="Current" size="small" color="success" variant="outlined" />}
                       </Box>
                       <Typography variant="h4" component="p">
-                        {formatMoney(plan.priceCents, plan.currency)}
+                        {price}
                         <Typography component="span" variant="body2" className="text-text-secondary">
-                          {plan.kind === "credits"
-                            ? plan.period
-                              ? ` for ${plan.creditAmount} credits ${PERIOD_LABEL[plan.period] ?? ""}`
-                              : ` for ${plan.creditAmount} credits`
-                            : plan.period
-                              ? ` ${PERIOD_LABEL[plan.period] ?? ""}`
-                              : ""}
+                          {" "}
+                          {t(`billing-period-${plan.period}` as never)}
                         </Typography>
                       </Typography>
+                      {plan.audioMinutes > 0 && (
+                        <Typography variant="subtitle2" className="text-primary">
+                          {t("billing-audio-minutes", {
+                            minutes: new Intl.NumberFormat(locale).format(plan.audioMinutes),
+                          })}
+                        </Typography>
+                      )}
                       {plan.description && (
-                        <Typography variant="body2" className="text-text-secondary grow">
+                        <Typography variant="body2" className="text-text-secondary flex-1">
                           {plan.description}
                         </Typography>
                       )}
                       <Button
-                        variant="contained"
-                        size="medium"
-                        onClick={() => handleSubscribe(plan)}
-                        disabled={isCurrent || workingPlan !== null}
+                        variant={current ? "outlined" : "contained"}
+                        onClick={() => subscribe(plan)}
+                        disabled={current || workingPlan !== null || !checkoutAvailable}
                       >
-                        {workingPlan === plan.id
-                          ? "Redirecting..."
-                          : plan.kind === "credits"
-                            ? "Buy credits"
-                            : "Subscribe"}
+                        {current
+                          ? t("billing-current-chip")
+                          : workingPlan === plan.id
+                            ? t("billing-redirecting")
+                            : t("billing-choose-plan")}
                       </Button>
                     </CardContent>
                   </Card>
@@ -143,52 +112,6 @@ export default function PlansGrid({ orgId, subscription, plans, modules, provide
               );
             })}
           </Grid>
-
-          {modules.length > 0 && (
-            <Box className="mt-6 flex flex-col gap-1">
-              <Typography variant="subtitle2">Add-ons (order bump)</Typography>
-              {modules.map((module) => (
-                <FormControlLabel
-                  key={module.id}
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={selectedModules.includes(module.id)}
-                      onChange={() => toggleModule(module.id)}
-                    />
-                  }
-                  label={
-                    <Typography variant="body2">
-                      {module.name} — {formatMoney(module.priceCents)}
-                      {module.kind === "recurring" ? " (recurring)" : " (one-time)"}
-                    </Typography>
-                  }
-                />
-              ))}
-            </Box>
-          )}
-
-          <Box className="mt-6 flex flex-col gap-2 md:flex-row md:items-end">
-            <FormControl className="outlined w-56" variant="standard" size="small">
-              <FormLabel component="label">Coupon code</FormLabel>
-              <Input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} />
-            </FormControl>
-            {providers.length > 1 && (
-              <FormControl className="outlined w-40" variant="standard" size="small">
-                <FormLabel component="label">Pay with</FormLabel>
-                <Select
-                  value={provider}
-                  size="small"
-                  variant="standard"
-                  IconComponent={NiChevronDownSmall}
-                  onChange={(e) => setProvider(e.target.value as BillingProviderName)}
-                >
-                  <MenuItem value="stripe">Stripe (card)</MenuItem>
-                  <MenuItem value="asaas">Asaas (Pix/boleto/card)</MenuItem>
-                </Select>
-              </FormControl>
-            )}
-          </Box>
         </CardContent>
       </Card>
     </Grid>

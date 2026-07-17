@@ -1,166 +1,265 @@
 import { extractAnamnesis } from "@/lib/clinical-extraction";
-import { billableSeconds, recordAudioUsage } from "@/lib/usage";
+import { alertAfterAudioUsage, billableSeconds } from "@/lib/usage";
+import type { ClinicalErrorCode } from "@flyee/clinical";
 import { processTranscription, type TranscriptResult } from "@flyee/transcribe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * The consultation pipeline (PRD §10.2): a consented recording becomes a
- * diarized transcript, and the transcript becomes a DRAFT anamnesis with
- * per-field provenance and review states. Nothing here is a final record —
- * the consultation lands in `awaiting_review` and the professional decides.
- *
- * Guarded, in this order:
- *  - the recording must be uploaded (server-confirmed) and still have audio;
- *  - the patient must have an ACTIVE ai-processing consent (PRD §9.5) —
- *    recording consent alone does not authorize AI processing;
- *  - the consultation must not be finalized (a closed chart takes no AI draft).
- *
- * It deliberately does NOT re-check the audio allowance: a `recordings` row
- * cannot exist without one (the insert guard in migration 0024), so its
- * existence IS the authorization to process it. Refusing here would strand an
- * already-captured consultation — exactly the silent loss PRD §5.8 forbids. The
- * minutes it consumes are recorded afterwards, and the NEXT recording is the
- * one that gets refused.
- *
- * Runs with whatever client it is given: the Inngest job passes a service-role
- * client; the inline fallback passes the user's client (RLS applies).
+ * A claimed, idempotent recording pipeline. External provider calls happen
+ * outside a DB transaction; `apply_recording_result` performs the final merge
+ * atomically and refuses stale claims or closed consultations.
  */
-
 export type PipelineResult =
   | { ok: true; transcriptionId: string; answers: number; gaps: number }
-  | { ok: false; error: string };
+  | { ok: false; code: ClinicalErrorCode };
 
-const fail = async (supabase: SupabaseClient, recordingId: string, error: string): Promise<PipelineResult> => {
-  await supabase.from("recordings").update({ status: "failed", error }).eq("id", recordingId);
-  return { ok: false, error };
-};
+const RETRYABLE_PIPELINE_ERRORS = new Set<ClinicalErrorCode>([
+  "provider_unavailable",
+  "internal_error",
+  "usage_record_failed",
+]);
 
-export async function processRecording(supabase: SupabaseClient, recordingId: string): Promise<PipelineResult> {
+export const isRetryablePipelineError = (code: ClinicalErrorCode) => RETRYABLE_PIPELINE_ERRORS.has(code);
+
+type RecordingClaimOutcome = { claimId: string } | { result: PipelineResult };
+
+async function acquireRecordingClaim(supabase: SupabaseClient, recordingId: string): Promise<RecordingClaimOutcome> {
+  const { data: claimData, error: claimError } = await supabase.rpc("claim_recording_for_processing", {
+    target_recording: recordingId,
+  });
+  if (claimError) return { result: { ok: false, code: "internal_error" } };
+
+  const claim = claimData as { ok?: boolean; code?: string; claimId?: string; transcriptionId?: string } | null;
+  if (!claim?.ok) {
+    return {
+      result: {
+        ok: false,
+        code: claim?.code === "consent_required" ? "consent_required" : "recording_invalid_state",
+      },
+    };
+  }
+  if (claim.code === "ready") {
+    return claim.transcriptionId
+      ? { result: { ok: true, transcriptionId: claim.transcriptionId, answers: 0, gaps: 0 } }
+      : { result: { ok: false, code: "internal_error" } };
+  }
+  if (claim.code === "processing_already_claimed") {
+    return { result: { ok: false, code: "processing_already_claimed" } };
+  }
+  return claim.claimId ? { claimId: claim.claimId } : { result: { ok: false, code: "internal_error" } };
+}
+
+type FailureStage = "transcription" | "extraction" | "apply";
+
+async function fail(
+  supabase: SupabaseClient,
+  recordingId: string,
+  claimId: string,
+  code: ClinicalErrorCode,
+  stage: FailureStage,
+  terminal = true,
+): Promise<PipelineResult> {
+  if (!terminal) {
+    await supabase
+      .from("recordings")
+      .update({ error: null, error_code: code, failure_stage: stage })
+      .eq("id", recordingId)
+      .eq("status", "processing")
+      .eq("processing_claim_id", claimId);
+    await heartbeat(supabase, recordingId, claimId);
+    return { ok: false, code };
+  }
+  await supabase
+    .from("recordings")
+    .update({
+      status: "failed",
+      error: null,
+      error_code: code,
+      failure_stage: stage,
+      processing_heartbeat_at: null,
+      processing_lease_expires_at: null,
+    })
+    .eq("id", recordingId)
+    .eq("status", "processing")
+    .eq("processing_claim_id", claimId);
+  return { ok: false, code };
+}
+
+async function heartbeat(supabase: SupabaseClient, recordingId: string, claimId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("heartbeat_recording_processing", {
+    target_recording: recordingId,
+    target_claim_id: claimId,
+  });
+  return !error && Boolean((data as { ok?: boolean } | null)?.ok);
+}
+
+export async function processRecording(
+  supabase: SupabaseClient,
+  recordingId: string,
+  existingClaimId?: string,
+  options: { finalAttempt?: boolean } = {},
+): Promise<PipelineResult> {
+  const finalAttempt = options.finalAttempt ?? true;
+  let claimId = existingClaimId;
+  if (!claimId) {
+    const claimed = await acquireRecordingClaim(supabase, recordingId);
+    if ("result" in claimed) return claimed.result;
+    claimId = claimed.claimId;
+  }
+  if (!claimId) return { ok: false, code: "internal_error" };
+
+  if (!(await heartbeat(supabase, recordingId, claimId))) {
+    // Inngest retries carry the original event payload. A prior attempt may
+    // have transitioned the row to failed and fenced that claim, so reclaim
+    // atomically instead of retrying forever with a dead token.
+    const reclaimed = await acquireRecordingClaim(supabase, recordingId);
+    if ("result" in reclaimed) return reclaimed.result;
+    claimId = reclaimed.claimId;
+    if (!(await heartbeat(supabase, recordingId, claimId))) {
+      return { ok: false, code: "processing_already_claimed" };
+    }
+  }
+
+  const activeClaimId = claimId;
+  const reject = (code: ClinicalErrorCode, stage: FailureStage) =>
+    fail(supabase, recordingId, activeClaimId, code, stage, finalAttempt || !isRetryablePipelineError(code));
+
   const { data: recording, error: loadError } = await supabase
     .from("recordings")
-    .select("id, org_id, patient_id, consultation_id, status, audio_path, mime, duration_seconds, created_by")
+    .select(
+      "id, org_id, patient_id, consultation_id, status, audio_path, mime, duration_seconds, created_by, transcription_id, processing_claim_id, processing_clinical_revision",
+    )
     .eq("id", recordingId)
     .maybeSingle();
 
-  if (loadError || !recording) return { ok: false, error: loadError?.message ?? "Recording not found." };
-  if (!recording.audio_path) return fail(supabase, recordingId, "Recording has no audio.");
-  if (!recording.consultation_id) return fail(supabase, recordingId, "Recording is not linked to a consultation.");
+  if (loadError || !recording) return { ok: false, code: "not_found" };
+  if (
+    recording.status !== "processing" ||
+    recording.processing_claim_id !== claimId ||
+    !recording.audio_path ||
+    !recording.consultation_id ||
+    !recording.transcription_id ||
+    recording.processing_clinical_revision == null
+  ) {
+    return { ok: false, code: "recording_invalid_state" };
+  }
 
-  // AI processing is a SEPARATE consent from recording (PRD §9.5).
   const { data: consented } = await supabase.rpc("has_active_consent", {
     target_org: recording.org_id,
     target_patient: recording.patient_id,
     term_slug: "ai-processing",
   });
-  if (!consented) return fail(supabase, recordingId, "Patient has no active ai-processing consent.");
+  if (!consented) return reject("consent_required", "transcription");
 
   const { data: consultation } = await supabase
     .from("consultations")
-    .select("id, status")
+    .select("id, status, clinical_revision")
     .eq("id", recording.consultation_id)
     .maybeSingle();
-  if (!consultation) return fail(supabase, recordingId, "Consultation not found.");
-  if (consultation.status === "finalized") {
-    return fail(supabase, recordingId, "Consultation is finalized: it takes no AI draft.");
+  if (!consultation || !["draft", "in_progress", "awaiting_review"].includes(consultation.status)) {
+    return reject("invalid_consultation_transition", "apply");
+  }
+  if (String(consultation.clinical_revision) !== String(recording.processing_clinical_revision)) {
+    return reject("clinical_revision_conflict", "apply");
   }
 
-  await supabase.from("recordings").update({ status: "processing", error: null }).eq("id", recordingId);
-
-  // ---- 1. Transcribe (diarized) --------------------------------------------
-  const { data: created, error: insertError } = await supabase
+  // ---- 1. Transcribe once -------------------------------------------------
+  const transcriptionId = recording.transcription_id;
+  const { data: beforeTranscription } = await supabase
     .from("transcriptions")
-    .insert({
-      org_id: recording.org_id,
-      audio_path: recording.audio_path,
-      mime: recording.mime ?? "audio/webm",
-      created_by: recording.created_by,
-      // Audio retention is the practice's choice (PRD §14.3); the transcript
-      // is what the record needs, so the default keeps the source for review.
-      delete_audio_after: false,
-      metadata: { recordingId, consultationId: recording.consultation_id },
-    })
-    .select("id")
-    .single();
-  if (insertError || !created)
-    return fail(supabase, recordingId, insertError?.message ?? "Could not queue transcription.");
+    .select("status, result")
+    .eq("id", transcriptionId)
+    .maybeSingle();
 
-  const transcribed = await processTranscription(supabase, created.id);
-  if (!transcribed.ok) return fail(supabase, recordingId, transcribed.error);
+  if (beforeTranscription?.status !== "ready") {
+    const transcribed = await processTranscription(supabase, transcriptionId);
+    if (!transcribed.ok) return reject("provider_unavailable", "transcription");
+  }
+
+  if (!(await heartbeat(supabase, recordingId, claimId))) {
+    return { ok: false, code: "processing_already_claimed" };
+  }
 
   const { data: transcriptionRow } = await supabase
     .from("transcriptions")
     .select("result")
-    .eq("id", created.id)
+    .eq("id", transcriptionId)
     .maybeSingle();
   const transcript = transcriptionRow?.result as TranscriptResult | null;
   if (!transcript?.segments?.length) {
-    return fail(supabase, recordingId, "Transcript is empty — nothing to extract.");
+    return reject("provider_unavailable", "transcription");
   }
 
-  // The audio was transcribed: that is what consumes minutes (PRD §5.8), and it
-  // is measured from the transcript, not from what the browser claimed. Recorded
-  // here, right after the work succeeded, so a later failure in extraction never
-  // erases a real cost — and a failed transcription never bills one.
-  await recordAudioUsage(supabase, {
-    orgId: recording.org_id,
-    recordingId: recording.id,
-    transcriptionId: created.id,
-    seconds: billableSeconds(transcript, recording.duration_seconds),
-    createdBy: recording.created_by,
-  });
+  const consumedSeconds = billableSeconds(transcript, recording.duration_seconds);
 
-  // ---- 2. Extract the draft anamnesis --------------------------------------
+  // ---- 2. Extract ---------------------------------------------------------
   let extraction;
   try {
     extraction = await extractAnamnesis(transcript);
-  } catch (error) {
-    return fail(supabase, recordingId, error instanceof Error ? error.message : String(error));
+  } catch {
+    return reject("provider_unavailable", "extraction");
   }
 
-  // ---- 3. Write the draft (never overwriting the professional's own words) --
-  const { data: existing } = await supabase
-    .from("anamnesis_answers")
-    .select("block_key, field_key, source")
-    .eq("consultation_id", recording.consultation_id);
-
-  // A value the professional typed herself wins over the AI draft.
-  const typedByHand = new Set(
-    (existing ?? []).filter((row) => row.source === "professional").map((row) => `${row.block_key}.${row.field_key}`),
-  );
-
-  const rows = extraction.answers
-    .filter((answer) => !typedByHand.has(`${answer.blockKey}.${answer.fieldKey}`))
-    .map((answer) => ({
-      org_id: recording.org_id,
-      consultation_id: recording.consultation_id,
-      block_key: answer.blockKey,
-      field_key: answer.fieldKey,
-      value: answer.value,
-      source: answer.source,
-      state: answer.state,
-      provenance: { ...answer.provenance, transcriptionId: created.id },
-      created_by: recording.created_by,
-    }));
-
-  if (rows.length > 0) {
-    const { error: upsertError } = await supabase
-      .from("anamnesis_answers")
-      .upsert(rows, { onConflict: "consultation_id,block_key,field_key" });
-    if (upsertError) return fail(supabase, recordingId, upsertError.message);
+  if (!(await heartbeat(supabase, recordingId, claimId))) {
+    return { ok: false, code: "processing_already_claimed" };
   }
 
-  // ---- 4. Hand it to the professional --------------------------------------
-  await supabase
-    .from("consultations")
-    .update({
-      status: "awaiting_review",
-      transcription_id: created.id,
-      // Gaps are suggestions to investigate, never answers (PRD §10.7).
-      ai_gaps: extraction.gaps,
-    })
-    .eq("id", recording.consultation_id);
+  // ---- 3. Merge atomically ------------------------------------------------
+  const answers = extraction.answers.map((answer) => ({
+    blockKey: answer.blockKey,
+    fieldKey: answer.fieldKey,
+    value: answer.value,
+    source: answer.source,
+    state: answer.state,
+    provenance: answer.provenance,
+  }));
+  const { data: appliedData, error: applyError } = await supabase.rpc("apply_recording_result", {
+    target_recording: recording.id,
+    target_transcription: transcriptionId,
+    target_claim_id: claimId,
+    target_answers: answers,
+    target_gaps: extraction.gaps,
+    target_billable_seconds: consumedSeconds,
+  });
+  if (applyError) {
+    // The atomic RPC may have committed while its HTTP response was lost.
+    // Never turn that already-ready row back into a failure.
+    const { data: recovered } = await supabase
+      .from("recordings")
+      .select("status, transcription_id")
+      .eq("id", recordingId)
+      .maybeSingle();
+    if (recovered?.status === "ready" && recovered.transcription_id) {
+      return {
+        ok: true,
+        transcriptionId: recovered.transcription_id,
+        answers: answers.length,
+        gaps: extraction.gaps.length,
+      };
+    }
+    const code = applyError.message.includes("usage_record_failed") ? "usage_record_failed" : "internal_error";
+    return reject(code, "apply");
+  }
 
-  await supabase.from("recordings").update({ status: "ready", transcription_id: created.id }).eq("id", recordingId);
+  const applied = appliedData as { ok?: boolean; code?: string; answers?: number; gaps?: number } | null;
+  if (!applied?.ok) {
+    const code: ClinicalErrorCode =
+      applied?.code === "consent_required"
+        ? "consent_required"
+        : applied?.code === "clinical_revision_conflict"
+          ? "clinical_revision_conflict"
+          : applied?.code === "invalid_consultation_transition"
+            ? "invalid_consultation_transition"
+            : "recording_invalid_state";
+    return reject(code, "apply");
+  }
 
-  return { ok: true, transcriptionId: created.id, answers: rows.length, gaps: extraction.gaps.length };
+  await alertAfterAudioUsage(supabase, recording.org_id);
+
+  return {
+    ok: true,
+    transcriptionId,
+    answers: applied.answers ?? answers.length,
+    gaps: applied.gaps ?? extraction.gaps.length,
+  };
 }

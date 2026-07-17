@@ -61,5 +61,5 @@ Next.js 15 (App Router) + React 19 — the MedChina platform (web is the primary
 ## Watch out
 
 - `src/style/global.css` imports tokens from `@flyee/design-tokens/css/*` — do not recreate tokens locally.
-- Deployment target is Vercel (native Next.js runtime).
+- Deployment target is Vercel (native Next.js runtime). Deploys go ONLY through GitHub Actions (`.github/workflows/deploy.yml`: `vercel pull/build/deploy --prebuilt` with token secrets) — the Vercel Git integration stays disconnected (multiple GitHub accounts on the owner's machine conflict with it). Runbook: `docs/DEPLOY.md`.
 - Server-only secrets (`DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) must never reach client components.

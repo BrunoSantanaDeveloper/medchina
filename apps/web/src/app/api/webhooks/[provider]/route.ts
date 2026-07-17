@@ -16,18 +16,20 @@ function periodEnd(from: Date, period: BillingPeriod): Date {
 /** Locates the subscription a provider event refers to. */
 async function findSubscription(supabase: ServiceClient, event: { providerSubscriptionId?: string } & BillingEvent) {
   if (event.providerSubscriptionId) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("subscriptions")
       .select("*")
+      .eq("provider", event.provider)
       .eq("provider_subscription_id", event.providerSubscriptionId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (error) throw error;
     if (data) return data;
   }
   const orgId = "metadata" in event ? event.metadata.org_id : undefined;
   if (orgId) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("subscriptions")
       .select("*")
       .eq("org_id", orgId)
@@ -35,6 +37,7 @@ async function findSubscription(supabase: ServiceClient, event: { providerSubscr
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (error) throw error;
     if (data) return data;
   }
   return null;
@@ -42,15 +45,16 @@ async function findSubscription(supabase: ServiceClient, event: { providerSubscr
 
 /** Ensures the org lands back on the free plan after a cancellation. */
 async function ensureFreeSubscription(supabase: ServiceClient, orgId: string) {
-  const { data: live } = await supabase
+  const { data: live, error: liveError } = await supabase
     .from("subscriptions")
     .select("id")
     .eq("org_id", orgId)
     .in("status", ["trialing", "active", "past_due"])
     .limit(1);
+  if (liveError) throw liveError;
   if (live && live.length > 0) return;
 
-  const { data: freePlan } = await supabase
+  const { data: freePlan, error: planError } = await supabase
     .from("plans")
     .select("id, period")
     .eq("is_free", true)
@@ -58,28 +62,33 @@ async function ensureFreeSubscription(supabase: ServiceClient, orgId: string) {
     .order("created_at")
     .limit(1)
     .maybeSingle();
+  if (planError) throw planError;
   if (!freePlan) return;
 
-  await supabase
+  const { error } = await supabase
     .from("subscriptions")
     .insert({ org_id: orgId, plan_id: freePlan.id, status: "active", period: freePlan.period });
+  if (error) throw error;
 }
 
 async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
   switch (event.type) {
     case "subscription_activated": {
       const sub = await findSubscription(supabase, event);
-      if (!sub) return;
+      // The provider may beat local checkout reconciliation. A retryable
+      // failure keeps the inbox entry reclaimable instead of dropping access.
+      if (!sub) throw new Error("subscription_not_ready");
 
       // Retire the previous live subscription (e.g. the free plan).
-      await supabase
+      const { error: retireError } = await supabase
         .from("subscriptions")
         .update({ status: "canceled", canceled_at: new Date().toISOString() })
         .eq("org_id", sub.org_id)
         .in("status", ["trialing", "active", "past_due"])
         .neq("id", sub.id);
+      if (retireError) throw new Error("subscription_reconciliation_failed");
 
-      await supabase
+      const { error: activationError } = await supabase
         .from("subscriptions")
         .update({
           status: event.status,
@@ -87,48 +96,63 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
           provider_customer_id: event.providerCustomerId ?? sub.provider_customer_id,
           provider_subscription_id: event.providerSubscriptionId,
           current_period_start: new Date().toISOString(),
-          current_period_end: event.currentPeriodEnd?.toISOString() ?? sub.current_period_end,
+          current_period_end:
+            event.currentPeriodEnd?.toISOString() ??
+            sub.current_period_end ??
+            (sub.period ? periodEnd(new Date(), sub.period as BillingPeriod).toISOString() : null),
         })
         .eq("id", sub.id);
+      if (activationError) throw new Error("subscription_reconciliation_failed");
 
       // Attach order-bump modules chosen at checkout.
       const moduleIds = (event.metadata.module_ids ?? "").split(",").filter(Boolean);
       for (const moduleId of moduleIds) {
-        await supabase
+        const { error: moduleError } = await supabase
           .from("subscription_modules")
           .upsert({ subscription_id: sub.id, module_id: moduleId }, { onConflict: "subscription_id,module_id" });
+        if (moduleError) throw new Error("subscription_module_reconciliation_failed");
       }
 
       // Count the coupon redemption once, on first activation.
       if (event.metadata.coupon_id && sub.status === "incomplete" && !sub.coupon_id) {
-        await supabase.from("subscriptions").update({ coupon_id: event.metadata.coupon_id }).eq("id", sub.id);
-        const { data: coupon } = await supabase
+        const { error: subscriptionCouponError } = await supabase
+          .from("subscriptions")
+          .update({ coupon_id: event.metadata.coupon_id })
+          .eq("id", sub.id)
+          .is("coupon_id", null);
+        if (subscriptionCouponError) throw new Error("coupon_reconciliation_failed");
+        const { data: coupon, error: couponReadError } = await supabase
           .from("coupons")
           .select("redeemed_count")
           .eq("id", event.metadata.coupon_id)
           .maybeSingle();
+        if (couponReadError) throw new Error("coupon_reconciliation_failed");
         if (coupon) {
-          await supabase
+          const { error: couponUpdateError } = await supabase
             .from("coupons")
             .update({ redeemed_count: coupon.redeemed_count + 1 })
             .eq("id", event.metadata.coupon_id);
+          if (couponUpdateError) throw new Error("coupon_reconciliation_failed");
         }
       }
       break;
     }
 
     case "subscription_canceled": {
-      const { data: sub } = await supabase
+      const { data: sub, error: subscriptionError } = await supabase
         .from("subscriptions")
         .select("id, org_id")
+        .eq("provider", event.provider)
         .eq("provider_subscription_id", event.providerSubscriptionId)
         .in("status", ["trialing", "active", "past_due", "incomplete"])
         .maybeSingle();
+      if (subscriptionError) throw new Error("subscription_reconciliation_failed");
       if (!sub) return;
-      await supabase
+      const { error: cancellationError } = await supabase
         .from("subscriptions")
-        .update({ status: "canceled", canceled_at: new Date().toISOString() })
+        .update({ status: "canceled", canceled_at: new Date().toISOString(), cancel_at_period_end: false })
         .eq("id", sub.id);
+      if (cancellationError) throw new Error("subscription_reconciliation_failed");
       await ensureFreeSubscription(supabase, sub.org_id);
       break;
     }
@@ -136,9 +160,9 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
     case "payment_succeeded": {
       const sub = await findSubscription(supabase, event);
       const orgId = sub?.org_id ?? event.metadata.org_id;
-      if (!orgId) return;
+      if (!orgId) throw new Error("billing_context_not_ready");
 
-      await supabase.from("invoices").upsert(
+      const { error: invoiceError } = await supabase.from("invoices").upsert(
         {
           org_id: orgId,
           subscription_id: sub?.id ?? null,
@@ -152,34 +176,45 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
         },
         { onConflict: "provider,provider_invoice_id" },
       );
+      if (invoiceError) throw new Error("invoice_reconciliation_failed");
 
       // Credits plans grant credits on every paid cycle (or once, for
       // one-time purchases of non-expiring credits).
       const planId = event.metadata.plan_id ?? sub?.plan_id;
       if (planId) {
-        const { data: plan } = await supabase
+        const { data: plan, error: planError } = await supabase
           .from("plans")
           .select("kind, credit_amount, credits_expire, period, name")
           .eq("id", planId)
           .maybeSingle();
+        if (planError) throw new Error("plan_reconciliation_failed");
         if (plan?.kind === "credits" && plan.credit_amount) {
           const expiresAt =
             plan.credits_expire && plan.period
               ? periodEnd(event.paidAt, plan.period as BillingPeriod).toISOString()
               : null;
-          await supabase.from("credit_transactions").insert({
-            org_id: orgId,
-            amount: plan.credit_amount,
-            kind: "purchase",
-            description: `${plan.name} — ${event.provider} payment`,
-            expires_at: expiresAt,
-          });
+          const { error: creditError } = await supabase.from("credit_transactions").upsert(
+            {
+              org_id: orgId,
+              amount: plan.credit_amount,
+              kind: "purchase",
+              description: `${plan.name} — ${event.provider} payment`,
+              expires_at: expiresAt,
+              source_invoice_key: `${event.provider}:${event.providerInvoiceId}`,
+            },
+            { onConflict: "source_invoice_key", ignoreDuplicates: true },
+          );
+          if (creditError) throw new Error("credit_reconciliation_failed");
         }
       }
 
       // A paid invoice heals a past_due subscription.
       if (sub && sub.status === "past_due") {
-        await supabase.from("subscriptions").update({ status: "active" }).eq("id", sub.id);
+        const { error: recoveryError } = await supabase
+          .from("subscriptions")
+          .update({ status: "active" })
+          .eq("id", sub.id);
+        if (recoveryError) throw new Error("subscription_reconciliation_failed");
       }
       break;
     }
@@ -187,22 +222,26 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
     case "payment_failed": {
       const sub = await findSubscription(supabase, event);
       const orgId = sub?.org_id ?? event.metadata.org_id;
-      if (orgId) {
-        await supabase.from("invoices").upsert(
-          {
-            org_id: orgId,
-            subscription_id: sub?.id ?? null,
-            provider: event.provider,
-            provider_invoice_id: event.providerInvoiceId,
-            amount_cents: event.amountCents,
-            currency: event.currency,
-            status: "failed",
-          },
-          { onConflict: "provider,provider_invoice_id" },
-        );
-      }
+      if (!orgId) throw new Error("billing_context_not_ready");
+      const { error: invoiceError } = await supabase.from("invoices").upsert(
+        {
+          org_id: orgId,
+          subscription_id: sub?.id ?? null,
+          provider: event.provider,
+          provider_invoice_id: event.providerInvoiceId,
+          amount_cents: event.amountCents,
+          currency: event.currency,
+          status: "failed",
+        },
+        { onConflict: "provider,provider_invoice_id" },
+      );
+      if (invoiceError) throw new Error("invoice_reconciliation_failed");
       if (sub && ["trialing", "active"].includes(sub.status)) {
-        await supabase.from("subscriptions").update({ status: "past_due" }).eq("id", sub.id);
+        const { error: pastDueError } = await supabase
+          .from("subscriptions")
+          .update({ status: "past_due" })
+          .eq("id", sub.id);
+        if (pastDueError) throw new Error("subscription_reconciliation_failed");
       }
       break;
     }
@@ -222,15 +261,57 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
       "stripe-signature": request.headers.get("stripe-signature"),
       "asaas-access-token": request.headers.get("asaas-access-token"),
     });
-  } catch (error) {
-    console.error(`Webhook verification failed (${providerName}):`, error);
+  } catch {
+    console.warn("billing_webhook_rejected", { provider: providerName });
     return new NextResponse("Invalid webhook", { status: 400 });
   }
 
   const supabase = createServiceClient();
+  let failed = false;
   for (const event of events) {
-    await handleEvent(supabase, event);
+    const { data: claimData, error: claimError } = await supabase.rpc("claim_billing_webhook_event", {
+      target_provider: event.provider,
+      target_provider_event_id: event.providerEventId,
+      target_event_type: event.type,
+    });
+    const claim = claimData as {
+      ok?: boolean;
+      code?: string;
+      eventId?: string;
+      claimToken?: string;
+    } | null;
+    if (claim?.code === "already_processed") continue;
+    if (claimError || !claim?.ok || !claim.eventId || !claim.claimToken) {
+      failed = true;
+      continue;
+    }
+    try {
+      await handleEvent(supabase, event);
+      const { data: completionData, error: completionError } = await supabase.rpc("complete_billing_webhook_event", {
+        target_event: claim.eventId,
+        target_claim_token: claim.claimToken,
+        target_success: true,
+        target_error_code: null,
+      });
+      const completion = completionData as { ok?: boolean } | null;
+      if (completionError || !completion?.ok) failed = true;
+    } catch {
+      failed = true;
+      const { data: completionData, error: completionError } = await supabase.rpc("complete_billing_webhook_event", {
+        target_event: claim.eventId,
+        target_claim_token: claim.claimToken,
+        target_success: false,
+        target_error_code: "handler_failed",
+      });
+      const completion = completionData as { ok?: boolean } | null;
+      if (completionError || !completion?.ok) {
+        console.warn("billing_webhook_claim_completion_failed", {
+          provider: event.provider,
+          eventType: event.type,
+        });
+      }
+    }
   }
 
-  return NextResponse.json({ received: true });
+  return NextResponse.json({ received: !failed }, { status: failed ? 500 : 200 });
 }

@@ -14,7 +14,7 @@ import MenuList from "@mui/material/MenuList";
 import Popper from "@mui/material/Popper";
 
 import { useProfile } from "@/hooks/use-profile";
-import NiDocumentFull from "@/icons/nexture/ni-document-full";
+import NiPath from "@/icons/nexture/ni-path";
 import NiQuestionHexagon from "@/icons/nexture/ni-question-hexagon";
 import NiSettings from "@/icons/nexture/ni-settings";
 import { cn } from "@/lib/utils";
@@ -157,13 +157,13 @@ export default function User() {
                         <MenuItem
                           onClick={(event) => {
                             handleClose(event);
-                            router.push("/docs");
+                            router.push("/primeiros-passos");
                           }}
                         >
                           <ListItemIcon>
-                            <NiDocumentFull size={20} />
+                            <NiPath size={20} />
                           </ListItemIcon>
-                          {t("user-documentation")}
+                          {t("menu-primeiros-passos")}
                         </MenuItem>
                         <MenuItem
                           onClick={(event) => {

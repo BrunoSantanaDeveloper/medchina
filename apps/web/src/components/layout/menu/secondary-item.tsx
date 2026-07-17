@@ -74,6 +74,7 @@ export function SecondaryItem({ item, indent = 0, openedAccordions, setOpenedAcc
           )
         }
         aria-label={t(item.label)}
+        aria-current={isActive ? "page" : undefined}
         rel="noreferrer"
       >
         {t(item.label)}
@@ -104,6 +105,7 @@ export function SecondaryItem({ item, indent = 0, openedAccordions, setOpenedAcc
           )
         }
         aria-label={t(item.label)}
+        aria-current={isActive ? "page" : undefined}
         component={NextLink}
         href={item.href}
       >

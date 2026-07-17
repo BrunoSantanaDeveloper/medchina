@@ -50,5 +50,11 @@ export function useProfile() {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    const onProfileUpdated = () => refresh();
+    window.addEventListener("medchina:profile-updated", onProfileUpdated);
+    return () => window.removeEventListener("medchina:profile-updated", onProfileUpdated);
+  }, [refresh]);
+
   return { ...profile, refresh };
 }

@@ -47,13 +47,18 @@ export default function Main({ children }: PropsWithChildren) {
   const styles = useMemo(
     () => ({
       width: "100%",
-      paddingLeft: `calc(${mainPaddingLeft}px`,
+      paddingLeft: `${mainPaddingLeft}px`,
     }),
     [mainPaddingLeft],
   );
 
   return (
-    <main className="flex h-full min-h-0 w-full flex-col pt-20 duration-(--layout-duration)" style={styles}>
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex h-full min-h-0 w-full flex-col pt-20 duration-(--layout-duration)"
+      style={styles}
+    >
       {children}
       <Footer />
     </main>

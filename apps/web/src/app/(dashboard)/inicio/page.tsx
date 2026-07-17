@@ -1,118 +1,216 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { useSnackbar } from "notistack";
+import { useCallback, useEffect, useState } from "react";
 
-import { Box, Breadcrumbs, Button, Card, CardContent, Grid, Skeleton, Typography } from "@mui/material";
+import { Alert, Box, Breadcrumbs, Button, Card, CardContent, Grid, Skeleton, Typography } from "@mui/material";
 
 import { TONE } from "@/components/marketing/tone";
 import AudioUsageCard from "@/components/product/audio-usage-card";
 import EmptyState from "@/components/product/empty-state";
 import OnboardingChecklistCard from "@/components/product/onboarding-checklist-card";
+import { useCurrentOrg } from "@/hooks/use-current-org";
 import { useProfile } from "@/hooks/use-profile";
+import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import NiUsers from "@/icons/nexture/ni-users";
+import { calendarDayRange, startAppointment } from "@/lib/agenda";
+import { getProductAction } from "@/lib/product-actions";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
-type RecentConsultation = {
+type HomeConsultation = {
   id: string;
   status: string;
   startedAt: string;
+  scheduledFor: string | null;
+  appointmentNote: string | null;
   patientName: string;
-  patientId: string;
 };
 
 type HomeData = {
   patients: number;
   finalized: number;
-  drafts: RecentConsultation[];
-  recent: RecentConsultation[];
+  today: HomeConsultation[];
+  work: HomeConsultation[];
+  recent: HomeConsultation[];
 };
 
-/**
- * App home for the practitioner (PRD §9.2). The job here is NOT "browse a
- * table" — it is: pick up where I left off, and see what needs my attention.
- * So the screen leads with the open drafts (consultations waiting to be
- * finalized), then the recent activity, with the activation checklist on top
- * until the account is activated.
- *
- * Zero data is a first-run path to value (EmptyState), never a blank grid.
- */
+const WORK_PRIORITY: Record<string, number> = { in_progress: 0, awaiting_review: 1, draft: 2 };
+const NEW_PATIENT_HREF = getProductAction("new-patient").href;
+const NEW_APPOINTMENT_HREF = getProductAction("new-appointment").href;
+const PATIENTS_HREF = getProductAction("patients").href;
+
+/** The Home answers, in order: what happens today, what is unfinished, and
+ * what happened recently. Counts stay supporting context instead of taking
+ * the prime screen real estate from the practitioner's next action. */
 export default function Inicio() {
   const t = useTranslations("product");
+  const locale = useLocale();
+  const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
   const { displayName } = useProfile();
-  const [data, setData] = useState<HomeData | null>(null);
+  const { orgId, timezone, loading: orgLoading } = useCurrentOrg();
+  const [homeState, setHomeState] = useState<RemoteState<HomeData, string>>(() => remoteLoading());
+  const [startingId, setStartingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!isSupabaseConfigured) {
-        setData({ patients: 0, finalized: 0, drafts: [], recent: [] });
-        return;
-      }
-      const supabase = createClient();
-      const [patients, finalized, consultations] = await Promise.all([
-        supabase.from("patients").select("id", { count: "exact", head: true }),
-        supabase.from("consultations").select("id", { count: "exact", head: true }).eq("status", "finalized"),
-        supabase
-          .from("consultations")
-          .select("id, status, started_at, patients(id, full_name)")
-          .order("started_at", { ascending: false })
-          .limit(12),
-      ]);
+  const load = useCallback(async () => {
+    setHomeState(remoteLoading());
+    if (!isSupabaseConfigured) {
+      setHomeState(remoteSuccess({ patients: 0, finalized: 0, today: [], work: [], recent: [] }));
+      return;
+    }
+    if (orgLoading) return;
+    if (!orgId) {
+      setHomeState(remoteError(t("home-no-workspace")));
+      return;
+    }
 
-      const rows = (consultations.data ?? []).map((row) => {
-        const patient = row.patients as unknown as { id: string; full_name: string } | null;
+    const supabase = createClient();
+    const { start, end } = calendarDayRange(new Date(), timezone);
+    const consultationFields = "id, status, started_at, scheduled_for, appointment_note, patients(full_name)";
+    const [patientsResult, finalizedResult, todayResult, workResult, recentResult] = await Promise.all([
+      supabase
+        .from("patients")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .is("archived_at", null),
+      supabase
+        .from("consultations")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", "finalized"),
+      supabase
+        .from("consultations")
+        .select(consultationFields)
+        .eq("org_id", orgId)
+        .in("status", ["scheduled", "in_progress"])
+        .gte("scheduled_for", start.toISOString())
+        .lt("scheduled_for", end.toISOString())
+        .order("scheduled_for", { ascending: true })
+        .limit(20),
+      supabase
+        .from("consultations")
+        .select(consultationFields)
+        .eq("org_id", orgId)
+        .in("status", ["in_progress", "awaiting_review", "draft"])
+        .order("updated_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("consultations")
+        .select(consultationFields)
+        .eq("org_id", orgId)
+        .eq("status", "finalized")
+        .order("finalized_at", { ascending: false })
+        .limit(5),
+    ]);
+
+    if (patientsResult.error || finalizedResult.error || todayResult.error || workResult.error || recentResult.error) {
+      setHomeState(remoteError(t("home-load-error")));
+      return;
+    }
+
+    const mapRows = (rows: typeof todayResult.data): HomeConsultation[] =>
+      (rows ?? []).map((row) => {
+        const patient = row.patients as unknown as { full_name: string } | null;
         return {
-          id: row.id as string,
-          status: row.status as string,
-          startedAt: row.started_at as string,
-          patientName: patient?.full_name ?? "—",
-          patientId: patient?.id ?? "",
+          id: row.id,
+          status: row.status,
+          startedAt: row.started_at,
+          scheduledFor: row.scheduled_for,
+          appointmentNote: row.appointment_note,
+          patientName: patient?.full_name ?? t("patient-unknown"),
         };
       });
 
-      setData({
-        patients: patients.count ?? 0,
-        finalized: finalized.count ?? 0,
-        drafts: rows.filter((row) => row.status === "draft").slice(0, 5),
-        recent: rows.filter((row) => row.status === "finalized").slice(0, 5),
-      });
-    };
+    const today = mapRows(todayResult.data);
+    const todayIds = new Set(today.map((row) => row.id));
+    const work = mapRows(workResult.data)
+      .filter((row) => !todayIds.has(row.id))
+      .sort((a, b) => {
+        const status = WORK_PRIORITY[a.status] - WORK_PRIORITY[b.status];
+        return status || consultationDate(b).localeCompare(consultationDate(a));
+      })
+      .slice(0, 6);
+    const recent = mapRows(recentResult.data);
+
+    setHomeState(
+      remoteSuccess({
+        patients: patientsResult.count ?? 0,
+        finalized: finalizedResult.count ?? 0,
+        today,
+        work,
+        recent,
+      }),
+    );
+  }, [orgId, orgLoading, t, timezone]);
+
+  useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  const startScheduled = async (consultation: HomeConsultation) => {
+    if (!orgId || startingId) return;
+    setStartingId(consultation.id);
+    const result = await startAppointment(createClient(), orgId, consultation.id);
+    setStartingId(null);
+    if (result.ok && result.consultationId) {
+      router.push(`/consultas/${result.consultationId}`);
+      return;
+    }
+    if (result.code === "active_consultation_exists" && result.consultationId) {
+      enqueueSnackbar(t("agenda-active-consultation-exists"), { variant: "info" });
+      router.push(`/consultas/${result.consultationId}`);
+      return;
+    }
+    enqueueSnackbar(t("agenda-start-error"), { variant: "error" });
+    await load();
+  };
 
   const greeting = displayName ? t("home-greeting", { name: displayName.split(" ")[0] }) : t("home-greeting-generic");
+  const data = homeState.status === "success" ? homeState.data : null;
 
   return (
     <Grid container spacing={5}>
       <Grid size={12}>
-        <Typography variant="h1" component="h1" className="mb-0">
-          {greeting}
-        </Typography>
-        <Breadcrumbs>
-          <Typography variant="body2">{t("home-breadcrumb")}</Typography>
-        </Breadcrumbs>
+        <Box className="flex flex-row flex-wrap items-start justify-between gap-3">
+          <Box>
+            <Typography variant="h1" component="h1" className="mb-0">
+              {greeting}
+            </Typography>
+            <Breadcrumbs>
+              <Typography variant="body2">{t("home-breadcrumb")}</Typography>
+            </Breadcrumbs>
+          </Box>
+          <Button variant="contained" href={NEW_APPOINTMENT_HREF} LinkComponent={Link} startIcon={<NiCalendar />}>
+            {t("home-schedule-cta")}
+          </Button>
+        </Box>
       </Grid>
 
       <Grid size={12}>
         <OnboardingChecklistCard />
       </Grid>
 
-      {/* Renders only once the workspace actually has minutes to report — the
-          trial is offered at the consultation, not nagged about here. */}
-      <Grid size={12}>
-        <AudioUsageCard />
-      </Grid>
-
-      {!data ? (
+      {homeState.status === "error" && (
         <Grid size={12}>
-          <Skeleton variant="rounded" height={260} className="rounded-3xl" />
+          <Alert severity="error" action={<Button onClick={load}>{t("retry")}</Button>}>
+            {homeState.error}
+          </Alert>
         </Grid>
-      ) : data.patients === 0 ? (
+      )}
+
+      {homeState.status === "error" ? null : homeState.status === "idle" || homeState.status === "loading" ? (
+        <Grid size={12}>
+          <Skeleton variant="rounded" height={300} className="rounded-3xl" />
+        </Grid>
+      ) : homeState.status === "empty" ? null : data!.patients === 0 ? (
         <Grid size={12}>
           <Card component="section">
             <CardContent>
@@ -120,7 +218,7 @@ export default function Inicio() {
                 icon={<NiUsers />}
                 title={t("home-empty-title")}
                 description={t("home-empty-body")}
-                action={{ label: t("home-empty-cta"), href: "/pacientes/novo" }}
+                action={{ label: t("home-empty-cta"), href: NEW_PATIENT_HREF }}
               />
             </CardContent>
           </Card>
@@ -128,46 +226,41 @@ export default function Inicio() {
       ) : (
         <>
           <Grid size={12}>
-            <Box className="grid gap-4 sm:grid-cols-2">
-              <Metric
-                icon={<NiUsers />}
-                tone="accent-2"
-                value={data.patients}
-                label={t("home-metric-patients")}
-                href="/pacientes"
-              />
-              <Metric
-                icon={<NiCheckSquare />}
-                tone="accent-1"
-                value={data.finalized}
-                label={t("home-metric-finalized")}
-                href="/pacientes"
-              />
-            </Box>
-          </Grid>
-
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Card component="section" className="h-full">
+            <Card component="section">
               <CardContent className="flex flex-col gap-3">
-                <Typography variant="h5" component="h2" className="card-title">
-                  {t("home-drafts-title")}
-                </Typography>
-                <Typography variant="body2" className="text-text-secondary -mt-2">
-                  {t("home-drafts-subtitle")}
-                </Typography>
-
-                {data.drafts.length === 0 ? (
+                <Box className="flex flex-row flex-wrap items-start justify-between gap-2">
+                  <Box>
+                    <Typography variant="h5" component="h2" className="card-title">
+                      {t("home-today-title")}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary">
+                      {t("home-today-subtitle")}
+                    </Typography>
+                  </Box>
+                  <Button size="small" href="/agenda" LinkComponent={Link}>
+                    {t("home-open-agenda")}
+                  </Button>
+                </Box>
+                {data!.today.length === 0 ? (
                   <EmptyState
-                    icon={<NiClipboard />}
-                    title={t("home-drafts-empty-title")}
-                    description={t("home-drafts-empty-body")}
-                    action={{ label: t("home-drafts-empty-cta"), href: "/pacientes" }}
+                    icon={<NiCalendar />}
+                    title={t("home-today-empty-title")}
+                    description={t("home-today-empty-body")}
+                    action={{ label: t("home-schedule-cta"), href: NEW_APPOINTMENT_HREF }}
                     className="border-none py-8"
                   />
                 ) : (
-                  <Box className="flex flex-col gap-1">
-                    {data.drafts.map((draft) => (
-                      <ConsultationRow key={draft.id} consultation={draft} label={t("home-open-draft")} />
+                  <Box className="grid gap-2 lg:grid-cols-2">
+                    {data!.today.map((consultation) => (
+                      <ConsultationRow
+                        key={consultation.id}
+                        consultation={consultation}
+                        locale={locale}
+                        timeZone={timezone}
+                        label={consultation.status === "scheduled" ? t("agenda-start") : t("home-open-draft")}
+                        busy={startingId === consultation.id}
+                        onAction={consultation.status === "scheduled" ? () => startScheduled(consultation) : undefined}
+                      />
                     ))}
                   </Box>
                 )}
@@ -175,7 +268,43 @@ export default function Inicio() {
             </Card>
           </Grid>
 
-          <Grid size={{ xs: 12, lg: 6 }}>
+          <Grid size={{ xs: 12, lg: 7 }}>
+            <Card component="section" className="h-full">
+              <CardContent className="flex flex-col gap-3">
+                <Typography variant="h5" component="h2" className="card-title">
+                  {t("home-work-title")}
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary -mt-2">
+                  {t("home-work-subtitle")}
+                </Typography>
+                {data!.work.length === 0 ? (
+                  <EmptyState
+                    icon={<NiClipboard />}
+                    title={t("home-work-empty-title")}
+                    description={t("home-work-empty-body")}
+                    action={{ label: t("home-work-empty-cta"), href: PATIENTS_HREF }}
+                    className="border-none py-8"
+                  />
+                ) : (
+                  <Box className="flex flex-col gap-1">
+                    {data!.work.map((consultation) => (
+                      <ConsultationRow
+                        key={consultation.id}
+                        consultation={consultation}
+                        locale={locale}
+                        timeZone={timezone}
+                        label={
+                          consultation.status === "awaiting_review" ? t("home-review-draft") : t("home-open-draft")
+                        }
+                      />
+                    ))}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12, lg: 5 }}>
             <Card component="section" className="h-full">
               <CardContent className="flex flex-col gap-3">
                 <Typography variant="h5" component="h2" className="card-title">
@@ -184,26 +313,60 @@ export default function Inicio() {
                 <Typography variant="body2" className="text-text-secondary -mt-2">
                   {t("home-recent-subtitle")}
                 </Typography>
-
-                {data.recent.length === 0 ? (
-                  <Typography variant="body2" className="text-text-secondary py-6 text-center">
-                    {t("home-recent-empty")}
-                  </Typography>
+                {data!.recent.length === 0 ? (
+                  <EmptyState
+                    icon={<NiCheckSquare />}
+                    title={t("home-recent-empty")}
+                    description={t("home-recent-empty-body")}
+                    action={{ label: t("home-recent-empty-cta"), href: PATIENTS_HREF }}
+                    className="border-none py-8"
+                  />
                 ) : (
                   <Box className="flex flex-col gap-1">
-                    {data.recent.map((row) => (
-                      <ConsultationRow key={row.id} consultation={row} label={t("home-open-record")} />
+                    {data!.recent.map((consultation) => (
+                      <ConsultationRow
+                        key={consultation.id}
+                        consultation={consultation}
+                        locale={locale}
+                        timeZone={timezone}
+                        label={t("home-open-record")}
+                      />
                     ))}
                   </Box>
                 )}
               </CardContent>
             </Card>
           </Grid>
+
+          <Grid size={12}>
+            <Box className="grid gap-4 sm:grid-cols-2">
+              <Metric
+                icon={<NiUsers />}
+                tone="accent-2"
+                value={data!.patients}
+                label={t("home-metric-patients")}
+                href="/pacientes"
+              />
+              <Metric
+                icon={<NiCheckSquare />}
+                tone="accent-1"
+                value={data!.finalized}
+                label={t("home-metric-finalized")}
+                href="/pacientes"
+              />
+            </Box>
+          </Grid>
         </>
       )}
+
+      <Grid size={12}>
+        <AudioUsageCard />
+      </Grid>
     </Grid>
   );
 }
+
+const consultationDate = (consultation: HomeConsultation) => consultation.scheduledFor ?? consultation.startedAt;
 
 function Metric({
   icon,
@@ -244,27 +407,52 @@ function Metric({
   );
 }
 
-function ConsultationRow({ consultation, label }: { consultation: RecentConsultation; label: string }) {
+function ConsultationRow({
+  consultation,
+  label,
+  locale,
+  timeZone,
+  busy = false,
+  onAction,
+}: {
+  consultation: HomeConsultation;
+  label: string;
+  locale: string;
+  timeZone: string;
+  busy?: boolean;
+  onAction?: () => void;
+}) {
   return (
     <Box className="hover:bg-grey-25 flex flex-row items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors">
       <Box className="min-w-0 flex-1">
         <Typography variant="body1" className="text-text-primary truncate font-medium">
           {consultation.patientName}
         </Typography>
-        <Typography variant="body2" className="text-text-secondary">
-          {new Date(consultation.startedAt).toLocaleDateString()}
+        <Typography variant="body2" className="text-text-secondary truncate">
+          {new Intl.DateTimeFormat(locale, {
+            dateStyle: "short",
+            timeStyle: consultation.scheduledFor ? "short" : undefined,
+            timeZone,
+          }).format(new Date(consultationDate(consultation)))}
+          {consultation.appointmentNote ? ` · ${consultation.appointmentNote}` : ""}
         </Typography>
       </Box>
-      <Button
-        size="small"
-        variant="text"
-        color="primary"
-        href={`/consultas/${consultation.id}`}
-        LinkComponent={Link}
-        className="flex-none"
-      >
-        {label}
-      </Button>
+      {onAction ? (
+        <Button size="small" variant="text" color="primary" onClick={onAction} disabled={busy} className="flex-none">
+          {label}
+        </Button>
+      ) : (
+        <Button
+          size="small"
+          variant="text"
+          color="primary"
+          href={`/consultas/${consultation.id}`}
+          LinkComponent={Link}
+          className="flex-none"
+        >
+          {label}
+        </Button>
+      )}
     </Box>
   );
 }

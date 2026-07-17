@@ -1,61 +1,75 @@
+import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { Button, List, SegmentedButtons, Text, useTheme } from "react-native-paper";
+import { Button, List, SegmentedButtons, Switch, Text, useTheme } from "react-native-paper";
 import { useTranslations } from "use-intl";
-
-import type { ThemeName } from "@flyee/design-tokens";
 
 import { LOCALES, type LocaleOption } from "@/config";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiMessages from "@/icons/nexture/ni-messages";
 import NiMoon from "@/icons/nexture/ni-moon";
-import NiPalette from "@/icons/nexture/ni-palette";
 import NiPower from "@/icons/nexture/ni-power";
+import { getCurrentOrgId } from "@/lib/clinical";
+import { disablePushNotifications, hasRegisteredPushToken, registerPushNotifications } from "@/lib/push-notifications";
 import { useSession } from "@/providers/session";
 import { useSettings } from "@/providers/settings";
-import { GRID, THEME_NAMES, TOUCH_TARGET, getTheme } from "@/theme";
+import { GRID, TOUCH_TARGET } from "@/theme";
 
-// Locale display names come from the shared `dashboard` namespace (same keys
-// the web language switcher uses).
 export default function Settings() {
   const t = useTranslations("mobile");
   const tDashboard = useTranslations("dashboard");
   const theme = useTheme();
-  const { themeName, modeSetting, mode, locale, setThemeName, setModeSetting, setLocale } = useSettings();
-  const { session, isSupabaseConfigured, signOut } = useSession();
+  const { modeSetting, locale, setModeSetting, setLocale } = useSettings();
+  const {
+    session,
+    isSupabaseConfigured,
+    signOut,
+    biometricEnabled,
+    setBiometricEnabled,
+  } = useSession();
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void Promise.all([getCurrentOrgId(), hasRegisteredPushToken()]).then(([org, push]) => {
+      setOrgId(org);
+      setPushEnabled(push);
+    });
+  }, []);
+
+  const toggleBiometric = async (enabled: boolean) => {
+    setBusy(true);
+    const ok = await setBiometricEnabled(enabled);
+    setFeedback(ok ? null : t("settings-biometric-unavailable"));
+    setBusy(false);
+  };
+
+  const togglePush = async (enabled: boolean) => {
+    setBusy(true);
+    setFeedback(null);
+    if (!enabled) {
+      await disablePushNotifications();
+      setPushEnabled(false);
+      setBusy(false);
+      return;
+    }
+    if (!orgId) {
+      setFeedback(t("settings-notifications-failed"));
+      setBusy(false);
+      return;
+    }
+    const result = await registerPushNotifications(orgId);
+    setPushEnabled(result.ok);
+    if (!result.ok) setFeedback(t(`settings-notifications-${result.code}`));
+    setBusy(false);
+  };
 
   return (
-    <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ padding: GRID * 2, gap: GRID * 3 }}>
-      {/* Theme color */}
-      <View style={{ gap: GRID }}>
-        <List.Subheader style={{ paddingHorizontal: 0 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: GRID }}>
-            <NiPalette size="small" color={theme.colors.onSurfaceVariant} />
-            <Text variant="titleMedium">{t("settings-theme")}</Text>
-          </View>
-        </List.Subheader>
-        <View style={{ flexDirection: "row", gap: GRID }}>
-          {THEME_NAMES.map((name: ThemeName) => {
-            const swatch = getTheme(name, mode).colors.primary;
-            const selected = name === themeName;
-            return (
-              <Button
-                key={name}
-                mode={selected ? "contained" : "outlined"}
-                buttonColor={selected ? swatch : undefined}
-                textColor={selected ? theme.colors.onPrimary : theme.colors.onSurface}
-                onPress={() => setThemeName(name)}
-                style={{ flex: 1 }}
-                contentStyle={{ minHeight: TOUCH_TARGET }}
-                icon={selected ? () => <NiCheck size="small" color={theme.colors.onPrimary} /> : undefined}
-              >
-                {t(`settings-theme-${name}`)}
-              </Button>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Light / dark / system */}
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ padding: GRID * 2, gap: GRID * 3, paddingBottom: GRID * 5 }}
+    >
       <View style={{ gap: GRID }}>
         <List.Subheader style={{ paddingHorizontal: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: GRID }}>
@@ -74,7 +88,41 @@ export default function Settings() {
         />
       </View>
 
-      {/* Language */}
+      <View style={{ gap: 0 }}>
+        <List.Subheader style={{ paddingHorizontal: 0 }}>{t("settings-security")}</List.Subheader>
+        <List.Item
+          title={t("settings-biometric")}
+          description={t("settings-biometric-hint")}
+          style={{ minHeight: TOUCH_TARGET }}
+          right={() => (
+            <Switch
+              value={biometricEnabled}
+              disabled={busy}
+              onValueChange={(value) => void toggleBiometric(value)}
+              accessibilityLabel={t("settings-biometric")}
+            />
+          )}
+        />
+        <List.Item
+          title={t("settings-notifications")}
+          description={t("settings-notifications-hint")}
+          style={{ minHeight: TOUCH_TARGET }}
+          right={() => (
+            <Switch
+              value={pushEnabled}
+              disabled={busy}
+              onValueChange={(value) => void togglePush(value)}
+              accessibilityLabel={t("settings-notifications")}
+            />
+          )}
+        />
+        {feedback ? (
+          <Text accessibilityLiveRegion="polite" variant="bodySmall" style={{ color: theme.colors.error }}>
+            {feedback}
+          </Text>
+        ) : null}
+      </View>
+
       <View style={{ gap: 0 }}>
         <List.Subheader style={{ paddingHorizontal: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: GRID }}>
@@ -93,8 +141,7 @@ export default function Settings() {
         ))}
       </View>
 
-      {/* Sign out — destructive, kept visually distinct */}
-      {isSupabaseConfigured && session && (
+      {isSupabaseConfigured && session ? (
         <Button
           mode="outlined"
           textColor={theme.colors.error}
@@ -104,7 +151,7 @@ export default function Settings() {
         >
           {t("settings-sign-out")}
         </Button>
-      )}
+      ) : null}
     </ScrollView>
   );
 }

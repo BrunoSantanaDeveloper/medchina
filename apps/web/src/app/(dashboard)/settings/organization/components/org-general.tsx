@@ -1,64 +1,82 @@
 "use client";
 
-import { OrgSummary } from "./use-organization";
+import type { OrgSummary } from "./use-organization";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
-import { Alert, Box, Button, Card, CardContent, FormControl, FormLabel, Grid, Input, Typography } from "@mui/material";
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  FormControl,
+  FormLabel,
+  Grid,
+  Input,
+  TextField,
+  Typography,
+} from "@mui/material";
 
-import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const COMMON_TIMEZONES = [
+  "America/Sao_Paulo",
+  "America/Bahia",
+  "America/Belem",
+  "America/Boa_Vista",
+  "America/Cuiaba",
+  "America/Fortaleza",
+  "America/Manaus",
+  "America/Porto_Velho",
+  "America/Recife",
+  "Europe/Lisbon",
+  "UTC",
+];
 
-type Props = {
-  org: OrgSummary;
-  onUpdated: () => void;
-};
-
-export default function OrgGeneral({ org, onUpdated }: Props) {
+export default function OrgGeneral({ org, onUpdated }: { org: OrgSummary; onUpdated: () => void }) {
+  const t = useTranslations("product");
   const canManage = org.role === "owner" || org.role === "admin";
   const [name, setName] = useState(org.name);
-  const [slug, setSlug] = useState(org.slug);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [timezone, setTimezone] = useState(org.timezone);
+  const [status, setStatus] = useState<"saved" | "error" | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setName(org.name);
-    setSlug(org.slug);
-    setError(null);
-    setSaved(false);
-  }, [org.id, org.name, org.slug]);
+    setTimezone(org.timezone);
+    setStatus(null);
+  }, [org.id, org.name, org.timezone]);
 
   const handleSave = async () => {
-    setError(null);
-    setSaved(false);
-    if (name.trim().length < 3) {
-      setError("Name should be at least 3 characters.");
+    const normalized = name.trim();
+    const normalizedTimezone = timezone.trim();
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: normalizedTimezone });
+    } catch {
+      setStatus("error");
       return;
     }
-    if (!SLUG_PATTERN.test(slug)) {
-      setError("Slug must be lowercase letters, numbers and dashes (e.g. acme-inc).");
+    if (normalized.length < 3 || !normalizedTimezone) {
+      setStatus("error");
       return;
     }
     setSaving(true);
+    setStatus(null);
     const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("organizations")
-      .update({ name: name.trim(), slug })
-      .eq("id", org.id);
+    const { data, error } = await supabase.rpc("update_practice_settings", {
+      target_org: org.id,
+      target_name: normalized,
+      target_timezone: normalizedTimezone,
+    });
     setSaving(false);
-    if (updateError) {
-      setError(updateError.message);
+    const result = data as { ok?: boolean } | null;
+    if (error || !result?.ok) {
+      setStatus("error");
       return;
     }
-    recordAudit(supabase, "org.updated", {
-      orgId: org.id,
-      entityType: "organization",
-      entityId: org.id,
-      metadata: { name: name.trim(), slug },
-    });
-    setSaved(true);
+    setStatus("saved");
     onUpdated();
   };
 
@@ -66,36 +84,49 @@ export default function OrgGeneral({ org, onUpdated }: Props) {
     <Grid size={12}>
       <Card component="section">
         <CardContent>
-          <Typography variant="h5" component="h5" className="card-title">
-            General
+          <Typography variant="h5" component="h2" className="card-title">
+            {t("settings-practice-card-title")}
           </Typography>
-
-          <Box className="flex flex-col">
+          <Typography variant="body2" className="text-text-secondary mb-5">
+            {t("settings-practice-card-body")}
+          </Typography>
+          <Box className="flex max-w-lg flex-col">
             <FormControl className="outlined" variant="standard" size="small" fullWidth>
-              <FormLabel component="label">Organization name</FormLabel>
-              <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canManage} />
+              <FormLabel component="label">{t("settings-practice-name")}</FormLabel>
+              <Input value={name} onChange={(event) => setName(event.target.value)} disabled={!canManage} />
             </FormControl>
-
-            <FormControl className="outlined" variant="standard" size="small" fullWidth>
-              <FormLabel component="label">Slug</FormLabel>
-              <Input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} disabled={!canManage} />
-            </FormControl>
-
-            {error && (
+            <Autocomplete
+              freeSolo
+              autoSelect
+              options={COMMON_TIMEZONES}
+              value={timezone}
+              onChange={(_, value) => setTimezone(value ?? "")}
+              onInputChange={(_, value) => setTimezone(value)}
+              disabled={!canManage}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t("settings-practice-timezone")}
+                  helperText={t("settings-practice-timezone-help")}
+                  error={!timezone}
+                />
+              )}
+              className="mb-5"
+            />
+            {status === "error" && (
               <Alert severity="error" className="neutral bg-background-paper/60! mb-4">
-                {error}
+                {t("settings-save-error")}
               </Alert>
             )}
-            {saved && (
+            {status === "saved" && (
               <Alert severity="success" className="neutral bg-background-paper/60! mb-4">
-                Organization updated.
+                {t("settings-practice-saved")}
               </Alert>
             )}
-
             {canManage && (
               <Box>
-                <Button variant="outlined" size="medium" color="grey" onClick={handleSave} disabled={saving}>
-                  Save changes
+                <Button variant="contained" onClick={handleSave} disabled={saving}>
+                  {t("settings-save")}
                 </Button>
               </Box>
             )}

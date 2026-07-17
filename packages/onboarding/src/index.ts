@@ -24,6 +24,7 @@ export interface OnboardingStep {
 
 export interface OnboardingStateRow {
   completedSteps: string[];
+  selectedTrack: "manual" | "demo" | "ai" | null;
   dismissed: boolean;
   completedAt: string | null;
 }
@@ -35,13 +36,13 @@ export interface FlowKey {
   flow: string;
 }
 
-const EMPTY: OnboardingStateRow = { completedSteps: [], dismissed: false, completedAt: null };
+const EMPTY: OnboardingStateRow = { completedSteps: [], selectedTrack: null, dismissed: false, completedAt: null };
 
 /** Read the persisted state for a flow (defaults when the row does not exist yet). */
 export async function getOnboardingState(supabase: SupabaseClient, key: FlowKey): Promise<OnboardingStateRow> {
   const query = supabase
     .from("onboarding_state")
-    .select("completed_steps, dismissed, completed_at")
+    .select("completed_steps, selected_track, dismissed, completed_at")
     .eq("user_id", key.userId)
     .eq("flow", key.flow);
   const scoped = key.orgId ? query.eq("org_id", key.orgId) : query.is("org_id", null);
@@ -49,6 +50,7 @@ export async function getOnboardingState(supabase: SupabaseClient, key: FlowKey)
   if (!data) return EMPTY;
   return {
     completedSteps: (data.completed_steps as string[]) ?? [],
+    selectedTrack: (data.selected_track as OnboardingStateRow["selectedTrack"]) ?? null,
     dismissed: Boolean(data.dismissed),
     completedAt: (data.completed_at as string | null) ?? null,
   };
@@ -68,18 +70,10 @@ async function upsert(supabase: SupabaseClient, key: FlowKey, patch: Record<stri
  * Mark a step complete. When `allRequired` is provided and every required
  * step is now done, stamps completed_at (the activation / aha moment).
  */
-export async function completeStep(
-  supabase: SupabaseClient,
-  key: FlowKey,
-  step: string,
-  allRequired?: string[],
-) {
+export async function completeStep(supabase: SupabaseClient, key: FlowKey, step: string, allRequired?: string[]) {
   const state = await getOnboardingState(supabase, key);
-  const completedSteps = state.completedSteps.includes(step)
-    ? state.completedSteps
-    : [...state.completedSteps, step];
-  const activated =
-    allRequired && allRequired.length > 0 && allRequired.every((s) => completedSteps.includes(s));
+  const completedSteps = state.completedSteps.includes(step) ? state.completedSteps : [...state.completedSteps, step];
+  const activated = allRequired && allRequired.length > 0 && allRequired.every((s) => completedSteps.includes(s));
   return upsert(supabase, key, {
     completed_steps: completedSteps,
     ...(activated && !state.completedAt ? { completed_at: new Date().toISOString() } : {}),
@@ -89,6 +83,27 @@ export async function completeStep(
 /** Hide the checklist card (it can be reopened — never delete the row). */
 export const dismissFlow = (supabase: SupabaseClient, key: FlowKey) => upsert(supabase, key, { dismissed: true });
 export const reopenFlow = (supabase: SupabaseClient, key: FlowKey) => upsert(supabase, key, { dismissed: false });
+
+/** Persist the user's preferred way to start without completing any clinical step. */
+export const selectTrack = (
+  supabase: SupabaseClient,
+  key: FlowKey,
+  track: NonNullable<OnboardingStateRow["selectedTrack"]>,
+) => upsert(supabase, key, { selected_track: track, dismissed: false });
+
+/** Sticky completion for flows whose required facts are evaluated outside this generic package. */
+export async function completeFlow(supabase: SupabaseClient, key: FlowKey) {
+  const state = await getOnboardingState(supabase, key);
+  return state.completedAt ? { ok: true as const } : upsert(supabase, key, { completed_at: new Date().toISOString() });
+}
+
+/** Reset only the requested simulation steps; live clinical facts are never altered. */
+export async function resetSteps(supabase: SupabaseClient, key: FlowKey, steps: string[]) {
+  const state = await getOnboardingState(supabase, key);
+  return upsert(supabase, key, {
+    completed_steps: state.completedSteps.filter((step) => !steps.includes(step)),
+  });
+}
 
 export interface FlowProgress {
   done: number;

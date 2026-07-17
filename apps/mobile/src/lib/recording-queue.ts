@@ -1,237 +1,404 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Directory, File, Paths } from "expo-file-system";
+import { File } from "expo-file-system";
+import { randomUUID } from "expo-crypto";
+import * as Notifications from "expo-notifications";
+import { Upload } from "tus-js-client";
 
-import { supabase } from "@/lib/supabase";
+import {
+  acquireUploadLease,
+  createTemporaryPlainFile,
+  deleteEncryptedAudio,
+  getQueueItem,
+  hasAllEncryptedChunks,
+  persistEncryptedRecording,
+  queueForConsultation,
+  quarantineQueueItem,
+  readQueue,
+  secureTusUrlStorage,
+  updateQueueItem,
+  type QueueItem,
+  type QueueState,
+  type RecordingMode,
+} from "@/lib/recording-store";
+import {
+  isDeliveredRecordingStatus,
+  isProcessingDispatchAccepted,
+  type DeliveredRecordingStatus,
+} from "@/lib/recording-state";
+import { supabase, supabaseAnonKey, supabaseUrl } from "@/lib/supabase";
+import { trackProductEvent } from "@/lib/product-events";
 
-/**
- * The resilient upload queue (PRD §11 "envio protegido e retomada após falhas de
- * conexão"; §12.4).
- *
- * The promise the product makes: **a bad connection must never mean a lost
- * consultation.** So the audio is moved to persistent storage the moment the
- * recording stops, and the queue survives app restarts. Nothing is ever deleted
- * from the device until the SERVER confirms it (HOME-SPEC §22.3) — the local
- * copy is the safety net, not a formality.
- *
- * The three states the app must be able to say out loud, honestly:
- *   local     — still on this phone only
- *   uploading — being sent
- *   uploaded  — the server accepted it
- *
- * `blocked` is separate and deliberate: the database refused the recording
- * (no consent, or no audio allowance). The audio STAYS on the device and the
- * professional is told why — we never silently discard a consultation she
- * actually recorded.
- */
+export type { QueueItem, QueueState } from "@/lib/recording-store";
 
-const QUEUE_KEY = "medchina.recording-queue.v1";
-const AUDIO_DIR = "recordings";
-/** m4a: what expo-audio's HIGH_QUALITY preset writes on both platforms. */
-const MIME = "audio/m4a";
+const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.replace(/\/$/, "");
+const RETRY_DELAYS = [0, 1_000, 3_000, 5_000, 10_000];
 
-export type QueueState = "local" | "uploading" | "uploaded" | "blocked";
-
-export type QueueItem = {
-  id: string;
-  consultationId: string;
-  orgId: string;
-  patientId: string;
-  /** File name inside the app's persistent recordings directory. */
-  fileName: string;
-  durationSeconds: number;
-  createdAt: string;
-  /** Set once the database row exists — a retry resumes, it never re-inserts. */
+type RpcResult = {
+  ok?: boolean;
+  code?: string;
+  status?: string;
   recordingId?: string;
-  state: QueueState;
-  error?: string;
 };
 
-const recordingsDir = () => new Directory(Paths.document, AUDIO_DIR);
+function stableError(value: unknown): string {
+  const text = String(value ?? "").toLowerCase();
+  if (text.includes("consent") || text.includes("audio-recording")) return "audio_consent_required";
+  if (text.includes("allowance") || text.includes("trial_not_started")) return "allowance_unavailable";
+  if (text.includes("already_open") || text.includes("pending")) return "recording_pending";
+  if (text.includes("checksum")) return "checksum_mismatch";
+  if (text.includes("not_authorized") || text.includes("not authenticated")) return "not_authorized";
+  if (text.includes("invalid_consultation")) return "invalid_consultation_transition";
+  if (text.includes("not_uploaded")) return "recording_not_uploaded";
+  return "network_unavailable";
+}
 
-export async function readQueue(): Promise<QueueItem[]> {
-  const raw = await AsyncStorage.getItem(QUEUE_KEY);
-  if (!raw) return [];
-  try {
-    return JSON.parse(raw) as QueueItem[];
-  } catch {
-    return [];
+async function rpc(name: string, params: Record<string, unknown>): Promise<RpcResult> {
+  if (!supabase) return { ok: false, code: "network_unavailable" };
+  const { data, error } = await supabase.rpc(name, params);
+  if (error) return { ok: false, code: stableError(error.message) };
+  return (data ?? { ok: false, code: "network_unavailable" }) as RpcResult;
+}
+
+function storageTusEndpoint(): string | null {
+  if (!supabaseUrl) return null;
+  const direct = supabaseUrl.replace(/^(https:\/\/[^.]+)\.supabase\.co$/i, "$1.storage.supabase.co");
+  return `${direct.replace(/\/$/, "")}/storage/v1/upload/resumable`;
+}
+
+async function uploadWithTus(item: QueueItem, plainFile: File, path: string): Promise<void> {
+  if (!supabase || !supabaseAnonKey) throw new Error("network_unavailable");
+  const endpoint = storageTusEndpoint();
+  if (!endpoint) throw new Error("network_unavailable");
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("not_authorized");
+
+  await new Promise<void>((resolve, reject) => {
+    const input = { uri: plainFile.uri, name: `${item.recordingId}.m4a`, type: item.mime } as unknown as File;
+    const upload = new Upload(input, {
+      endpoint,
+      uploadSize: item.sizeBytes,
+      chunkSize: 6 * 1024 * 1024,
+      retryDelays: RETRY_DELAYS,
+      removeFingerprintOnSuccess: true,
+      uploadDataDuringCreation: true,
+      metadata: {
+        bucketName: "transcriptions",
+        objectName: path,
+        contentType: item.mime,
+        cacheControl: "3600",
+        metadata: JSON.stringify({ checksum_sha256: item.checksumSha256 }),
+      },
+      headers: {
+        authorization: `Bearer ${session.access_token}`,
+        apikey: supabaseAnonKey,
+        "x-upsert": "true",
+      },
+      fingerprint: async () => `medchina-${item.clientUploadId}-${item.checksumSha256}`,
+      urlStorage: secureTusUrlStorage,
+      onProgress: (sent, total) => {
+        void updateQueueItem(item.id, { progress: total > 0 ? sent / total : 0 });
+      },
+      onError: reject,
+      onSuccess: () => resolve(),
+    });
+    void upload
+      .findPreviousUploads()
+      .then((previous) => {
+        if (previous[0]) upload.resumeFromPreviousUpload(previous[0]);
+        upload.start();
+      })
+      .catch(reject);
+  });
+}
+
+async function ensureRemoteRecording(item: QueueItem): Promise<QueueItem> {
+  if (item.recordingId) return item;
+  const result = await rpc("begin_authorized_mobile_recording", {
+    target_consultation: item.consultationId,
+    target_mode: item.mode,
+    target_client_upload_id: item.clientUploadId,
+    target_authorization: item.authorizationId,
+    target_captured_at: item.createdAt,
+  });
+  if (!result.ok || !result.recordingId) throw new Error(result.code ?? "network_unavailable");
+  const updated = await updateQueueItem(item.id, { payload: { recordingId: result.recordingId } });
+  if (!updated) throw new Error("queue_item_missing");
+  return updated;
+}
+
+async function remoteRecordingState(recordingId: string): Promise<{ status: string; audioPath: string | null } | null> {
+  if (!supabase) throw new Error("network_unavailable");
+  const { data, error } = await supabase
+    .from("recordings")
+    .select("status,audio_path")
+    .eq("id", recordingId)
+    .maybeSingle();
+  if (error) throw new Error(stableError(error.message));
+  return data ? { status: data.status, audioPath: data.audio_path } : null;
+}
+
+async function markLocal(item: QueueItem): Promise<"local" | "uploading" | DeliveredRecordingStatus> {
+  if (!item.recordingId) throw new Error("recording_missing");
+  const result = await rpc("mark_recording_local", {
+    target_recording: item.recordingId,
+    target_duration_seconds: item.durationSeconds,
+    target_size_bytes: item.sizeBytes,
+    target_mime: item.mime,
+    target_checksum_sha256: item.checksumSha256,
+  });
+  // A response may have been lost after a prior success. Later states are safe
+  // to resume; the immutable client upload id prevents a duplicate row.
+  if (result.ok) return "local";
+  if (result.code === "recording_invalid_state") {
+    if (result.status === "local" || result.status === "uploading") return result.status;
+    if (isDeliveredRecordingStatus(result.status)) return result.status;
+  }
+  throw new Error(result.code ?? "network_unavailable");
+}
+
+async function markUploading(recordingId: string): Promise<"uploading" | DeliveredRecordingStatus> {
+  const result = await rpc("mark_recording_uploading", { target_recording: recordingId });
+  if (result.ok) return "uploading";
+  if (result.code === "recording_invalid_state") {
+    if (result.status === "uploading") return "uploading";
+    if (isDeliveredRecordingStatus(result.status)) return result.status;
+  }
+  throw new Error(result.code ?? "network_unavailable");
+}
+
+async function requestAutomaticProcessing(recordingId: string): Promise<void> {
+  if (!WEB_URL || !supabase) throw new Error("processing_endpoint_unavailable");
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("not_authorized");
+  const response = await fetch(`${WEB_URL}/api/recordings/${recordingId}/process`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  const body = (await response.json().catch(() => null)) as { code?: string; error?: { code?: string } } | null;
+  const code = body?.error?.code ?? body?.code;
+  if (!isProcessingDispatchAccepted(response.ok, response.status, code)) {
+    throw new Error(code ?? "processing_failed");
   }
 }
 
-async function writeQueue(items: QueueItem[]): Promise<void> {
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(items));
+async function completeDeliveredItem(
+  item: QueueItem,
+  remoteStatus: DeliveredRecordingStatus,
+  uploadedNow = false,
+): Promise<void> {
+  if (!item.recordingId) throw new Error("recording_missing");
+
+  let nextState: QueueState = remoteStatus;
+  if (item.mode === "ai" && remoteStatus === "uploaded") {
+    const uploaded = await updateQueueItem(item.id, {
+      state: "uploaded",
+      progress: 1,
+      errorCode: null,
+      leaseUntil: null,
+    });
+    if (!uploaded) throw new Error("queue_item_missing");
+    await requestAutomaticProcessing(item.recordingId);
+    nextState = "processing";
+  }
+
+  const completed = await updateQueueItem(item.id, {
+    state: nextState,
+    progress: 1,
+    errorCode: null,
+    leaseUntil: null,
+  });
+  if (!completed) throw new Error("queue_item_missing");
+
+  // The remote object is now owned by a processing claim (or is already
+  // ready). Only this boundary permits deleting the encrypted local source.
+  deleteEncryptedAudio(item.id);
+  await Notifications.cancelScheduledNotificationAsync(`pending-${item.id}`).catch(() => undefined);
+  if (uploadedNow) trackProductEvent("recording.upload_completed", { mode: item.mode, state: "uploaded" });
 }
 
-async function updateItem(id: string, patch: Partial<QueueItem>): Promise<QueueItem[]> {
+async function flushItem(original: QueueItem): Promise<void> {
+  if (!(await acquireUploadLease(original.id))) return;
+  let item = (await getQueueItem(original.id)) ?? original;
+  let plainFile: File | null = null;
+  try {
+    if (!item.recordingId && !(await hasAllEncryptedChunks(item))) {
+      await quarantineQueueItem(item.id, "audio_file_missing");
+      return;
+    }
+
+    item = await ensureRemoteRecording(item);
+    if (!item.recordingId) throw new Error("recording_missing");
+
+    const remote = await remoteRecordingState(item.recordingId);
+    if (isDeliveredRecordingStatus(remote?.status)) {
+      await completeDeliveredItem(item, remote.status);
+      return;
+    }
+    if (item.mode === "ai" && remote?.status === "failed" && remote.audioPath) {
+      // Processing failures keep the verified remote object. Reclaim directly;
+      // a retry must not require or re-upload an already delivered local file.
+      await requestAutomaticProcessing(item.recordingId);
+      await completeDeliveredItem(item, "processing");
+      return;
+    }
+    if (!(await hasAllEncryptedChunks(item))) {
+      await quarantineQueueItem(item.id, "audio_file_missing");
+      return;
+    }
+
+    let uploadState: string | null = remote?.status ?? null;
+    if (uploadState !== "local" && uploadState !== "uploading") uploadState = await markLocal(item);
+    if (isDeliveredRecordingStatus(uploadState)) {
+      await completeDeliveredItem(item, uploadState);
+      return;
+    }
+    if (uploadState !== "uploading") uploadState = await markUploading(item.recordingId);
+    if (isDeliveredRecordingStatus(uploadState)) {
+      await completeDeliveredItem(item, uploadState);
+      return;
+    }
+
+    plainFile = await createTemporaryPlainFile(item);
+    const path = `${item.orgId}/${item.recordingId}.m4a`;
+    await uploadWithTus(item, plainFile, path);
+    const confirmed = await rpc("confirm_recording_upload", {
+      target_recording: item.recordingId,
+      target_audio_path: path,
+    });
+    if (!confirmed.ok) {
+      if (confirmed.code === "recording_invalid_state" && isDeliveredRecordingStatus(confirmed.status)) {
+        await completeDeliveredItem(item, confirmed.status);
+        return;
+      }
+      throw new Error(confirmed.code ?? "recording_not_uploaded");
+    }
+    if (!isDeliveredRecordingStatus(confirmed.code)) throw new Error("recording_not_uploaded");
+    await completeDeliveredItem(item, confirmed.code, true);
+  } catch (error) {
+    const code = stableError(error instanceof Error ? error.message : error);
+    trackProductEvent("recording.failed", { mode: original.mode, reason_code: code });
+    const blocked = ["audio_consent_required", "allowance_unavailable", "not_authorized"].includes(code);
+    await updateQueueItem(original.id, {
+      state: blocked ? "blocked" : "failed",
+      errorCode: code,
+      leaseUntil: null,
+    }).catch(() => undefined);
+  } finally {
+    if (plainFile?.exists) plainFile.delete();
+  }
+}
+
+async function dispatchUploadedItem(item: QueueItem): Promise<void> {
+  if (!item.recordingId || item.mode !== "ai") return;
+  try {
+    const remote = await remoteRecordingState(item.recordingId);
+    if (!isDeliveredRecordingStatus(remote?.status)) throw new Error("recording_not_uploaded");
+    await completeDeliveredItem(item, remote.status);
+  } catch (error) {
+    const code = stableError(error instanceof Error ? error.message : error);
+    await updateQueueItem(item.id, {
+      state: "failed",
+      errorCode: code,
+      leaseUntil: null,
+    }).catch(() => undefined);
+  }
+}
+
+let activeFlush: Promise<QueueItem[]> | null = null;
+
+async function runFlush(): Promise<QueueItem[]> {
   const items = await readQueue();
-  const next = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
-  await writeQueue(next);
-  return next;
+  for (const item of items) {
+    if (item.state === "local" || item.state === "failed") await flushItem(item);
+  }
+  await refreshQueueStatuses();
+  const delivered = await readQueue();
+  for (const item of delivered) {
+    if (item.state === "uploaded" && item.mode === "ai") await dispatchUploadedItem(item);
+  }
+  await refreshQueueStatuses();
+  return readQueue();
 }
 
-/**
- * Take the just-finished recording out of the cache (which the OS may evict)
- * and into persistent storage, then queue it. Called the instant recording
- * stops — before anything can go wrong with the network.
- */
+export async function flushQueue(): Promise<QueueItem[]> {
+  if (!activeFlush) activeFlush = runFlush().finally(() => (activeFlush = null));
+  return activeFlush;
+}
+
+export async function refreshQueueStatuses(): Promise<QueueItem[]> {
+  if (!supabase) return readQueue();
+  const items = await readQueue();
+  const tracked = items.filter((item) => item.recordingId && ["uploaded", "processing"].includes(item.state));
+  if (tracked.length === 0) return items;
+
+  const ids = tracked.map((item) => item.recordingId as string);
+  const { data } = await supabase.from("recordings").select("id,status,error_code").in("id", ids);
+  for (const row of data ?? []) {
+    const item = tracked.find((candidate) => candidate.recordingId === row.id);
+    if (!item) continue;
+    if (row.status === "ready") {
+      await updateQueueItem(item.id, { state: "ready", errorCode: null, leaseUntil: null });
+      deleteEncryptedAudio(item.id);
+      await Notifications.cancelScheduledNotificationAsync(`pending-${item.id}`).catch(() => undefined);
+      trackProductEvent("recording.processing_completed", { mode: item.mode, state: "ready" });
+    } else if (row.status === "failed") {
+      await updateQueueItem(item.id, {
+        state: "failed",
+        errorCode: stableError(row.error_code ?? "processing_failed"),
+        leaseUntil: null,
+      });
+    } else if (row.status === "processing") {
+      await updateQueueItem(item.id, { state: "processing", leaseUntil: null });
+      deleteEncryptedAudio(item.id);
+      await Notifications.cancelScheduledNotificationAsync(`pending-${item.id}`).catch(() => undefined);
+    } else if (row.status === "uploaded") {
+      await updateQueueItem(item.id, { state: "uploaded", leaseUntil: null });
+    }
+  }
+  return readQueue();
+}
+
 export async function enqueueRecording(input: {
   sourceUri: string;
   consultationId: string;
   orgId: string;
   patientId: string;
   durationSeconds: number;
+  mode?: RecordingMode;
+  clientUploadId?: string;
+  recordingId?: string;
+  authorizationId?: string;
+  authorizationExpiresAt?: string;
+  pendingNotification?: { title: string; body: string };
 }): Promise<QueueItem> {
-  const dir = recordingsDir();
-  if (!dir.exists) dir.create({ intermediates: true });
-
-  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const fileName = `${id}.m4a`;
-
-  const source = new File(input.sourceUri);
-  const target = new File(dir, fileName);
-  source.move(target);
-
-  const item: QueueItem = {
-    id,
-    consultationId: input.consultationId,
-    orgId: input.orgId,
-    patientId: input.patientId,
-    fileName,
-    durationSeconds: input.durationSeconds,
-    createdAt: new Date().toISOString(),
-    state: "local",
-  };
-
-  await writeQueue([...(await readQueue()), item]);
+  const item = await persistEncryptedRecording({
+    ...input,
+    mode: input.mode ?? "ai",
+    clientUploadId: input.clientUploadId ?? randomUUID(),
+  });
+  await Notifications.scheduleNotificationAsync({
+    identifier: `pending-${item.id}`,
+    content: {
+      title: input.pendingNotification?.title ?? "MedChina",
+      body: input.pendingNotification?.body ?? "MedChina",
+      data: { event: "recording_pending" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 60 * 60,
+      repeats: false,
+      channelId: "clinical-status",
+    },
+  }).catch(() => undefined);
   return item;
 }
 
-/** Errors the DB guards raise — the audio is kept and the reason is shown. */
-const GUARD_ERRORS = ["audio-recording consent", "trial_not_started", "audio_allowance_exhausted"];
-const isGuardError = (message: string) => GUARD_ERRORS.some((needle) => message.includes(needle));
-
-/**
- * Push one item as far as it can go. Split into steps so a retry resumes from
- * where it stopped instead of duplicating work (or the recording row).
- */
-async function flushItem(item: QueueItem): Promise<void> {
-  if (!supabase || item.state === "uploaded") return;
-
-  const file = new File(recordingsDir(), item.fileName);
-  if (!file.exists) {
-    // The audio is gone (manual cleanup / reinstall) — drop the dead entry
-    // rather than retry forever.
-    await writeQueue((await readQueue()).filter((entry) => entry.id !== item.id));
-    return;
-  }
-
-  await updateItem(item.id, { state: "uploading", error: undefined });
-
-  let recordingId = item.recordingId;
-
-  // 1. The row. The database decides here: consent (0022) and audio allowance
-  //    (0024) are both enforced by triggers — the app does not re-implement them.
-  if (!recordingId) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const { data: acceptance } = await supabase
-      .from("consent_acceptances")
-      .select("id")
-      .eq("org_id", item.orgId)
-      .eq("subject_type", "patient")
-      .eq("subject_id", item.patientId)
-      .is("revoked_at", null)
-      .limit(1)
-      .maybeSingle();
-
-    const { data, error } = await supabase
-      .from("recordings")
-      .insert({
-        org_id: item.orgId,
-        patient_id: item.patientId,
-        consultation_id: item.consultationId,
-        status: "uploading",
-        mime: MIME,
-        duration_seconds: item.durationSeconds,
-        size_bytes: file.size ?? null,
-        consent_acceptance_id: acceptance?.id ?? null,
-        captured_on: "mobile",
-        created_by: user?.id ?? null,
-      })
-      .select("id")
-      .single();
-
-    if (error || !data) {
-      const message = error?.message ?? "insert failed";
-      // A guard refusal is not a network blip: stop retrying, keep the audio,
-      // and tell her why (she may need to grant consent or contract on the web).
-      await updateItem(item.id, { state: isGuardError(message) ? "blocked" : "local", error: message });
-      return;
-    }
-    recordingId = data.id as string;
-    await updateItem(item.id, { recordingId });
-  }
-
-  // 2. The bytes. ArrayBuffer is what React Native's fetch reliably accepts as
-  //    a body; the exact slice avoids sending a larger backing buffer.
-  const bytes = await file.bytes();
-  const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-  const path = `${item.orgId}/${recordingId}.m4a`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("transcriptions")
-    .upload(path, body, { contentType: MIME, upsert: true });
-
-  if (uploadError) {
-    await updateItem(item.id, { state: "local", error: uploadError.message });
-    return;
-  }
-
-  // 3. Only NOW is it "sent" — the server has the object (PRD §12.4).
-  const { error: confirmError } = await supabase
-    .from("recordings")
-    .update({ status: "uploaded", audio_path: path })
-    .eq("id", recordingId);
-
-  if (confirmError) {
-    await updateItem(item.id, { state: "local", error: confirmError.message });
-    return;
-  }
-
-  // 4. The device copy goes only after the server confirmed (HOME-SPEC §22.3).
-  try {
-    file.delete();
-  } catch {
-    // A file we cannot delete is not a reason to keep the queue entry.
-  }
-  await writeQueue((await readQueue()).filter((entry) => entry.id !== item.id));
-}
-
-/**
- * Try to send everything still pending. Safe to call often (on app focus, after
- * a new recording, or from a manual retry) — `uploaded` and `blocked` items are
- * skipped, and a `blocked` one only moves again when explicitly retried.
- */
-export async function flushQueue(): Promise<QueueItem[]> {
-  const items = await readQueue();
-  for (const item of items) {
-    if (item.state === "local") await flushItem(item);
-  }
-  return readQueue();
-}
-
-/** Explicit retry of an item the database refused (after fixing the cause). */
 export async function retryItem(id: string): Promise<QueueItem[]> {
-  await updateItem(id, { state: "local", error: undefined });
-  const items = await readQueue();
-  const item = items.find((entry) => entry.id === id);
-  if (item) await flushItem({ ...item, state: "local" });
-  return readQueue();
+  await updateQueueItem(id, { state: "local", errorCode: null, leaseUntil: null });
+  return flushQueue();
 }
 
-/** Pending items for one consultation (what the capture screen shows). */
-export async function queueForConsultation(consultationId: string): Promise<QueueItem[]> {
-  return (await readQueue()).filter((item) => item.consultationId === consultationId);
-}
+export { queueForConsultation, readQueue };

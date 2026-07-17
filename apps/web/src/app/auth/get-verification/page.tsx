@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { Alert, AlertTitle, Box, Divider, Paper, Typography } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
 import NiEmailOpen from "@/icons/nexture/ni-email-open";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 /**
  * Where sign-up lands when the Supabase project requires email confirmation:
@@ -15,6 +17,8 @@ import NiEmailOpen from "@/icons/nexture/ni-email-open";
  */
 export default function Page() {
   const t = useTranslations("auth");
+  const requestedNext = useSearchParams().get("next");
+  const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
 
   return (
     <Box className="bg-waves flex min-h-screen w-full items-center justify-center bg-cover bg-center p-4">
@@ -38,7 +42,10 @@ export default function Page() {
 
             <Divider className="text-text-secondary my-0 text-sm"></Divider>
             <Typography variant="body1" className="text-text-secondary">
-              <Link href="/auth/sign-in" className="link-primary link-underline-hover">
+              <Link
+                href={`/auth/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+                className="link-primary link-underline-hover"
+              >
                 {t("get-verification-back")}
               </Link>
             </Typography>

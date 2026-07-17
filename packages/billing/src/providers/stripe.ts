@@ -56,6 +56,7 @@ export class StripeProvider implements PaymentProvider {
       org_id: input.orgId,
       plan_id: plan.id,
       module_ids: modules.map((m) => m.id).join(","),
+      billing_operation_key: input.idempotencyKey,
       ...(coupon ? { coupon_id: coupon.id } : {}),
     };
 
@@ -84,24 +85,27 @@ export class StripeProvider implements PaymentProvider {
       })),
     ];
 
-    const session = await stripe.checkout.sessions.create({
-      mode: isSubscription ? "subscription" : "payment",
-      customer_email: input.customerEmail,
-      client_reference_id: input.orgId,
-      line_items: lineItems,
-      metadata,
-      ...(coupon ? { discounts: [{ coupon: await ensureStripeCoupon(stripe, coupon, currency) }] } : {}),
-      ...(isSubscription
-        ? {
-            subscription_data: {
-              metadata,
-              ...(plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : {}),
-            },
-          }
-        : {}),
-      success_url: input.successUrl,
-      cancel_url: input.cancelUrl,
-    });
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: isSubscription ? "subscription" : "payment",
+        customer_email: input.customerEmail,
+        client_reference_id: input.orgId,
+        line_items: lineItems,
+        metadata,
+        ...(coupon ? { discounts: [{ coupon: await ensureStripeCoupon(stripe, coupon, currency) }] } : {}),
+        ...(isSubscription
+          ? {
+              subscription_data: {
+                metadata,
+                ...(plan.trialDays > 0 ? { trial_period_days: plan.trialDays } : {}),
+              },
+            }
+          : {}),
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+      },
+      { idempotencyKey: input.idempotencyKey },
+    );
 
     if (!session.url) throw new Error("Stripe did not return a checkout URL");
     return { url: session.url };
@@ -110,6 +114,18 @@ export class StripeProvider implements PaymentProvider {
   async cancelSubscription(providerSubscriptionId: string): Promise<void> {
     const stripe = getStripe();
     await stripe.subscriptions.cancel(providerSubscriptionId);
+  }
+
+  async scheduleCancellation(providerSubscriptionId: string): Promise<{ currentPeriodEnd?: Date }> {
+    const subscription = await getStripe().subscriptions.update(providerSubscriptionId, {
+      cancel_at_period_end: true,
+    });
+    const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
+    return { currentPeriodEnd: currentPeriodEnd ? new Date(currentPeriodEnd * 1000) : undefined };
+  }
+
+  async resumeSubscription(providerSubscriptionId: string): Promise<void> {
+    await getStripe().subscriptions.update(providerSubscriptionId, { cancel_at_period_end: false });
   }
 
   async parseWebhook(rawBody: string, headers: Record<string, string | null>): Promise<BillingEvent[]> {
@@ -129,6 +145,7 @@ export class StripeProvider implements PaymentProvider {
         // no subscription and no invoice.paid — record the payment here.
         if (session.mode === "payment" && session.payment_status === "paid") {
           events.push({
+            providerEventId: event.id,
             type: "payment_succeeded",
             provider: "stripe",
             metadata: (session.metadata ?? {}) as Partial<CheckoutMetadata>,
@@ -145,6 +162,7 @@ export class StripeProvider implements PaymentProvider {
         const sub = event.data.object;
         if (sub.status === "active" || sub.status === "trialing") {
           events.push({
+            providerEventId: event.id,
             type: "subscription_activated",
             provider: "stripe",
             metadata: (sub.metadata ?? {}) as Partial<CheckoutMetadata>,
@@ -160,6 +178,7 @@ export class StripeProvider implements PaymentProvider {
       }
       case "customer.subscription.deleted": {
         events.push({
+          providerEventId: event.id,
           type: "subscription_canceled",
           provider: "stripe",
           providerSubscriptionId: event.data.object.id,
@@ -170,6 +189,7 @@ export class StripeProvider implements PaymentProvider {
         const invoice = event.data.object;
         const subId = invoice.parent?.subscription_details?.subscription;
         events.push({
+          providerEventId: event.id,
           type: "payment_succeeded",
           provider: "stripe",
           metadata: (invoice.parent?.subscription_details?.metadata ?? {}) as Partial<CheckoutMetadata>,
@@ -186,6 +206,7 @@ export class StripeProvider implements PaymentProvider {
         const invoice = event.data.object;
         const subId = invoice.parent?.subscription_details?.subscription;
         events.push({
+          providerEventId: event.id,
           type: "payment_failed",
           provider: "stripe",
           metadata: (invoice.parent?.subscription_details?.metadata ?? {}) as Partial<CheckoutMetadata>,

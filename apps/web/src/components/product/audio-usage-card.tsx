@@ -8,7 +8,10 @@ import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiClock from "@/icons/nexture/ni-clock";
 import { trialDaysLeft } from "@/lib/audio-allowance";
+import { getProductAction } from "@/lib/product-actions";
 import { cn } from "@/lib/utils";
+
+const BILLING_HREF = getProductAction("billing").href;
 
 /**
  * Audio minutes: what is left, and what happens when it runs out (PRD §5.8 —
@@ -56,7 +59,7 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
               {allowance.suspended ? t("usage-suspended") : t("usage-none")}
             </Typography>
             {!allowance.suspended && (
-              <Button variant="outlined" color="primary" href="/planos" className="self-start">
+              <Button variant="outlined" color="primary" href={BILLING_HREF} className="self-start">
                 {t("usage-see-plans")}
               </Button>
             )}
@@ -97,7 +100,7 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
             ) : null}
 
             {allowance.percent >= 80 && (
-              <Button variant="contained" color="primary" href="/settings/billing" className="self-start">
+              <Button variant="contained" color="primary" href={BILLING_HREF} className="self-start">
                 {t("usage-upgrade")}
               </Button>
             )}

@@ -3,10 +3,11 @@ import { Redirect, Stack } from "expo-router";
 import { useSession } from "@/providers/session";
 
 export default function AuthLayout() {
-  const { session } = useSession();
+  const { session, loading, needsMfa, assurance, pendingPath } = useSession();
 
-  // Signed-in users don't need the sign-in screen.
-  if (session) return <Redirect href="/" />;
+  if (loading || (session && assurance === "unknown")) return null;
+  if (session && needsMfa) return <Stack screenOptions={{ headerShown: false }} />;
+  if (session) return <Redirect href={pendingPath ?? "/"} />;
 
   return <Stack screenOptions={{ headerShown: false }} />;
 }

@@ -6,11 +6,14 @@ import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 
 export type OrgRole = "owner" | "admin" | "member";
+export type AudioRetentionPolicy = "after_validation" | "thirty_days" | "manual";
 
 export interface OrgSummary {
   id: string;
   name: string;
   slug: string;
+  timezone: string;
+  audioRetention: AudioRetentionPolicy;
   role: OrgRole;
 }
 
@@ -63,15 +66,28 @@ export function useOrganization() {
 
     const { data } = await supabase
       .from("memberships")
-      .select("role, organizations(id, name, slug)")
+      .select("role, organizations(id, name, slug, timezone, audio_retention)")
       .eq("user_id", user.id)
       .order("created_at");
 
     const list: OrgSummary[] = (data ?? [])
       .filter((row) => row.organizations)
       .map((row) => {
-        const org = row.organizations as unknown as { id: string; name: string; slug: string };
-        return { id: org.id, name: org.name, slug: org.slug, role: row.role as OrgRole };
+        const org = row.organizations as unknown as {
+          id: string;
+          name: string;
+          slug: string;
+          timezone: string;
+          audio_retention: AudioRetentionPolicy;
+        };
+        return {
+          id: org.id,
+          name: org.name,
+          slug: org.slug,
+          timezone: org.timezone || "America/Sao_Paulo",
+          audioRetention: org.audio_retention ?? "after_validation",
+          role: row.role as OrgRole,
+        };
       });
 
     setOrgs(list);

@@ -1,150 +1,227 @@
 import { NextResponse } from "next/server";
 import { getLocale, getTranslations } from "next-intl/server";
+import { randomUUID } from "node:crypto";
 
 import { recordAudit } from "@/lib/audit";
+import { clinicalError } from "@/lib/clinical-route";
 import { type PlanDocumentData, renderPlanPdf } from "@/lib/plan-document";
 import { PLAN_MODALITIES } from "@/lib/plan-modalities";
 import { createClient } from "@flyee/auth/server";
-import { issueDocument, revokeDocument } from "@flyee/documents";
+import { createServiceClient } from "@flyee/auth/service";
+import { issueDocument } from "@flyee/documents";
 
-// Rendering a PDF plus storage.
 export const maxDuration = 120;
 
 const DOCUMENT_KIND = "therapeutic-plan";
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/**
- * Issue a VALIDATED therapeutic plan as a signed, QR-verifiable document
- * (PRD §9.8/§10.9). Only a validated plan may be issued — a professional action
- * turns a draft into a signed record (PRD §10.10). Reissuing supersedes the
- * previous version (revoked, but still verifiable — the trail is never broken).
- *
- * Runs with the CALLER's client: RLS lets an org owner/admin issue, which in
- * the MVP one-professional workspace is the practitioner herself.
- */
+type PlanSourceSnapshot = {
+  planId: string;
+  consultationId: string;
+  inputRevision: number;
+  objective: string | null;
+  modalities: Record<string, Record<string, unknown>>;
+  safetyFlags: { category: string; matchedText: string }[];
+  validatedBy: string | null;
+  validatedAt: string;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+function readPlanSourceSnapshot(
+  value: unknown,
+  expectedPlanId: string,
+  expectedConsultationId: string,
+  expectedValidator: string | null,
+): PlanSourceSnapshot {
+  if (!isRecord(value) || !isRecord(value.modalities) || !Array.isArray(value.safetyFlags)) {
+    throw new Error("document_source_snapshot_invalid");
+  }
+  const modalities = Object.fromEntries(
+    Object.entries(value.modalities).map(([slug, modality]) => {
+      if (!isRecord(modality)) throw new Error("document_source_snapshot_invalid");
+      return [slug, modality];
+    }),
+  );
+  const safetyFlags = value.safetyFlags.map((flag) => {
+    if (!isRecord(flag) || typeof flag.category !== "string" || typeof flag.matchedText !== "string") {
+      throw new Error("document_source_snapshot_invalid");
+    }
+    return { category: flag.category, matchedText: flag.matchedText };
+  });
+  if (
+    value.planId !== expectedPlanId ||
+    value.consultationId !== expectedConsultationId ||
+    typeof value.inputRevision !== "number" ||
+    (typeof value.objective !== "string" && value.objective !== null) ||
+    (value.validatedBy !== null && typeof value.validatedBy !== "string") ||
+    value.validatedBy !== expectedValidator ||
+    typeof value.validatedAt !== "string" ||
+    !value.validatedAt
+  ) {
+    throw new Error("document_source_snapshot_invalid");
+  }
+  return {
+    planId: value.planId,
+    consultationId: value.consultationId,
+    inputRevision: value.inputRevision,
+    objective: value.objective,
+    modalities,
+    safetyFlags,
+    validatedBy: value.validatedBy,
+    validatedAt: value.validatedAt,
+  };
+}
+
+/** Issue or retry one atomic version of a professionally validated plan. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  if (!user) return clinicalError("not_authenticated");
 
   const { data: consultation } = await supabase
     .from("consultations")
-    .select("id, org_id, patient_id, status, started_at")
+    .select("id, org_id, patient_id, started_at")
     .eq("id", id)
     .maybeSingle();
-  if (!consultation) return NextResponse.json({ error: "Consultation not found." }, { status: 404 });
+  if (!consultation) return clinicalError("not_found");
 
   const { data: plan } = await supabase
     .from("consultation_plans")
     .select("id, objective, modalities, safety_flags, status, validated_by, validated_at")
     .eq("consultation_id", id)
     .maybeSingle();
-  if (!plan) return NextResponse.json({ error: "no_plan" }, { status: 404 });
-
-  // A plan is only a document once the professional has validated it (§10.10).
-  if (plan.status !== "validated") {
-    return NextResponse.json({ error: "plan_not_validated" }, { status: 409 });
-  }
+  if (!plan) return clinicalError("plan_not_found");
+  if (plan.status !== "validated") return clinicalError("plan_not_validated");
 
   const [{ data: patient }, { data: org }, { data: professional }] = await Promise.all([
     supabase.from("patients").select("full_name").eq("id", consultation.patient_id).maybeSingle(),
-    supabase.from("organizations").select("name").eq("id", consultation.org_id).maybeSingle(),
+    supabase.from("organizations").select("name, timezone").eq("id", consultation.org_id).maybeSingle(),
     supabase
       .from("profiles")
       .select("display_name")
       .eq("id", plan.validated_by ?? user.id)
       .maybeSingle(),
   ]);
+  if (!org?.name?.trim() || !professional?.display_name?.trim()) {
+    return clinicalError("document_profile_incomplete");
+  }
 
-  // Localized labels — resolved here so the renderer stays i18n-clean.
+  const headerKey = request.headers.get("idempotency-key");
+  const idempotencyKey = headerKey && UUID_PATTERN.test(headerKey) ? headerKey : randomUUID();
+  const { data: documentVersions, error: versionsError } = await supabase
+    .from("documents")
+    .select("id, version, status, idempotency_key, verify_code")
+    .eq("org_id", consultation.org_id)
+    .eq("kind", DOCUMENT_KIND)
+    .eq("source_type", "consultation_plan")
+    .eq("source_id", plan.id)
+    .order("version", { ascending: false });
+  if (versionsError) return clinicalError("document_issue_conflict");
+
+  const existingRequest = documentVersions?.find((document) => document.idempotency_key === idempotencyKey);
+  const foreignDraft = documentVersions?.find(
+    (document) => document.status === "draft" && document.idempotency_key !== idempotencyKey,
+  );
+  if (foreignDraft) return clinicalError("document_issue_conflict");
+
+  const latestDocument = documentVersions?.[0];
+  if (!existingRequest && latestDocument) {
+    const expectedVersion = latestDocument.version + 1;
+    if (Number(request.headers.get("confirm-version")) !== expectedVersion) {
+      return clinicalError("document_reissue_confirmation_required", { expectedVersion });
+    }
+  }
+
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "product" });
-  const dateFmt = (value: string | null) => (value ? new Date(value).toLocaleDateString(locale) : "—");
-
-  const modalities = (plan.modalities ?? {}) as Record<string, Record<string, unknown>>;
-  const documentModalities: PlanDocumentData["modalities"] = PLAN_MODALITIES.filter(
-    (m) => modalities[m.slug]?.enabled,
-  ).map((m) => {
-    const data = modalities[m.slug];
+  const dateOptions = { timeZone: org.timezone || "America/Sao_Paulo" } satisfies Intl.DateTimeFormatOptions;
+  const dateFmt = (value: string | null) => (value ? new Date(value).toLocaleDateString(locale, dateOptions) : "—");
+  const issuedAt = new Date().toLocaleDateString(locale, dateOptions);
+  const makeDocumentData = (version: number, sourceSnapshot: unknown): PlanDocumentData => {
+    const source = readPlanSourceSnapshot(sourceSnapshot, plan.id, id, plan.validated_by);
+    const modalities: PlanDocumentData["modalities"] = PLAN_MODALITIES.filter(
+      (modality) => source.modalities[modality.slug]?.enabled,
+    ).map((modality) => {
+      const data = source.modalities[modality.slug];
+      return {
+        slug: modality.slug,
+        fields: modality.fields
+          .map((field) => {
+            const raw = data[field.key];
+            if (field.kind === "list") {
+              const list = Array.isArray(raw) ? raw.filter((item): item is string => typeof item === "string") : [];
+              return list.length > 0 ? { label: t(field.label), value: "", list } : null;
+            }
+            if (field.kind === "strategy") {
+              return raw ? { label: t(field.label), value: t(`plan-strategy-${raw}`) } : null;
+            }
+            const value = typeof raw === "string" ? raw.trim() : "";
+            return value ? { label: t(field.label), value } : null;
+          })
+          .filter((field): field is { label: string; value: string; list?: string[] } => field !== null),
+      };
+    });
     return {
-      slug: m.slug,
-      fields: m.fields
-        .map((field) => {
-          const raw = data[field.key];
-          if (field.kind === "list") {
-            const list = Array.isArray(raw) ? (raw as string[]) : [];
-            return list.length > 0 ? { label: t(field.label), value: "", list } : null;
-          }
-          if (field.kind === "strategy") {
-            return raw ? { label: t(field.label), value: t(`plan-strategy-${raw}`) } : null;
-          }
-          const value = typeof raw === "string" ? raw.trim() : "";
-          return value ? { label: t(field.label), value } : null;
-        })
-        .filter((field): field is { label: string; value: string; list?: string[] } => field !== null),
+      orgName: org.name,
+      patientName: patient?.full_name ?? "—",
+      professionalName: professional.display_name,
+      consultationDate: dateFmt(consultation.started_at),
+      validatedAt: dateFmt(source.validatedAt),
+      version,
+      issuedAt,
+      objective: (source.objective ?? "").trim(),
+      modalities,
+      safetyFlags: source.safetyFlags,
     };
-  });
-
-  // Reissue: supersede the previous version so verification flags the old one.
-  const { data: prior } = await supabase
-    .from("documents")
-    .select("id, version")
-    .eq("kind", DOCUMENT_KIND)
-    .eq("org_id", consultation.org_id)
-    .contains("payload", { planId: plan.id })
-    .order("version", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const version = (prior?.version ?? 0) + 1;
-
-  const documentData: PlanDocumentData = {
-    orgName: org?.name ?? "",
-    patientName: patient?.full_name ?? "—",
-    professionalName: professional?.display_name || "—",
-    consultationDate: dateFmt(consultation.started_at),
-    validatedAt: dateFmt(plan.validated_at),
-    version,
-    issuedAt: new Date().toLocaleDateString(locale),
-    objective: (plan.objective ?? "").trim(),
-    modalities: documentModalities,
-    safetyFlags: ((plan.safety_flags ?? []) as { category: string; matchedText: string }[]).map((f) => ({
-      category: f.category,
-      matchedText: f.matchedText,
-    })),
   };
 
-  const origin = new URL(request.url).origin;
-
   const result = await issueDocument(
-    supabase,
+    createServiceClient(),
     {
       orgId: consultation.org_id,
       kind: DOCUMENT_KIND,
-      title: `${t("plan-title")} — ${documentData.patientName}`,
-      // The snapshot lives with the document; it is not exposed by verification.
-      payload: { planId: plan.id, consultationId: id, snapshot: documentData },
+      title: `${t("plan-title")} — ${patient?.full_name ?? "—"}`,
+      payload: ({ version, sourceSnapshot }) => ({
+        planId: plan.id,
+        consultationId: id,
+        snapshot: makeDocumentData(version, sourceSnapshot),
+      }),
       issuedBy: user.id,
-      parentId: prior?.id,
-      version,
-      verifyBaseUrl: origin,
+      sourceType: "consultation_plan",
+      sourceId: plan.id,
+      subjectType: "patient",
+      subjectId: consultation.patient_id,
+      idempotencyKey,
+      verifyBaseUrl: new URL(request.url).origin,
     },
-    (ctx) => renderPlanPdf(documentData, t, ctx),
+    (context) => renderPlanPdf(makeDocumentData(context.version, context.sourceSnapshot), t, context),
   );
+  if (!result.ok) return clinicalError("document_issue_conflict");
 
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+  const { data: issued } = await supabase.from("documents").select("version").eq("id", result.documentId).maybeSingle();
+  const version = issued?.version ?? 1;
+  if (existingRequest?.status !== "issued") {
+    await recordAudit(supabase, "consultation.plan.issued", {
+      orgId: consultation.org_id,
+      entityType: "document",
+      entityId: result.documentId,
+      metadata: { consultationId: id, planId: plan.id, version, verifyCode: result.verifyCode },
+    });
+    await supabase.rpc("track_product_event", {
+      target_event: "document.issued",
+      target_properties: { platform: "web", origin: "consultation" },
+    });
+  }
 
-  // The old version is now superseded (still verifiable, flagged as revoked).
-  if (prior?.id) await revokeDocument(supabase, prior.id);
-
-  recordAudit(supabase, "consultation.plan.issued", {
-    orgId: consultation.org_id,
-    entityType: "document",
-    entityId: result.documentId,
-    metadata: { consultationId: id, planId: plan.id, version, verifyCode: result.verifyCode },
+  return NextResponse.json({
+    ok: true,
+    documentId: result.documentId,
+    verifyCode: result.verifyCode,
+    version,
   });
-
-  return NextResponse.json({ documentId: result.documentId, verifyCode: result.verifyCode, version });
 }

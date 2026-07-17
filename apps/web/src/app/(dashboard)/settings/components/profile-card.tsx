@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -26,6 +27,7 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
  * lands in profiles.avatar_url — the same fields the header menu shows.
  */
 export default function ProfileCard() {
+  const t = useTranslations("product");
   const [userId, setUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function ProfileCard() {
     setErrorMessage(null);
     if (file.size > MAX_AVATAR_BYTES) {
       setStatus("error");
-      setErrorMessage("Image must be smaller than 2 MB.");
+      setErrorMessage(t("settings-avatar-too-large"));
       return;
     }
     setSaving(true);
@@ -70,7 +72,7 @@ export default function ProfileCard() {
     const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file);
     if (uploadError) {
       setStatus("error");
-      setErrorMessage(uploadError.message);
+      setErrorMessage(t("settings-save-error"));
       setSaving(false);
       return;
     }
@@ -80,10 +82,11 @@ export default function ProfileCard() {
     const { error: updateError } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", userId);
     if (updateError) {
       setStatus("error");
-      setErrorMessage(updateError.message);
+      setErrorMessage(t("settings-save-error"));
     } else {
       setAvatarUrl(publicUrl);
       setStatus("saved");
+      window.dispatchEvent(new Event("medchina:profile-updated"));
     }
     setSaving(false);
   };
@@ -100,9 +103,10 @@ export default function ProfileCard() {
       .eq("id", userId);
     if (error) {
       setStatus("error");
-      setErrorMessage(error.message);
+      setErrorMessage(t("settings-save-error"));
     } else {
       setStatus("saved");
+      window.dispatchEvent(new Event("medchina:profile-updated"));
     }
     setSaving(false);
   };
@@ -112,22 +116,22 @@ export default function ProfileCard() {
       <Card component="section">
         <CardContent>
           <Typography variant="h5" component="h2" className="card-title">
-            Profile
+            {t("settings-profile-card-title")}
           </Typography>
 
           {status === "saved" && (
             <Alert severity="success" className="neutral bg-background-paper/60! mb-4">
-              Profile updated.
+              {t("settings-profile-saved")}
             </Alert>
           )}
           {status === "error" && (
             <Alert severity="error" className="neutral bg-background-paper/60! mb-4">
-              {errorMessage ?? "Could not update the profile."}
+              {errorMessage ?? t("settings-save-error")}
             </Alert>
           )}
 
           <Box className="mb-6 flex flex-row items-center gap-4">
-            <Avatar src={avatarUrl ?? undefined} alt="avatar" className="h-16! w-16!" />
+            <Avatar src={avatarUrl ?? undefined} alt={t("settings-avatar-alt")} className="h-16! w-16!" />
             <Box className="flex flex-col gap-1">
               <input
                 ref={fileInputRef}
@@ -146,22 +150,22 @@ export default function ProfileCard() {
                 disabled={saving || !userId}
                 onClick={() => fileInputRef.current?.click()}
               >
-                Change photo
+                {t("settings-change-photo")}
               </Button>
               <Typography variant="body2" className="text-text-secondary">
-                PNG, JPG or WEBP, up to 2 MB.
+                {t("settings-photo-help")}
               </Typography>
             </Box>
           </Box>
 
           <FormControl className="outlined mb-4 max-w-md" variant="standard" size="small" fullWidth>
-            <FormLabel component="label">Display name</FormLabel>
+            <FormLabel component="label">{t("settings-display-name")}</FormLabel>
             <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
           </FormControl>
 
           <Box>
             <Button variant="contained" size="small" onClick={saveName} disabled={saving || !userId}>
-              Save profile
+              {t("settings-save-profile")}
             </Button>
           </Box>
         </CardContent>

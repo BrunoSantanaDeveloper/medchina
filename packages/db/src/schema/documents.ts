@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { bigint, integer, jsonb, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 import { organizations } from "./organizations";
 import { profiles } from "./profiles";
@@ -18,6 +18,22 @@ export const documents = pgTable("documents", {
   verifyCode: text("verify_code").notNull().unique(),
   contentHash: text("content_hash"),
   storagePath: text("storage_path"),
+  // Stable source identity makes retries idempotent and versions atomic.
+  sourceType: text("source_type"),
+  sourceId: uuid("source_id"),
+  subjectType: text("subject_type"),
+  subjectId: text("subject_id"),
+  idempotencyKey: uuid("idempotency_key"),
+  sourceRevision: bigint("source_revision", { mode: "number" }),
+  sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }),
+  sourceValidatedAt: timestamp("source_validated_at", { withTimezone: true }),
+  sourceSnapshot: jsonb("source_snapshot"),
+  patientId: uuid("patient_id"),
+  consultationId: uuid("consultation_id"),
+  planId: uuid("plan_id"),
+  issueClaimToken: uuid("issue_claim_token"),
+  issueLeaseExpiresAt: timestamp("issue_lease_expires_at", { withTimezone: true }),
+  issueAttempts: integer("issue_attempts").notNull().default(0),
   issuedBy: uuid("issued_by").references(() => profiles.id, { onDelete: "set null" }),
   issuedAt: timestamp("issued_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

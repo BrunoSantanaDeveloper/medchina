@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { useThemeContext } from "@/theme/theme-provider";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 const InputErrorTooltip = ({ title }: { title: string }) => (
   <Box className="relative">
@@ -53,10 +54,14 @@ const InputErrorTooltip = ({ title }: { title: string }) => (
  */
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("auth");
   const [submitted, setSubmitted] = useState(false);
   const { isDarkMode } = useThemeContext();
-  const prefillEmail = useSearchParams().get("email") ?? "";
+  const prefillEmail = searchParams.get("email") ?? "";
+  const requestedNext = searchParams.get("next");
+  const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
+  const joiningInvite = Boolean(next?.startsWith("/invite/"));
   const [serverError, setServerError] = useState<string | null>(null);
 
   const validationSchema = yup.object({
@@ -65,10 +70,12 @@ export default function Page() {
       .required(t("field-required"))
       .min(3, t("field-min", { count: 3 })),
     email: yup.string().required(t("field-required")).email(t("field-email")),
-    company: yup
-      .string()
-      .required(t("field-required"))
-      .min(3, t("field-min", { count: 3 })),
+    company: joiningInvite
+      ? yup.string()
+      : yup
+          .string()
+          .required(t("field-required"))
+          .min(3, t("field-min", { count: 3 })),
     password: yup
       .string()
       .required(t("field-required"))
@@ -87,27 +94,29 @@ export default function Page() {
         return;
       }
       const supabase = createClient();
-      // display_name and company feed the handle_new_user trigger, which
-      // creates the profile and the first organization (owner membership).
+      const callback = new URL("/auth/callback", window.location.origin);
+      if (next) callback.searchParams.set("next", next);
+      // Invite recipients receive their single workspace only after explicit
+      // acceptance. Everyone else gets a personal practice workspace here.
       const { data, error } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: { display_name: values.name, company: values.company },
+          emailRedirectTo: callback.toString(),
+          data: { display_name: values.name, ...(!joiningInvite ? { company: values.company } : {}) },
         },
       });
       if (error) {
-        setServerError(error.message);
+        setServerError(t("request-failed"));
         return;
       }
       if (data.session) {
         const destination = data.user ? await resolvePostAuthDestination(supabase, data.user.id) : DEFAULTS.appRoot;
-        router.push(destination);
+        router.push(next ?? destination);
         router.refresh();
       } else {
         // Email confirmation is enabled on the Supabase project.
-        router.push("/auth/get-verification");
+        router.push(`/auth/get-verification${next ? `?next=${encodeURIComponent(next)}` : ""}`);
       }
     },
     validateOnBlur: false,
@@ -121,11 +130,13 @@ export default function Page() {
       return;
     }
     const supabase = createClient();
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (next) callback.searchParams.set("next", next);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callback.toString() },
     });
-    if (error) setServerError(error.message);
+    if (error) setServerError(t("request-failed"));
   };
 
   const password = formik.values.password;
@@ -227,7 +238,7 @@ export default function Page() {
                 className="flex flex-col"
               >
                 <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" className="flex flex-row">
+                  <FormLabel component="label" htmlFor="name" className="flex flex-row">
                     {t("name")}
                     {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
                   </FormLabel>
@@ -241,38 +252,46 @@ export default function Page() {
                 </FormControl>
 
                 <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" className="flex flex-row">
+                  <FormLabel component="label" htmlFor="email" className="flex flex-row">
                     {t("email")}
                     {formik.touched.email && formik.errors.email && <InputErrorTooltip title={formik.errors.email} />}
                   </FormLabel>
                   <Input
                     id="email"
                     name="email"
+                    type="email"
+                    autoComplete="email"
                     value={formik.values.email}
                     onChange={formik.handleChange}
                     onBlur={formik.handleBlur}
                   />
                 </FormControl>
 
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" className="flex flex-row">
-                    {t("practice")}
-                    {formik.touched.company && formik.errors.company && (
-                      <InputErrorTooltip title={formik.errors.company} />
-                    )}
-                  </FormLabel>
-                  <Input
-                    id="company"
-                    name="company"
-                    value={formik.values.company}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  <FormHelperText className="text-text-secondary">{t("practice-hint")}</FormHelperText>
-                </FormControl>
+                {joiningInvite ? (
+                  <Alert severity="info" className="neutral bg-background-paper/60! mb-4">
+                    {t("invite-signup-body")}
+                  </Alert>
+                ) : (
+                  <FormControl className="outlined" variant="standard" size="small">
+                    <FormLabel component="label" htmlFor="company" className="flex flex-row">
+                      {t("practice")}
+                      {formik.touched.company && formik.errors.company && (
+                        <InputErrorTooltip title={formik.errors.company} />
+                      )}
+                    </FormLabel>
+                    <Input
+                      id="company"
+                      name="company"
+                      value={formik.values.company}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                    />
+                    <FormHelperText className="text-text-secondary">{t("practice-hint")}</FormHelperText>
+                  </FormControl>
+                )}
 
                 <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" className="flex flex-row">
+                  <FormLabel component="label" htmlFor="password" className="flex flex-row">
                     {t("password")}
                     {formik.touched.password && formik.errors.password && (
                       <InputErrorTooltip title={formik.errors.password} />
@@ -343,7 +362,10 @@ export default function Page() {
               </Typography>
               <Typography variant="body1" className="text-text-secondary">
                 {t("signup-has-account-body", { brand: BRAND.name })}{" "}
-                <Link href="/auth/sign-in" className="link-primary link-underline-hover">
+                <Link
+                  href={`/auth/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+                  className="link-primary link-underline-hover"
+                >
                   {t("signup-has-account-link")}
                 </Link>
                 .

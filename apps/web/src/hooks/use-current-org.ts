@@ -12,6 +12,7 @@ import { createClient } from "@flyee/auth/client";
  */
 export function useCurrentOrg() {
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState("America/Sao_Paulo");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,15 +31,17 @@ export function useCurrentOrg() {
       }
       const { data } = await supabase
         .from("memberships")
-        .select("org_id")
+        .select("org_id, organizations(timezone)")
         .eq("user_id", user.id)
         .limit(1)
         .maybeSingle();
       setOrgId(data?.org_id ?? null);
+      const organization = data?.organizations as unknown as { timezone?: string } | null;
+      setTimezone(organization?.timezone || "America/Sao_Paulo");
       setLoading(false);
     };
     load();
   }, []);
 
-  return { orgId, loading };
+  return { orgId, timezone, loading };
 }

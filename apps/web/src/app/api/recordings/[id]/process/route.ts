@@ -1,8 +1,7 @@
-import { NextResponse } from "next/server";
-
 import { recordAudit } from "@/lib/audit";
 import { processRecording } from "@/lib/clinical-pipeline";
-import { createClient } from "@flyee/auth/server";
+import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
+import { notifyRecordingStatus } from "@/lib/mobile-push";
 import { createServiceClient } from "@flyee/auth/service";
 import { sendEvent } from "@flyee/jobs";
 
@@ -21,14 +20,14 @@ export const maxDuration = 300;
  *
  * GEMINI_API_KEY is server-only, which is why this cannot be a client call.
  */
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const supabase = await createClient();
+  const supabase = await createClinicalRequestClient(request);
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  if (!user) return clinicalError("not_authenticated");
 
   // RLS: only an org member can see this row.
   const { data: recording } = await supabase
@@ -36,11 +35,24 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     .select("id, org_id, status, consultation_id")
     .eq("id", id)
     .maybeSingle();
-  if (!recording) return NextResponse.json({ error: "Recording not found." }, { status: 404 });
+  if (!recording) return clinicalError("not_found");
 
-  if (recording.status !== "uploaded" && recording.status !== "failed") {
-    return NextResponse.json({ error: `Recording is ${recording.status}.` }, { status: 409 });
+  const { data: claimData, error: claimError } = await supabase.rpc("claim_recording_for_processing", {
+    target_recording: recording.id,
+  });
+  if (claimError) return clinicalError("internal_error");
+  const claim = claimData as {
+    ok?: boolean;
+    code?: string;
+    claimId?: string;
+    transcriptionId?: string;
+  } | null;
+  if (!claim?.ok) return clinicalRpcResponse(claim);
+  if (claim.code === "ready") return clinicalRpcResponse(claim);
+  if (claim.code === "processing_already_claimed") {
+    return Response.json(claim, { status: 202 });
   }
+  if (!claim.claimId) return clinicalError("internal_error");
 
   recordAudit(supabase, "recording.processing.requested", {
     orgId: recording.org_id,
@@ -48,15 +60,19 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     entityId: recording.id,
   });
 
-  const queued = await sendEvent("medchina/recording.process", { recordingId: recording.id });
+  const queued = await sendEvent("medchina/recording.process", {
+    recordingId: recording.id,
+    claimId: claim.claimId,
+  });
   if (queued.sent) {
-    await supabase.from("recordings").update({ status: "processing" }).eq("id", recording.id);
-    return NextResponse.json({ queued: true });
+    return Response.json({ ok: true, code: "claimed", queued: true, recordingId: recording.id }, { status: 202 });
   }
 
   // Inline fallback — bounded by maxDuration above.
-  const result = await processRecording(createServiceClient(), recording.id);
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 });
+  const service = createServiceClient();
+  const result = await processRecording(service, recording.id, claim.claimId);
+  await notifyRecordingStatus(service, recording.id, result.ok ? "recording_ready" : "recording_failed");
+  if (!result.ok) return clinicalError(result.code, undefined, result.code === "provider_unavailable" ? 503 : 409);
 
-  return NextResponse.json({ queued: false, ...result });
+  return Response.json({ queued: false, ...result });
 }

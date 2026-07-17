@@ -1,3 +1,5 @@
+import type { ConsultationStatus } from "@flyee/clinical";
+
 import { supabase } from "@/lib/supabase";
 
 /**
@@ -9,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 
 export type TodayConsultation = {
   id: string;
-  status: string;
+  status: ConsultationStatus;
   startedAt: string;
   durationMinutes: number;
   reason: string | null;
@@ -43,10 +45,10 @@ export async function listTodayConsultations(orgId: string): Promise<TodayConsul
 
   const { data, error } = await supabase
     .from("consultations")
-    .select("id, status, started_at, duration_minutes, chief_complaint, patient_id, patients(full_name, alerts)")
+    .select("id, status, scheduled_for, started_at, duration_minutes, appointment_note, chief_complaint, patient_id, patients(full_name, alerts)")
     .eq("org_id", orgId)
-    .gte("started_at", start.toISOString())
-    .lt("started_at", end.toISOString())
+    .gte("scheduled_for", start.toISOString())
+    .lt("scheduled_for", end.toISOString())
     .in("status", ["scheduled", "in_progress"])
     .order("started_at", { ascending: true });
 
@@ -56,10 +58,10 @@ export async function listTodayConsultations(orgId: string): Promise<TodayConsul
     const patient = row.patients as unknown as { full_name: string; alerts: { label: string }[] | null } | null;
     return {
       id: row.id as string,
-      status: row.status as string,
-      startedAt: row.started_at as string,
+      status: row.status as ConsultationStatus,
+      startedAt: (row.scheduled_for ?? row.started_at) as string,
       durationMinutes: row.duration_minutes as number,
-      reason: (row.chief_complaint as string) ?? null,
+      reason: (row.appointment_note ?? row.chief_complaint) as string | null,
       patientId: row.patient_id as string,
       patientName: patient?.full_name ?? "—",
       alerts: patient?.alerts ?? [],
@@ -71,17 +73,17 @@ export async function getConsultation(consultationId: string): Promise<TodayCons
   if (!supabase) return null;
   const { data } = await supabase
     .from("consultations")
-    .select("id, status, started_at, duration_minutes, chief_complaint, patient_id, patients(full_name, alerts)")
+    .select("id, status, scheduled_for, started_at, duration_minutes, appointment_note, chief_complaint, patient_id, patients(full_name, alerts)")
     .eq("id", consultationId)
     .maybeSingle();
   if (!data) return null;
   const patient = data.patients as unknown as { full_name: string; alerts: { label: string }[] | null } | null;
   return {
     id: data.id as string,
-    status: data.status as string,
-    startedAt: data.started_at as string,
+    status: data.status as ConsultationStatus,
+    startedAt: (data.scheduled_for ?? data.started_at) as string,
     durationMinutes: data.duration_minutes as number,
-    reason: (data.chief_complaint as string) ?? null,
+    reason: (data.appointment_note ?? data.chief_complaint) as string | null,
     patientId: data.patient_id as string,
     patientName: patient?.full_name ?? "—",
     alerts: patient?.alerts ?? [],
@@ -93,38 +95,42 @@ export async function getConsultation(consultationId: string): Promise<TodayCons
  * VERIFIES consent — granting it is a deliberate act on the web, with the
  * patient present and the versioned term shown.
  */
-export async function hasRecordingConsent(orgId: string, patientId: string): Promise<boolean> {
+export async function hasPatientConsent(
+  orgId: string,
+  patientId: string,
+  slug: "audio-recording" | "ai-processing",
+): Promise<boolean> {
   if (!supabase) return false;
   const { data } = await supabase.rpc("has_active_consent", {
     target_org: orgId,
     target_patient: patientId,
-    term_slug: "audio-recording",
+    term_slug: slug,
   });
   return Boolean(data);
 }
 
+export const hasRecordingConsent = (orgId: string, patientId: string) =>
+  hasPatientConsent(orgId, patientId, "audio-recording");
+
 export type AudioAllowance = {
   canStart: boolean;
   minutesRemaining: number;
-  source: "plan" | "trial" | "none";
-  trialAvailable: boolean;
+  promotionAvailable: boolean;
 };
 
 /**
- * May this workspace record right now (PRD §5.7/§5.8)? Read-only here: the app
- * NEVER starts a trial and never sells anything — plans, trials and payment are
- * web-only (PRD §4.4, store policy). When there is no allowance the app says so
- * and points to the web, rather than offering a purchase.
+ * May this workspace use AI capture right now? The app model contains only the
+ * operational answer and remaining minutes, never commercial catalog/provider
+ * data.
  */
 export async function getAudioAllowance(orgId: string): Promise<AudioAllowance | null> {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc("org_audio_allowance", { target_org: orgId });
   if (error || !data) return null;
-  const row = data as { can_start: boolean; minutes_remaining: number; source: string; trial_available: boolean };
+  const row = data as { can_start: boolean; minutes_remaining: number; trial_available: boolean };
   return {
     canStart: Boolean(row.can_start),
     minutesRemaining: row.minutes_remaining ?? 0,
-    source: row.source === "plan" || row.source === "trial" ? row.source : "none",
-    trialAvailable: Boolean(row.trial_available),
+    promotionAvailable: Boolean(row.trial_available),
   };
 }

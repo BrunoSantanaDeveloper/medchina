@@ -1,0 +1,7 @@
+appId: com.medchina.app
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "MedChina"
+    optional: true

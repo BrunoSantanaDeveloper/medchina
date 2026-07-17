@@ -25,6 +25,12 @@ out/
 # Production files
 build/
 
+# Test and local tool output
+test-results/
+playwright-report/
+coverage/
+.expo/
+
 # TypeScript
 *.tsbuildinfo
 
@@ -37,6 +43,11 @@ build/
 # vercel
 .vercel
 
+# Supabase local runtime and generated migration mirror. Canonical migrations
+# stay in packages/db/migrations.
+supabase/.temp/
+supabase/migrations/*.sql
+
 # typescript
 next-env.d.ts
 
@@ -45,3 +56,4 @@ next-env.d.ts
 .env.local
 .claude/settings.local.json
 
+.vercel

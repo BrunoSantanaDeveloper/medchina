@@ -1,12 +1,24 @@
 "use client";
 
+// The picker renders month/weekday names through the dayjs adapter, so every
+// supported locale must be registered or the calendar silently falls back to en.
+import "dayjs/locale/de";
+import "dayjs/locale/es";
+import "dayjs/locale/fr";
+import "dayjs/locale/pt-br";
+
 import dayjs, { type Dayjs } from "dayjs";
-import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import timezonePlugin from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+import { useFormik } from "formik";
+import { useLocale, useTranslations } from "next-intl";
+import { useEffect, useMemo, useRef, useState } from "react";
+import * as yup from "yup";
 
 import {
   Alert,
   Autocomplete,
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -15,220 +27,386 @@ import {
   MenuItem,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { deDE, enUS, esES, frFR, ptBR } from "@mui/x-date-pickers/locales";
 
-import { isSupabaseConfigured } from "@flyee/auth";
+import PatientQuickCreate from "@/components/product/patient-quick-create";
+import { type AgendaMutationResult, saveAppointment, type ScheduleConflict } from "@/lib/agenda";
+import { listActivePatientOptions, type PatientOption } from "@/lib/patients";
+import { trackProductEvent } from "@/lib/product-events";
 import { createClient } from "@flyee/auth/client";
 
-type PatientOption = { id: string; fullName: string };
+dayjs.extend(utc);
+dayjs.extend(timezonePlugin);
 
 export type ScheduleSeed = {
   consultationId?: string;
   patientId?: string;
   startAt?: string;
   durationMinutes?: number;
+  appointmentNote?: string;
+  /** Compatibility with the pre-0028 call site. */
   reason?: string;
 };
 
 const DURATIONS = [30, 45, 50, 60, 90, 120];
 
-/**
- * Schedule or reschedule a consultation (PRD §9.3). A scheduled consultation is
- * a consultation with status 'scheduled' and `started_at` as its appointment
- * time — so this creates or moves that row, and opening it later IS Modo
- * Consulta on the same record.
- *
- * A simple time conflict is checked against the workspace's calendar (the
- * `consultation_schedule_conflict` RPC, shared with any future surface). A
- * conflict does not hard-block — it warns and asks for confirmation, because a
- * professional sometimes double-books deliberately and the software should not
- * override her judgement (PRD §9.3 "evitar conflito simples").
- */
+/** The picker's own chrome (action buttons, aria labels) ships per locale in MUI X. */
+const PICKER_LOCALES = { "pt-BR": ptBR, en: enUS, es: esES, fr: frFR, de: deDE } as const;
+
+const pickerLocaleText = (locale: string) =>
+  (PICKER_LOCALES[locale as keyof typeof PICKER_LOCALES] ?? ptBR).components.MuiLocalizationProvider.defaultProps
+    .localeText;
+
+const patientSecondary = (patient: PatientOption) => {
+  const bits: string[] = [];
+  if (patient.birthDate) bits.push(new Date(`${patient.birthDate}T00:00:00`).toLocaleDateString());
+  if (patient.phone) bits.push(`•••• ${patient.phone.slice(-4)}`);
+  return bits.join(" · ");
+};
+
 export default function ScheduleDialog({
   open,
   orgId,
+  timeZone,
   seed,
   onClose,
   onSaved,
 }: {
   open: boolean;
   orgId: string;
-  /** Present ⇒ reschedule that consultation; absent ⇒ create a new one. */
+  timeZone: string;
   seed?: ScheduleSeed;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (result: AgendaMutationResult) => void | Promise<void>;
 }) {
   const t = useTranslations("product");
-  const [patients, setPatients] = useState<PatientOption[]>([]);
+  const locale = useLocale();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+  const [view, setView] = useState<"schedule" | "patient">("schedule");
+  const [patients, setPatients] = useState<PatientOption[] | null>(null);
   const [patient, setPatient] = useState<PatientOption | null>(null);
-  const [start, setStart] = useState<Dayjs | null>(null);
-  const [duration, setDuration] = useState(50);
-  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conflict, setConflict] = useState(false);
+  const [conflict, setConflict] = useState<ScheduleConflict | null>(null);
+  const trackedOpen = useRef(false);
+  const saved = useRef(false);
 
   const isReschedule = Boolean(seed?.consultationId);
 
-  // Reset the form to the seed each time the dialog opens.
+  const validationSchema = useMemo(
+    () =>
+      yup.object({
+        patientId: yup.string().required(t("field-required")),
+        start: yup
+          .mixed<Dayjs>()
+          .required(t("field-required"))
+          .test("valid", t("agenda-error-invalid-date"), (value) => Boolean(value?.isValid()))
+          .test("future", t("agenda-error-past"), (value) => Boolean(value?.isAfter(dayjs()))),
+        duration: yup.number().positive().max(1440).required(),
+        appointmentNote: yup.string().max(500, t("agenda-error-note-long")),
+      }),
+    [t],
+  );
+
+  const formik = useFormik({
+    initialValues: {
+      patientId: "",
+      start: null as Dayjs | null,
+      duration: 50,
+      appointmentNote: "",
+    },
+    validationSchema,
+    validateOnMount: true,
+    onSubmit: () => undefined,
+  });
+
   useEffect(() => {
     if (!open) return;
+    if (!trackedOpen.current) {
+      trackProductEvent("appointment.started", { origin: "agenda" });
+      trackedOpen.current = true;
+      saved.current = false;
+    }
+    setView("schedule");
+    setPatients(null);
+    setPatient(null);
+    setBusy(false);
     setError(null);
-    setConflict(false);
-    setStart(seed?.startAt ? dayjs(seed.startAt) : dayjs().add(1, "hour").minute(0).second(0));
-    setDuration(seed?.durationMinutes ?? 50);
-    setReason(seed?.reason ?? "");
-  }, [open, seed]);
+    setConflict(null);
+    formik.resetForm({
+      values: {
+        patientId: "",
+        start: seed?.startAt ? dayjs(seed.startAt).tz(timeZone) : dayjs().tz(timeZone).add(1, "hour").startOf("hour"),
+        duration: seed?.durationMinutes ?? 50,
+        appointmentNote: seed?.appointmentNote ?? seed?.reason ?? "",
+      },
+    });
+    // Formik is intentionally reset only when the dialog/seed changes. Moving
+    // to inline patient creation must preserve every scheduling field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, seed, timeZone]);
 
-  // Patients for the picker (reschedule keeps its patient fixed).
   useEffect(() => {
-    if (!open || !isSupabaseConfigured) return;
+    if (!open) return;
+    let active = true;
     const load = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("patients")
-        .select("id, full_name")
-        .eq("org_id", orgId)
-        .order("full_name", { ascending: true });
-      const options = (data ?? []).map((row) => ({ id: row.id, fullName: row.full_name }));
-      setPatients(options);
-      if (seed?.patientId) setPatient(options.find((option) => option.id === seed.patientId) ?? null);
-      else setPatient(null);
-    };
-    load();
-  }, [open, orgId, seed?.patientId]);
-
-  const canSave = useMemo(() => Boolean(patient && start && duration > 0), [patient, start, duration]);
-
-  const save = async (force = false) => {
-    if (!patient || !start) return;
-    setBusy(true);
-    setError(null);
-    const supabase = createClient();
-
-    // Simple conflict check — unless she already chose to override.
-    if (!force) {
-      const { data: hasConflict } = await supabase.rpc("consultation_schedule_conflict", {
-        target_org: orgId,
-        start_at: start.toISOString(),
-        duration_minutes: duration,
-        exclude_id: seed?.consultationId ?? null,
-      });
-      if (hasConflict) {
-        setConflict(true);
-        setBusy(false);
+      const result = await listActivePatientOptions(createClient(), orgId);
+      if (!active) return;
+      if (!result.ok) {
+        setPatients(null);
+        setError(t("agenda-patients-load-error"));
         return;
       }
-    }
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const payload = {
-      started_at: start.toISOString(),
-      duration_minutes: duration,
-      chief_complaint: reason.trim() || null,
+      setPatients(result.data);
+      const selected = seed?.patientId ? (result.data.find((option) => option.id === seed.patientId) ?? null) : null;
+      setPatient(selected);
+      await formik.setFieldValue("patientId", selected?.id ?? "", false);
     };
+    load();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, orgId, seed?.patientId, t]);
 
-    const result = isReschedule
-      ? await supabase.from("consultations").update(payload).eq("id", seed!.consultationId!)
-      : await supabase.from("consultations").insert({
-          ...payload,
-          org_id: orgId,
-          patient_id: patient.id,
-          status: "scheduled",
-          created_by: user?.id ?? null,
-        });
-
-    setBusy(false);
-    if (result.error) {
-      setError(result.error.message);
-      return;
+  const handleClose = () => {
+    if (busy) return;
+    if (!saved.current && (formik.dirty || view === "patient")) {
+      trackProductEvent("appointment.abandoned", { origin: "agenda" });
     }
-    onSaved();
+    trackedOpen.current = false;
     onClose();
   };
 
+  const errorForCode = (code: string) => {
+    const known: Record<string, string> = {
+      invalid_schedule: t("agenda-error-invalid-date"),
+      patient_unavailable: t("agenda-error-patient-unavailable"),
+      stale_status: t("agenda-error-stale"),
+      not_found: t("agenda-error-not-found"),
+      save_failed: t("agenda-save-error"),
+      unexpected_response: t("agenda-save-error"),
+    };
+    return known[code] ?? t("agenda-save-error");
+  };
+
+  const save = async (forceConflict = false) => {
+    await formik.setTouched({ patientId: true, start: true, duration: true, appointmentNote: true });
+    const errors = await formik.validateForm();
+    if (!patient || !formik.values.start || Object.keys(errors).length > 0) return;
+
+    setBusy(true);
+    setError(null);
+    const result = await saveAppointment(createClient(), {
+      orgId,
+      patientId: patient.id,
+      scheduledFor: formik.values.start.toISOString(),
+      durationMinutes: formik.values.duration,
+      appointmentNote: formik.values.appointmentNote,
+      consultationId: seed?.consultationId,
+      forceConflict,
+    });
+    setBusy(false);
+
+    if (!result.ok) {
+      if (result.code === "schedule_conflict" && result.conflict) {
+        trackProductEvent("appointment.conflict", { origin: "agenda" });
+        setConflict(result.conflict);
+        return;
+      }
+      setError(errorForCode(result.code));
+      return;
+    }
+
+    saved.current = true;
+    trackProductEvent("appointment.completed", { origin: "agenda" });
+    await onSaved(result);
+    trackedOpen.current = false;
+    onClose();
+  };
+
+  const conflictRange = conflict
+    ? `${new Date(conflict.scheduledFor).toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone,
+      })} · ${conflict.patientName}`
+    : "";
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{isReschedule ? t("agenda-reschedule-title") : t("agenda-schedule-title")}</DialogTitle>
-      <DialogContent className="flex flex-col gap-4 pt-2!">
-        {error && (
-          <Alert severity="warning" className="neutral bg-background-paper/60!">
-            {error}
-          </Alert>
-        )}
+    <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth fullScreen={fullScreen}>
+      <DialogTitle>
+        {view === "patient"
+          ? t("patient-quick-title")
+          : isReschedule
+            ? t("agenda-reschedule-title")
+            : t("agenda-schedule-title")}
+      </DialogTitle>
 
-        <Autocomplete
-          options={patients}
-          getOptionLabel={(option) => option.fullName}
-          value={patient}
-          onChange={(_, value) => setPatient(value)}
-          disabled={isReschedule}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(params) => <TextField {...params} label={t("agenda-field-patient")} />}
-          noOptionsText={t("agenda-no-patients")}
-        />
-
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DateTimePicker
-            label={t("agenda-field-datetime")}
-            value={start}
-            onChange={(value) => {
-              setStart(value);
-              setConflict(false);
+      <DialogContent className="pt-2!">
+        {view === "patient" ? (
+          <PatientQuickCreate
+            orgId={orgId}
+            existingPatients={patients ?? []}
+            onCancel={() => setView("schedule")}
+            onCreated={(created) => {
+              setPatients((current) =>
+                [...(current ?? []), created].sort((a, b) => a.fullName.localeCompare(b.fullName)),
+              );
+              setPatient(created);
+              formik.setFieldValue("patientId", created.id, false);
+              setView("schedule");
+              setError(null);
             }}
-            ampm={false}
-            format="DD/MM/YYYY HH:mm"
           />
-        </LocalizationProvider>
+        ) : (
+          <Box className="flex flex-col gap-4">
+            {error && (
+              <Alert severity="error" className="neutral bg-background-paper/60!">
+                {error}
+              </Alert>
+            )}
 
-        <TextField
-          select
-          label={t("agenda-field-duration")}
-          value={duration}
-          onChange={(event) => {
-            setDuration(Number(event.target.value));
-            setConflict(false);
-          }}
-        >
-          {DURATIONS.map((minutes) => (
-            <MenuItem key={minutes} value={minutes}>
-              {t("agenda-minutes", { minutes })}
-            </MenuItem>
-          ))}
-        </TextField>
+            <Box className="flex flex-col gap-1">
+              <Autocomplete
+                options={patients ?? []}
+                loading={patients === null && !error}
+                getOptionLabel={(option) => option.fullName}
+                value={patient}
+                onChange={(_, value) => {
+                  setPatient(value);
+                  formik.setFieldValue("patientId", value?.id ?? "");
+                }}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                noOptionsText={patients === null && error ? t("agenda-patients-load-error") : t("agenda-no-patients")}
+                loadingText={t("agenda-loading-patients")}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    <Box className="flex min-w-0 flex-col">
+                      <Typography variant="body2" className="text-text-primary font-medium">
+                        {option.fullName}
+                      </Typography>
+                      {patientSecondary(option) && (
+                        <Typography variant="body2" className="text-text-secondary text-xs">
+                          {patientSecondary(option)}
+                        </Typography>
+                      )}
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    required
+                    label={t("agenda-field-patient")}
+                    error={formik.touched.patientId && Boolean(formik.errors.patientId)}
+                    helperText={formik.touched.patientId && formik.errors.patientId}
+                  />
+                )}
+              />
+              <Button variant="text" size="small" className="self-start" onClick={() => setView("patient")}>
+                {t("agenda-create-patient-inline")}
+              </Button>
+            </Box>
 
-        <TextField
-          label={t("agenda-field-reason")}
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          multiline
-          minRows={2}
-          placeholder={t("agenda-field-reason-hint")}
-        />
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale={locale.toLowerCase()}
+              localeText={pickerLocaleText(locale)}
+            >
+              <DateTimePicker
+                timezone={timeZone}
+                label={t("agenda-field-datetime")}
+                value={formik.values.start}
+                onChange={(value) => {
+                  formik.setFieldValue("start", value);
+                  setConflict(null);
+                }}
+                onClose={() => formik.setFieldTouched("start", true)}
+                ampm={false}
+                format="DD/MM/YYYY HH:mm"
+                disablePast
+                slotProps={{
+                  textField: {
+                    required: true,
+                    error: formik.touched.start && Boolean(formik.errors.start),
+                    helperText: formik.touched.start && (formik.errors.start as string | undefined),
+                  },
+                }}
+              />
+            </LocalizationProvider>
 
-        {/* A conflict warns, it does not block — the professional decides. */}
-        {conflict && (
-          <Alert severity="warning" className="neutral bg-background-paper/60! flex flex-col gap-2">
-            <Typography variant="body2">{t("agenda-conflict")}</Typography>
-            <Button variant="outlined" color="grey" size="small" className="self-start" onClick={() => save(true)}>
-              {t("agenda-schedule-anyway")}
-            </Button>
-          </Alert>
+            <TextField
+              select
+              required
+              name="duration"
+              label={t("agenda-field-duration")}
+              value={formik.values.duration}
+              onChange={(event) => {
+                formik.setFieldValue("duration", Number(event.target.value));
+                setConflict(null);
+              }}
+            >
+              {DURATIONS.map((minutes) => (
+                <MenuItem key={minutes} value={minutes}>
+                  {t("agenda-minutes", { minutes })}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              name="appointmentNote"
+              label={t("agenda-field-note")}
+              value={formik.values.appointmentNote}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              multiline
+              minRows={2}
+              placeholder={t("agenda-field-note-hint")}
+              error={formik.touched.appointmentNote && Boolean(formik.errors.appointmentNote)}
+              helperText={formik.touched.appointmentNote && formik.errors.appointmentNote}
+            />
+
+            {conflict && (
+              <Alert severity="warning" className="neutral bg-background-paper/60! flex flex-col gap-2">
+                <Typography variant="body2">{t("agenda-conflict-detail", { appointment: conflictRange })}</Typography>
+                <Button
+                  variant="outlined"
+                  color="grey"
+                  size="small"
+                  className="self-start"
+                  onClick={() => save(true)}
+                  disabled={busy}
+                >
+                  {t("agenda-schedule-anyway")}
+                </Button>
+              </Alert>
+            )}
+          </Box>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button color="grey" onClick={onClose} disabled={busy}>
-          {t("agenda-cancel")}
-        </Button>
-        <Button variant="contained" color="primary" onClick={() => save(false)} disabled={busy || !canSave}>
-          {isReschedule ? t("agenda-save") : t("agenda-confirm")}
-        </Button>
-      </DialogActions>
+
+      {view === "schedule" && (
+        <DialogActions>
+          <Button color="grey" onClick={handleClose} disabled={busy}>
+            {t("agenda-cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => save(false)}
+            disabled={busy || !formik.isValid || patients === null}
+          >
+            {busy ? t("saving") : isReschedule ? t("agenda-save") : t("agenda-confirm")}
+          </Button>
+        </DialogActions>
+      )}
     </Dialog>
   );
 }

@@ -54,7 +54,14 @@ export default function OnboardingChecklist({
           <Box className="flex flex-row items-center gap-2">
             <ActivationProgress done={progress.done} total={progress.total} />
             {onDismiss && (
-              <Button className="icon-only" size="small" color="grey" variant="text" onClick={onDismiss}>
+              <Button
+                className="icon-only"
+                size="small"
+                color="grey"
+                variant="text"
+                onClick={onDismiss}
+                aria-label={t("checklistDismiss")}
+              >
                 <NiCross size="medium" />
               </Button>
             )}

@@ -1,0 +1,14 @@
+{
+  "name": "@flyee/clinical",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-free clinical journey contracts: consultation state, derived experience, capabilities, stable domain errors and safe internal navigation.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/index.test.ts",
+    "typecheck": "tsc --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --types node --allowImportingTsExtensions --strict src/index.ts src/index.test.ts"
+  }
+}

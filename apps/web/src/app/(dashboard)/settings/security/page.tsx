@@ -4,6 +4,7 @@ import SettingsMenu from "../components/settings-menu";
 import RecentActivityCard from "./components/recent-activity-card";
 import TwoFactorCard from "./components/two-factor-card";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Alert, Box, Breadcrumbs, Button, Drawer, Grid, Tooltip, Typography } from "@mui/material";
@@ -12,6 +13,7 @@ import NiListCircle from "@/icons/nexture/ni-list-circle";
 import { isSupabaseConfigured } from "@flyee/auth";
 
 export default function SecuritySettings() {
+  const t = useTranslations("product");
   const [openDrawer, setOpenDrawer] = useState(false);
 
   const toggleDrawer = (newOpen: boolean) => () => {
@@ -27,25 +29,26 @@ export default function SecuritySettings() {
         <Grid size={12} spacing={2.5} container>
           <Grid size={{ xs: 12, md: "grow" }}>
             <Typography variant="h1" component="h1" className="mb-0">
-              Security
+              {t("security-title")}
             </Typography>
             <Breadcrumbs>
               <Link color="inherit" href="/inicio">
-                Home
+                {t("settings-home")}
               </Link>
               <Link color="inherit" href="/settings">
-                Settings
+                {t("settings-title")}
               </Link>
-              <Typography variant="body2">Security</Typography>
+              <Typography variant="body2">{t("settings-security")}</Typography>
             </Breadcrumbs>
           </Grid>
           <Grid size={{ xs: 12, md: "auto" }} className="lg:hidden">
-            <Tooltip title="Table of Contents">
+            <Tooltip title={t("settings-open-menu")}>
               <Button
                 className="icon-only surface-standard"
                 color="grey"
                 variant="surface"
                 onClick={toggleDrawer(true)}
+                aria-label={t("settings-open-menu")}
               >
                 <NiListCircle size={"medium"} />
               </Button>
@@ -56,8 +59,7 @@ export default function SecuritySettings() {
         {!isSupabaseConfigured && (
           <Grid size={12}>
             <Alert severity="info" className="neutral bg-background-paper/60!">
-              Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable
-              security settings.
+              {t("settings-unavailable")}
             </Alert>
           </Grid>
         )}

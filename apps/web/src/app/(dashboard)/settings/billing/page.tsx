@@ -1,123 +1,92 @@
 "use client";
 
 import SettingsMenu from "../components/settings-menu";
+import { checkoutAvailability } from "./actions";
 import CurrentSubscription from "./components/current-subscription";
 import InvoicesCard from "./components/invoices-card";
 import PlansGrid from "./components/plans-grid";
 import { useBilling } from "./components/use-billing";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useCallback, useEffect, useState } from "react";
 
-import {
-  Alert,
-  Box,
-  Breadcrumbs,
-  Button,
-  Drawer,
-  FormControl,
-  Grid,
-  MenuItem,
-  Select,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Breadcrumbs, Button, CircularProgress, Drawer, Grid, Tooltip, Typography } from "@mui/material";
 
 import AudioUsageCard from "@/components/product/audio-usage-card";
-import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
-import type { BillingProviderName } from "@flyee/billing";
+import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
 export default function BillingSettings() {
+  const t = useTranslations("product");
+  const checkout = useSearchParams().get("checkout");
   const [openDrawer, setOpenDrawer] = useState(false);
-  const [providers, setProviders] = useState<BillingProviderName[]>([]);
-  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
+  const [checkoutState, setCheckoutState] = useState<RemoteState<boolean, "check_failed">>(() => remoteLoading());
   const {
     configured,
     loading,
-    orgs,
+    orgsState,
+    detailsState,
+    loadFailed,
+    refreshing,
     currentOrg,
     canManage,
-    setCurrentOrgId,
     subscription,
     plans,
-    modules,
     invoices,
-    creditBalance,
-    credits,
+    retry,
     refreshDetails,
   } = useBilling();
 
-  useEffect(() => {
-    // Providers depend on server-only env vars — fetch once.
-    fetch("/api/billing/providers")
-      .then((response) => response.json())
-      .then((data) => setProviders(data.providers ?? []))
-      .catch(() => setProviders([]));
-
-    const params = new URLSearchParams(window.location.search);
-    const checkout = params.get("checkout");
-    if (checkout === "success") {
-      setCheckoutNotice(
-        "Payment received or in processing — your subscription updates as soon as the provider confirms.",
-      );
-    } else if (checkout === "canceled") {
-      setCheckoutNotice("Checkout canceled. No charges were made.");
+  const loadCheckoutAvailability = useCallback(async () => {
+    setCheckoutState(remoteLoading());
+    try {
+      setCheckoutState(remoteSuccess(await checkoutAvailability()));
+    } catch {
+      setCheckoutState(remoteError("check_failed"));
     }
   }, []);
 
-  const toggleDrawer = (newOpen: boolean) => () => {
-    setOpenDrawer(newOpen);
-  };
+  useEffect(() => {
+    void loadCheckoutAvailability();
+  }, [loadCheckoutAvailability]);
+
+  const checkoutAvailable = checkoutState.status === "success" ? checkoutState.data : undefined;
+  const detailsAvailable =
+    detailsState.status === "success" ||
+    ((detailsState.status === "loading" || detailsState.status === "error") && Boolean(detailsState.previous));
 
   return (
     <Grid container spacing={5} className="items-start">
-      <Grid size={"auto"} className="hidden pr-8 lg:flex">
+      <Grid size="auto" className="hidden pr-8 lg:flex">
         <SettingsMenu active="billing" />
       </Grid>
-      <Grid size={"grow"} spacing={5} container>
+      <Grid size="grow" spacing={5} container>
         <Grid size={12} spacing={2.5} container>
           <Grid size={{ xs: 12, md: "grow" }}>
             <Typography variant="h1" component="h1" className="mb-0">
-              Billing
+              {t("billing-title")}
             </Typography>
             <Breadcrumbs>
               <Link color="inherit" href="/inicio">
-                Home
+                {t("settings-home")}
               </Link>
               <Link color="inherit" href="/settings">
-                Settings
+                {t("settings-title")}
               </Link>
-              <Typography variant="body2">Billing</Typography>
+              <Typography variant="body2">{t("settings-billing")}</Typography>
             </Breadcrumbs>
           </Grid>
-          {orgs.length > 1 && currentOrg && (
-            <Grid size={{ xs: 12, md: "auto" }}>
-              <FormControl className="outlined w-56" variant="standard" size="small">
-                <Select
-                  value={currentOrg.id}
-                  size="small"
-                  variant="standard"
-                  IconComponent={NiChevronDownSmall}
-                  onChange={(e) => setCurrentOrgId(e.target.value)}
-                >
-                  {orgs.map((org) => (
-                    <MenuItem key={org.id} value={org.id}>
-                      {org.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          )}
           <Grid size={{ xs: 12, md: "auto" }} className="lg:hidden">
-            <Tooltip title="Table of Contents">
+            <Tooltip title={t("settings-open-menu")}>
               <Button
+                aria-label={t("settings-open-menu")}
                 className="icon-only surface-standard"
                 color="grey"
                 variant="surface"
-                onClick={toggleDrawer(true)}
+                onClick={() => setOpenDrawer(true)}
               >
-                <NiListCircle size={"medium"} />
+                <NiListCircle size="medium" />
               </Button>
             </Tooltip>
           </Grid>
@@ -125,45 +94,65 @@ export default function BillingSettings() {
 
         {!configured && (
           <Grid size={12}>
-            <Alert severity="info" className="neutral bg-background-paper/60!">
-              Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable
-              billing.
-            </Alert>
+            <Alert severity="info">{t("settings-unavailable")}</Alert>
           </Grid>
         )}
-
-        {checkoutNotice && (
+        {checkout === "success" && (
           <Grid size={12}>
-            <Alert severity="info" className="neutral bg-background-paper/60!">
-              {checkoutNotice}
-            </Alert>
+            <Alert severity="info">{t("billing-checkout-processing")}</Alert>
           </Grid>
         )}
-
-        {configured && !loading && !currentOrg && (
+        {checkout === "canceled" && (
           <Grid size={12}>
-            <Alert severity="info" className="neutral bg-background-paper/60!">
-              You do not belong to any organization yet — create one in{" "}
-              <Link href="/settings/organization" className="link-primary link-underline-hover">
-                organization settings
-              </Link>
-              .
+            <Alert severity="info">{t("billing-checkout-canceled")}</Alert>
+          </Grid>
+        )}
+        {checkoutState.status === "error" && (
+          <Grid size={12}>
+            <Alert
+              severity="error"
+              action={<Button onClick={() => void loadCheckoutAvailability()}>{t("retry")}</Button>}
+            >
+              {t("billing-provider-check-error")}
             </Alert>
           </Grid>
         )}
+        {checkoutState.status === "success" && checkoutAvailable === false && (
+          <Grid size={12}>
+            <Alert severity="info">{t("billing-provider-unavailable")}</Alert>
+          </Grid>
+        )}
+        {loadFailed && (
+          <Grid size={12}>
+            <Alert severity="error" action={<Button onClick={() => void retry()}>{t("retry")}</Button>}>
+              {t("billing-load-error")}
+            </Alert>
+          </Grid>
+        )}
+        {configured && loading && (
+          <Grid size={12} aria-live="polite">
+            <CircularProgress size={24} aria-label={t("loading")} />
+          </Grid>
+        )}
+        {refreshing && (
+          <Grid size={12} aria-live="polite">
+            <CircularProgress size={18} aria-label={t("loading")} />
+          </Grid>
+        )}
+        {configured && orgsState.status === "empty" && (
+          <Grid size={12}>
+            <Alert severity="info">{t("settings-practice-missing")}</Alert>
+          </Grid>
+        )}
 
-        {currentOrg && (
+        {currentOrg && detailsAvailable && (
           <>
-            {/* Minutes are what a MedChina plan actually sells (PRD §5.8), so
-                the billing page states the consumption, not just the price. */}
             <Grid size={12}>
               <AudioUsageCard showWhenEmpty />
             </Grid>
             <CurrentSubscription
               orgId={currentOrg.id}
               subscription={subscription}
-              invoices={invoices}
-              creditBalance={creditBalance}
               canManage={canManage}
               onChanged={refreshDetails}
             />
@@ -171,15 +160,14 @@ export default function BillingSettings() {
               orgId={currentOrg.id}
               subscription={subscription}
               plans={plans}
-              modules={modules}
-              providers={providers}
               canManage={canManage}
+              checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
             />
-            <InvoicesCard invoices={invoices} credits={credits} />
+            <InvoicesCard invoices={invoices} />
           </>
         )}
 
-        <Drawer open={openDrawer} anchor="right" onClose={toggleDrawer(false)}>
+        <Drawer open={openDrawer} anchor="right" onClose={() => setOpenDrawer(false)}>
           <Box className="min-w-80 p-7">
             <SettingsMenu active="billing" />
           </Box>

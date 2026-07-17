@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
+import { Box, Button } from "@mui/material";
+
+import GettingStartedHubCard from "@/components/product/getting-started-hub-card";
 import OnboardingChecklist from "@/components/product/onboarding-checklist";
 import {
   type ActivationFacts,
@@ -11,9 +15,12 @@ import {
   getOnboardingFlowKey,
   isOnboardingEnabled,
 } from "@/lib/onboarding";
+import { getProductAction } from "@/lib/product-actions";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { dismissFlow, type FlowKey, getOnboardingState, type OnboardingStateRow } from "@flyee/onboarding";
+
+const GETTING_STARTED_HREF = getProductAction("getting-started").href;
 
 /**
  * Drop-in activation card for the app home: reads the user's onboarding state
@@ -57,6 +64,9 @@ export default function OnboardingChecklistCard({ title, className }: { title?: 
 
   if (!state || !facts) return null;
 
+  const activated = facts.hasProfileName && facts.hasPatient && facts.hasFinalizedConsultation;
+  if (state.dismissed || state.completedAt || activated) return <GettingStartedHubCard className={className} />;
+
   // Step titles/descriptions are declared as i18n keys (lib/onboarding.ts).
   const steps = buildOnboardingSteps(facts).map((step) => ({
     ...step,
@@ -65,6 +75,11 @@ export default function OnboardingChecklistCard({ title, className }: { title?: 
   }));
 
   return (
-    <OnboardingChecklist title={title} steps={steps} state={state} onDismiss={handleDismiss} className={className} />
+    <Box className="flex flex-col gap-2">
+      <OnboardingChecklist title={title} steps={steps} state={state} onDismiss={handleDismiss} className={className} />
+      <Button LinkComponent={Link} href={GETTING_STARTED_HREF} variant="text" size="small" className="self-start">
+        {t("getting-started-view-all")}
+      </Button>
+    </Box>
   );
 }

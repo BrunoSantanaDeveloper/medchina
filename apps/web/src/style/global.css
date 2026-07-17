@@ -124,10 +124,6 @@
   @apply box-border;
 }
 
-.MuiPopper-root {
-  @apply z-[100];
-}
-
 .bg-foreground,
 .shadow-inside {
   transition: background-color 0.2s ease-in-out;

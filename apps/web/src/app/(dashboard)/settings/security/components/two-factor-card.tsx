@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -26,6 +27,7 @@ type Enrollment = { factorId: string; qrCode: string; secret: string };
 const qrSrc = (qr: string) => (qr.startsWith("data:") ? qr : `data:image/svg+xml;utf8,${encodeURIComponent(qr)}`);
 
 export default function TwoFactorCard() {
+  const t = useTranslations("product");
   const [factors, setFactors] = useState<Factor[]>([]);
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [code, setCode] = useState("");
@@ -47,10 +49,10 @@ export default function TwoFactorCard() {
     const supabase = createClient();
     const { data, error: enrollError } = await supabase.auth.mfa.enroll({
       factorType: "totp",
-      friendlyName: "Authenticator app",
+      friendlyName: t("security-authenticator"),
     });
     if (enrollError || !data) {
-      setError(enrollError?.message ?? "Enrollment failed.");
+      setError(t("security-action-error"));
       return;
     }
     setEnrollment({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
@@ -67,7 +69,7 @@ export default function TwoFactorCard() {
         factorId: enrollment.factorId,
       });
       if (challengeError || !challenge) {
-        setError(challengeError?.message ?? "Could not start the challenge.");
+        setError(t("security-action-error"));
         return;
       }
       const { error: verifyError } = await supabase.auth.mfa.verify({
@@ -76,7 +78,7 @@ export default function TwoFactorCard() {
         code: code.trim(),
       });
       if (verifyError) {
-        setError(verifyError.message);
+        setError(t("security-code-error"));
         return;
       }
       setEnrollment(null);
@@ -91,7 +93,7 @@ export default function TwoFactorCard() {
     setError(null);
     const supabase = createClient();
     const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId });
-    if (unenrollError) setError(unenrollError.message);
+    if (unenrollError) setError(t("security-action-error"));
     refresh();
   };
 
@@ -102,20 +104,20 @@ export default function TwoFactorCard() {
       <Card component="section">
         <CardContent className="flex flex-col gap-4">
           <Typography variant="h5" component="h2" className="card-title">
-            Two-factor authentication
+            {t("security-two-factor-title")}
           </Typography>
           <Typography variant="body1" className="text-text-secondary">
-            With a verified authenticator app, every sign-in requires a 6-digit code in addition to your password.
+            {t("security-two-factor-body")}
           </Typography>
 
           {verifiedFactors.map((factor) => (
             <Box key={factor.id} className="flex flex-row items-center gap-2">
-              <Chip label="active" size="small" color="success" variant="outlined" />
+              <Chip label={t("security-active")} size="small" color="success" variant="outlined" />
               <Typography variant="body1" className="flex-1">
-                {factor.friendly_name ?? "Authenticator app"}
+                {factor.friendly_name ?? t("security-authenticator")}
               </Typography>
               <Button size="small" color="error" variant="text" onClick={() => removeFactor(factor.id)}>
-                Remove
+                {t("security-remove")}
               </Button>
             </Box>
           ))}
@@ -123,23 +125,21 @@ export default function TwoFactorCard() {
           {!enrollment && verifiedFactors.length === 0 && (
             <Box>
               <Button variant="outlined" color="grey" onClick={startEnrollment}>
-                Enable two-factor authentication
+                {t("security-enable")}
               </Button>
             </Box>
           )}
 
           {enrollment && (
             <Box className="flex flex-col gap-3">
-              <Typography variant="body1">
-                Scan the QR code with your authenticator app (or enter the secret manually), then confirm with a code.
-              </Typography>
-              <img src={qrSrc(enrollment.qrCode)} alt="TOTP QR code" className="h-44 w-44 self-start" />
+              <Typography variant="body1">{t("security-scan")}</Typography>
+              <img src={qrSrc(enrollment.qrCode)} alt={t("security-qr-alt")} className="h-44 w-44 self-start" />
               <Typography variant="body2" className="text-text-secondary break-all">
-                Secret: {enrollment.secret}
+                {t("security-secret")}: {enrollment.secret}
               </Typography>
               <Box className="flex flex-row items-end gap-2">
                 <FormControl className="outlined mb-0" variant="standard" size="small">
-                  <FormLabel component="label">Code</FormLabel>
+                  <FormLabel component="label">{t("security-code")}</FormLabel>
                   <Input
                     value={code}
                     inputProps={{ inputMode: "numeric", maxLength: 6 }}
@@ -147,7 +147,7 @@ export default function TwoFactorCard() {
                   />
                 </FormControl>
                 <Button variant="contained" onClick={confirmEnrollment} disabled={code.length < 6 || busy}>
-                  {busy ? "Verifying..." : "Confirm"}
+                  {busy ? t("security-verifying") : t("security-confirm")}
                 </Button>
                 <Button
                   color="grey"
@@ -157,7 +157,7 @@ export default function TwoFactorCard() {
                     setEnrollment(null);
                   }}
                 >
-                  Cancel
+                  {t("cancel")}
                 </Button>
               </Box>
             </Box>

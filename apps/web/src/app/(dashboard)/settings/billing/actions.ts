@@ -2,16 +2,10 @@
 
 import { headers } from "next/headers";
 
+import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
-import {
-  applyDiscount,
-  type BillingProviderName,
-  type CheckoutCoupon,
-  type CheckoutModule,
-  type CheckoutPlan,
-  getProvider,
-} from "@flyee/billing";
+import { type CheckoutPlan, defaultProvider, getProvider } from "@flyee/billing";
 
 async function requireOrgManager(orgId: string) {
   const supabase = await createClient();
@@ -40,40 +34,48 @@ async function appOrigin() {
 
 export type StartCheckoutResult = { url?: string; error?: string };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type ActiveBillingClaim = {
+  service: ReturnType<typeof createServiceClient>;
+  operationId: string;
+  claimToken: string;
+};
+
+async function failBillingClaim(claim: ActiveBillingClaim | null, errorCode: string) {
+  if (!claim) return;
+  try {
+    await claim.service.rpc("complete_billing_operation", {
+      target_operation: claim.operationId,
+      target_claim_token: claim.claimToken,
+      target_success: false,
+      target_result: {},
+      target_error_code: errorCode,
+    });
+  } catch {
+    // The short server lease remains the retry boundary if Supabase is down.
+  }
+}
+
+export async function checkoutAvailability(): Promise<boolean> {
+  return defaultProvider() !== null;
+}
+
 export async function startCheckout(input: {
   orgId: string;
   planId: string;
-  moduleIds: string[];
-  couponCode?: string;
-  provider: BillingProviderName;
+  idempotencyKey: string;
 }): Promise<StartCheckoutResult> {
+  let activeClaim: ActiveBillingClaim | null = null;
   try {
     const { supabase, user } = await requireOrgManager(input.orgId);
+    if (!UUID.test(input.idempotencyKey)) return { error: "unavailable" };
 
-    const [{ data: planRow }, { data: moduleRows }, { data: org }] = await Promise.all([
+    const [{ data: planRow }, { data: org }] = await Promise.all([
       supabase.from("plans").select("*").eq("id", input.planId).eq("is_active", true).single(),
-      input.moduleIds.length
-        ? supabase.from("modules").select("*").in("id", input.moduleIds).eq("is_active", true)
-        : Promise.resolve({ data: [] as never[] }),
       supabase.from("organizations").select("name").eq("id", input.orgId).single(),
     ]);
-    if (!planRow) return { error: "Plan not found." };
-    if (planRow.is_free) return { error: "The free plan does not require checkout." };
-
-    let coupon: CheckoutCoupon | undefined;
-    if (input.couponCode?.trim()) {
-      const { data: couponRows } = await supabase.rpc("validate_coupon", {
-        coupon_code: input.couponCode.trim(),
-      });
-      const validated = couponRows?.[0];
-      if (!validated) return { error: "Invalid or expired coupon." };
-      coupon = {
-        id: validated.id,
-        code: validated.code,
-        discountType: validated.discount_type,
-        discountValue: validated.discount_value,
-      };
-    }
+    if (!planRow || planRow.is_free) return { error: "unavailable" };
 
     const plan: CheckoutPlan = {
       id: planRow.id,
@@ -83,123 +85,233 @@ export async function startCheckout(input: {
       period: planRow.period,
       priceCents: planRow.price_cents,
       currency: planRow.currency,
-      trialDays: planRow.trial_days,
+      // MedChina's promotional access is cardless and lives exclusively in
+      // pro_trials/org_audio_allowance; provider checkout never starts it.
+      trialDays: 0,
       creditAmount: planRow.credit_amount,
       creditsExpire: planRow.credits_expire,
     };
-    const modules: CheckoutModule[] = (moduleRows ?? []).map((m) => ({
-      id: m.id,
-      slug: m.slug,
-      name: m.name,
-      kind: m.kind,
-      priceCents: m.price_cents,
-    }));
+    const provider = defaultProvider();
+    if (!provider) return { error: "unavailable" };
+    const service = createServiceClient();
+    const { data: claimData, error: claimError } = await service.rpc("claim_billing_operation", {
+      target_org: input.orgId,
+      target_actor: user.id,
+      target_kind: "checkout",
+      target_idempotency_key: input.idempotencyKey,
+      target_provider: provider,
+      target_plan: plan.id,
+      target_subscription: null,
+    });
+    const claim = claimData as {
+      ok?: boolean;
+      code?: string;
+      operationId?: string;
+      claimToken?: string;
+      result?: { url?: string };
+    } | null;
+    if (claim?.code === "completed" && claim.result?.url) return { url: claim.result.url };
+    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) return { error: "unavailable" };
+    activeClaim = { service, operationId: claim.operationId, claimToken: claim.claimToken };
 
     const origin = await appOrigin();
-    const result = await getProvider(input.provider).createCheckout({
+    const providerClient = getProvider(provider);
+    const result = await providerClient.createCheckout({
+      idempotencyKey: input.idempotencyKey,
       orgId: input.orgId,
       orgName: org?.name ?? "Organization",
       customerEmail: user.email ?? "",
       plan,
-      modules,
-      coupon,
+      modules: [],
       successUrl: `${origin}/settings/billing?checkout=success`,
       cancelUrl: `${origin}/settings/billing?checkout=canceled`,
     });
 
-    // Pending row the webhook will promote on activation. Uses the service
-    // client because users have no direct write access to subscriptions.
-    const service = createServiceClient();
-    await service.from("subscriptions").insert({
-      org_id: input.orgId,
-      plan_id: plan.id,
-      status: "incomplete",
-      provider: input.provider,
-      provider_subscription_id: result.providerSubscriptionId ?? null,
-      provider_customer_id: result.providerCustomerId ?? null,
-      period: plan.period,
-      coupon_id: coupon?.id ?? null,
+    const { data: completedData, error: pendingError } = await service.rpc("complete_checkout_billing_operation", {
+      target_operation: claim.operationId,
+      target_claim_token: claim.claimToken,
+      target_plan: plan.id,
+      target_period: plan.period,
+      target_provider_customer: result.providerCustomerId ?? null,
+      target_provider_subscription: result.providerSubscriptionId ?? null,
+      target_checkout_url: result.url,
+    });
+    const completed = completedData as { ok?: boolean; result?: { url?: string } } | null;
+    if (pendingError || !completed?.ok) {
+      await failBillingClaim(activeClaim, "local_reconciliation_failed");
+      activeClaim = null;
+      return { error: "unavailable" };
+    }
+    activeClaim = null;
+    await recordAudit(supabase, "subscription.checkout_started", {
+      orgId: input.orgId,
+      entityType: "plan",
+      entityId: plan.id,
     });
 
-    return { url: result.url };
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Checkout failed." };
+    return { url: completed.result?.url ?? result.url };
+  } catch {
+    await failBillingClaim(activeClaim, "provider_unavailable");
+    return { error: "unavailable" };
   }
 }
 
-export async function cancelSubscription(orgId: string): Promise<{ error?: string }> {
+function fallbackPeriodEnd(period: string | null): Date {
+  const end = new Date();
+  if (period === "weekly") end.setDate(end.getDate() + 7);
+  else if (period === "yearly") end.setFullYear(end.getFullYear() + 1);
+  else end.setMonth(end.getMonth() + 1);
+  return end;
+}
+
+export async function scheduleSubscriptionCancellation(
+  orgId: string,
+  idempotencyKey: string,
+): Promise<{ error?: string }> {
+  let activeClaim: ActiveBillingClaim | null = null;
   try {
-    const { supabase } = await requireOrgManager(orgId);
+    const { supabase, user } = await requireOrgManager(orgId);
+    if (!UUID.test(idempotencyKey)) return { error: "unavailable" };
 
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("id, provider, provider_subscription_id, plans(is_free)")
+      .select(
+        "id, provider, provider_subscription_id, period, current_period_end, cancel_at_period_end, plans(is_free)",
+      )
       .eq("org_id", orgId)
       .in("status", ["trialing", "active", "past_due"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!sub) return { error: "No active subscription." };
+    if (!sub) return { error: "unavailable" };
     const planInfo = sub.plans as unknown as { is_free: boolean } | null;
-    if (planInfo?.is_free) return { error: "The free plan cannot be canceled." };
+    if (planInfo?.is_free) return { error: "unavailable" };
+    if (sub.cancel_at_period_end) return {};
 
-    if (sub.provider && sub.provider_subscription_id) {
-      await getProvider(sub.provider).cancelSubscription(sub.provider_subscription_id);
-    }
-
-    // Provider webhooks also handle this, but settle locally right away so
-    // the UI reflects the cancellation without waiting for the webhook.
+    const providerName = sub.provider ?? defaultProvider();
+    if (!providerName) return { error: "unavailable" };
     const service = createServiceClient();
-    await service
-      .from("subscriptions")
-      .update({ status: "canceled", canceled_at: new Date().toISOString() })
-      .eq("id", sub.id);
-    const { data: freePlan } = await service
-      .from("plans")
-      .select("id, period")
-      .eq("is_free", true)
-      .eq("is_active", true)
-      .order("created_at")
-      .limit(1)
-      .maybeSingle();
-    if (freePlan) {
-      await service
-        .from("subscriptions")
-        .insert({ org_id: orgId, plan_id: freePlan.id, status: "active", period: freePlan.period });
+    const { data: claimData, error: claimError } = await service.rpc("claim_billing_operation", {
+      target_org: orgId,
+      target_actor: user.id,
+      target_kind: "cancel",
+      target_idempotency_key: idempotencyKey,
+      target_provider: providerName,
+      target_plan: null,
+      target_subscription: sub.id,
+    });
+    const claim = claimData as {
+      ok?: boolean;
+      code?: string;
+      operationId?: string;
+      claimToken?: string;
+    } | null;
+    if (claim?.code === "completed") return {};
+    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) return { error: "unavailable" };
+    activeClaim = { service, operationId: claim.operationId, claimToken: claim.claimToken };
+
+    const storedEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
+    const expectedPeriodEnd = storedEnd && storedEnd > new Date() ? storedEnd : fallbackPeriodEnd(sub.period);
+    let providerPeriodEnd: Date | undefined;
+    if (sub.provider && sub.provider_subscription_id) {
+      const result = await getProvider(sub.provider).scheduleCancellation(
+        sub.provider_subscription_id,
+        expectedPeriodEnd,
+      );
+      providerPeriodEnd = result.currentPeriodEnd;
     }
+
+    const currentPeriodEnd = providerPeriodEnd ?? expectedPeriodEnd;
+    const { data: completionData, error: completionError } = await service.rpc("commit_billing_subscription_change", {
+      target_operation: claim.operationId,
+      target_claim_token: claim.claimToken,
+      target_subscription: sub.id,
+      target_kind: "cancel",
+      target_current_period_end: currentPeriodEnd.toISOString(),
+    });
+    const completion = completionData as { ok?: boolean } | null;
+    if (completionError || !completion?.ok) {
+      await failBillingClaim(activeClaim, "local_reconciliation_failed");
+      activeClaim = null;
+      return { error: "unavailable" };
+    }
+    activeClaim = null;
+    await recordAudit(supabase, "subscription.cancellation_scheduled", {
+      orgId,
+      entityType: "subscription",
+      entityId: sub.id,
+      metadata: { currentPeriodEnd: currentPeriodEnd.toISOString() },
+    });
 
     return {};
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "Cancellation failed." };
+  } catch {
+    await failBillingClaim(activeClaim, "provider_unavailable");
+    return { error: "unavailable" };
   }
 }
 
-/** Preview of the checkout total with an optional coupon, for the UI. */
-export async function previewTotal(input: {
-  planId: string;
-  moduleIds: string[];
-  couponCode?: string;
-}): Promise<{ totalCents?: number; error?: string }> {
-  const supabase = await createClient();
-  const [{ data: plan }, { data: moduleRows }] = await Promise.all([
-    supabase.from("plans").select("price_cents").eq("id", input.planId).single(),
-    input.moduleIds.length
-      ? supabase.from("modules").select("price_cents").in("id", input.moduleIds)
-      : Promise.resolve({ data: [] as { price_cents: number }[] }),
-  ]);
-  if (!plan) return { error: "Plan not found." };
-  let coupon: CheckoutCoupon | undefined;
-  if (input.couponCode?.trim()) {
-    const { data: rows } = await supabase.rpc("validate_coupon", { coupon_code: input.couponCode.trim() });
-    const validated = rows?.[0];
-    if (!validated) return { error: "Invalid or expired coupon." };
-    coupon = {
-      id: validated.id,
-      code: validated.code,
-      discountType: validated.discount_type,
-      discountValue: validated.discount_value,
-    };
+export async function undoSubscriptionCancellation(orgId: string, idempotencyKey: string): Promise<{ error?: string }> {
+  let activeClaim: ActiveBillingClaim | null = null;
+  try {
+    const { supabase, user } = await requireOrgManager(orgId);
+    if (!UUID.test(idempotencyKey)) return { error: "unavailable" };
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("id, provider, provider_subscription_id, cancel_at_period_end, current_period_end")
+      .eq("org_id", orgId)
+      .in("status", ["trialing", "active", "past_due"])
+      .eq("cancel_at_period_end", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!sub || (sub.current_period_end && new Date(sub.current_period_end) <= new Date()))
+      return { error: "unavailable" };
+    const providerName = sub.provider ?? defaultProvider();
+    if (!providerName) return { error: "unavailable" };
+    const service = createServiceClient();
+    const { data: claimData, error: claimError } = await service.rpc("claim_billing_operation", {
+      target_org: orgId,
+      target_actor: user.id,
+      target_kind: "resume",
+      target_idempotency_key: idempotencyKey,
+      target_provider: providerName,
+      target_plan: null,
+      target_subscription: sub.id,
+    });
+    const claim = claimData as {
+      ok?: boolean;
+      code?: string;
+      operationId?: string;
+      claimToken?: string;
+    } | null;
+    if (claim?.code === "completed") return {};
+    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) return { error: "unavailable" };
+    activeClaim = { service, operationId: claim.operationId, claimToken: claim.claimToken };
+    if (sub.provider && sub.provider_subscription_id) {
+      await getProvider(sub.provider).resumeSubscription(sub.provider_subscription_id);
+    }
+    const { data: completionData, error: completionError } = await service.rpc("commit_billing_subscription_change", {
+      target_operation: claim.operationId,
+      target_claim_token: claim.claimToken,
+      target_subscription: sub.id,
+      target_kind: "resume",
+      target_current_period_end: null,
+    });
+    const completion = completionData as { ok?: boolean } | null;
+    if (completionError || !completion?.ok) {
+      await failBillingClaim(activeClaim, "local_reconciliation_failed");
+      activeClaim = null;
+      return { error: "unavailable" };
+    }
+    activeClaim = null;
+    await recordAudit(supabase, "subscription.cancellation_undone", {
+      orgId,
+      entityType: "subscription",
+      entityId: sub.id,
+    });
+    return {};
+  } catch {
+    await failBillingClaim(activeClaim, "provider_unavailable");
+    return { error: "unavailable" };
   }
-  const total = plan.price_cents + (moduleRows ?? []).reduce((sum, m) => sum + m.price_cents, 0);
-  return { totalCents: applyDiscount(total, coupon) };
 }

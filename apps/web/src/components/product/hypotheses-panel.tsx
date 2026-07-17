@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -24,6 +24,7 @@ import NiClipboard from "@/icons/nexture/ni-clipboard";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
 type Sign = { text: string; fieldKey?: string };
 type Source = { title: string; source: string | null; kind: string };
@@ -41,9 +42,12 @@ type Hypothesis = {
   status: "draft" | "accepted" | "edited" | "rejected";
   reviewNote: string | null;
   model: string | null;
+  updatedAt: string;
+  staleAt: string | null;
 };
 
 type PriorPattern = { pattern: string; startedAt: string };
+type HypothesesData = { hypotheses: Hypothesis[]; prior: PriorPattern[] };
 
 /**
  * Disharmony-pattern hypotheses (PRD §10.8) — the Pro reasoning layer.
@@ -73,31 +77,42 @@ export default function HypothesesPanel({
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
-  const [hypotheses, setHypotheses] = useState<Hypothesis[] | null>(null);
-  const [prior, setPrior] = useState<PriorPattern[]>([]);
+  const [hypothesesState, setHypothesesState] = useState<RemoteState<HypothesesData, "load_failed">>(() =>
+    remoteLoading(),
+  );
+  const hypothesesRef = useRef<HypothesesData | undefined>(undefined);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reviewing, setReviewing] = useState<{ hypothesis: Hypothesis; mode: "reject" | "edit" } | null>(null);
   const [note, setNote] = useState("");
   const [pattern, setPattern] = useState("");
   const [showPrior, setShowPrior] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setHypotheses([]);
-      return;
-    }
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("consultation_hypotheses")
-      .select(
-        "id, pattern, rationale, correspondence, supporting_signs, contradicting_signs, missing_data, sources, limitation, status, review_note, model",
-      )
-      .eq("consultation_id", consultationId)
-      .order("created_at", { ascending: true });
+  const load = useCallback(
+    async (preservePrevious = true) => {
+      if (!preservePrevious) hypothesesRef.current = undefined;
+      const previous = preservePrevious ? hypothesesRef.current : undefined;
+      setHypothesesState(remoteLoading(previous));
+      if (!isSupabaseConfigured) {
+        hypothesesRef.current = undefined;
+        setHypothesesState(remoteEmpty());
+        return;
+      }
+      const supabase = createClient();
+      const { data, error: hypothesesError } = await supabase
+        .from("consultation_hypotheses")
+        .select(
+          "id, pattern, rationale, correspondence, supporting_signs, contradicting_signs, missing_data, sources, limitation, status, review_note, model, updated_at, stale_at",
+        )
+        .eq("consultation_id", consultationId)
+        .order("created_at", { ascending: true });
 
-    setHypotheses(
-      (data ?? []).map((row) => ({
+      if (hypothesesError) {
+        setHypothesesState(remoteError("load_failed", previous));
+        return;
+      }
+
+      const hypotheses = (data ?? []).map((row) => ({
         id: row.id,
         pattern: row.pattern,
         rationale: row.rationale,
@@ -110,51 +125,61 @@ export default function HypothesesPanel({
         status: row.status,
         reviewNote: row.review_note,
         model: row.model,
-      })),
-    );
+        updatedAt: row.updated_at,
+        staleAt: row.stale_at,
+      }));
 
-    // "Comparar hipótese atual com padrões anteriores" (PRD §10.8): what this
-    // patient's earlier consultations settled on — only what SHE accepted,
-    // never a draft the AI once proposed.
-    const { data: earlier } = await supabase
-      .from("consultation_hypotheses")
-      .select("pattern, status, consultations!inner(patient_id, started_at, id)")
-      .eq("consultations.patient_id", patientId)
-      .in("status", ["accepted", "edited"])
-      .neq("consultation_id", consultationId)
-      .order("created_at", { ascending: false })
-      .limit(5);
-    setPrior(
-      (earlier ?? []).map((row) => {
+      // "Comparar hipótese atual com padrões anteriores" (PRD §10.8): what this
+      // patient's earlier consultations settled on — only what SHE accepted,
+      // never a draft the AI once proposed.
+      const { data: earlier, error: priorError } = await supabase
+        .from("consultation_hypotheses")
+        .select("pattern, status, consultations!inner(patient_id, started_at, id)")
+        .eq("consultations.patient_id", patientId)
+        .in("status", ["accepted", "edited"])
+        .neq("consultation_id", consultationId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      const prior = (earlier ?? []).map((row) => {
         const consultation = row.consultations as unknown as { started_at: string };
         return { pattern: row.pattern as string, startedAt: consultation?.started_at };
-      }),
-    );
-  }, [consultationId, patientId]);
+      });
+      const next = { hypotheses, prior: priorError ? (previous?.prior ?? []) : prior };
+      if (priorError) {
+        hypothesesRef.current = next;
+        setHypothesesState(remoteError("load_failed", next));
+        return;
+      }
+      hypothesesRef.current = hypotheses.length === 0 ? undefined : next;
+      setHypothesesState(hypotheses.length === 0 ? remoteEmpty() : remoteSuccess(next));
+    },
+    [consultationId, patientId],
+  );
 
   useEffect(() => {
-    load();
+    void load(false);
   }, [load]);
 
   const prepare = async () => {
     setBusy(true);
-    setError(null);
+    setActionError(null);
     try {
       const response = await fetch(`/api/consultations/${consultationId}/hypotheses`, { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(
-          body.error === "reasoning_not_available"
+        const code = body?.error?.code ?? body?.error;
+        setActionError(
+          code === "reasoning_not_available"
             ? t("hypotheses-not-available")
-            : body.error === "nothing_recorded"
+            : code === "nothing_recorded"
               ? t("hypotheses-nothing-recorded")
-              : (body.error ?? t("hypotheses-error")),
+              : t("hypotheses-error"),
         );
         return;
       }
-      await load();
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : t("hypotheses-error"));
+      await load(true);
+    } catch {
+      setActionError(t("hypotheses-error"));
     } finally {
       setBusy(false);
     }
@@ -171,27 +196,55 @@ export default function HypothesesPanel({
     status: "accepted" | "rejected" | "edited",
     changes?: { note?: string; pattern?: string },
   ) => {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    await supabase
-      .from("consultation_hypotheses")
-      .update({
-        status,
-        ...(changes?.pattern ? { pattern: changes.pattern } : {}),
-        review_note: changes?.note ?? null,
-        reviewed_by: user?.id ?? null,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", hypothesis.id);
-    setReviewing(null);
-    setNote("");
-    setPattern("");
-    await load();
+    setBusy(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/hypotheses/${hypothesis.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          status,
+          pattern: changes?.pattern,
+          note: changes?.note,
+          expectedUpdatedAt: hypothesis.updatedAt,
+        }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const code = body?.error?.code ?? body?.code;
+        setActionError(
+          code === "hypothesis_stale" || code === "hypothesis_revision_conflict"
+            ? t("hypotheses-stale")
+            : t("hypotheses-error"),
+        );
+        return;
+      }
+      setReviewing(null);
+      setNote("");
+      setPattern("");
+      await load(true);
+    } catch {
+      setActionError(t("hypotheses-error"));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  if (!hypotheses) return null;
+  const resource =
+    hypothesesState.status === "success"
+      ? hypothesesState.data
+      : hypothesesState.status === "loading" || hypothesesState.status === "error"
+        ? hypothesesState.previous
+        : undefined;
+  const hypotheses = resource?.hypotheses ?? [];
+  const prior = resource?.prior ?? [];
+  const initialLoading = hypothesesState.status === "loading" && !resource;
+  const loadFailed = hypothesesState.status === "error";
+  const refreshing = hypothesesState.status === "loading" && Boolean(resource);
+
+  if (initialLoading) {
+    return <CircularProgress size={24} aria-label={t("loading")} />;
+  }
 
   const correspondenceLabel = (value: Hypothesis["correspondence"]) =>
     ({
@@ -211,7 +264,7 @@ export default function HypothesesPanel({
 
   // Without the Pro layer there is nothing to show and nothing to sell here —
   // the consultation screen is not a place to advertise (PRD §7.4).
-  if (!canReason && !hasAny) return null;
+  if (!canReason && !hasAny && !loadFailed) return null;
 
   return (
     <Card component="section">
@@ -224,13 +277,25 @@ export default function HypothesesPanel({
           </Typography>
         </Box>
 
-        {error && (
-          <Alert severity="warning" className="neutral bg-background-paper/60!">
-            {error}
+        {loadFailed && (
+          <Alert
+            severity="error"
+            className="neutral bg-background-paper/60!"
+            action={<Button onClick={() => void load(true)}>{t("retry")}</Button>}
+          >
+            {t("hypotheses-load-error")}
           </Alert>
         )}
 
-        {!hasAny ? (
+        {actionError && (
+          <Alert severity="warning" className="neutral bg-background-paper/60!">
+            {actionError}
+          </Alert>
+        )}
+
+        {refreshing && <CircularProgress size={18} aria-label={t("loading")} />}
+
+        {loadFailed && !resource ? null : !hasAny ? (
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("hypotheses-empty")}
@@ -272,6 +337,11 @@ export default function HypothesesPanel({
                 </Box>
 
                 {/* Stated BEFORE the pattern is read, not as a footnote. */}
+                {hypothesis.staleAt && (
+                  <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
+                    {t("hypotheses-stale")}
+                  </Alert>
+                )}
                 {hypothesis.limitation && (
                   <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
                     {hypothesis.limitation}
@@ -326,21 +396,25 @@ export default function HypothesesPanel({
                   </Typography>
                 )}
 
-                {!isFinalized && hypothesis.status === "draft" && (
+                {!isFinalized && (
                   <Box className="flex flex-row flex-wrap gap-2">
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                      onClick={() => review(hypothesis, "accepted")}
-                    >
-                      {t("hypotheses-accept")}
-                    </Button>
+                    {hypothesis.status !== "accepted" && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        disabled={busy}
+                        onClick={() => review(hypothesis, "accepted")}
+                      >
+                        {t("hypotheses-accept")}
+                      </Button>
+                    )}
                     {/* Editing makes the reading hers, not the model's (PRD §10.10). */}
                     <Button
                       size="small"
                       variant="outlined"
                       color="grey"
+                      disabled={busy}
                       onClick={() => {
                         setReviewing({ hypothesis, mode: "edit" });
                         setPattern(hypothesis.pattern);
@@ -349,17 +423,20 @@ export default function HypothesesPanel({
                     >
                       {t("hypotheses-edit")}
                     </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="grey"
-                      onClick={() => {
-                        setReviewing({ hypothesis, mode: "reject" });
-                        setNote("");
-                      }}
-                    >
-                      {t("hypotheses-reject")}
-                    </Button>
+                    {hypothesis.status !== "rejected" && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="grey"
+                        disabled={busy}
+                        onClick={() => {
+                          setReviewing({ hypothesis, mode: "reject" });
+                          setNote("");
+                        }}
+                      >
+                        {t("hypotheses-reject")}
+                      </Button>
+                    )}
                   </Box>
                 )}
               </Box>
@@ -437,7 +514,11 @@ export default function HypothesesPanel({
           <Button
             variant="contained"
             color="primary"
-            disabled={reviewing?.mode === "edit" && pattern.trim().length === 0}
+            disabled={
+              busy ||
+              (reviewing?.mode === "edit" && pattern.trim().length === 0) ||
+              (reviewing?.mode === "reject" && note.trim().length === 0)
+            }
             onClick={() =>
               reviewing &&
               (reviewing.mode === "edit"

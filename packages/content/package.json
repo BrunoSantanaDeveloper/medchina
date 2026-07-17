@@ -6,6 +6,7 @@
   "description": "Cross-platform site identity (BRAND) and i18n message catalogs, shared by apps/web and apps/mobile so copy and branding never drift between platforms.",
   "exports": {
     ".": "./src/index.ts",
-    "./messages/*": "./messages/*"
+    "./messages/*": "./messages/*",
+    "./mobile-messages/*": "./mobile-messages/*"
   }
 }

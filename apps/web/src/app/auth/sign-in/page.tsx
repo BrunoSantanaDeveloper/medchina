@@ -1,7 +1,7 @@
 "use client";
 import { useFormik } from "formik";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import React, { useState } from "react";
 import * as yup from "yup";
@@ -33,6 +33,7 @@ import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { useThemeContext } from "@/theme/theme-provider";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 type InputErrorProps = {
   title: string;
@@ -43,6 +44,7 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
     <Box className="relative">
       <Tooltip title={title} arrow className="absolute -top-1.5">
         <Button
+          aria-label={title}
           startIcon={<NiCrossSquare size="small" />}
           color="error"
           size="small"
@@ -55,7 +57,10 @@ const InputErrorTooltip = ({ title }: InputErrorProps) => {
 
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("auth");
+  const requestedNext = searchParams.get("next");
+  const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   // Supabase returns one generic error for "no account" AND "wrong password"
@@ -90,11 +95,10 @@ export default function Page() {
       });
       if (error) {
         const invalidCredentials = error.code === "invalid_credentials" || error.status === 400;
-        setServerError(invalidCredentials ? t("signin-invalid") : error.message);
+        setServerError(invalidCredentials ? t("signin-invalid") : t("request-failed"));
         setOfferSignUp(invalidCredentials);
         return;
       }
-      const next = new URLSearchParams(window.location.search).get("next");
       // Accounts with a verified TOTP factor must step up to AAL2 first.
       const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
@@ -114,15 +118,17 @@ export default function Page() {
   const handleOAuth = async (provider: "google" | "github") => {
     setServerError(null);
     if (!isSupabaseConfigured) {
-      setServerError("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+      setServerError(t("not-configured"));
       return;
     }
     const supabase = createClient();
+    const callback = new URL("/auth/callback", window.location.origin);
+    if (next) callback.searchParams.set("next", next);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callback.toString() },
     });
-    if (error) setServerError(error.message);
+    if (error) setServerError(t("request-failed"));
   };
 
   const [showPassword, setShowPassword] = React.useState(false);
@@ -225,13 +231,14 @@ export default function Page() {
                   className="flex flex-col"
                 >
                   <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label" className="flex flex-row">
+                    <FormLabel component="label" htmlFor="email" className="flex flex-row">
                       {t("email")}
                       {formik.touched.email && formik.errors.email && <InputErrorTooltip title={formik.errors.email} />}
                     </FormLabel>
                     <Input
                       id="email"
                       name="email"
+                      autoComplete="email"
                       placeholder=""
                       value={formik.values.email}
                       onChange={formik.handleChange}
@@ -240,7 +247,7 @@ export default function Page() {
                   </FormControl>
 
                   <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label" className="flex flex-row">
+                    <FormLabel component="label" htmlFor="password" className="flex flex-row">
                       {t("password")}
                       {formik.touched.password && formik.errors.password && (
                         <InputErrorTooltip title={formik.errors.password} />
@@ -251,7 +258,7 @@ export default function Page() {
                       id="password"
                       name="password"
                       placeholder=""
-                      autoComplete="off"
+                      autoComplete="current-password"
                       value={formik.values.password}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
@@ -259,6 +266,7 @@ export default function Page() {
                       endAdornment={
                         <InputAdornment position="end">
                           <IconButton
+                            aria-label={showPassword ? t("hide-password") : t("show-password")}
                             onClick={handleClickShowPassword}
                             onMouseDown={handleMouseDownPassword}
                             onMouseUp={handleMouseUpPassword}
@@ -305,14 +313,14 @@ export default function Page() {
                         variant="outlined"
                         color="grey"
                         className="mb-1"
-                        href={`/auth/sign-up?email=${encodeURIComponent(formik.values.email)}`}
+                        href={`/auth/sign-up?email=${encodeURIComponent(formik.values.email)}${next ? `&next=${encodeURIComponent(next)}` : ""}`}
                         LinkComponent={Link}
                       >
                         {t("signin-create-with-email")}
                       </Button>
                     )}
                     <Link
-                      href="/auth/password-reset"
+                      href={`/auth/password-reset${next ? `?next=${encodeURIComponent(next)}` : ""}`}
                       className="link-text-secondary link-underline-hover text-center text-sm font-semibold"
                     >
                       {t("reset-password")}
@@ -342,7 +350,10 @@ export default function Page() {
                 </Typography>
                 <Typography variant="body1" className="text-text-secondary">
                   {t("signin-new-body", { brand: BRAND.name })}{" "}
-                  <Link href="/auth/sign-up" className="link-primary link-underline-hover">
+                  <Link
+                    href={`/auth/sign-up${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+                    className="link-primary link-underline-hover"
+                  >
                     {t("signin-new-link")}
                   </Link>
                   .

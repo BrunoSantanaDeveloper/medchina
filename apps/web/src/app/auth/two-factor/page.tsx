@@ -11,6 +11,7 @@ import { DEFAULTS } from "@/config";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 /** Step-up screen: verifies the TOTP code and raises the session to AAL2. */
 export default function TwoFactor() {
@@ -48,7 +49,7 @@ export default function TwoFactor() {
       const supabase = createClient();
       const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
       if (challengeError || !challenge) {
-        setError(challengeError?.message ?? t("two-factor-failed"));
+        setError(t("two-factor-failed"));
         return;
       }
       const { error: verifyError } = await supabase.auth.mfa.verify({
@@ -57,10 +58,11 @@ export default function TwoFactor() {
         code: code.trim(),
       });
       if (verifyError) {
-        setError(verifyError.message);
+        setError(t("two-factor-failed"));
         return;
       }
-      const next = new URLSearchParams(window.location.search).get("next");
+      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -104,9 +106,14 @@ export default function TwoFactor() {
             }}
           >
             <FormControl className="outlined" variant="standard" size="small">
-              <FormLabel component="label">{t("two-factor-code")}</FormLabel>
+              <FormLabel component="label" htmlFor="two-factor-code">
+                {t("two-factor-code")}
+              </FormLabel>
               <Input
+                id="two-factor-code"
+                name="code"
                 autoFocus
+                autoComplete="one-time-code"
                 value={code}
                 inputProps={{ inputMode: "numeric", maxLength: 6 }}
                 onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}

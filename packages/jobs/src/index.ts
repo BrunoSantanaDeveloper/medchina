@@ -20,7 +20,7 @@ export type JobEvents = {
 
   // ---- MedChina project events (business logic lives in apps/web/src/lib) ----
   /** Transcribe a consultation recording and pre-fill its anamnesis (PRD §10.2). */
-  "medchina/recording.process": { data: { recordingId: string } };
+  "medchina/recording.process": { data: { recordingId: string; claimId: string } };
 };
 
 export const isInngestConfigured = Boolean(process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY);

@@ -29,6 +29,12 @@ export interface ActivationFacts {
   hasFinalizedConsultation: boolean;
 }
 
+export interface ExperienceFacts extends ActivationFacts {
+  hasAiReadyConsent: boolean;
+  hasRecording: boolean;
+  hasReadyRecording: boolean;
+}
+
 /** Reads the real product state the checklist is derived from. */
 export async function getActivationFacts(supabase: SupabaseClient, userId: string): Promise<ActivationFacts> {
   const [profile, patients, finalized] = await Promise.all([
@@ -36,10 +42,44 @@ export async function getActivationFacts(supabase: SupabaseClient, userId: strin
     supabase.from("patients").select("id", { count: "exact", head: true }),
     supabase.from("consultations").select("id", { count: "exact", head: true }).eq("status", "finalized"),
   ]);
-  return {
+  const facts = {
     hasProfileName: Boolean(profile.data?.display_name?.trim()),
     hasPatient: (patients.count ?? 0) > 0,
     hasFinalizedConsultation: (finalized.count ?? 0) > 0,
+  };
+  if (facts.hasProfileName && facts.hasPatient && facts.hasFinalizedConsultation) {
+    // Database-side coalesce makes the activation moment sticky.
+    await supabase.rpc("sync_medchina_activation");
+  }
+  return facts;
+}
+
+/** Facts shared by the three persistent start tracks. No click masquerades as clinical progress. */
+export async function getExperienceFacts(supabase: SupabaseClient, userId: string): Promise<ExperienceFacts> {
+  const [activation, audioConsents, aiConsents, recordings, readyRecordings] = await Promise.all([
+    getActivationFacts(supabase, userId),
+    supabase
+      .from("consent_acceptances")
+      .select("subject_id, consent_terms!inner(slug)")
+      .is("revoked_at", null)
+      .eq("consent_terms.slug", "audio-recording"),
+    supabase
+      .from("consent_acceptances")
+      .select("subject_id, consent_terms!inner(slug)")
+      .is("revoked_at", null)
+      .eq("consent_terms.slug", "ai-processing"),
+    supabase.from("recordings").select("id", { count: "exact", head: true }),
+    supabase.from("recordings").select("id", { count: "exact", head: true }).eq("status", "ready"),
+  ]);
+
+  const audioSubjects = new Set((audioConsents.data ?? []).map((row) => String(row.subject_id)));
+  const hasAiReadyConsent = (aiConsents.data ?? []).some((row) => audioSubjects.has(String(row.subject_id)));
+
+  return {
+    ...activation,
+    hasAiReadyConsent,
+    hasRecording: (recordings.count ?? 0) > 0,
+    hasReadyRecording: (readyRecordings.count ?? 0) > 0,
   };
 }
 
@@ -117,7 +157,7 @@ export async function resolvePostAuthDestination(supabase: SupabaseClient, userI
     const state = await getOnboardingState(supabase, key);
     // "welcome" is stamped when the user picks a starting path (PRD §6.4);
     // once chosen (or once activated) the home takes over the nudging.
-    if (state.completedAt || state.completedSteps.includes("welcome")) return DEFAULTS.appRoot;
+    if (state.completedAt || state.selectedTrack || state.completedSteps.includes("welcome")) return DEFAULTS.appRoot;
 
     const facts = await getActivationFacts(supabase, userId);
     const progress = computeProgress(buildOnboardingSteps(facts), state);

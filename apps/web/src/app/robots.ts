@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Authenticated app and API surfaces are not for crawlers.
-      disallow: ["/api/", "/auth/", "/dashboards/", "/settings/", "/admin/", "/applications/"],
+      disallow: ["/api/", "/auth/", "/consentir", "/dashboards/", "/settings/", "/admin/", "/applications/"],
     },
     sitemap: `${BRAND.siteUrl}/sitemap.xml`,
   };

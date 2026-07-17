@@ -15,6 +15,14 @@ export function configuredProviders(): BillingProviderName[] {
   return providers;
 }
 
+/** Deployment-owned provider choice; provider brands never leak into product UX. */
+export function defaultProvider(): BillingProviderName | null {
+  const preferred = process.env.BILLING_PROVIDER;
+  const configured = configuredProviders();
+  if ((preferred === "stripe" || preferred === "asaas") && configured.includes(preferred)) return preferred;
+  return configured[0] ?? null;
+}
+
 export function getProvider(name: BillingProviderName): PaymentProvider {
   switch (name) {
     case "stripe":

@@ -1,4 +1,17 @@
-import { boolean, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { organizations } from "./organizations";
 import { profiles } from "./profiles";
@@ -88,11 +101,24 @@ export const subscriptions = pgTable(
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
     couponId: uuid("coupon_id").references(() => coupons.id, { onDelete: "set null" }),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    cancellationRequestedAt: timestamp("cancellation_requested_at", { withTimezone: true }),
+    billingOperationId: uuid("billing_operation_id"),
     canceledAt: timestamp("canceled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("subscriptions_org_live_unique").on(table.orgId)],
+  (table) => [
+    uniqueIndex("subscriptions_org_live_unique")
+      .on(table.orgId)
+      .where(sql`${table.status} in ('trialing', 'active', 'past_due')`),
+    uniqueIndex("subscriptions_provider_subscription_unique_idx")
+      .on(table.provider, table.providerSubscriptionId)
+      .where(sql`${table.provider} is not null and ${table.providerSubscriptionId} is not null`),
+    uniqueIndex("subscriptions_billing_operation_unique_idx")
+      .on(table.billingOperationId)
+      .where(sql`${table.billingOperationId} is not null`),
+  ],
 );
 
 export const subscriptionModules = pgTable("subscription_modules", {
@@ -117,6 +143,7 @@ export const creditTransactions = pgTable("credit_transactions", {
   amount: integer("amount").notNull(),
   kind: creditKind("kind").notNull(),
   description: text("description"),
+  sourceInvoiceKey: text("source_invoice_key").unique(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -140,6 +167,80 @@ export const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const billingOperations = pgTable(
+  "billing_operations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    planId: uuid("plan_id").references(() => plans.id, { onDelete: "set null" }),
+    subscriptionId: uuid("subscription_id").references(() => subscriptions.id, { onDelete: "set null" }),
+    provider: text("provider"),
+    status: text("status").notNull().default("processing"),
+    attempts: integer("attempts").notNull().default(1),
+    claimToken: uuid("claim_token"),
+    result: jsonb("result").notNull().default({}),
+    errorCode: text("error_code"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("billing_operations_org_kind_idempotency_key_key").on(
+      table.orgId,
+      table.kind,
+      table.idempotencyKey,
+    ),
+    check("billing_operations_kind_check", sql`${table.kind} in ('checkout', 'cancel', 'resume')`),
+    check("billing_operations_provider_check", sql`${table.provider} is null or ${table.provider} in ('stripe', 'asaas')`),
+    check("billing_operations_status_check", sql`${table.status} in ('processing', 'completed', 'failed')`),
+    check("billing_operations_attempts_check", sql`${table.attempts} > 0`),
+    check(
+      "billing_operations_processing_claim_check",
+      sql`${table.status} <> 'processing' or (${table.claimToken} is not null and ${table.leaseExpiresAt} is not null)`,
+    ),
+  ],
+);
+
+export const billingWebhookEvents = pgTable(
+  "billing_webhook_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: text("provider").notNull(),
+    providerEventId: text("provider_event_id").notNull(),
+    eventType: text("event_type").notNull(),
+    status: text("status").notNull().default("processing"),
+    attempts: integer("attempts").notNull().default(1),
+    claimToken: uuid("claim_token"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    errorCode: text("error_code"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique("billing_webhook_events_provider_provider_event_id_event_type_key").on(
+      table.provider,
+      table.providerEventId,
+      table.eventType,
+    ),
+    check("billing_webhook_events_provider_check", sql`${table.provider} in ('stripe', 'asaas')`),
+    check("billing_webhook_events_status_check", sql`${table.status} in ('processing', 'completed', 'failed')`),
+    check("billing_webhook_events_attempts_check", sql`${table.attempts} > 0`),
+    check(
+      "billing_webhooks_processing_claim_check",
+      sql`${table.status} <> 'processing' or (${table.claimToken} is not null and ${table.leaseExpiresAt} is not null)`,
+    ),
+  ],
+);
+
 export type Plan = typeof plans.$inferSelect;
 export type Module = typeof modules.$inferSelect;
 export type Coupon = typeof coupons.$inferSelect;
@@ -147,3 +248,5 @@ export type Subscription = typeof subscriptions.$inferSelect;
 export type SubscriptionModule = typeof subscriptionModules.$inferSelect;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
+export type BillingOperation = typeof billingOperations.$inferSelect;
+export type BillingWebhookEvent = typeof billingWebhookEvents.$inferSelect;

@@ -6,19 +6,19 @@ Expo has changed significantly across versions — see @AGENTS.md and the versio
 
 ## Stack and conventions
 
-- **Identity**: Paper MD3 themes are GENERATED from `@flyee/design-tokens` in `src/theme/index.ts` (4 color themes × light/dark, same hues as web). Never hardcode colors; dimensions come from the `native` tokens export (`RADIUS`, `MOTION`, `GRID` = 8pt grid, `TOUCH_TARGET` = 44).
+- **Identity**: Paper MD3 themes are GENERATED from `@flyee/design-tokens` in `src/theme/index.ts` (the single MedChina Teal/Camel identity × light/dark). Never hardcode colors; dimensions come from the `native` tokens export (`RADIUS`, `MOTION`, `GRID` = 8pt grid, `TOUCH_TARGET` = 44).
 - **Components**: React Native Paper first; custom components read `useTheme()`.
 - **Navigation**: expo-router — routes in `app/`, `_layout.tsx` stacks, bottom `Tabs` for primary destinations, kebab-case filenames.
 - **i18n**: `use-intl` with the shared catalogs from `@flyee/content/messages/*` (same keys/ICU as web's next-intl). App-shell strings live in the `mobile` namespace; locale names in `dashboard`. Every string goes through messages.
 - **Auth**: `@flyee/auth/native` (supabase-js + AsyncStorage) wired in `src/lib/supabase.ts` reading `EXPO_PUBLIC_SUPABASE_URL/ANON_KEY`. Without env the app stays browsable with a hint (same rule as web).
 - **Icons**: `@/icons/nexture/ni-*` RN adapters (react-native-svg) — port more with `node scripts/port-icons.mjs ni-name` (see `src/icons/README.md`).
-- **Settings**: theme color / mode / locale persisted in AsyncStorage (`src/providers/settings.tsx`), defaults mirror web (`green` — the locked MedChina Teal/Camel palette, `system`, `pt-BR`) in `src/config.ts` — keep in sync with `apps/web/src/config.ts`.
+- **Settings**: theme mode / locale persisted in AsyncStorage (`src/providers/settings.tsx`), defaults mirror web (`system`, `pt-BR`) in `src/config.ts` — keep in sync with `apps/web/src/config.ts`.
 - **Path alias**: `@/*` → `./src/*`.
 
 ## Capture flow (the app's product, PRD §11)
 
 - Routes: `(app)/index.tsx` = **today's consultations** (the home — reads `scheduled`/`in_progress` for today; the web agenda, PRD §9.3, is what fills it), `(app)/consulta/[id].tsx` = **Modo Consulta** (hidden from the tab bar with `href: null`; its header title is set per patient).
-- Data access is `src/lib/clinical.ts` (today's list, `has_active_consent`, `org_audio_allowance`). The app **verifies**, it never grants or sells: consent is granted on the web with the patient present (PRD §9.5), and the app NEVER starts a trial or takes payment (PRD §4.4, store policy) — with no allowance it states the fact and points to the web.
+- Data access is `src/lib/clinical.ts` (today's list, `has_active_consent`, `org_audio_allowance`). Consent is granted on the web with the patient present (PRD §9.5). On the first eligible online AI capture, the server may atomically grant the free promotional allowance; this is an operational entitlement, with no plan, price, card, renewal, checkout, purchase link or commercial trial UI in the app. When no allowance is available, the app states only that capture is unavailable; contracting remains web-only (PRD §4.4, store policy).
 - **Upload queue** (`src/lib/recording-queue.ts`, PRD §11/§12.4): the audio is moved out of cache into `Paths.document/recordings` the instant recording stops, and the queue survives restarts — a bad connection must never cost a consultation. States the UI says out loud: `local` (phone only) → `uploading` → `uploaded` (server confirmed). The device copy is deleted **only after** the server confirms (HOME-SPEC §22.3). A retry resumes from where it stopped (the `recordings` row id is kept) instead of inserting twice. `blocked` = the DB guards refused (no consent / no minutes): the audio is KEPT and the reason shown — never silently discarded.
 - The database is the gate, not the app: the `recordings` insert is where consent (0022) and audio allowance (0024) triggers fire; the queue reads their errors rather than re-implementing the rules.
 - Recording uses `expo-audio` (`useAudioRecorder` + `RecordingPresets.HIGH_QUALITY` → `.m4a`, matching the queue's MIME); the microphone permission string is in `app.json`'s `expo-audio` plugin.

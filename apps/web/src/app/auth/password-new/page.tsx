@@ -1,7 +1,7 @@
 "use client";
 import { useFormik } from "formik";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import React, { useState } from "react";
 import * as yup from "yup";
@@ -28,6 +28,7 @@ import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 const InputErrorTooltip = ({ title }: { title: string }) => (
   <Box className="relative">
@@ -44,7 +45,9 @@ const InputErrorTooltip = ({ title }: { title: string }) => (
 
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("auth");
+  const next = sanitizeInternalNext(searchParams.get("next"), DEFAULTS.appRoot);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -71,10 +74,10 @@ export default function Page() {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({ password: values.password });
       if (error) {
-        setServerError(error.message);
+        setServerError(t("request-failed"));
         return;
       }
-      router.push(DEFAULTS.appRoot);
+      router.push(next);
       router.refresh();
     },
     validateOnBlur: false,
@@ -124,7 +127,7 @@ export default function Page() {
               className="flex flex-col"
             >
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label" className="flex flex-row">
+                <FormLabel component="label" htmlFor="password" className="flex flex-row">
                   {t("password")}
                   {formik.touched.password && formik.errors.password && (
                     <InputErrorTooltip title={formik.errors.password} />
@@ -177,7 +180,10 @@ export default function Page() {
 
             <Divider className="text-text-secondary my-0 text-sm"></Divider>
             <Typography variant="body1" className="text-text-secondary">
-              <Link href="/auth/sign-in" className="link-primary link-underline-hover">
+              <Link
+                href={`/auth/sign-in?next=${encodeURIComponent(next)}`}
+                className="link-primary link-underline-hover"
+              >
                 {t("sent-back")}
               </Link>
             </Typography>

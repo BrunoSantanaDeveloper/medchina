@@ -19,7 +19,7 @@ function baseUrl() {
   return process.env.ASAAS_BASE_URL ?? "https://api-sandbox.asaas.com/v3";
 }
 
-async function asaasFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function asaasFetch<T>(path: string, init?: RequestInit, idempotencyKey?: string): Promise<T> {
   const key = process.env.ASAAS_API_KEY;
   if (!key) throw new Error("ASAAS_API_KEY is not set");
   const response = await fetch(`${baseUrl()}${path}`, {
@@ -27,6 +27,7 @@ async function asaasFetch<T>(path: string, init?: RequestInit): Promise<T> {
     headers: {
       "Content-Type": "application/json",
       access_token: key,
+      ...(idempotencyKey ? { "asaas-idempotency-key": idempotencyKey } : {}),
       ...init?.headers,
     },
   });
@@ -39,7 +40,7 @@ async function asaasFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 
-async function ensureCustomer(email: string, name: string): Promise<string> {
+async function ensureCustomer(email: string, name: string, idempotencyKey: string): Promise<string> {
   const existing = await asaasFetch<{ data: { id: string }[] }>(
     `/customers?email=${encodeURIComponent(email)}&limit=1`,
   );
@@ -47,7 +48,7 @@ async function ensureCustomer(email: string, name: string): Promise<string> {
   const created = await asaasFetch<{ id: string }>("/customers", {
     method: "POST",
     body: JSON.stringify({ name, email }),
-  });
+  }, `${idempotencyKey}:customer`);
   return created.id;
 }
 
@@ -56,12 +57,13 @@ export class AsaasProvider implements PaymentProvider {
 
   async createCheckout(input: CheckoutInput): Promise<CheckoutResult> {
     const { plan, modules, coupon } = input;
-    const customerId = await ensureCustomer(input.customerEmail, input.orgName);
+    const customerId = await ensureCustomer(input.customerEmail, input.orgName, input.idempotencyKey);
 
     const metadata: CheckoutMetadata = {
       org_id: input.orgId,
       plan_id: plan.id,
       module_ids: modules.map((m) => m.id).join(","),
+      billing_operation_key: input.idempotencyKey,
       ...(coupon ? { coupon_id: coupon.id } : {}),
     };
     const externalReference = JSON.stringify(metadata);
@@ -88,7 +90,7 @@ export class AsaasProvider implements PaymentProvider {
           description: `${plan.name}${modules.length ? ` + ${modules.map((m) => m.name).join(", ")}` : ""}`,
           externalReference,
         }),
-      });
+      }, `${input.idempotencyKey}:subscription`);
 
       if (oneTimeCents > 0) {
         await asaasFetch("/payments", {
@@ -104,7 +106,7 @@ export class AsaasProvider implements PaymentProvider {
               .join(", ")}`,
             externalReference,
           }),
-        });
+        }, `${input.idempotencyKey}:addons`);
       }
 
       // Redirect the customer to the first payment's hosted invoice.
@@ -128,12 +130,35 @@ export class AsaasProvider implements PaymentProvider {
         description: plan.name,
         externalReference,
       }),
-    });
+    }, `${input.idempotencyKey}:payment`);
     return { url: payment.invoiceUrl, providerCustomerId: customerId };
   }
 
   async cancelSubscription(providerSubscriptionId: string): Promise<void> {
     await asaasFetch(`/subscriptions/${providerSubscriptionId}`, { method: "DELETE" });
+  }
+
+  // Asaas supports an endDate on the subscription. It stops future charge
+  // generation while the already paid period remains available in MedChina.
+  async scheduleCancellation(
+    providerSubscriptionId: string,
+    currentPeriodEnd?: Date,
+  ): Promise<{ currentPeriodEnd?: Date }> {
+    if (!currentPeriodEnd) return {};
+    const lastRenewalDate = new Date(currentPeriodEnd);
+    lastRenewalDate.setDate(lastRenewalDate.getDate() - 1);
+    await asaasFetch(`/subscriptions/${providerSubscriptionId}`, {
+      method: "PUT",
+      body: JSON.stringify({ endDate: isoDate(lastRenewalDate) }),
+    });
+    return { currentPeriodEnd };
+  }
+
+  async resumeSubscription(providerSubscriptionId: string): Promise<void> {
+    await asaasFetch(`/subscriptions/${providerSubscriptionId}`, {
+      method: "PUT",
+      body: JSON.stringify({ endDate: null }),
+    });
   }
 
   async parseWebhook(rawBody: string, headers: Record<string, string | null>): Promise<BillingEvent[]> {
@@ -144,6 +169,7 @@ export class AsaasProvider implements PaymentProvider {
     }
 
     const event = JSON.parse(rawBody) as {
+      id?: string;
       event: string;
       payment?: {
         id: string;
@@ -159,6 +185,7 @@ export class AsaasProvider implements PaymentProvider {
     const events: BillingEvent[] = [];
     const payment = event.payment;
     if (!payment) return events;
+    const providerEventId = event.id ?? `${event.event}:${payment.id}`;
 
     let metadata: Partial<CheckoutMetadata> = {};
     try {
@@ -171,6 +198,7 @@ export class AsaasProvider implements PaymentProvider {
       case "PAYMENT_CONFIRMED":
       case "PAYMENT_RECEIVED": {
         events.push({
+          providerEventId,
           type: "payment_succeeded",
           provider: "asaas",
           metadata,
@@ -185,6 +213,7 @@ export class AsaasProvider implements PaymentProvider {
         // Asaas has no separate "subscription active" webhook.
         if (payment.subscription) {
           events.push({
+            providerEventId,
             type: "subscription_activated",
             provider: "asaas",
             metadata,
@@ -197,6 +226,7 @@ export class AsaasProvider implements PaymentProvider {
       }
       case "PAYMENT_OVERDUE": {
         events.push({
+          providerEventId,
           type: "payment_failed",
           provider: "asaas",
           metadata,
@@ -210,6 +240,7 @@ export class AsaasProvider implements PaymentProvider {
       case "SUBSCRIPTION_DELETED": {
         if (payment.subscription) {
           events.push({
+            providerEventId,
             type: "subscription_canceled",
             provider: "asaas",
             providerSubscriptionId: payment.subscription,

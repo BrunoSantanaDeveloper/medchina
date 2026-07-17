@@ -1,7 +1,5 @@
 "use client";
 import Notifications from "../notifications/notifications";
-import Search from "../search/search";
-import Shortcuts from "../shortcuts/shortcuts";
 import User from "../user/user";
 import Link from "next/link";
 import * as React from "react";
@@ -11,6 +9,7 @@ import { Box, Button } from "@mui/material";
 
 import { useLayoutContext } from "@/components/layout/layout-context";
 import Logo from "@/components/logo/logo";
+import CommandPalette from "@/components/product/command-palette";
 import NiMenuSplit from "@/icons/nexture/ni-menu-split";
 import { cn } from "@/lib/utils";
 
@@ -73,9 +72,8 @@ export default function Header() {
 
         {/* Right buttons */}
         <Box className="ml-auto flex flex-row sm:gap-1">
-          <Search />
+          <CommandPalette />
           <Notifications />
-          <Shortcuts />
         </Box>
 
         {/* User Avatar and Menu */}

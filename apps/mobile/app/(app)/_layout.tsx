@@ -1,6 +1,7 @@
-import { Redirect, Tabs } from "expo-router";
-import { ActivityIndicator, useTheme } from "react-native-paper";
+import { Redirect, Tabs, usePathname } from "expo-router";
+import { ActivityIndicator, Button, Text, useTheme } from "react-native-paper";
 import { View } from "react-native";
+import { useEffect } from "react";
 import { useTranslations } from "use-intl";
 
 import NiHome from "@/icons/nexture/ni-home";
@@ -10,9 +11,16 @@ import { useSession } from "@/providers/session";
 export default function AppLayout() {
   const t = useTranslations("mobile");
   const theme = useTheme();
-  const { session, loading, isSupabaseConfigured } = useSession();
+  const pathname = usePathname();
+  const { session, loading, isSupabaseConfigured, assurance, needsMfa, localUnlocked, unlockLocally, setPendingPath } = useSession();
 
-  if (loading) {
+  useEffect(() => {
+    if (needsMfa && /^\/consulta\/[0-9a-f-]+$/i.test(pathname)) {
+      void setPendingPath(pathname as `/consulta/${string}`);
+    }
+  }, [needsMfa, pathname, setPendingPath]);
+
+  if (loading || (session && assurance === "unknown")) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
@@ -22,6 +30,22 @@ export default function AppLayout() {
 
   // Without Supabase env the template stays browsable (same rule as web).
   if (isSupabaseConfigured && !session) return <Redirect href="/sign-in" />;
+  if (session && needsMfa) {
+    return <Redirect href="/two-factor" />;
+  }
+  if (session && !localUnlocked) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+        <Text variant="titleLarge">{t("unlock-title")}</Text>
+        <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}>
+          {t("unlock-hint")}
+        </Text>
+        <Button mode="contained" onPress={() => void unlockLocally()}>
+          {t("unlock-action")}
+        </Button>
+      </View>
+    );
+  }
 
   return (
     <Tabs

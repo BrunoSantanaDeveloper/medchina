@@ -56,8 +56,9 @@ export type TranscriptionRunResult = { ok: true; segments: number } | { ok: fals
 
 /**
  * Download + transcribe + persist one transcriptions row. Idempotent.
- * When the row has delete_audio_after, the source audio is removed from
- * storage as soon as the transcript is stored (retention by design).
+ * Source audio is deliberately retained when the transcript becomes ready.
+ * A separate professional validation + deletion request is the retention
+ * boundary; a provider response alone must never destroy clinical evidence.
  * Runs under whatever client it is given (Inngest job: service role;
  * inline fallback: the user's client, RLS applies).
  */
@@ -67,7 +68,7 @@ export async function processTranscription(
 ): Promise<TranscriptionRunResult> {
   const { data: row, error: loadError } = await supabase
     .from("transcriptions")
-    .select("id, audio_path, mime, delete_audio_after")
+    .select("id, audio_path, mime")
     .eq("id", transcriptionId)
     .maybeSingle();
   if (loadError || !row) return { ok: false, error: loadError?.message ?? "Transcription not found." };
@@ -76,22 +77,13 @@ export async function processTranscription(
   await supabase.from("transcriptions").update({ status: "processing", error: null }).eq("id", transcriptionId);
 
   try {
-    const { data: blob, error: downloadError } = await supabase.storage
-      .from("transcriptions")
-      .download(row.audio_path);
+    const { data: blob, error: downloadError } = await supabase.storage.from("transcriptions").download(row.audio_path);
     if (downloadError || !blob) throw new Error(downloadError?.message ?? "Audio download failed.");
 
     const dataBase64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
     const result = await transcribeAudio(row.mime, dataBase64);
 
     await supabase.from("transcriptions").update({ status: "ready", result }).eq("id", transcriptionId);
-
-    if (row.delete_audio_after) {
-      const { error: removeError } = await supabase.storage.from("transcriptions").remove([row.audio_path]);
-      if (!removeError) {
-        await supabase.from("transcriptions").update({ audio_path: null }).eq("id", transcriptionId);
-      }
-    }
 
     return { ok: true, segments: result.segments.length };
   } catch (error) {

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import React, { useState } from "react";
 
@@ -9,10 +9,14 @@ import { Alert, Box, Button, Divider, FormControl, FormLabel, Input, Paper, Typo
 import Logo from "@/components/logo/logo";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("auth");
+  const requestedNext = searchParams.get("next");
+  const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
   const [email, setEmail] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -24,11 +28,13 @@ export default function Page() {
       return;
     }
     const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/password-new`,
-    });
+    const passwordNew = new URL("/auth/password-new", window.location.origin);
+    if (next) passwordNew.searchParams.set("next", next);
+    const callback = new URL("/auth/callback", window.location.origin);
+    callback.searchParams.set("next", `${passwordNew.pathname}${passwordNew.search}`);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: callback.toString() });
     if (error) {
-      setServerError(error.message);
+      setServerError(t("request-failed"));
       return;
     }
     router.push("/auth/password-sent");
@@ -54,8 +60,17 @@ export default function Page() {
 
             <Box component="form" onSubmit={handleSubmit} className="flex flex-col">
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label">{t("email")}</FormLabel>
-                <Input id="email" name="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+                <FormLabel component="label" htmlFor="email">
+                  {t("email")}
+                </FormLabel>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
               </FormControl>
 
               {serverError && (
@@ -72,7 +87,10 @@ export default function Page() {
             <Divider className="text-text-secondary my-0 text-sm"></Divider>
             <Box className="flex flex-col">
               <Typography variant="body1" className="text-text-secondary">
-                <Link href="/auth/sign-in" className="link-primary link-underline-hover">
+                <Link
+                  href={`/auth/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}
+                  className="link-primary link-underline-hover"
+                >
                   {t("sent-back")}
                 </Link>
               </Typography>

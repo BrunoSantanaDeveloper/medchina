@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -23,6 +23,7 @@ import NiListCheck from "@/icons/nexture/ni-list-check";
 import { type FieldDescriptor, type FieldKind, PLAN_MODALITIES, PLAN_STRATEGIES } from "@/lib/plan-modalities";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
 type Modality = Record<string, unknown>;
 type SafetyFlag = { category: string; matchedText: string; fieldKey?: string };
@@ -43,8 +44,12 @@ type Plan = {
   safetyFlags: SafetyFlag[];
   sources: Source[];
   status: "draft" | "validated";
+  origin: "manual" | "ai";
+  updatedAt: string;
   model: string | null;
+  staleAt: string | null;
 };
+type PlanData = { plan: Plan; documents: IssuedDocument[] };
 
 /**
  * The therapeutic plan (PRD §10.9) — the Pro layer's deliverable, built on the
@@ -71,87 +76,131 @@ export default function PlanPanel({
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
-  const [plan, setPlan] = useState<Plan | null | undefined>(undefined);
+  const [planState, setPlanState] = useState<RemoteState<PlanData, "load_failed">>(() => remoteLoading());
+  const planRef = useRef<PlanData | undefined>(undefined);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<{ objective: string; modalities: Record<string, Modality> } | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
-  const [documents, setDocuments] = useState<IssuedDocument[]>([]);
+  const issueKey = useRef<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setPlan(null);
-      return;
-    }
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("consultation_plans")
-      .select("id, objective, modalities, safety_flags, sources, status, model")
-      .eq("consultation_id", consultationId)
-      .maybeSingle();
-    setPlan(
-      data
-        ? {
-            id: data.id,
-            objective: data.objective ?? "",
-            modalities: (data.modalities ?? {}) as Record<string, Modality>,
-            safetyFlags: (data.safety_flags ?? []) as SafetyFlag[],
-            sources: (data.sources ?? []) as Source[],
-            status: data.status,
-            model: data.model,
-          }
-        : null,
-    );
+  const load = useCallback(
+    async (preservePrevious = true) => {
+      if (!preservePrevious) planRef.current = undefined;
+      const previous = preservePrevious ? planRef.current : undefined;
+      setPlanState(remoteLoading(previous));
+      if (!isSupabaseConfigured) {
+        planRef.current = undefined;
+        setPlanState(remoteEmpty());
+        return;
+      }
+      const supabase = createClient();
+      const { data, error: planError } = await supabase
+        .from("consultation_plans")
+        .select("id, objective, modalities, safety_flags, sources, status, origin, updated_at, model, stale_at")
+        .eq("consultation_id", consultationId)
+        .maybeSingle();
+      if (planError) {
+        setPlanState(remoteError("load_failed", previous));
+        return;
+      }
+      if (!data) {
+        planRef.current = undefined;
+        setPlanState(remoteEmpty());
+        return;
+      }
+      const plan: Plan = {
+        id: data.id,
+        objective: data.objective ?? "",
+        modalities: (data.modalities ?? {}) as Record<string, Modality>,
+        safetyFlags: (data.safety_flags ?? []) as SafetyFlag[],
+        sources: (data.sources ?? []) as Source[],
+        status: data.status,
+        origin: data.origin,
+        updatedAt: data.updated_at,
+        model: data.model,
+        staleAt: data.stale_at,
+      };
 
-    // Documents already issued from this plan (PRD §9.8) — newest first.
-    if (data) {
-      const { data: docs } = await supabase
+      // Documents already issued from this plan (PRD §9.8) — newest first.
+      const { data: docs, error: documentsError } = await supabase
         .from("documents")
         .select("id, version, verify_code, status, issued_at, storage_path")
         .eq("kind", "therapeutic-plan")
-        .contains("payload", { planId: data.id })
+        .eq("source_type", "consultation_plan")
+        .eq("source_id", data.id)
         .order("version", { ascending: false });
-      setDocuments(
-        (docs ?? []).map((doc) => ({
-          id: doc.id,
-          version: doc.version,
-          verifyCode: doc.verify_code,
-          status: doc.status,
-          issuedAt: doc.issued_at,
-          storagePath: doc.storage_path,
-        })),
-      );
-    } else {
-      setDocuments([]);
-    }
-  }, [consultationId]);
+      const documents = documentsError
+        ? previous?.plan.id === plan.id
+          ? previous.documents
+          : []
+        : (docs ?? []).map((doc) => ({
+            id: doc.id,
+            version: doc.version,
+            verifyCode: doc.verify_code,
+            status: doc.status,
+            issuedAt: doc.issued_at,
+            storagePath: doc.storage_path,
+          }));
+      const next = { plan, documents };
+      planRef.current = next;
+      setPlanState(documentsError ? remoteError("load_failed", next) : remoteSuccess(next));
+    },
+    [consultationId],
+  );
 
   useEffect(() => {
-    load();
+    void load(false);
   }, [load]);
 
-  const prepare = async () => {
+  const prepare = async (replaceManual = false) => {
     setBusy(true);
-    setError(null);
+    setActionError(null);
     try {
-      const response = await fetch(`/api/consultations/${consultationId}/plan`, { method: "POST" });
+      const response = await fetch(`/api/consultations/${consultationId}/plan`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ replaceManual }),
+      });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(
-          body.error === "reasoning_not_available"
+        const code = body?.error?.code ?? body?.error;
+        setActionError(
+          code === "reasoning_not_available"
             ? t("plan-not-available")
-            : body.error === "plan_validated"
+            : code === "plan_validated"
               ? t("plan-already-validated")
-              : body.error === "nothing_recorded"
+              : code === "nothing_recorded"
                 ? t("plan-nothing-recorded")
-                : (body.error ?? t("plan-error")),
+                : code === "accepted_hypothesis_required"
+                  ? t("plan-accepted-hypothesis-required")
+                  : code === "manual_plan_exists"
+                    ? t("plan-manual-kept")
+                    : t("plan-error"),
         );
         return;
       }
-      await load();
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : t("plan-error"));
+      await load(true);
+    } catch {
+      setActionError(t("plan-error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createManual = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/plan/manual`, { method: "POST" });
+      if (!response.ok) {
+        setActionError(t("plan-error"));
+        return;
+      }
+      await load(true);
+    } catch {
+      setActionError(t("plan-error"));
     } finally {
       setBusy(false);
     }
@@ -166,56 +215,93 @@ export default function PlanPanel({
   const saveEdit = async () => {
     if (!plan || !draft) return;
     setBusy(true);
-    const supabase = createClient();
-    // Editing a validated plan returns it to draft — the previous validation
-    // was of a different plan (PRD §10.10: her action validates a plan).
-    await supabase
-      .from("consultation_plans")
-      .update({
-        objective: draft.objective,
-        modalities: draft.modalities,
-        status: "draft",
-        validated_by: null,
-        validated_at: null,
-      })
-      .eq("id", plan.id);
-    setEditing(false);
-    setDraft(null);
-    setBusy(false);
-    await load();
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/plan`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          objective: draft.objective,
+          modalities: draft.modalities,
+          expectedUpdatedAt: plan.updatedAt,
+        }),
+      });
+      if (!response.ok) {
+        setActionError(t("plan-conflict"));
+        return;
+      }
+      setEditing(false);
+      setDraft(null);
+      await load(true);
+    } catch {
+      setActionError(t("plan-error"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const validate = async () => {
     if (!plan) return;
     setBusy(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    await supabase
-      .from("consultation_plans")
-      .update({ status: "validated", validated_by: user?.id ?? null, validated_at: new Date().toISOString() })
-      .eq("id", plan.id);
-    setBusy(false);
-    setAcknowledged(false);
-    await load();
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/plan`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          planId: plan.id,
+          expectedUpdatedAt: plan.updatedAt,
+          acknowledgeSafety: acknowledged,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const code = body?.error?.code ?? body?.error;
+        setActionError(code === "plan_stale" ? t("plan-stale") : t("plan-conflict"));
+        return;
+      }
+      setAcknowledged(false);
+      await load(true);
+    } catch {
+      setActionError(t("plan-error"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const issue = async () => {
+    const nextVersion = (documents[0]?.version ?? 0) + 1;
+    if (documents.length > 0 && !window.confirm(t("plan-reissue-confirm", { version: nextVersion }))) return;
     setBusy(true);
-    setError(null);
+    setActionError(null);
     try {
-      const response = await fetch(`/api/consultations/${consultationId}/plan/issue`, { method: "POST" });
+      issueKey.current ??= crypto.randomUUID();
+      const response = await fetch(`/api/consultations/${consultationId}/plan/issue`, {
+        method: "POST",
+        headers: {
+          "idempotency-key": issueKey.current,
+          ...(documents.length > 0 ? { "confirm-version": String(nextVersion) } : {}),
+        },
+      });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(
-          body.error === "plan_not_validated" ? t("plan-issue-need-validate") : (body.error ?? t("plan-issue-error")),
+        const code = body?.error?.code ?? body?.error;
+        setActionError(
+          code === "plan_not_validated"
+            ? t("plan-issue-need-validate")
+            : code === "document_profile_incomplete"
+              ? t("plan-issue-profile-incomplete")
+              : code === "document_reissue_confirmation_required"
+                ? t("plan-issue-version-conflict")
+                : t("plan-issue-error"),
         );
         return;
       }
-      await load();
-    } catch (fetchError) {
-      setError(fetchError instanceof Error ? fetchError.message : t("plan-issue-error"));
+      issueKey.current = null;
+      await load(true);
+    } catch {
+      setActionError(t("plan-issue-error"));
     } finally {
       setBusy(false);
     }
@@ -223,19 +309,43 @@ export default function PlanPanel({
 
   const download = async (doc: IssuedDocument) => {
     if (!doc.storagePath) return;
-    const supabase = createClient();
-    // The documents bucket is private; a short-lived signed URL is RLS-gated to
-    // members (migration 0006), so this never exposes another org's file.
-    const { data } = await supabase.storage.from("documents").createSignedUrl(doc.storagePath, 120);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank", "noopener");
+    setActionError(null);
+    try {
+      const supabase = createClient();
+      // The documents bucket is private; a short-lived signed URL is RLS-gated to
+      // members (migration 0006), so this never exposes another org's file.
+      const { data, error: downloadError } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(doc.storagePath, 120);
+      if (downloadError || !data?.signedUrl) {
+        setActionError(t("plan-download-error"));
+        return;
+      }
+      window.open(data.signedUrl, "_blank", "noopener");
+    } catch {
+      setActionError(t("plan-download-error"));
+    }
   };
 
-  if (plan === undefined) return null;
+  const resource =
+    planState.status === "success"
+      ? planState.data
+      : planState.status === "loading" || planState.status === "error"
+        ? planState.previous
+        : undefined;
+  const plan = resource?.plan ?? null;
+  const documents = resource?.documents ?? [];
+  const initialLoading = planState.status === "loading" && !resource;
+  const loadFailed = planState.status === "error";
+  const refreshing = planState.status === "loading" && Boolean(resource);
 
-  // Nothing to show and nothing to sell here without the Pro layer (PRD §7.4).
-  if (!plan && !canReason) return null;
+  if (initialLoading) return <CircularProgress size={24} aria-label={t("loading")} />;
 
-  const activeModalities = plan ? PLAN_MODALITIES.filter((m) => plan.modalities[m.slug]?.enabled) : [];
+  const activeModalities = plan
+    ? editing
+      ? PLAN_MODALITIES
+      : PLAN_MODALITIES.filter((modality) => plan.modalities[modality.slug]?.enabled)
+    : [];
   const mustAcknowledge = (plan?.safetyFlags.length ?? 0) > 0;
 
   return (
@@ -256,25 +366,49 @@ export default function PlanPanel({
           )}
         </Box>
 
-        {error && (
-          <Alert severity="warning" className="neutral bg-background-paper/60!">
-            {error}
+        {loadFailed && (
+          <Alert
+            severity="error"
+            className="neutral bg-background-paper/60!"
+            action={<Button onClick={() => void load(true)}>{t("retry")}</Button>}
+          >
+            {t("plan-load-error")}
           </Alert>
         )}
 
-        {!plan ? (
+        {actionError && (
+          <Alert severity="warning" className="neutral bg-background-paper/60!">
+            {actionError}
+          </Alert>
+        )}
+
+        {refreshing && <CircularProgress size={18} aria-label={t("loading")} />}
+
+        {loadFailed && !resource ? null : !plan ? (
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("plan-empty")}
             </Typography>
-            {!isFinalized && canReason && (
-              <Button variant="contained" color="primary" onClick={prepare} disabled={busy} className="self-start">
-                {busy ? <CircularProgress size={18} /> : t("plan-prepare")}
-              </Button>
+            {!isFinalized && (
+              <Box className="flex flex-row flex-wrap gap-2">
+                <Button variant="contained" color="primary" onClick={createManual} disabled={busy}>
+                  {busy ? <CircularProgress size={18} /> : t("plan-create-manual")}
+                </Button>
+                {canReason && (
+                  <Button variant="outlined" color="primary" onClick={() => prepare()} disabled={busy}>
+                    {t("plan-prepare")}
+                  </Button>
+                )}
+              </Box>
             )}
           </>
         ) : (
           <>
+            {plan.staleAt && (
+              <Alert severity="warning" className="neutral bg-background-paper/60!">
+                {t("plan-stale")}
+              </Alert>
+            )}
             {/* Contraindications first, in amber, never hidden (PRD §10.10). */}
             {plan.safetyFlags.length > 0 && (
               <Alert severity="warning" className="neutral bg-background-paper/60! flex flex-col gap-1">
@@ -315,7 +449,11 @@ export default function PlanPanel({
                 key={modality.slug}
                 slug={modality.slug}
                 fields={modality.fields}
-                data={(editing ? draft?.modalities[modality.slug] : plan.modalities[modality.slug]) as Modality}
+                data={
+                  ((editing ? draft?.modalities[modality.slug] : plan.modalities[modality.slug]) ?? {
+                    enabled: false,
+                  }) as Modality
+                }
                 editing={editing}
                 t={t}
                 onChange={(next) =>
@@ -383,8 +521,8 @@ export default function PlanPanel({
                       <Button variant="outlined" color="grey" onClick={startEdit} disabled={busy}>
                         {t("plan-edit")}
                       </Button>
-                      {canReason && plan.status === "draft" && (
-                        <Button variant="text" color="grey" onClick={prepare} disabled={busy}>
+                      {canReason && plan.status === "draft" && plan.origin === "ai" && (
+                        <Button variant="text" color="grey" onClick={() => prepare()} disabled={busy}>
                           {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
                         </Button>
                       )}
@@ -466,27 +604,40 @@ function ModalityCard({
   onChange: (next: Modality) => void;
 }) {
   const set = (key: string, value: unknown) => onChange({ ...data, [key]: value });
+  const enabled = data?.enabled === true;
 
   return (
     <Box className="border-grey-100 flex flex-col gap-2 rounded-2xl border px-3.5 py-3">
-      <Typography variant="body1" className="text-text-primary font-semibold">
-        {t(`plan-modality-${slug}`)}
-      </Typography>
-      {fields.map((field) => {
-        const raw = data?.[field.key];
-        return (
-          <Box key={field.key} className="flex flex-col gap-1">
-            <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-              {t(field.label)}
+      {editing ? (
+        <FormControlLabel
+          control={<Checkbox checked={enabled} onChange={(event) => set("enabled", event.target.checked)} />}
+          label={
+            <Typography variant="body1" className="text-text-primary font-semibold">
+              {t(`plan-modality-${slug}`)}
             </Typography>
-            {editing ? (
-              <FieldEditor kind={field.kind} value={raw} t={t} onChange={(value) => set(field.key, value)} />
-            ) : (
-              <FieldView kind={field.kind} value={raw} t={t} />
-            )}
-          </Box>
-        );
-      })}
+          }
+        />
+      ) : (
+        <Typography variant="body1" className="text-text-primary font-semibold">
+          {t(`plan-modality-${slug}`)}
+        </Typography>
+      )}
+      {(!editing || enabled) &&
+        fields.map((field) => {
+          const raw = data?.[field.key];
+          return (
+            <Box key={field.key} className="flex flex-col gap-1">
+              <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+                {t(field.label)}
+              </Typography>
+              {editing ? (
+                <FieldEditor kind={field.kind} value={raw} t={t} onChange={(value) => set(field.key, value)} />
+              ) : (
+                <FieldView kind={field.kind} value={raw} t={t} />
+              )}
+            </Box>
+          );
+        })}
     </Box>
   );
 }

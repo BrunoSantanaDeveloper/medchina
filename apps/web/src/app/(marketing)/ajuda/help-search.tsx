@@ -16,7 +16,7 @@ export type SearchableArticle = {
 
 /**
  * Client-side help search over the published articles the server already
- * fetched â€” instant, no extra API. Results replace nothing: the category
+ * fetched — instant, no extra API. Results replace nothing: the category
  * grid below stays put, this only overlays matches while typing.
  */
 export default function HelpSearch({
@@ -65,7 +65,7 @@ export default function HelpSearch({
               <span className="text-text-primary font-medium">{article.title}</span>
               <span className="text-text-secondary text-sm">
                 {article.category}
-                {article.excerpt ? ` â€” ${article.excerpt}` : ""}
+                {article.excerpt ? ` — ${article.excerpt}` : ""}
               </span>
             </Link>
           ))}

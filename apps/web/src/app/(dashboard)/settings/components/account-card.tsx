@@ -1,6 +1,7 @@
 "use client";
 
 import { useFormik } from "formik";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import * as Yup from "yup";
 
@@ -29,77 +30,48 @@ const InputErrorTooltip = ({ title }: { title: string }) => (
   </Tooltip>
 );
 
-const emailSchema = Yup.object({
-  email: Yup.string().email("Enter a valid email").required("Email is required"),
-});
-
-const passwordSchema = Yup.object({
-  password: Yup.string().min(8, "At least 8 characters").required("Password is required"),
-  confirm: Yup.string()
-    .oneOf([Yup.ref("password")], "Passwords must match")
-    .required("Confirm the new password"),
-});
-
-/**
- * Real account credentials: change the sign-in email (Supabase sends a
- * confirmation to both addresses) and the password. 2FA lives in
- * /settings/security.
- */
 export default function AccountCard() {
+  const t = useTranslations("product");
   const [currentEmail, setCurrentEmail] = useState("");
   const [emailStatus, setEmailStatus] = useState<"sent" | "error" | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordStatus, setPasswordStatus] = useState<"saved" | "error" | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
-    const load = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      setCurrentEmail(user?.email ?? "");
-    };
-    load();
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setCurrentEmail(data.user?.email ?? ""));
   }, []);
 
   const emailForm = useFormik({
     initialValues: { email: "" },
-    validationSchema: emailSchema,
+    validationSchema: Yup.object({
+      email: Yup.string().email(t("settings-email-invalid")).required(t("settings-email-required")),
+    }),
     validateOnBlur: false,
     validateOnMount: false,
     onSubmit: async (values, helpers) => {
       setEmailStatus(null);
-      setEmailError(null);
-      const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ email: values.email.trim() });
-      if (error) {
-        setEmailStatus("error");
-        setEmailError(error.message);
-        return;
-      }
-      setEmailStatus("sent");
-      helpers.resetForm();
+      const { error } = await createClient().auth.updateUser({ email: values.email.trim() });
+      setEmailStatus(error ? "error" : "sent");
+      if (!error) helpers.resetForm();
     },
   });
 
   const passwordForm = useFormik({
     initialValues: { password: "", confirm: "" },
-    validationSchema: passwordSchema,
+    validationSchema: Yup.object({
+      password: Yup.string().min(8, t("settings-password-min")).required(t("settings-password-required")),
+      confirm: Yup.string()
+        .oneOf([Yup.ref("password")], t("settings-password-match"))
+        .required(t("settings-confirm-required")),
+    }),
     validateOnBlur: false,
     validateOnMount: false,
     onSubmit: async (values, helpers) => {
       setPasswordStatus(null);
-      setPasswordError(null);
-      const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password: values.password });
-      if (error) {
-        setPasswordStatus("error");
-        setPasswordError(error.message);
-        return;
-      }
-      setPasswordStatus("saved");
-      helpers.resetForm();
+      const { error } = await createClient().auth.updateUser({ password: values.password });
+      setPasswordStatus(error ? "error" : "saved");
+      if (!error) helpers.resetForm();
     },
   });
 
@@ -108,24 +80,16 @@ export default function AccountCard() {
       <Card component="section">
         <CardContent>
           <Typography variant="h5" component="h2" className="card-title">
-            Account
+            {t("settings-account-title")}
           </Typography>
 
           <Box component="form" onSubmit={emailForm.handleSubmit} className="mb-8 flex max-w-md flex-col gap-3">
-            <Typography variant="subtitle2">Sign-in email</Typography>
-            {emailStatus === "sent" && (
-              <Alert severity="success" className="neutral bg-background-paper/60!">
-                Confirmation sent — check both the old and the new inbox to finish the change.
-              </Alert>
-            )}
-            {emailStatus === "error" && (
-              <Alert severity="error" className="neutral bg-background-paper/60!">
-                {emailError ?? "Could not update the email."}
-              </Alert>
-            )}
+            <Typography variant="subtitle2">{t("settings-signin-email")}</Typography>
+            {emailStatus === "sent" && <Alert severity="success">{t("settings-email-confirmation")}</Alert>}
+            {emailStatus === "error" && <Alert severity="error">{t("settings-save-error")}</Alert>}
             <FormControl className="outlined" variant="standard" size="small" fullWidth>
-              <Box className="flex flex-row items-center">
-                <FormLabel component="label">New email</FormLabel>
+              <Box className="flex items-center">
+                <FormLabel component="label">{t("settings-new-email")}</FormLabel>
                 {emailForm.touched.email && emailForm.errors.email && (
                   <InputErrorTooltip title={emailForm.errors.email} />
                 )}
@@ -133,34 +97,26 @@ export default function AccountCard() {
               <Input
                 name="email"
                 type="email"
-                placeholder={currentEmail || "you@example.com"}
+                placeholder={currentEmail || "email@example.com"}
                 value={emailForm.values.email}
                 onChange={emailForm.handleChange}
                 onBlur={emailForm.handleBlur}
               />
             </FormControl>
             <Box>
-              <Button type="submit" variant="outlined" size="small" disabled={emailForm.isSubmitting}>
-                Change email
+              <Button type="submit" variant="outlined" disabled={emailForm.isSubmitting}>
+                {t("settings-change-email")}
               </Button>
             </Box>
           </Box>
 
           <Box component="form" onSubmit={passwordForm.handleSubmit} className="flex max-w-md flex-col gap-3">
-            <Typography variant="subtitle2">Password</Typography>
-            {passwordStatus === "saved" && (
-              <Alert severity="success" className="neutral bg-background-paper/60!">
-                Password updated.
-              </Alert>
-            )}
-            {passwordStatus === "error" && (
-              <Alert severity="error" className="neutral bg-background-paper/60!">
-                {passwordError ?? "Could not update the password."}
-              </Alert>
-            )}
+            <Typography variant="subtitle2">{t("settings-password")}</Typography>
+            {passwordStatus === "saved" && <Alert severity="success">{t("settings-password-saved")}</Alert>}
+            {passwordStatus === "error" && <Alert severity="error">{t("settings-save-error")}</Alert>}
             <FormControl className="outlined" variant="standard" size="small" fullWidth>
-              <Box className="flex flex-row items-center">
-                <FormLabel component="label">New password</FormLabel>
+              <Box className="flex items-center">
+                <FormLabel component="label">{t("settings-new-password")}</FormLabel>
                 {passwordForm.touched.password && passwordForm.errors.password && (
                   <InputErrorTooltip title={passwordForm.errors.password} />
                 )}
@@ -168,14 +124,15 @@ export default function AccountCard() {
               <Input
                 name="password"
                 type="password"
+                autoComplete="new-password"
                 value={passwordForm.values.password}
                 onChange={passwordForm.handleChange}
                 onBlur={passwordForm.handleBlur}
               />
             </FormControl>
             <FormControl className="outlined" variant="standard" size="small" fullWidth>
-              <Box className="flex flex-row items-center">
-                <FormLabel component="label">Confirm new password</FormLabel>
+              <Box className="flex items-center">
+                <FormLabel component="label">{t("settings-confirm-password")}</FormLabel>
                 {passwordForm.touched.confirm && passwordForm.errors.confirm && (
                   <InputErrorTooltip title={passwordForm.errors.confirm} />
                 )}
@@ -183,14 +140,15 @@ export default function AccountCard() {
               <Input
                 name="confirm"
                 type="password"
+                autoComplete="new-password"
                 value={passwordForm.values.confirm}
                 onChange={passwordForm.handleChange}
                 onBlur={passwordForm.handleBlur}
               />
             </FormControl>
             <Box>
-              <Button type="submit" variant="outlined" size="small" disabled={passwordForm.isSubmitting}>
-                Change password
+              <Button type="submit" variant="outlined" disabled={passwordForm.isSubmitting}>
+                {t("settings-change-password")}
               </Button>
             </Box>
           </Box>

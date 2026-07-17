@@ -51,6 +51,7 @@ export const PrimaryItem = memo(function PrimaryItem({ item, onSelect, isActive,
               }
             : undefined
         }
+        aria-current={selected ? "page" : undefined}
       >
         {item.icon && (
           <NextureIcons
@@ -117,6 +118,7 @@ export const PrimaryItem = memo(function PrimaryItem({ item, onSelect, isActive,
             )
           }
           aria-label={t(item.label)}
+          aria-current={selected ? "page" : undefined}
           {...(item.isExternalLink
             ? {
                 component: NextLink,

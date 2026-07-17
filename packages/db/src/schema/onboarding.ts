@@ -12,6 +12,7 @@ export const onboardingState = pgTable("onboarding_state", {
   orgId: uuid("org_id").references(() => organizations.id, { onDelete: "cascade" }),
   flow: text("flow").notNull(),
   completedSteps: jsonb("completed_steps").notNull().default([]),
+  selectedTrack: text("selected_track"),
   dismissed: boolean("dismissed").notNull().default(false),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

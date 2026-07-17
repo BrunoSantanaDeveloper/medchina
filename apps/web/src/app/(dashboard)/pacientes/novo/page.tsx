@@ -23,11 +23,13 @@ import {
   Typography,
 } from "@mui/material";
 
+import { PhoneField } from "@/components/product/fields";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { isValidPhoneBr, onlyDigits } from "@flyee/fields";
 
 /**
  * First patient (PRD §9.4 + activation step 2). The job is "get this person
@@ -50,6 +52,7 @@ export default function NovoPaciente() {
       .required(t("field-required"))
       .min(3, t("field-min", { count: 3 })),
     email: yup.string().email(t("field-email")),
+    phone: yup.string().test("phone", t("patient-phone-invalid"), (value) => !value || isValidPhoneBr(value)),
   });
 
   const formik = useFormik({
@@ -83,7 +86,7 @@ export default function NovoPaciente() {
           org_id: membership.org_id,
           full_name: values.fullName.trim(),
           birth_date: values.birthDate || null,
-          phone: values.phone.trim() || null,
+          phone: onlyDigits(values.phone) || null,
           email: values.email.trim() || null,
           notes: values.notes.trim() || null,
           alerts: alerts.map((label) => ({ label })),
@@ -93,7 +96,7 @@ export default function NovoPaciente() {
         .single();
 
       if (error) {
-        setServerError(error.message);
+        setServerError(t("patient-quick-error"));
         return;
       }
 
@@ -137,7 +140,9 @@ export default function NovoPaciente() {
           <CardContent>
             <Box component="form" onSubmit={formik.handleSubmit} className="flex flex-col gap-1">
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label">{t("patient-name")}</FormLabel>
+                <FormLabel component="label" htmlFor="fullName">
+                  {t("patient-name")}
+                </FormLabel>
                 <Input
                   id="fullName"
                   name="fullName"
@@ -152,7 +157,9 @@ export default function NovoPaciente() {
 
               <Box className="grid gap-x-4 sm:grid-cols-2">
                 <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label">{t("patient-birth")}</FormLabel>
+                  <FormLabel component="label" htmlFor="birthDate">
+                    {t("patient-birth")}
+                  </FormLabel>
                   <Input
                     id="birthDate"
                     name="birthDate"
@@ -162,14 +169,20 @@ export default function NovoPaciente() {
                   />
                 </FormControl>
 
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label">{t("patient-phone")}</FormLabel>
-                  <Input id="phone" name="phone" value={formik.values.phone} onChange={formik.handleChange} />
-                </FormControl>
+                <PhoneField
+                  name="phone"
+                  label={t("patient-phone")}
+                  value={formik.values.phone}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  invalidMessage={t("patient-phone-invalid")}
+                />
               </Box>
 
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label">{t("patient-email")}</FormLabel>
+                <FormLabel component="label" htmlFor="email">
+                  {t("patient-email")}
+                </FormLabel>
                 <Input id="email" name="email" value={formik.values.email} onChange={formik.handleChange} />
                 {formik.touched.email && formik.errors.email && (
                   <FormHelperText className="text-error">{formik.errors.email}</FormHelperText>
@@ -177,9 +190,12 @@ export default function NovoPaciente() {
               </FormControl>
 
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label">{t("patient-alerts")}</FormLabel>
+                <FormLabel component="label" htmlFor="alertDraft">
+                  {t("patient-alerts")}
+                </FormLabel>
                 <Box className="flex flex-row items-center gap-2">
                   <Input
+                    id="alertDraft"
                     fullWidth
                     value={alertDraft}
                     placeholder={t("patient-alerts-placeholder")}
@@ -191,7 +207,14 @@ export default function NovoPaciente() {
                       }
                     }}
                   />
-                  <Button variant="outlined" color="grey" className="icon-only flex-none" onClick={addAlert}>
+                  <Button
+                    type="button"
+                    variant="outlined"
+                    color="grey"
+                    className="icon-only flex-none"
+                    onClick={addAlert}
+                    aria-label={t("patient-add-alert")}
+                  >
                     <NiPlus size="small" />
                   </Button>
                 </Box>
@@ -210,7 +233,9 @@ export default function NovoPaciente() {
               </FormControl>
 
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label">{t("patient-notes")}</FormLabel>
+                <FormLabel component="label" htmlFor="notes">
+                  {t("patient-notes")}
+                </FormLabel>
                 <Input
                   id="notes"
                   name="notes"

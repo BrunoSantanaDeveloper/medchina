@@ -1,6 +1,6 @@
 "use client";
 import { useFormik } from "formik";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import * as yup from "yup";
@@ -25,6 +25,7 @@ import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 const InputErrorTooltip = ({ title }: { title: string }) => (
   <Box className="relative">
@@ -60,6 +61,7 @@ const slugify = (value: string) =>
  */
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("auth");
   const [ready, setReady] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -103,12 +105,13 @@ export default function Page() {
         org_slug: slug,
       });
       if (error) {
-        setServerError(error.message);
+        setServerError(t("request-failed"));
         return;
       }
 
       const destination = await resolvePostAuthDestination(supabase, user.id);
-      router.push(destination);
+      const requestedNext = searchParams.get("next");
+      router.push(requestedNext ? sanitizeInternalNext(requestedNext, destination) : destination);
       router.refresh();
     },
   });
@@ -137,7 +140,8 @@ export default function Page() {
         .limit(1)
         .maybeSingle();
       if (membership) {
-        router.replace(DEFAULTS.appRoot);
+        const requestedNext = searchParams.get("next");
+        router.replace(requestedNext ? sanitizeInternalNext(requestedNext, DEFAULTS.appRoot) : DEFAULTS.appRoot);
         return;
       }
       const meta = user.user_metadata ?? {};
@@ -146,7 +150,7 @@ export default function Page() {
       setReady(true);
     };
     check();
-  }, [router, resetForm]);
+  }, [router, resetForm, searchParams]);
 
   if (!ready) return null;
 
@@ -177,7 +181,7 @@ export default function Page() {
               className="flex flex-col"
             >
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label" className="flex flex-row">
+                <FormLabel component="label" htmlFor="name" className="flex flex-row">
                   {t("name")}
                   {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
                 </FormLabel>
@@ -191,7 +195,7 @@ export default function Page() {
               </FormControl>
 
               <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label" className="flex flex-row">
+                <FormLabel component="label" htmlFor="company" className="flex flex-row">
                   {t("practice")}
                   {formik.touched.company && formik.errors.company && (
                     <InputErrorTooltip title={formik.errors.company} />

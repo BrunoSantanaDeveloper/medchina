@@ -35,6 +35,8 @@ export interface CheckoutCoupon {
 }
 
 export interface CheckoutInput {
+  /** Stable caller key reused across retries and provider requests. */
+  idempotencyKey: string;
   orgId: string;
   orgName: string;
   customerEmail: string;
@@ -62,7 +64,7 @@ export interface CheckoutMetadata {
   [key: string]: string | undefined;
 }
 
-export type BillingEvent =
+export type BillingEvent = { providerEventId: string } & (
   | {
       type: "subscription_activated";
       provider: BillingProviderName;
@@ -96,11 +98,16 @@ export type BillingEvent =
       providerInvoiceId: string;
       amountCents: number;
       currency: string;
-    };
+    }
+);
 
 export interface PaymentProvider {
   readonly name: BillingProviderName;
   createCheckout(input: CheckoutInput): Promise<CheckoutResult>;
+  /** Keep access until the paid period ends; the caller persists the effective date. */
+  scheduleCancellation(providerSubscriptionId: string, currentPeriodEnd?: Date): Promise<{ currentPeriodEnd?: Date }>;
+  /** Undo a previously scheduled cancellation while the subscription is still active. */
+  resumeSubscription(providerSubscriptionId: string): Promise<void>;
   cancelSubscription(providerSubscriptionId: string): Promise<void>;
   /**
    * Verifies and parses a webhook request into normalized events.

@@ -14,10 +14,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * the server side of consumption: how much a recording actually cost, writing
  * it to the append-only ledger, and the 80/95/100% alerts.
  *
- * Consumption is recorded ONLY on success. A failed transcription produced
- * nothing the professional can use, so it consumes nothing — the reprocessing
- * policy is still open (PRD §24), and the safe default is not to charge for our
- * own failure.
+ * Consumption is recorded ONLY on success by the atomic
+ * `apply_recording_result` RPC. A failed clinical apply therefore cannot leave
+ * a ledger row, and a ready recording cannot exist without one.
  */
 
 export type { AudioAllowance };
@@ -100,36 +99,12 @@ async function alertOnConsumption(supabase: SupabaseClient, orgId: string, allow
   await notifyUsers(userIds, { type: "billing", title: reached, body, href: "/settings/billing" });
 }
 
-/**
- * Records what a processed recording consumed and fires any threshold alert.
- * Called by the pipeline AFTER a successful transcription — never before, and
- * never for a failure.
- *
- * The ledger only accepts service-role writes (migration 0024), which is why
- * this runs with the pipeline's client and never from the browser.
- */
-export async function recordAudioUsage(
-  supabase: SupabaseClient,
-  input: {
-    orgId: string;
-    recordingId: string;
-    transcriptionId: string;
-    seconds: number;
-    createdBy?: string | null;
-  },
-): Promise<void> {
-  if (input.seconds <= 0) return;
-
-  const { error } = await supabase.from("audio_usage").insert({
-    org_id: input.orgId,
-    recording_id: input.recordingId,
-    transcription_id: input.transcriptionId,
-    seconds: input.seconds,
-    kind: "transcription",
-    created_by: input.createdBy ?? null,
-  });
-  if (error) return;
-
-  const allowance = await getAudioAllowance(supabase, input.orgId);
-  if (allowance) await alertOnConsumption(supabase, input.orgId, allowance);
+/** Threshold delivery is intentionally best-effort after the atomic apply. */
+export async function alertAfterAudioUsage(supabase: SupabaseClient, orgId: string): Promise<void> {
+  try {
+    const allowance = await getAudioAllowance(supabase, orgId);
+    if (allowance) await alertOnConsumption(supabase, orgId, allowance);
+  } catch {
+    // A notification outage cannot roll back already committed clinical work.
+  }
 }

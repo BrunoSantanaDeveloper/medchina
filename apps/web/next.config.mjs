@@ -20,6 +20,7 @@ const nextConfig = {
     "@flyee/jobs",
     "@flyee/knowledge",
     "@flyee/connectors",
+    "@flyee/clinical",
     "@flyee/audit",
     "@flyee/documents",
     "@flyee/transcribe",
@@ -29,6 +30,21 @@ const nextConfig = {
   images: {
     formats: ["image/webp", "image/avif"],
     qualities: [90],
+  },
+  async headers() {
+    const patientConsentHeaders = [
+      { key: "Cache-Control", value: "no-store, max-age=0" },
+      { key: "Referrer-Policy", value: "no-referrer" },
+      { key: "X-Content-Type-Options", value: "nosniff" },
+      { key: "X-Frame-Options", value: "DENY" },
+      { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+      { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+    ];
+
+    return [
+      { source: "/consentir", headers: patientConsentHeaders },
+      { source: "/api/public/consent/:path*", headers: patientConsentHeaders },
+    ];
   },
 };
 

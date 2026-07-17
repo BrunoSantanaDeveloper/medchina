@@ -20,6 +20,23 @@ supabase db push            # or copy into supabase/migrations of the derived pr
 
 Or run them directly with psql against the project database.
 
+This derived project records applied files in `public.schema_migrations`. When
+Docker is not part of the development environment, the root commands below use
+the remote `DATABASE_URL` from `apps/web/.env` without printing credentials:
+
+```bash
+npm run db:plan:remote     # read-only list of pending migrations
+npm run db:migrate:remote  # transactional migrations with an advisory lock
+npm run test:db:remote     # transactional pgTAP suite against the current schema
+npm run db:gate:remote     # migrate, then run pgTAP
+```
+
+The remote runner refuses localhost targets, applies only files absent from the
+existing history, and records a migration only in the same transaction as its
+SQL. Its pgTAP protocol runner connects directly with Postgres and does not use
+Docker. The test files use `BEGIN`/`ROLLBACK`, so their synthetic clinical rows
+do not persist.
+
 ## Usage
 
 ```ts

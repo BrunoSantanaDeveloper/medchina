@@ -3,130 +3,145 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Alert, Box, Breadcrumbs, Card, CardContent, Grid, Skeleton, Switch, Typography } from "@mui/material";
+import { Alert, Box, Breadcrumbs, Button, Card, CardContent, Chip, Grid, Skeleton, Typography } from "@mui/material";
 
-import { recordAudit } from "@/lib/audit";
+import ConsentCollectionDialog from "@/components/product/consent-collection-dialog";
+import ConsentSheet, { type ConsentTerm } from "@/components/product/consent-sheet";
 import { CONSENT_KINDS } from "@/lib/consents";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
-type TermRow = { id: string; slug: string; version: number };
-type AcceptanceRow = { id: string; termId: string; slug: string; acceptedAt: string; revokedAt: string | null };
+type AcceptanceRow = {
+  id: string;
+  termId: string;
+  slug: string;
+  acceptedAt: string;
+  revokedAt: string | null;
+  method: string | null;
+};
 
-/**
- * Patient consents (PRD §9.5). The job: see what this patient has authorized
- * and change it, per purpose. Recording, AI processing and images are granted
- * SEPARATELY. Consent is never deleted — revoking stamps revoked_at, so the
- * history stays auditable (migration 0005 policy). Refusing recording never
- * blocks manual care.
- */
+type DomainResponse = { ok?: boolean; error?: { code?: string } };
+type ConsentData = { patientName: string; terms: ConsentTerm[]; acceptances: AcceptanceRow[] };
+
 export default function ConsentimentosPage() {
   const params = useParams<{ id: string }>();
   const t = useTranslations("product");
-  const [patientName, setPatientName] = useState<string | null>(null);
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [terms, setTerms] = useState<TermRow[]>([]);
-  const [acceptances, setAcceptances] = useState<AcceptanceRow[]>([]);
-  const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [consentState, setConsentState] = useState<RemoteState<ConsentData, string>>(() => remoteLoading());
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [qrCollectionOpen, setQrCollectionOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [successKey, setSuccessKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setConsentState(remoteLoading());
+    setErrorKey(null);
     if (!isSupabaseConfigured) {
-      setReady(true);
+      setConsentState(remoteError("consent-load-error"));
       return;
     }
+
     const supabase = createClient();
-    const [{ data: patient }, { data: termRows }, { data: acceptanceRows }] = await Promise.all([
-      supabase.from("patients").select("full_name, org_id").eq("id", params.id).maybeSingle(),
-      supabase.from("consent_terms").select("id, slug, version").eq("is_active", true),
+    const [
+      { data: patient, error: patientError },
+      { data: termRows, error: termError },
+      { data: acceptanceRows, error: acceptanceError },
+    ] = await Promise.all([
+      supabase.from("patients").select("full_name").eq("id", params.id).maybeSingle(),
+      supabase
+        .from("consent_terms")
+        .select("id, slug, version, title, body")
+        .eq("is_active", true)
+        .order("version", { ascending: false }),
       supabase
         .from("consent_acceptances")
-        .select("id, term_id, accepted_at, revoked_at, consent_terms(slug)")
+        .select("id, term_id, accepted_at, revoked_at, metadata, consent_terms(slug)")
         .eq("subject_type", "patient")
         .eq("subject_id", params.id)
         .order("accepted_at", { ascending: false }),
     ]);
 
-    if (patient) {
-      setPatientName(patient.full_name);
-      setOrgId(patient.org_id);
+    if (patientError || termError || acceptanceError || !patient) {
+      setConsentState(remoteError("consent-load-error"));
+      return;
     }
-    setTerms((termRows ?? []).map((row) => ({ id: row.id, slug: row.slug, version: row.version })));
-    setAcceptances(
-      (acceptanceRows ?? []).map((row) => {
-        const term = row.consent_terms as unknown as { slug: string } | null;
-        return {
-          id: row.id,
-          termId: row.term_id,
-          slug: term?.slug ?? "",
-          acceptedAt: row.accepted_at,
-          revokedAt: row.revoked_at,
-        };
-      }),
-    );
-    setReady(true);
+
+    const terms = (termRows ?? []).map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      version: row.version,
+      title: row.title,
+      body: row.body,
+    }));
+    const acceptances = (acceptanceRows ?? []).map((row) => {
+      const term = row.consent_terms as unknown as { slug: string } | null;
+      return {
+        id: row.id,
+        termId: row.term_id,
+        slug: term?.slug ?? "",
+        acceptedAt: row.accepted_at,
+        revokedAt: row.revoked_at,
+        method:
+          row.metadata && typeof row.metadata === "object" && "method" in row.metadata
+            ? String(row.metadata.method)
+            : null,
+      };
+    });
+    setConsentState(remoteSuccess({ patientName: patient.full_name, terms, acceptances }));
   }, [params.id]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  // The current (non-revoked) acceptance for a slug, if any.
-  const activeFor = (slug: string) => acceptances.find((a) => a.slug === slug && !a.revokedAt) ?? null;
+  const consentData = consentState.status === "success" ? consentState.data : null;
+  const patientName = consentData?.patientName ?? null;
+  const terms = useMemo(() => consentData?.terms ?? [], [consentData]);
+  const acceptances = useMemo(() => consentData?.acceptances ?? [], [consentData]);
+  const termFor = useCallback((slug: string) => terms.find((term) => term.slug === slug) ?? null, [terms]);
+  const activeFor = useCallback(
+    (slug: string) => {
+      const term = termFor(slug);
+      if (!term) return null;
+      return acceptances.find((acceptance) => acceptance.termId === term.id && !acceptance.revokedAt) ?? null;
+    },
+    [acceptances, termFor],
+  );
 
-  const toggle = async (slug: string, grant: boolean) => {
-    if (!orgId || busy) return;
-    setBusy(slug);
-    setError(null);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const selectedKind = useMemo(() => CONSENT_KINDS.find((kind) => kind.slug === selectedSlug) ?? null, [selectedSlug]);
+  const selectedTerm = selectedSlug ? termFor(selectedSlug) : null;
+  const selectedAcceptance = selectedSlug ? activeFor(selectedSlug) : null;
 
-    if (grant) {
-      const term = terms.find((row) => row.slug === slug);
-      if (!term) {
-        setError(t("consent-term-missing"));
-        setBusy(null);
+  const updateConsent = async (input: { granted: boolean; method: "verbal" | "in_person" }) => {
+    if (!selectedSlug || busy) return;
+    setBusy(true);
+    setErrorKey(null);
+    setSuccessKey(null);
+
+    try {
+      const response = await fetch(`/api/patients/${params.id}/consents/${selectedSlug}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const result = (await response.json().catch(() => ({}))) as DomainResponse;
+      if (!response.ok || !result.ok) {
+        const code = result.error?.code;
+        setErrorKey(code === "consent_term_missing" ? "consent-term-missing" : "consent-save-error");
         return;
       }
-      const { error: insertError } = await supabase.from("consent_acceptances").insert({
-        term_id: term.id,
-        org_id: orgId,
-        subject_type: "patient",
-        subject_id: params.id,
-        recorded_by: user?.id ?? null,
-      });
-      if (insertError) setError(insertError.message);
-      else
-        recordAudit(supabase, "consent.granted", {
-          orgId,
-          entityType: "patient",
-          entityId: params.id,
-          metadata: { slug },
-        });
-    } else {
-      const current = activeFor(slug);
-      if (current) {
-        const { error: updateError } = await supabase
-          .from("consent_acceptances")
-          .update({ revoked_at: new Date().toISOString() })
-          .eq("id", current.id);
-        if (updateError) setError(updateError.message);
-        else
-          recordAudit(supabase, "consent.revoked", {
-            orgId,
-            entityType: "patient",
-            entityId: params.id,
-            metadata: { slug },
-          });
-      }
+
+      setSuccessKey(input.granted ? "consent-granted-success" : "consent-revoked-success");
+      setSelectedSlug(null);
+      await load();
+    } catch {
+      setErrorKey("consent-save-error");
+    } finally {
+      setBusy(false);
     }
-    await load();
-    setBusy(null);
   };
 
   return (
@@ -149,48 +164,98 @@ export default function ConsentimentosPage() {
         </Breadcrumbs>
       </Grid>
 
-      {error && (
+      {consentState.status === "error" && (
         <Grid size={12}>
-          <Alert severity="error" className="neutral bg-background-paper/60!">
-            {error}
+          <Alert
+            severity="error"
+            className="neutral bg-background-paper/60!"
+            action={<Button onClick={load}>{t("retry")}</Button>}
+          >
+            {t(consentState.error)}
+          </Alert>
+        </Grid>
+      )}
+      {errorKey && consentState.status !== "error" && (
+        <Grid size={12}>
+          <Alert
+            severity="error"
+            className="neutral bg-background-paper/60!"
+            action={<Button onClick={load}>{t("retry")}</Button>}
+          >
+            {t(errorKey)}
+          </Alert>
+        </Grid>
+      )}
+      {successKey && (
+        <Grid size={12}>
+          <Alert severity="success" className="neutral bg-background-paper/60!">
+            {t(successKey)}
           </Alert>
         </Grid>
       )}
 
       <Grid size={{ xs: 12, lg: 8 }}>
-        <Card component="section">
-          <CardContent className="flex flex-col gap-2">
-            {!ready ? (
-              <Skeleton variant="rounded" height={220} className="rounded-3xl" />
-            ) : (
+        <Card component="section" aria-labelledby="consent-list-title">
+          <CardContent className="flex flex-col gap-3">
+            <Box className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <Box>
+                <Typography id="consent-list-title" variant="h5" component="h2">
+                  {patientName ? t("consent-patient-title", { patient: patientName }) : t("consent-title")}
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary">
+                  {t("consent-list-subtitle")}
+                </Typography>
+              </Box>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => setQrCollectionOpen(true)}
+                disabled={consentState.status !== "success"}
+                className="min-h-11 shrink-0 sm:self-start"
+              >
+                {t("consent-qr-open-action")}
+              </Button>
+            </Box>
+
+            {consentState.status === "idle" || consentState.status === "loading" ? (
+              <Skeleton variant="rounded" height={260} className="rounded-3xl" />
+            ) : consentState.status === "error" || consentState.status === "empty" ? null : (
               CONSENT_KINDS.map((kind) => {
                 const active = activeFor(kind.slug);
+                const term = termFor(kind.slug);
                 return (
                   <Box
                     key={kind.slug}
-                    className="border-grey-100 flex flex-row items-start gap-4 rounded-2xl border p-4"
+                    className="border-grey-100 flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center"
                   >
                     <Box className="min-w-0 flex-1">
-                      <Typography variant="body1" className="text-text-primary font-medium">
-                        {t(kind.label)}
-                      </Typography>
-                      <Typography variant="body2" className="text-text-secondary leading-5">
+                      <Box className="flex flex-wrap items-center gap-2">
+                        <Typography variant="body1" className="text-text-primary font-medium">
+                          {t(kind.label)}
+                        </Typography>
+                        <Chip
+                          size="small"
+                          color={active ? "success" : "default"}
+                          label={t(active ? "consent-status-granted" : "consent-status-not-granted")}
+                        />
+                      </Box>
+                      <Typography variant="body2" className="text-text-secondary mt-1 leading-5">
                         {t(kind.hint)}
                       </Typography>
-                      {active && (
-                        <Typography
-                          variant="body2"
-                          className="text-accent-1-dark dark:text-accent-1-light mt-1 text-xs font-semibold"
-                        >
-                          {t("consent-granted-on", { date: new Date(active.acceptedAt).toLocaleDateString() })}
-                        </Typography>
-                      )}
+                      <Typography variant="caption" className="text-text-secondary mt-1 block">
+                        {active
+                          ? t("consent-granted-version", {
+                              date: new Date(active.acceptedAt).toLocaleDateString(),
+                              version: term?.version ?? 0,
+                            })
+                          : term
+                            ? t("consent-current-version", { version: term.version })
+                            : t("consent-term-missing")}
+                      </Typography>
                     </Box>
-                    <Switch
-                      checked={Boolean(active)}
-                      disabled={busy === kind.slug}
-                      onChange={(event) => toggle(kind.slug, event.target.checked)}
-                    />
+                    <Button variant={active ? "outlined" : "contained"} onClick={() => setSelectedSlug(kind.slug)}>
+                      {t(active ? "consent-review-action" : "consent-grant-action")}
+                    </Button>
                   </Box>
                 );
               })
@@ -200,7 +265,7 @@ export default function ConsentimentosPage() {
       </Grid>
 
       <Grid size={{ xs: 12, lg: 4 }}>
-        <Card component="section">
+        <Card component="aside">
           <CardContent className="flex flex-col gap-2">
             <Typography variant="h6" component="h2">
               {t("consent-note-title")}
@@ -208,9 +273,35 @@ export default function ConsentimentosPage() {
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("consent-note-body")}
             </Typography>
+            <Typography variant="body2" className="text-text-secondary leading-6">
+              {t("consent-manual-care-note")}
+            </Typography>
           </CardContent>
         </Card>
       </Grid>
+
+      {selectedKind && (
+        <ConsentSheet
+          open={Boolean(selectedSlug)}
+          label={t(selectedKind.label)}
+          purpose={t(selectedKind.hint)}
+          term={selectedTerm}
+          active={Boolean(selectedAcceptance)}
+          acceptedAt={selectedAcceptance?.acceptedAt}
+          currentMethod={selectedAcceptance?.method}
+          busy={busy}
+          onClose={() => setSelectedSlug(null)}
+          onSubmit={updateConsent}
+        />
+      )}
+
+      <ConsentCollectionDialog
+        open={qrCollectionOpen}
+        patientId={params.id}
+        patientName={patientName}
+        onClose={() => setQrCollectionOpen(false)}
+        onCompleted={load}
+      />
     </Grid>
   );
 }

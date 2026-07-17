@@ -6,6 +6,7 @@ import { IntlProvider } from "use-intl";
 
 import { MESSAGES } from "@/i18n/messages";
 import { SessionProvider } from "@/providers/session";
+import { DeliveryProvider } from "@/providers/delivery";
 import { SettingsProvider, useSettings } from "@/providers/settings";
 import { getTheme } from "@/theme";
 
@@ -17,13 +18,15 @@ function ThemedApp() {
     <PaperProvider theme={theme}>
       <IntlProvider locale={locale} messages={MESSAGES[locale]} timeZone="UTC">
         <SessionProvider>
-          <StatusBar style={mode === "dark" ? "light" : "dark"} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: theme.colors.background },
-            }}
-          />
+          <DeliveryProvider>
+            <StatusBar style={mode === "dark" ? "light" : "dark"} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: theme.colors.background },
+              }}
+            />
+          </DeliveryProvider>
         </SessionProvider>
       </IntlProvider>
     </PaperProvider>

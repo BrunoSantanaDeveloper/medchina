@@ -14,56 +14,84 @@ import {
   DialogContent,
   DialogTitle,
   LinearProgress,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 
+import { type PersistedWebRecording, useRecordingSession } from "@/components/product/recording-session-provider";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import { trialDaysLeft } from "@/lib/audio-allowance";
 import { recordAudit } from "@/lib/audit";
-import { RECORDING_CONSENT_SLUG } from "@/lib/consents";
+import { getProductAction } from "@/lib/product-actions";
 import { cn } from "@/lib/utils";
+import { clearWebRecordingRequest, getOrCreateWebRecordingRequest } from "@/lib/web-recording-request";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 
-type Phase = "idle" | "recording" | "paused" | "uploading" | "uploaded" | "error";
+type Phase = "idle" | "recording" | "paused" | "uploading" | "processing" | "ready" | "error";
+type ConsentState = { audio: boolean; ai: boolean };
+type RecordingMode = "ai" | "audio_only";
 
-/**
- * Consented consultation recording, IN THE BROWSER (PRD §4.1 "gravação
- * opcional via navegador"; the mobile app is the primary capture surface).
- *
- * Two guarantees this component makes visible, both also enforced by the DB:
- *  - it never starts without an ACTIVE audio-recording consent for the patient
- *    (PRD §9.5) — the button is replaced by a link to the consent screen;
- *  - a recording is only "enviada" after the SERVER confirms the upload (PRD
- *    §12.4): the `recordings` row flips to 'uploaded' only after storage
- *    accepts the object.
- *
- * Audio lands in the private `transcriptions` bucket under <org_id>/<id>.webm,
- * ready for the transcription pipeline (0007) to pick up next.
- */
+const responseCode = (body: unknown): string | undefined => {
+  if (!body || typeof body !== "object") return undefined;
+  const error = (body as { error?: unknown }).error;
+  if (typeof error === "string") return error;
+  return error && typeof error === "object" ? String((error as { code?: unknown }).code ?? "") : undefined;
+};
+
+const bestMime = () => {
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  return candidates.find((mime) => MediaRecorder.isTypeSupported(mime)) ?? "";
+};
+
+const sha256 = async (blob: Blob) => {
+  if (!crypto.subtle) return null;
+  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+};
+
+const MAX_DURATION_SECONDS = 120 * 60;
+const MAX_SIZE_BYTES = 512 * 1024 * 1024;
+const BILLING_HREF = getProductAction("billing").href;
+
+/** Recoverable, consented browser capture backed by the recording state RPCs. */
 export default function ConsultationRecorder({
   orgId,
   patientId,
   consultationId,
+  audioConsent,
+  aiConsent,
+  onRequestConsent,
+  onChanged,
 }: {
   orgId: string;
   patientId: string;
   consultationId: string;
+  audioConsent?: boolean;
+  aiConsent?: boolean;
+  onRequestConsent?: () => void;
+  onChanged?: () => void;
 }) {
   const t = useTranslations("product");
-  const [consent, setConsent] = useState<boolean | null>(null);
+  const {
+    setActive: setSessionActive,
+    persist: persistSession,
+    recover: recoverSession,
+    remove: removeSession,
+    uploadTus,
+  } = useRecordingSession();
+  const [consents, setConsents] = useState<ConsentState | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [seconds, setSeconds] = useState(0);
+  const [nearSizeLimit, setNearSizeLimit] = useState(false);
+  const [captureLimit, setCaptureLimit] = useState<"duration" | "size" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const {
-    allowance,
-    trialParams,
-    loading: allowanceLoading,
-    reload: reloadAllowance,
-    startTrial,
-  } = useAudioAllowance(orgId);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [mode, setMode] = useState<RecordingMode>("ai");
+  const { allowance, trialParams, loading: allowanceLoading, reload: reloadAllowance } = useAudioAllowance(orgId);
   const [trialDialog, setTrialDialog] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
 
@@ -71,148 +99,356 @@ export default function ConsultationRecorder({
   const chunks = useRef<Blob[]>([]);
   const stream = useRef<MediaStream | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const secondsRef = useRef(0);
+  const bytesRef = useRef(0);
+  const recordingId = useRef<string | null>(null);
+  const recordingMode = useRef<RecordingMode>("ai");
+  const clientUploadId = useRef<string | null>(null);
+  const pendingBlob = useRef<{ blob: Blob; duration: number; mime: string } | null>(null);
 
-  // Does the patient currently allow recording? Gates the whole UI.
+  const pollUntilSettled = useCallback(
+    async (id: string) => {
+      setPhase("processing");
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const { data } = await createClient().from("recordings").select("status,error_code").eq("id", id).maybeSingle();
+        if (data?.status === "ready") {
+          setPhase("ready");
+          onChanged?.();
+          return;
+        }
+        if (data?.status === "failed") {
+          setError(t("recorder-processing-error"));
+          setPhase("error");
+          onChanged?.();
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 3_000));
+      }
+      setError(t("recorder-processing-later"));
+      setPhase("processing");
+    },
+    [onChanged, t],
+  );
+
+  const requestProcessing = useCallback(
+    async (id: string) => {
+      setPhase("processing");
+      const response = await fetch(`/api/recordings/${id}/process`, { method: "POST" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const code = responseCode(body);
+        if (!code || !["processing_already_claimed"].includes(code)) throw new Error(code ?? "processing_failed");
+      }
+      await pollUntilSettled(id);
+    },
+    [pollUntilSettled],
+  );
+
   useEffect(() => {
+    let current = true;
+    void recoverSession(consultationId).then(async (recovered) => {
+      if (!current || !recovered) return;
+      const { data } = await createClient()
+        .from("recordings")
+        .select("status, mode")
+        .eq("id", recovered.recordingId)
+        .maybeSingle();
+      if (!current) return;
+      const recoveredMode = data?.mode === "audio_only" || recovered.mode === "audio_only" ? "audio_only" : "ai";
+      recordingMode.current = recoveredMode;
+      setMode(recoveredMode);
+      recordingId.current = recovered.recordingId;
+      if (data?.status === "ready") {
+        await removeSession(recovered.recordingId);
+        setPhase("ready");
+        return;
+      }
+      if (data?.status === "uploaded" || data?.status === "processing") {
+        await removeSession(recovered.recordingId);
+        if (recoveredMode === "audio_only") {
+          setPhase("ready");
+          return;
+        }
+        void requestProcessing(recovered.recordingId).catch(() => {
+          setError(t("recorder-processing-error"));
+          setPhase("error");
+        });
+        return;
+      }
+      pendingBlob.current = { blob: recovered.blob, duration: recovered.duration, mime: recovered.mime };
+      setError(t("recorder-recovered"));
+      setPhase("error");
+    });
+    return () => {
+      current = false;
+    };
+  }, [consultationId, recoverSession, removeSession, requestProcessing, t]);
+
+  useEffect(() => {
+    if (audioConsent !== undefined && aiConsent !== undefined) {
+      setConsents({ audio: audioConsent, ai: aiConsent });
+      return;
+    }
     const check = async () => {
       if (!isSupabaseConfigured) {
-        setConsent(false);
+        setConsents({ audio: false, ai: false });
         return;
       }
       const supabase = createClient();
-      const { data } = await supabase.rpc("has_active_consent", {
-        target_org: orgId,
-        target_patient: patientId,
-        term_slug: RECORDING_CONSENT_SLUG,
-      });
-      setConsent(Boolean(data));
+      const [{ data: audio }, { data: ai }] = await Promise.all([
+        supabase.rpc("has_active_consent", {
+          target_org: orgId,
+          target_patient: patientId,
+          term_slug: "audio-recording",
+        }),
+        supabase.rpc("has_active_consent", {
+          target_org: orgId,
+          target_patient: patientId,
+          term_slug: "ai-processing",
+        }),
+      ]);
+      setConsents({ audio: Boolean(audio), ai: Boolean(ai) });
     };
-    check();
-  }, [orgId, patientId]);
+    void check();
+  }, [aiConsent, audioConsent, orgId, patientId]);
 
   const stopTimer = () => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
   };
-
   const releaseStream = () => {
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
   };
-
   useEffect(
     () => () => {
       stopTimer();
       releaseStream();
+      setSessionActive(false);
     },
-    [],
+    [setSessionActive],
   );
 
+  const setRecordingState = useCallback(async (id: string, body: Record<string, unknown>) => {
+    const response = await fetch(`/api/recordings/${id}/state`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(responseCode(result) ?? "recording_invalid_state");
+    return result;
+  }, []);
+
   const upload = useCallback(
-    async (blob: Blob, durationSeconds: number) => {
+    async (blob: Blob, duration: number, mime: string) => {
+      const id = recordingId.current;
+      if (!id) return;
+      pendingBlob.current = { blob, duration, mime };
       setPhase("uploading");
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      setUploadProgress(0);
+      setError(null);
+      let uploadConfirmed = false;
+      try {
+        const checksum = await sha256(blob);
+        if (!checksum) throw new Error("checksum_unavailable");
+        const persistedRecording: PersistedWebRecording = {
+          recordingId: id,
+          consultationId,
+          orgId,
+          duration,
+          mime,
+          checksumSha256: checksum,
+          createdAt: new Date().toISOString(),
+          mode: recordingMode.current,
+          blob,
+        };
+        await persistSession(persistedRecording);
+        clearWebRecordingRequest(window.sessionStorage, consultationId);
+        clientUploadId.current = null;
+        await setRecordingState(id, {
+          action: "local",
+          durationSeconds: duration,
+          sizeBytes: blob.size,
+          mime,
+          checksumSha256: checksum,
+        });
+        await setRecordingState(id, { action: "uploading" });
 
-      // The DB trigger re-checks consent on insert, so a consent revoked
-      // mid-recording still can't produce a stored recording.
-      const { data: acceptance } = await supabase
-        .from("consent_acceptances")
-        .select("id")
-        .eq("subject_type", "patient")
-        .eq("subject_id", patientId)
-        .is("revoked_at", null)
-        .limit(1)
-        .maybeSingle();
+        const extension = mime.includes("mp4") ? "m4a" : "webm";
+        const path = `${orgId}/${id}.${extension}`;
+        const supabase = createClient();
+        await uploadTus(persistedRecording, path, setUploadProgress);
 
-      const { data: recording, error: insertError } = await supabase
-        .from("recordings")
-        .insert({
-          org_id: orgId,
-          patient_id: patientId,
-          consultation_id: consultationId,
-          status: "uploading",
-          mime: "audio/webm",
-          duration_seconds: durationSeconds,
-          size_bytes: blob.size,
-          consent_acceptance_id: acceptance?.id ?? null,
-          captured_on: "web",
-          created_by: user?.id ?? null,
-        })
-        .select("id")
-        .single();
+        await setRecordingState(id, { action: "uploaded", audioPath: path });
+        uploadConfirmed = true;
+        await recordAudit(supabase, "recording.uploaded", {
+          orgId,
+          entityType: "recording",
+          entityId: id,
+          metadata: { consultationId, durationSeconds: duration },
+        });
+        pendingBlob.current = null;
+        await removeSession(id);
+        onChanged?.();
+        if (recordingMode.current === "ai") {
+          try {
+            await requestProcessing(id);
+          } catch {
+            setError(t("recorder-processing-error"));
+            setPhase("error");
+          }
+        } else {
+          setPhase("ready");
+        }
+      } catch {
+        if (!uploadConfirmed) {
+          await setRecordingState(id, {
+            action: "failed",
+            failureStage: "upload",
+            errorCode: "storage_upload_failed",
+          }).catch(() => undefined);
+        }
+        setError(uploadConfirmed ? t("recorder-processing-error") : t("recorder-error"));
+        setPhase("error");
+        onChanged?.();
+      }
+    },
+    [
+      consultationId,
+      onChanged,
+      orgId,
+      persistSession,
+      removeSession,
+      requestProcessing,
+      setRecordingState,
+      t,
+      uploadTus,
+    ],
+  );
 
-      if (insertError || !recording) {
-        // The DB guard (migration 0024) is the real boundary — if it refused
-        // between pressing record and finishing, say what happened instead of
-        // showing a raw Postgres error.
-        const message = insertError?.message ?? "";
+  const start = async (startTrial = false) => {
+    setError(null);
+    setNearSizeLimit(false);
+    setCaptureLimit(null);
+    const uploadId =
+      clientUploadId.current ??
+      getOrCreateWebRecordingRequest(window.sessionStorage, consultationId, () => crypto.randomUUID());
+    clientUploadId.current = uploadId;
+
+    let startedRecordingId: string;
+    try {
+      const beginResponse = await fetch(`/api/consultations/${consultationId}/recordings`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          clientUploadId: uploadId,
+          startTrial: mode === "ai" && startTrial,
+          capturedOn: "web",
+        }),
+      });
+      const beginBody = await beginResponse.json().catch(() => ({}));
+      if (!beginResponse.ok) {
+        const code = responseCode(beginBody);
+        if (code === "consent_required" || code === "audio_consent_required" || code === "ai_consent_required") {
+          onRequestConsent?.();
+        }
         setError(
-          message.includes("audio_allowance_exhausted")
+          code === "audio_allowance_exhausted"
             ? t("recorder-limit-body")
-            : message.includes("trial_not_started")
-              ? t("recorder-trial-body")
-              : (insertError?.message ?? t("recorder-error")),
+            : code === "trial_not_started"
+              ? t("recorder-trial-body", trialParams)
+              : code === "recording_already_open"
+                ? t("recorder-open-recording")
+                : t("recorder-error"),
         );
         setPhase("error");
         void reloadAllowance();
+        clearWebRecordingRequest(window.sessionStorage, consultationId);
+        clientUploadId.current = null;
         return;
       }
-
-      const path = `${orgId}/${recording.id}.webm`;
-      const { error: uploadError } = await supabase.storage
-        .from("transcriptions")
-        .upload(path, blob, { contentType: "audio/webm", upsert: false });
-
-      if (uploadError) {
-        // Keep the row as failed so nothing claims to be "sent".
-        await supabase
-          .from("recordings")
-          .update({ status: "failed", error: uploadError.message })
-          .eq("id", recording.id);
-        setError(uploadError.message);
-        setPhase("error");
-        return;
+      if (typeof beginBody.recordingId !== "string" || !beginBody.recordingId) {
+        throw new Error("invalid_begin_response");
       }
+      startedRecordingId = beginBody.recordingId;
+    } catch {
+      // Ambiguous network/response failures retain the exact idempotency key.
+      // A retry can recover a server commit whose response never arrived.
+      setError(t("recorder-error"));
+      setPhase("error");
+      return;
+    }
 
-      // Server confirmed the object — only now is it "uploaded".
-      await supabase.from("recordings").update({ status: "uploaded", audio_path: path }).eq("id", recording.id);
-      recordAudit(supabase, "recording.uploaded", {
-        orgId,
-        entityType: "recording",
-        entityId: recording.id,
-        metadata: { consultationId, durationSeconds },
-      });
-      setPhase("uploaded");
-    },
-    [orgId, patientId, consultationId, t, reloadAllowance],
-  );
+    recordingId.current = startedRecordingId;
+    recordingMode.current = mode;
+    onChanged?.();
 
-  const start = async () => {
-    setError(null);
     try {
       const media = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.current = media;
       chunks.current = [];
-      const recorder = new MediaRecorder(media, { mimeType: "audio/webm" });
+      bytesRef.current = 0;
+      const mime = bestMime();
+      const recorder = mime ? new MediaRecorder(media, { mimeType: mime }) : new MediaRecorder(media);
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.current.push(event.data);
+        if (event.data.size > 0) {
+          chunks.current.push(event.data);
+          bytesRef.current += event.data.size;
+          if (bytesRef.current >= MAX_SIZE_BYTES * 0.9) setNearSizeLimit(true);
+          if (bytesRef.current >= MAX_SIZE_BYTES) {
+            setCaptureLimit("size");
+            stopTimer();
+            recorder.stop();
+          }
+        }
       };
       recorder.onstop = () => {
         releaseStream();
-        const blob = new Blob(chunks.current, { type: "audio/webm" });
-        void upload(blob, seconds);
+        setSessionActive(false);
+        const effectiveMime = recorder.mimeType || mime || "audio/webm";
+        const blob = new Blob(chunks.current, { type: effectiveMime });
+        void upload(blob, secondsRef.current, effectiveMime);
       };
       mediaRecorder.current = recorder;
-      recorder.start();
+      recorder.start(1000);
+      secondsRef.current = 0;
       setSeconds(0);
       setPhase("recording");
-      timer.current = setInterval(() => setSeconds((value) => value + 1), 1000);
+      setSessionActive(true);
+      timer.current = setInterval(() => {
+        secondsRef.current += 1;
+        setSeconds(secondsRef.current);
+        if (secondsRef.current >= MAX_DURATION_SECONDS && mediaRecorder.current?.state !== "inactive") {
+          setCaptureLimit("duration");
+          stopTimer();
+          mediaRecorder.current?.stop();
+        }
+      }, 1000);
     } catch {
+      releaseStream();
+      setSessionActive(false);
+      let cancelled = false;
+      if (recordingId.current) {
+        try {
+          await setRecordingState(recordingId.current, {
+            action: "cancel",
+            errorCode: "microphone_unavailable",
+          });
+          cancelled = true;
+        } catch {
+          // Keep the request id: the cancellation response may have been lost.
+        }
+      }
+      if (cancelled) {
+        clearWebRecordingRequest(window.sessionStorage, consultationId);
+        clientUploadId.current = null;
+      }
+      recordingId.current = null;
       setError(t("recorder-mic-denied"));
       setPhase("error");
+      onChanged?.();
     }
   };
 
@@ -221,44 +457,47 @@ export default function ConsultationRecorder({
     stopTimer();
     setPhase("paused");
   };
-
   const resume = () => {
     mediaRecorder.current?.resume();
-    timer.current = setInterval(() => setSeconds((value) => value + 1), 1000);
+    timer.current = setInterval(() => {
+      secondsRef.current += 1;
+      setSeconds(secondsRef.current);
+    }, 1000);
     setPhase("recording");
   };
-
   const finish = () => {
     stopTimer();
+    setSessionActive(false);
     mediaRecorder.current?.stop();
   };
-
+  const retryUpload = () => {
+    const pending = pendingBlob.current;
+    if (pending) void upload(pending.blob, pending.duration, pending.mime);
+  };
   const confirmTrial = async () => {
     setStartingTrial(true);
-    const failure = await startTrial();
-    setStartingTrial(false);
     setTrialDialog(false);
-    if (failure) {
-      setError(failure);
-      setPhase("error");
-    }
+    await start(true);
+    setStartingTrial(false);
+    void reloadAllowance();
   };
 
   const mmss = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  if (consents === null || allowanceLoading) return null;
 
-  if (consent === null || allowanceLoading) return null;
-
-  // The consultation is already being recorded: no allowance state may take the
-  // controls away mid-capture (PRD §5.8).
-  const capturing = phase === "recording" || phase === "paused" || phase === "uploading";
-  const needsTrial = !capturing && allowance?.trialAvailable === true && !allowance.canStart;
-  const exhausted = !capturing && allowance !== null && !allowance.canStart && !allowance.trialAvailable;
-  // Warn while it happens — the opposite of being cut off silently.
+  const capturing = phase === "recording" || phase === "paused" || phase === "uploading" || phase === "processing";
+  const needsTrial = mode === "ai" && !capturing && allowance?.trialAvailable === true && !allowance.canStart;
+  const exhausted =
+    mode === "ai" && !capturing && allowance !== null && !allowance.canStart && !allowance.trialAvailable;
   const overrunning =
+    mode === "ai" &&
     phase === "recording" &&
     allowance !== null &&
     allowance.minutesLimit > 0 &&
     seconds > allowance.minutesRemaining * 60;
+  const nearingCaptureLimit = phase === "recording" && (seconds >= MAX_DURATION_SECONDS - 10 * 60 || nearSizeLimit);
+  const hasRequiredConsent = consents.audio && (mode === "audio_only" || consents.ai);
+  const modeLocked = capturing || Boolean(pendingBlob.current) || Boolean(clientUploadId.current);
 
   return (
     <Card component="section">
@@ -270,25 +509,41 @@ export default function ConsultationRecorder({
           </Typography>
         </Box>
 
-        {!consent ? (
-          // Recording is gated on consent — offer the path to grant it, never a
-          // dead end, and never block the manual consultation happening anyway.
+        <Box className="flex flex-col gap-1.5">
+          <Typography variant="body2" className="text-text-secondary font-medium">
+            {t("capture-mode-title")}
+          </Typography>
+          <ToggleButtonGroup
+            exclusive
+            fullWidth
+            size="small"
+            value={mode}
+            onChange={(_, value: RecordingMode | null) => {
+              if (!value || modeLocked) return;
+              setMode(value);
+              setError(null);
+            }}
+            disabled={modeLocked}
+            aria-label={t("capture-mode-title")}
+          >
+            <ToggleButton value="ai">{t("capture-mode-ai")}</ToggleButton>
+            <ToggleButton value="audio_only">{t("capture-mode-audio")}</ToggleButton>
+          </ToggleButtonGroup>
+          <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+            {mode === "ai" ? t("capture-mode-ai-hint") : t("capture-mode-audio-hint")}
+          </Typography>
+        </Box>
+
+        {!hasRequiredConsent ? (
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
-              {t("recorder-no-consent")}
+              {consents.audio ? t("recorder-no-ai-consent") : t("recorder-no-consent")}
             </Typography>
-            <Button
-              variant="outlined"
-              color="primary"
-              href={`/pacientes/${patientId}/consentimentos`}
-              className="self-start"
-            >
+            <Button variant="outlined" color="primary" onClick={onRequestConsent} className="self-start">
               {t("recorder-grant-consent")}
             </Button>
           </>
         ) : needsTrial ? (
-          // The path to value: the trial starts HERE, by a deliberate act, and
-          // only for a real consultation (PRD §5.7/§7.5).
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("recorder-trial-body", trialParams)}
@@ -301,14 +556,12 @@ export default function ConsultationRecorder({
             </Typography>
           </>
         ) : exhausted ? (
-          // Out of minutes: manual care never stops, and the chart stays open —
-          // only new AI capture waits for a plan (PRD §5.7).
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
               {allowance?.suspended ? t("recorder-suspended-body") : t("recorder-limit-body")}
             </Typography>
             {!allowance?.suspended && (
-              <Button variant="contained" color="primary" href="/settings/billing" className="self-start">
+              <Button variant="contained" color="primary" href={BILLING_HREF} className="self-start">
                 {t("recorder-limit-cta")}
               </Button>
             )}
@@ -329,13 +582,7 @@ export default function ConsultationRecorder({
                     phase === "recording" ? "bg-accent-3 animate-pulse" : "bg-grey-500",
                   )}
                 />
-                <Typography
-                  variant="body2"
-                  className={cn(
-                    "font-semibold",
-                    phase === "recording" ? "text-accent-3-dark dark:text-accent-3-light" : "text-text-secondary",
-                  )}
-                >
+                <Typography variant="body2" className="font-semibold">
                   {phase === "recording" ? t("recorder-recording") : t("recorder-paused")}
                 </Typography>
                 <Typography variant="body2" className="text-text-secondary ml-auto font-mono tabular-nums">
@@ -344,39 +591,59 @@ export default function ConsultationRecorder({
               </Box>
             )}
 
-            {/* Passing the limit never stops the capture (PRD §5.8): the audio
-                is preserved and the professional is told, not cut off. */}
-            {overrunning && (
-              <Alert severity="info" className="neutral bg-background-paper/60!">
-                {t("recorder-overrun")}
+            {overrunning && <Alert severity="info">{t("recorder-overrun")}</Alert>}
+            {nearingCaptureLimit && <Alert severity="info">{t("recorder-capture-limit-warning")}</Alert>}
+            {captureLimit && (
+              <Alert severity="info">
+                {captureLimit === "duration" ? t("recorder-capture-limit-duration") : t("recorder-capture-limit-size")}
               </Alert>
             )}
-
             {phase === "uploading" && (
               <Box className="flex flex-col gap-2">
                 <Typography variant="body2" className="text-text-secondary">
                   {t("recorder-uploading")}
                 </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.round(uploadProgress * 100)}
+                  aria-label={t("recorder-uploading")}
+                />
+              </Box>
+            )}
+            {phase === "processing" && (
+              <Box className="flex flex-col gap-2" role="status" aria-live="polite">
+                <Typography variant="body2" className="text-text-secondary">
+                  {t("recorder-processing")}
+                </Typography>
                 <LinearProgress />
               </Box>
             )}
-
-            {phase === "uploaded" && (
-              <Alert severity="success" icon={<NiCheckSquare />} className="neutral bg-background-paper/60!">
-                {t("recorder-uploaded")}
+            {phase === "ready" && (
+              <Alert severity="success" icon={<NiCheckSquare />}>
+                {mode === "ai" ? t("recorder-ready") : t("recorder-audio-ready")}
               </Alert>
             )}
-
-            {error && (
-              <Alert severity="error" className="neutral bg-background-paper/60!">
-                {error}
-              </Alert>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
 
             <Box className="flex flex-row flex-wrap gap-2">
-              {(phase === "idle" || phase === "error" || phase === "uploaded") && (
-                <Button variant="contained" color="primary" onClick={start}>
-                  {phase === "uploaded" ? t("recorder-record-again") : t("recorder-start")}
+              {phase === "idle" && (
+                <Button variant="contained" color="primary" onClick={() => void start()}>
+                  {t("recorder-start")}
+                </Button>
+              )}
+              {phase === "error" && pendingBlob.current && (
+                <Button variant="contained" color="primary" onClick={retryUpload}>
+                  {t("recorder-retry-upload")}
+                </Button>
+              )}
+              {phase === "error" && !pendingBlob.current && (
+                <Button variant="contained" color="primary" onClick={() => void start()}>
+                  {t("recorder-start")}
+                </Button>
+              )}
+              {phase === "ready" && (
+                <Button variant="outlined" color="primary" onClick={() => void start()}>
+                  {t("recorder-record-again")}
                 </Button>
               )}
               {phase === "recording" && (
@@ -404,10 +671,7 @@ export default function ConsultationRecorder({
             <Typography variant="body2" className="text-text-secondary text-xs leading-5">
               {t("recorder-note")}
             </Typography>
-
-            {/* What is left, stated plainly — the web is where consumption is
-                shown (PRD §5.8). */}
-            {allowance && allowance.minutesLimit > 0 && (
+            {mode === "ai" && allowance && allowance.minutesLimit > 0 && (
               <Typography variant="body2" className="text-text-secondary text-xs leading-5">
                 {allowance.source === "trial"
                   ? t("recorder-trial-remaining", {
@@ -435,7 +699,7 @@ export default function ConsultationRecorder({
           <Button color="grey" onClick={() => setTrialDialog(false)} disabled={startingTrial}>
             {t("recorder-trial-cancel")}
           </Button>
-          <Button variant="contained" color="primary" onClick={confirmTrial} disabled={startingTrial}>
+          <Button variant="contained" color="primary" onClick={() => void confirmTrial()} disabled={startingTrial}>
             {t("recorder-trial-confirm")}
           </Button>
         </DialogActions>

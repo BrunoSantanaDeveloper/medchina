@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { DEFAULTS } from "@/config";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { createClient } from "@flyee/auth/server";
+import { sanitizeInternalNext } from "@flyee/clinical";
 
 /**
  * OAuth and email-link callback: exchanges the auth code for a session and
@@ -18,11 +19,6 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // An explicit next (a page the user was bounced from, or the reset-password
-      // link) always wins and skips the setup check below.
-      if (requestedNext) {
-        return NextResponse.redirect(`${origin}${requestedNext}`);
-      }
       if (data.user) {
         // OAuth is sign-in AND sign-up: a first-time Google/GitHub user is
         // provisioned here but never filled the sign-up form, so they have no
@@ -35,7 +31,20 @@ export async function GET(request: Request) {
           .limit(1)
           .maybeSingle();
         if (!membership) {
-          return NextResponse.redirect(`${origin}/auth/complete-profile`);
+          const safeNext = requestedNext ? sanitizeInternalNext(requestedNext) : null;
+          // An invite supplies the user's single MVP workspace after explicit
+          // confirmation, so creating a second personal workspace would be wrong.
+          if (safeNext?.startsWith("/invite/")) {
+            return NextResponse.redirect(`${origin}${safeNext}`);
+          }
+          const completeProfile = new URL("/auth/complete-profile", origin);
+          if (safeNext) completeProfile.searchParams.set("next", safeNext);
+          return NextResponse.redirect(completeProfile);
+        }
+        // Preserve the exact protected destination only after account setup is
+        // complete; first-time OAuth users carry it through complete-profile.
+        if (requestedNext) {
+          return NextResponse.redirect(`${origin}${sanitizeInternalNext(requestedNext)}`);
         }
         const next = await resolvePostAuthDestination(supabase, data.user.id);
         return NextResponse.redirect(`${origin}${next}`);

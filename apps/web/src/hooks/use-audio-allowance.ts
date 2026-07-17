@@ -49,10 +49,10 @@ export function useAudioAllowance(orgId: string | null) {
   }, [load]);
 
   const startTrial = useCallback(async (): Promise<string | null> => {
-    if (!orgId) return "no organization";
+    if (!orgId) return "not_authorized";
     const supabase = createClient();
     const { data, error } = await supabase.rpc("start_pro_trial", { target_org: orgId });
-    if (error) return error.message;
+    if (error) return "allowance_unavailable";
     if (data) setAllowance(toAllowance(data as AllowanceRow));
     return null;
   }, [orgId]);

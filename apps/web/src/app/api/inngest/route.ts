@@ -1,5 +1,6 @@
 import "@/lib/connectors";
 
+import { billingFunctions } from "@/lib/billing-jobs";
 import { clinicalFunctions } from "@/lib/clinical-jobs";
 import { backupFunctions } from "@flyee/backup/jobs";
 import { connectorFunctions } from "@flyee/connectors/jobs";
@@ -13,6 +14,7 @@ import { whatsappFunctions } from "@flyee/whatsapp/jobs";
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
+    ...billingFunctions,
     ...clinicalFunctions,
     ...knowledgeFunctions,
     ...connectorFunctions,
