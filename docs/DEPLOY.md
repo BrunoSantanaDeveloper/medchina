@@ -44,14 +44,37 @@ Em **Settings → General**:
   confinado a `apps/web` e os pacotes compartilhados (`@flyee/content`,
   `@flyee/design-tokens`, etc., que vivem em `../../packages/*`) não resolvem —
   o build quebra com `Module not found: Can't resolve '@flyee/content'`.
-- **Framework Preset**: Next.js (build/install padrão, sem overrides)
-- **Node.js Version**: 22.x (ou 24.x — o build da nuvem usa a versão do projeto)
+- **Framework Preset**: Next.js.
+- **Node.js Version**: 22.x (ou 24.x — o build da nuvem usa a versão do projeto).
+- **Build/Install/Output Command (Override)**: deixe os toggles **DESLIGADOS**.
+  O `apps/web/vercel.json` (versionado) já define o install e o build — ele tem
+  precedência e é a fonte de verdade (ver abaixo). Não duplique no dashboard.
 
 > O deploy é build na nuvem: essa config vale no ato do build. Ligue o checkbox
 > no dashboard e reexecute o workflow.
 
 Em **Settings → Git**: **não conectar** nenhum repositório. É isso que evita o
 conflito de contas — todo deploy entra pela CLI do pipeline.
+
+#### `apps/web/vercel.json` — duas correções que NÃO podem sumir
+
+```json
+{ "installCommand": "cd ../.. && npm ci", "buildCommand": "next build" }
+```
+
+1. **`installCommand: "cd ../.. && npm ci"`** — o install padrão da Vercel
+   (rodado dentro de `apps/web`) NÃO cria os symlinks de workspace
+   `node_modules/@flyee/*`, mesmo com o checkbox de "include files outside"
+   ligado. Resultado: `Module not found: Can't resolve '@flyee/content'`
+   (compila localmente porque o `node_modules` local já tem os links). Forçar
+   `npm ci` na RAIZ do monorepo instala com os workspaces linkados corretamente.
+2. Memória do build (ver `apps/web/next.config.mjs`): o container de build (8 GB)
+   dava **OOM/SIGKILL** na fase "Linting and checking validity of types". O
+   `next.config.mjs` desliga lint+typecheck no `next build`
+   (`eslint.ignoreDuringBuilds` + `typescript.ignoreBuildErrors` — ambos já são
+   cobertos pelas etapas dedicadas do CI) e limita a paralelização
+   (`experimental.cpus: 1` + `webpackMemoryOptimizations`). Se o build voltar a
+   dar OOM ao crescer, o passo seguinte é aumentar o build machine (plano Pro).
 
 ### 3. Variáveis de ambiente (Settings → Environment Variables)
 
