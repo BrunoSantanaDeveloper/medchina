@@ -2,7 +2,14 @@ name: Deploy
 
 # Deploys apps/web to Vercel through the Vercel CLI (token-based), never the
 # Vercel Git integration — the project stays disconnected from GitHub on the
-# Vercel side. Setup and secrets: docs/DEPLOY.md.
+# Vercel side (multiple GitHub accounts on the owner's machine conflict with it).
+#
+# The compile runs on Vercel's cloud build (not `--prebuilt` on the runner):
+# Vercel's build environment natively resolves the npm-workspace packages
+# (@flyee/*), which the runner-side `vercel build --prebuilt` flow breaks by
+# isolating the build to the Root Directory (apps/web) and severing the
+# ../../packages/* symlinks. Env vars come from the Vercel project settings.
+# Setup and secrets: docs/DEPLOY.md.
 #
 # push to main / manual dispatch → production deploy
 # pull_request                   → preview deploy (URL in the run summary)
@@ -37,15 +44,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install --global vercel@latest
-      - name: Pull Vercel project settings and env (preview)
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Build (root npm install + next build, driven by Vercel project settings)
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Deploy preview
+      - name: Deploy preview (Vercel cloud build)
         run: |
-          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(vercel deploy --token=${{ secrets.VERCEL_TOKEN }} --yes)
           echo "Preview: $url"
           echo "### Vercel preview" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
@@ -69,15 +71,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install --global vercel@latest
-      - name: Pull Vercel project settings and env (production)
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Build (root npm install + next build, driven by Vercel project settings)
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-      - name: Deploy to production
+      - name: Deploy to production (Vercel cloud build)
         run: |
-          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes)
           echo "Production: $url"
           echo "### Vercel production" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"

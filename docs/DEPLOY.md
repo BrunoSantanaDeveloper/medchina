@@ -9,9 +9,13 @@ na mesma máquina/organização).
 - `push` na `main` (ou execução manual do workflow) → deploy de **produção**
 - `pull_request` → deploy de **preview** (URL no summary da execução)
 
-O workflow roda `vercel pull` → `vercel build` → `vercel deploy --prebuilt`:
-o build acontece no runner do GitHub com as configurações e variáveis de
-ambiente puxadas do projeto Vercel; a Vercel só recebe o artefato pronto.
+O workflow roda `vercel deploy` (com `--prod` na produção): o pipeline **envia
+o código-fonte e a Vercel compila na nuvem**. Isso é deliberado — o fluxo
+alternativo (`vercel build --prebuilt`, compilando no runner) isola o build no
+Root Directory (`apps/web`) e quebra os symlinks de workspace para
+`../../packages/*` (`Module not found: Can't resolve '@flyee/content'`). O build
+da nuvem resolve os pacotes `@flyee/*` nativamente. Continua tudo por token, sem
+a integração Git da Vercel.
 
 ## Setup único
 
@@ -35,16 +39,16 @@ Em **Settings → General**:
 
 - **Root Directory**: `apps/web` (obrigatório — monorepo npm workspaces; a
   Vercel detecta os workspaces e instala a partir da raiz do repo)
-- **Include files outside of the Root Directory**: **LIGADO** (checkbox logo
-  abaixo do Root Directory). Sem isso, a etapa de build fica confinada a
-  `apps/web` e os pacotes compartilhados (`@flyee/content`, `@flyee/design-tokens`,
-  etc., que vivem em `../../packages/*`) não resolvem — o build quebra com
-  `Module not found: Can't resolve '@flyee/content'`.
+- **Include files outside of the Root Directory in the Build Step**: **LIGADO**
+  (checkbox logo abaixo do Root Directory). Sem isso, o build da nuvem fica
+  confinado a `apps/web` e os pacotes compartilhados (`@flyee/content`,
+  `@flyee/design-tokens`, etc., que vivem em `../../packages/*`) não resolvem —
+  o build quebra com `Module not found: Can't resolve '@flyee/content'`.
 - **Framework Preset**: Next.js (build/install padrão, sem overrides)
-- **Node.js Version**: 22.x
+- **Node.js Version**: 22.x (ou 24.x — o build da nuvem usa a versão do projeto)
 
-> O pipeline roda `vercel pull` a cada execução, então **basta ligar o checkbox
-> no dashboard e reexecutar o workflow** — ele puxa a configuração atualizada.
+> O deploy é build na nuvem: essa config vale no ato do build. Ligue o checkbox
+> no dashboard e reexecute o workflow.
 
 Em **Settings → Git**: **não conectar** nenhum repositório. É isso que evita o
 conflito de contas — todo deploy entra pela CLI do pipeline.
@@ -124,11 +128,11 @@ barra final).
   a `apps/web` quebra esses symlinks.
 - `husky: not found` / `npm install exited with 127` → já corrigido: o script
   `prepare` da raiz é `husky || true`, tolerante à ausência do husky no CI.
-- `Project not found` no `vercel pull` → `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`
-  não batem com o token (token criado em outro team). Recrie o token no escopo
-  certo.
-- Build passa local e falha no runner → variável faltando no ambiente
-  correspondente da Vercel (`vercel pull` baixa **Production** ou **Preview**
-  conforme o job).
+- `Project not found` / erro de escopo no `vercel deploy` →
+  `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID` não batem com o token (token criado em
+  outro team). Recrie o token no escopo certo.
+- Build da nuvem falha por variável faltando → cadastre-a no ambiente
+  correspondente da Vercel (o build de PR usa **Preview**, o de `main`/manual
+  usa **Production**).
 - Deploy de produção "preso" → o job usa concurrency `vercel-production` sem
   cancelamento: deploys enfileiram na ordem dos pushes.

@@ -8,15 +8,19 @@ const SHOTS = resolve(
   "C:/Users/tribo/AppData/Local/Temp/claude/c--AppsProjects-medchina/dc369cbd-1488-415b-b2ce-91ba7d02be94/scratchpad",
   "agenda-walk",
 );
-const state = JSON.parse(readFileSync(resolve(SHOTS, "state.json"), "utf8"));
+void readFileSync;
 const browser = await chromium.launch();
 const ctx = await browser.newContext({
   viewport: { width: 1440, height: 900 },
   locale: "pt-BR",
   timezoneId: "America/Sao_Paulo",
-  storageState: state,
 });
 const page = await ctx.newPage();
+await page.goto("http://localhost:3010/auth/sign-in", { waitUntil: "domcontentloaded", timeout: 90_000 });
+await page.locator('input[type="email"]').first().fill("verify-agenda@medchina.dev");
+await page.locator('input[type="password"]').first().fill("Verify!Agenda2026#mc");
+await page.locator('button[type="submit"]').first().click();
+await page.waitForURL((url) => !url.pathname.startsWith("/auth"), { timeout: 90_000 });
 await page.goto("http://localhost:3010/agenda", { waitUntil: "domcontentloaded", timeout: 90_000 });
 try {
   await page.getByText("Maria Souza Lima").first().waitFor({ timeout: 30_000 });
