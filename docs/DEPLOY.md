@@ -35,8 +35,16 @@ Em **Settings → General**:
 
 - **Root Directory**: `apps/web` (obrigatório — monorepo npm workspaces; a
   Vercel detecta os workspaces e instala a partir da raiz do repo)
+- **Include files outside of the Root Directory**: **LIGADO** (checkbox logo
+  abaixo do Root Directory). Sem isso, a etapa de build fica confinada a
+  `apps/web` e os pacotes compartilhados (`@flyee/content`, `@flyee/design-tokens`,
+  etc., que vivem em `../../packages/*`) não resolvem — o build quebra com
+  `Module not found: Can't resolve '@flyee/content'`.
 - **Framework Preset**: Next.js (build/install padrão, sem overrides)
 - **Node.js Version**: 22.x
+
+> O pipeline roda `vercel pull` a cada execução, então **basta ligar o checkbox
+> no dashboard e reexecutar o workflow** — ele puxa a configuração atualizada.
 
 Em **Settings → Git**: **não conectar** nenhum repositório. É isso que evita o
 conflito de contas — todo deploy entra pela CLI do pipeline.
@@ -108,6 +116,14 @@ barra final).
 
 ## Troubleshooting
 
+- `Module not found: Can't resolve '@flyee/content'` (ou qualquer `@flyee/*`)
+  no build → o checkbox **"Include files outside of the Root Directory in the
+  Build Step"** está desligado. Ligue-o (Settings → Build and Deployment →
+  Root Directory) e reexecute o workflow. O código resolve os pacotes por
+  symlink de workspace (`node_modules/@flyee/* → packages/*`); confinar o build
+  a `apps/web` quebra esses symlinks.
+- `husky: not found` / `npm install exited with 127` → já corrigido: o script
+  `prepare` da raiz é `husky || true`, tolerante à ausência do husky no CI.
 - `Project not found` no `vercel pull` → `VERCEL_ORG_ID`/`VERCEL_PROJECT_ID`
   não batem com o token (token criado em outro team). Recrie o token no escopo
   certo.
