@@ -37,6 +37,16 @@ SQL. Its pgTAP protocol runner connects directly with Postgres and does not use
 Docker. The test files use `BEGIN`/`ROLLBACK`, so their synthetic clinical rows
 do not persist.
 
+**Privilege baseline (local/CI):** the hosted project predates Supabase's 2025
+"secure by default" change, so there every object a migration creates is
+granted to `anon`/`authenticated`/`service_role` automatically, and migrations
+narrow that with explicit revokes (0029/0030/0031/0035/0039/0040/0041…). Newer
+local images ship without those default grants, which would silently produce a
+different privilege model. `npm run db:prepare` therefore generates
+`supabase/migrations/00000000000000_legacy_default_privileges.sql`, restoring
+the legacy default privileges before the first migration runs. If a NEW hosted
+project is ever created, apply that same baseline there before migrating.
+
 ## Usage
 
 ```ts
