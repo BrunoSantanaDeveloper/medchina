@@ -14,10 +14,30 @@ name: Deploy
 # push to main / manual dispatch → production deploy
 # pull_request                   → preview deploy (URL in the run summary)
 
+# Deploys only what ships to Vercel (apps/web + the packages it imports).
+# Pushes/PRs that touch ONLY the paths below skip the deploy — GitHub runs the
+# job only when at least one changed file is NOT in paths-ignore. Workflow edits
+# (.github/**) still trigger, so a pipeline change is always exercised.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".claude/**"
+      - ".agents/**"
+      - ".codex/**"
+      - "apps/mobile/**"
+      - "attachments/**"
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - ".claude/**"
+      - ".agents/**"
+      - ".codex/**"
+      - "apps/mobile/**"
+      - "attachments/**"
   workflow_dispatch:
 
 env:
