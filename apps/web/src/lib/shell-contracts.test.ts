@@ -9,6 +9,7 @@ describe("production shell contracts", () => {
       "inicio",
       "pacientes",
       "agenda",
+      "biblioteca",
       "primeiros-passos",
       "admin",
     ]);
