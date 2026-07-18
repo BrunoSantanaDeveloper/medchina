@@ -23,7 +23,12 @@ export default defineConfig({
   },
   projects: [
     { name: "chromium-desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "chromium-mobile", use: { ...devices["iPhone 13"] } },
+    {
+      name: "chromium-mobile",
+      // iPhone 13 sets defaultBrowserType "webkit"; pin chromium so the mobile
+      // emulation runs on the only engine CI installs (and the project name).
+      use: { ...devices["iPhone 13"], browserName: "chromium" },
+    },
     {
       name: "chromium-320",
       use: { ...devices["Desktop Chrome"], viewport: { width: 320, height: 800 }, hasTouch: true },
