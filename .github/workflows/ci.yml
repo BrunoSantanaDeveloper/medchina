@@ -5,6 +5,13 @@ on:
   push:
     branches: [main]
 
+# `next build` is deliberately single-process (next.config.mjs cpus:1) and its
+# webpack phase needs more than Node's ~2 GB default heap on GitHub runners.
+# Vercel's 8 GB build machines get --max-old-space-size=4096 from the platform;
+# mirror that here for the application build and Playwright's webServer build.
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   application:
     runs-on: ubuntu-latest
