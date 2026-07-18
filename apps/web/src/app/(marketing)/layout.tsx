@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
 import { BRAND } from "@/brand";
+import CookieConsent from "@/components/consent/cookie-consent";
 import JsonLd from "@/components/marketing/json-ld";
 import MarketingFooter from "@/components/marketing/marketing-footer";
 import MarketingHeader from "@/components/marketing/marketing-header";
@@ -55,6 +56,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <main className="flex flex-1 flex-col">{children}</main>
       <MarketingFooter />
       <SupportWidget support={support} />
+      <CookieConsent />
     </div>
   );
 }

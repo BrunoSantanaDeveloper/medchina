@@ -990,7 +990,12 @@
     "duo-note-1-sub": "Fragmento de la conversación localizado",
     "duo-note-2-title": "Campos preparados",
     "duo-note-2-sub": "Listos para tu revisión",
-    "seq-aria": "Tres pantallas de la app MedChina: consultas del día, grabación en curso y consulta enviada en procesamiento."
+    "seq-aria": "Tres pantallas de la app MedChina: consultas del día, grabación en curso y consulta enviada en procesamiento.",
+    "cookie-consent-title": "Usamos cookies",
+    "cookie-consent-description": "Usamos cookies para funciones esenciales (inicio de sesión, preferencias) y, con tu permiso, para analíticas de uso que mejoran el producto. Puedes rechazar las analíticas: todo lo demás funciona igual.",
+    "cookie-consent-accept": "Entendido",
+    "cookie-consent-reject": "Rechazar analíticas",
+    "cookie-consent-privacy": "Política de privacidad"
   },
   "mobile": {
     "signin-title": "Iniciar sesión",
