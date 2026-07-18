@@ -2,37 +2,52 @@
 
 import MessageBubble, { type ThreadMessage } from "./components/message-bubble";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
+  Autocomplete,
   Box,
   Breadcrumbs,
   Button,
   Card,
   CardContent,
+  Chip,
   Skeleton,
   TextareaAutosize,
+  TextField,
   Typography,
 } from "@mui/material";
 
 import EmptyState from "@/components/product/empty-state";
+import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiBook from "@/icons/nexture/ni-book";
 import NiPlus from "@/icons/nexture/ni-plus";
 import NiSendUpRight from "@/icons/nexture/ni-send-up-right";
 import { type KnowledgeSourceRef, LIBRARY_ASSISTANT_SLUG, SOURCES_SENTINEL } from "@/lib/clinical-library";
+import { listActivePatientOptions, type PatientOption } from "@/lib/patients";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
-type ConversationRow = { id: string; title: string | null; updated_at: string };
+type ConversationRow = {
+  id: string;
+  title: string | null;
+  updated_at: string;
+  patientId: string | null;
+  patientName: string | null;
+};
+
+type CasePatient = { id: string; fullName: string };
 
 type Allowance = { unlimited: boolean; used?: number; limit?: number };
 
 const STARTER_KEYS = ["library-starter-1", "library-starter-2", "library-starter-3", "library-starter-4"] as const;
+const CASE_STARTER_KEYS = ["library-case-starter-1", "library-case-starter-2"] as const;
 
 /**
  * The clinical library chat (PRD §9.9) — the professional's study companion
@@ -46,10 +61,19 @@ export default function Biblioteca() {
   const t = useTranslations("product");
   const format = useFormatter();
   const { orgId } = useCurrentOrg();
+  const searchParams = useSearchParams();
+  const { allowance: audioAllowance } = useAudioAllowance(orgId);
+  // Case review is the Pro value (same entitlement as the hypotheses); the
+  // route re-enforces this server-side.
+  const canReviewCases = Boolean(audioAllowance?.clinicalReasoning);
 
   const [conversationsState, setConversationsState] = useState<RemoteState<ConversationRow[], string>>(() =>
     remoteLoading(),
   );
+  const [patients, setPatients] = useState<PatientOption[] | null>(null);
+  const [casePatient, setCasePatient] = useState<CasePatient | null>(null);
+  const [consentMissingId, setConsentMissingId] = useState<string | null>(null);
+  const deepLinkApplied = useRef(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -68,7 +92,7 @@ export default function Biblioteca() {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("conversations")
-      .select("id, title, updated_at, assistants!inner(slug)")
+      .select("id, title, updated_at, patient_id, patients(full_name), assistants!inner(slug)")
       .eq("assistants.slug", LIBRARY_ASSISTANT_SLUG)
       .order("updated_at", { ascending: false })
       .limit(30);
@@ -80,9 +104,32 @@ export default function Biblioteca() {
       id: row.id as string,
       title: (row.title as string | null) ?? null,
       updated_at: row.updated_at as string,
+      patientId: (row.patient_id as string | null) ?? null,
+      patientName: ((row.patients as unknown as { full_name?: string } | null)?.full_name as string | null) ?? null,
     }));
     setConversationsState(rows.length === 0 ? remoteEmpty() : remoteSuccess(rows));
   }, []);
+
+  // Patient options exist only for who can review cases (Pro / Pro trial).
+  useEffect(() => {
+    const load = async () => {
+      if (!isSupabaseConfigured || !orgId || !canReviewCases) return;
+      const result = await listActivePatientOptions(createClient(), orgId);
+      setPatients(result.ok ? result.data : []);
+    };
+    load();
+  }, [orgId, canReviewCases]);
+
+  // Deep link (/biblioteca?paciente=<id>) — applied once, only while nothing
+  // else was chosen, so it never steals an ongoing conversation.
+  useEffect(() => {
+    if (deepLinkApplied.current || !patients) return;
+    const requested = searchParams.get("paciente");
+    if (!requested) return;
+    deepLinkApplied.current = true;
+    const match = patients.find((option) => option.id === requested);
+    if (match) setCasePatient({ id: match.id, fullName: match.fullName });
+  }, [patients, searchParams]);
 
   const loadAllowance = useCallback(async () => {
     if (!isSupabaseConfigured || !orgId) return;
@@ -106,8 +153,14 @@ export default function Biblioteca() {
     threadEndRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [messages]);
 
-  const openConversation = useCallback(async (conversationId: string) => {
+  const openConversation = useCallback(async (conversation: ConversationRow) => {
+    const conversationId = conversation.id;
     setActiveConversationId(conversationId);
+    // The stored link is the authority — reopening restores the case chip.
+    setCasePatient(
+      conversation.patientId ? { id: conversation.patientId, fullName: conversation.patientName ?? "" } : null,
+    );
+    setConsentMissingId(null);
     setSendError(null);
     setThreadLoading(true);
     setMessages([]);
@@ -132,10 +185,12 @@ export default function Biblioteca() {
     );
   }, []);
 
-  const startNewConversation = useCallback(() => {
+  const startNewConversation = useCallback((patient: CasePatient | null = null) => {
     setActiveConversationId(null);
     setMessages([]);
     setSendError(null);
+    setConsentMissingId(null);
+    setCasePatient(patient);
   }, []);
 
   const sendMessage = useCallback(
@@ -167,6 +222,8 @@ export default function Biblioteca() {
             conversationId: activeConversationId ?? undefined,
             message: content,
             includeSources: true,
+            // Honored only at conversation creation; the stored link rules after.
+            patientId: casePatient?.id,
           }),
         });
 
@@ -176,10 +233,16 @@ export default function Biblioteca() {
             code?: string;
             used?: number;
             limit?: number;
+            patientId?: string;
           } | null;
           removeAssistantPlaceholder();
           if (payload?.code === "quota_exhausted") {
             setQuotaExhausted({ used: payload.used ?? 0, limit: payload.limit ?? 0 });
+          } else if (payload?.code === "patient_ai_consent_missing") {
+            // Consent is the path, not a dead end: the alert links to granting it.
+            setConsentMissingId(payload.patientId ?? casePatient?.id ?? null);
+          } else if (payload?.code === "case_review_not_available") {
+            setSendError(t("library-case-not-available"));
           } else {
             setSendError(payload?.error ?? t("library-error-generic"));
           }
@@ -250,7 +313,7 @@ export default function Biblioteca() {
         setSending(false);
       }
     },
-    [activeConversationId, input, loadAllowance, loadConversations, orgId, sending, t],
+    [activeConversationId, casePatient, input, loadAllowance, loadConversations, orgId, sending, t],
   );
 
   const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -277,7 +340,12 @@ export default function Biblioteca() {
             <Typography variant="body2">{t("library-title")}</Typography>
           </Breadcrumbs>
         </Box>
-        <Button variant="outlined" color="grey" startIcon={<NiPlus size="small" />} onClick={startNewConversation}>
+        <Button
+          variant="outlined"
+          color="grey"
+          startIcon={<NiPlus size="small" />}
+          onClick={() => startNewConversation()}
+        >
           {t("library-new-conversation")}
         </Button>
       </Box>
@@ -300,12 +368,16 @@ export default function Biblioteca() {
               <CardContent>
                 <EmptyState
                   icon={<NiBook />}
-                  title={t("library-empty-title")}
-                  description={t("library-empty-body")}
+                  title={
+                    casePatient
+                      ? t("library-case-empty-title", { name: casePatient.fullName })
+                      : t("library-empty-title")
+                  }
+                  description={casePatient ? t("library-case-empty-body") : t("library-empty-body")}
                   className="border-0 py-8"
                 />
                 <Box className="mx-auto flex max-w-xl flex-col gap-2">
-                  {STARTER_KEYS.map((key) => (
+                  {(casePatient ? CASE_STARTER_KEYS : STARTER_KEYS).map((key) => (
                     <Button
                       key={key}
                       variant="outlined"
@@ -332,6 +404,61 @@ export default function Biblioteca() {
               )}
               <div ref={threadEndRef} />
             </Box>
+          )}
+
+          {/* Case review: explicit patient selection, never inferred from text. */}
+          {isSupabaseConfigured && canReviewCases && (
+            <Box className="flex flex-row flex-wrap items-center gap-2">
+              {casePatient ? (
+                <Chip
+                  color="primary"
+                  variant="outlined"
+                  label={t("library-case-chip", { name: casePatient.fullName })}
+                  onDelete={() => startNewConversation()}
+                />
+              ) : (
+                <Autocomplete
+                  size="small"
+                  className="w-full max-w-xs"
+                  options={patients ?? []}
+                  loading={patients === null}
+                  getOptionLabel={(option) => option.fullName}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  noOptionsText={t("library-case-none")}
+                  onChange={(_event, option) =>
+                    option && startNewConversation({ id: option.id, fullName: option.fullName })
+                  }
+                  renderInput={(params) => <TextField {...params} label={t("library-case-picker")} />}
+                />
+              )}
+            </Box>
+          )}
+          {isSupabaseConfigured && audioAllowance && !canReviewCases && (
+            <Typography variant="body2" className="text-text-secondary">
+              {t("library-case-upsell")}{" "}
+              <Link href="/settings/billing" className="text-primary underline underline-offset-2">
+                {t("library-quota-upgrade")}
+              </Link>
+            </Typography>
+          )}
+
+          {consentMissingId && (
+            <Alert
+              severity="warning"
+              onClose={() => setConsentMissingId(null)}
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  href={`/pacientes/${consentMissingId}/consentimentos`}
+                  LinkComponent={Link}
+                >
+                  {t("library-case-consent-cta")}
+                </Button>
+              }
+            >
+              {t("library-case-consent-missing")}
+            </Alert>
           )}
 
           {quotaExhausted && (
@@ -411,12 +538,17 @@ export default function Biblioteca() {
                       color="grey"
                       variant={conversation.id === activeConversationId ? "pastel" : "text"}
                       className="w-full justify-start text-start"
-                      onClick={() => openConversation(conversation.id)}
+                      onClick={() => openConversation(conversation)}
                     >
                       <Box className="flex min-w-0 flex-col">
                         <Typography variant="body2" className="text-text-primary truncate">
                           {conversation.title || t("library-untitled-conversation")}
                         </Typography>
+                        {conversation.patientName && (
+                          <Typography variant="caption" className="text-primary truncate">
+                            {conversation.patientName}
+                          </Typography>
+                        )}
                         <Typography variant="caption" className="text-text-secondary">
                           {format.dateTime(new Date(conversation.updated_at), { dateStyle: "short" })}
                         </Typography>

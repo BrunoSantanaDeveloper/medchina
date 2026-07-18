@@ -30,6 +30,7 @@ import {
 import { LocalizationProvider, MobileDatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
+import ConsultationBriefingDialog from "@/components/product/consultation-briefing-dialog";
 import EmptyState from "@/components/product/empty-state";
 import { pickerLocaleText } from "@/components/product/picker-locale";
 import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule-dialog";
@@ -101,6 +102,7 @@ export default function Agenda() {
   const [appointmentsState, setAppointmentsState] = useState<RemoteState<Appointment[], string>>(() => remoteLoading());
   const [showCancelled, setShowCancelled] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [briefingFor, setBriefingFor] = useState<Appointment | null>(null);
   const [seed, setSeed] = useState<ScheduleSeed | undefined>();
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
@@ -457,6 +459,15 @@ export default function Agenda() {
             )}
             {isScheduled && (
               <>
+                <Button
+                  variant="text"
+                  color="grey"
+                  size="small"
+                  aria-label={t("briefing-prepare-for", { patient: appointment.patientName })}
+                  onClick={() => setBriefingFor(appointment)}
+                >
+                  {t("briefing-prepare")}
+                </Button>
                 <Button
                   variant="text"
                   color="grey"
@@ -839,6 +850,16 @@ export default function Agenda() {
             }
             await load();
           }}
+        />
+      )}
+
+      {briefingFor && (
+        <ConsultationBriefingDialog
+          open
+          onClose={() => setBriefingFor(null)}
+          patientId={briefingFor.patientId}
+          patientName={briefingFor.patientName}
+          appointmentNote={briefingFor.appointmentNote}
         />
       )}
 

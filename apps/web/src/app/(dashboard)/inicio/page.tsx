@@ -10,6 +10,7 @@ import { Alert, Box, Breadcrumbs, Button, Card, CardContent, Grid, Skeleton, Typ
 
 import { TONE } from "@/components/marketing/tone";
 import AudioUsageCard from "@/components/product/audio-usage-card";
+import ConsultationBriefingDialog from "@/components/product/consultation-briefing-dialog";
 import EmptyState from "@/components/product/empty-state";
 import OnboardingChecklistCard from "@/components/product/onboarding-checklist-card";
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -31,6 +32,7 @@ type HomeConsultation = {
   startedAt: string;
   scheduledFor: string | null;
   appointmentNote: string | null;
+  patientId: string | null;
   patientName: string;
 };
 
@@ -63,6 +65,7 @@ export default function Inicio() {
   const { orgId, timezone, loading: orgLoading } = useCurrentOrg();
   const [homeState, setHomeState] = useState<RemoteState<HomeData, string>>(() => remoteLoading());
   const [startingId, setStartingId] = useState<string | null>(null);
+  const [briefingFor, setBriefingFor] = useState<HomeConsultation | null>(null);
 
   const load = useCallback(async () => {
     setHomeState(remoteLoading());
@@ -79,7 +82,8 @@ export default function Inicio() {
     const supabase = createClient();
     const { start, end } = calendarDayRange(new Date(), timezone);
     const overdueRange = calendarOverdueRange(new Date(), OVERDUE_LOOKBACK_DAYS, timezone);
-    const consultationFields = "id, status, started_at, scheduled_for, appointment_note, patients(full_name)";
+    const consultationFields =
+      "id, status, started_at, scheduled_for, appointment_note, patient_id, patients(full_name)";
     const [patientsResult, finalizedResult, todayResult, workResult, recentResult, overdueResult] = await Promise.all([
       supabase
         .from("patients")
@@ -146,6 +150,7 @@ export default function Inicio() {
           startedAt: row.started_at,
           scheduledFor: row.scheduled_for,
           appointmentNote: row.appointment_note,
+          patientId: (row.patient_id as string | null) ?? null,
           patientName: patient?.full_name ?? t("patient-unknown"),
         };
       });
@@ -343,6 +348,11 @@ export default function Inicio() {
                         label={consultation.status === "scheduled" ? t("agenda-start") : t("home-open-draft")}
                         busy={startingId === consultation.id}
                         onAction={consultation.status === "scheduled" ? () => startScheduled(consultation) : undefined}
+                        secondary={
+                          consultation.patientId
+                            ? { label: t("briefing-prepare"), onClick: () => setBriefingFor(consultation) }
+                            : undefined
+                        }
                       />
                     ))}
                   </Box>
@@ -445,6 +455,16 @@ export default function Inicio() {
       <Grid size={12}>
         <AudioUsageCard />
       </Grid>
+
+      {briefingFor?.patientId && (
+        <ConsultationBriefingDialog
+          open
+          onClose={() => setBriefingFor(null)}
+          patientId={briefingFor.patientId}
+          patientName={briefingFor.patientName}
+          appointmentNote={briefingFor.appointmentNote}
+        />
+      )}
     </Grid>
   );
 }
@@ -497,6 +517,7 @@ function ConsultationRow({
   timeZone,
   busy = false,
   onAction,
+  secondary,
 }: {
   consultation: HomeConsultation;
   label: string;
@@ -504,6 +525,8 @@ function ConsultationRow({
   timeZone: string;
   busy?: boolean;
   onAction?: () => void;
+  /** Optional second affordance (e.g. the pre-consultation briefing). */
+  secondary?: { label: string; onClick: () => void };
 }) {
   return (
     <Box className="hover:bg-grey-25 flex flex-row items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors">
@@ -520,6 +543,11 @@ function ConsultationRow({
           {consultation.appointmentNote ? ` · ${consultation.appointmentNote}` : ""}
         </Typography>
       </Box>
+      {secondary && (
+        <Button size="small" variant="text" color="grey" onClick={secondary.onClick} className="flex-none">
+          {secondary.label}
+        </Button>
+      )}
       {onAction ? (
         <Button size="small" variant="text" color="primary" onClick={onAction} disabled={busy} className="flex-none">
           {label}

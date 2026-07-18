@@ -26,8 +26,10 @@ import {
 import EmptyState from "@/components/product/empty-state";
 import PatientEditDialog from "@/components/product/patient-edit-dialog";
 import ScheduleDialog from "@/components/product/schedule-dialog";
+import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiArchive from "@/icons/nexture/ni-archive";
+import NiBook from "@/icons/nexture/ni-book";
 import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
@@ -99,6 +101,7 @@ export default function PacienteFicha() {
   const t = useTranslations("product");
   const { enqueueSnackbar } = useSnackbar();
   const { orgId, timezone } = useCurrentOrg();
+  const { allowance: audioAllowance } = useAudioAllowance(orgId);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [artifacts, setArtifacts] = useState<PatientArtifact[]>([]);
@@ -450,6 +453,18 @@ export default function PacienteFicha() {
 
           {!patient.archivedAt && (
             <Box className="flex flex-row flex-wrap gap-2">
+              {/* Case review in the library — Pro/trial only (route re-enforces). */}
+              {audioAllowance?.clinicalReasoning && (
+                <Button
+                  variant="outlined"
+                  color="grey"
+                  startIcon={<NiBook />}
+                  href={`/biblioteca?paciente=${patient.id}`}
+                  LinkComponent={Link}
+                >
+                  {t("patient-study-case")}
+                </Button>
+              )}
               <Button variant="outlined" color="grey" startIcon={<NiCalendar />} onClick={() => setScheduleOpen(true)}>
                 {t("patient-schedule-consultation")}
               </Button>
