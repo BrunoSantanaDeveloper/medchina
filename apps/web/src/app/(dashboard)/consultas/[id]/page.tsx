@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -36,12 +37,15 @@ import ConsultationRecorder from "@/components/product/consultation-recorder";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
 import PlanPanel from "@/components/product/plan-panel";
 import RecordingsPanel from "@/components/product/recordings-panel";
+import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule-dialog";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
+import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiListCheck from "@/icons/nexture/ni-list-check";
 import NiLock from "@/icons/nexture/ni-lock";
 import NiPlay from "@/icons/nexture/ni-play";
+import { calendarDateInTimeZone, defaultAppointmentStart, weeklyOccurrences } from "@/lib/agenda";
 import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
 import {
@@ -111,8 +115,12 @@ export default function ConsultaPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const t = useTranslations("product");
+  const { enqueueSnackbar } = useSnackbar();
+  const { timezone } = useCurrentOrg();
 
   const [consultation, setConsultation] = useState<Consultation | null>(null);
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [returnSeed, setReturnSeed] = useState<ScheduleSeed | undefined>();
   // Reasoning is the Pro layer (PRD §10.8) — the same allowance that governs
   // minutes says whether this workspace has it.
   const { allowance } = useAudioAllowance(consultation?.orgId ?? null);
@@ -609,7 +617,31 @@ export default function ConsultaPage() {
 
       {isFinalized && (
         <Grid size={12}>
-          <Alert severity="success" icon={<NiLock />} className="neutral bg-background-paper/60!">
+          <Alert
+            severity="success"
+            icon={<NiLock />}
+            className="neutral bg-background-paper/60!"
+            action={
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => {
+                  // "Same time next week" as the wall-clock suggestion; an old
+                  // record being closed late falls back to the next free-form slot.
+                  const base = consultation.scheduledFor ?? consultation.startedAt;
+                  const suggestion = weeklyOccurrences(base, 2, timezone)[1];
+                  const startAt =
+                    suggestion.getTime() > Date.now()
+                      ? suggestion
+                      : defaultAppointmentStart(calendarDateInTimeZone(new Date(), timezone), new Date(), timezone);
+                  setReturnSeed({ patientId: consultation.patientId, startAt: startAt.toISOString() });
+                  setReturnDialogOpen(true);
+                }}
+              >
+                {t("consultation-schedule-return")}
+              </Button>
+            }
+          >
             {t("consultation-finalized-notice")}
           </Alert>
         </Grid>
@@ -1003,6 +1035,27 @@ export default function ConsultaPage() {
         consultationId={consultation.id}
         onClose={() => setConsentCollectionOpen(false)}
         onCompleted={load}
+      />
+
+      <ScheduleDialog
+        open={returnDialogOpen}
+        orgId={consultation.orgId}
+        timeZone={timezone}
+        seed={returnSeed}
+        onClose={() => setReturnDialogOpen(false)}
+        onSaved={(outcome) => {
+          enqueueSnackbar(
+            outcome.kind === "series"
+              ? t("agenda-series-success", { count: outcome.createdCount })
+              : t("agenda-schedule-success"),
+            { variant: "success" },
+          );
+          if (outcome.kind === "series" && outcome.conflictCount > 0) {
+            enqueueSnackbar(t("agenda-series-conflict-count", { count: outcome.conflictCount }), {
+              variant: "warning",
+            });
+          }
+        }}
       />
     </Grid>
   );

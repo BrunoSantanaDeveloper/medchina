@@ -61,6 +61,17 @@ type ConsentCollectionDialogProps = {
 
 const responseCode = (body: { code?: string; error?: { code?: string } }) => body.code ?? body.error?.code;
 
+/**
+ * A pending link survives the dialog: closing never cancels it (it stays
+ * usable until the 15-minute expiry), so reopening must show the SAME QR —
+ * creating another session would supersede the pending one server-side and
+ * silently kill a link the professional already shared. The raw token is
+ * returned once by the server, so this in-memory cache is the only place the
+ * live URL can be recovered from. Keyed by patient: the server allows one
+ * pending session per patient regardless of consultation.
+ */
+const liveSessions = new Map<string, Session>();
+
 const formatCountdown = (milliseconds: number) => {
   const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -133,9 +144,13 @@ export default function ConsentCollectionDialog({
         margin: 2,
         width: 280,
       });
+      const created: Session = { id: body.sessionId, expiresAt: body.expiresAt, url, qrDataUrl };
+      // Cache even when the dialog closed mid-flight: the session exists
+      // server-side and reopening must resume it, not supersede it.
+      liveSessions.set(patientId, created);
       if (generation !== requestGeneration.current) return;
 
-      setSession({ id: body.sessionId, expiresAt: body.expiresAt, url, qrDataUrl });
+      setSession(created);
       setNow(Date.now());
       setState("waiting");
     } catch {
@@ -159,8 +174,18 @@ export default function ConsentCollectionDialog({
       setCopyFailed(false);
       return;
     }
-    if (state === "idle") void createSession();
-  }, [createSession, open, state]);
+    if (state !== "idle") return;
+
+    const live = liveSessions.get(patientId);
+    if (live && new Date(live.expiresAt).getTime() > Date.now()) {
+      setSession(live);
+      setNow(Date.now());
+      setState("waiting");
+      return;
+    }
+    if (live) liveSessions.delete(patientId);
+    void createSession();
+  }, [createSession, open, patientId, state]);
 
   useEffect(() => {
     if (!open || state !== "waiting" || !session) return;
@@ -168,12 +193,15 @@ export default function ConsentCollectionDialog({
     const tick = () => {
       const current = Date.now();
       setNow(current);
-      if (current >= new Date(session.expiresAt).getTime()) setState("expired");
+      if (current >= new Date(session.expiresAt).getTime()) {
+        liveSessions.delete(patientId);
+        setState("expired");
+      }
     };
     tick();
     const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [open, session, state]);
+  }, [open, patientId, session, state]);
 
   useEffect(() => {
     if (!open || state !== "waiting" || !session) return;
@@ -190,16 +218,21 @@ export default function ConsentCollectionDialog({
         if (!active) return;
 
         if (!response.ok || !body.ok) {
-          if (responseCode(body) === "consent_session_expired") setState("expired");
+          if (responseCode(body) === "consent_session_expired") {
+            liveSessions.delete(patientId);
+            setState("expired");
+          }
           return;
         }
         if (body.status === "completed") {
+          liveSessions.delete(patientId);
           setState("completed");
           if (completedSession.current !== session.id) {
             completedSession.current = session.id;
             await onCompleted();
           }
         } else if (body.status === "expired" || body.status === "cancelled" || body.status === "invalidated") {
+          liveSessions.delete(patientId);
           setState("expired");
         }
       } catch {
@@ -245,14 +278,17 @@ export default function ConsentCollectionDialog({
     const previous = session;
     requestGeneration.current += 1;
     createInFlight.current = false;
+    liveSessions.delete(patientId);
     setSession(null);
     setState("idle");
     await cancelSession(previous);
   };
 
+  // Closing keeps a pending link alive for its full 15-minute window: the
+  // professional may have shared it (WhatsApp, another device) and expects it
+  // to keep working. Only "generate new QR" replaces a pending session.
   const close = () => {
     requestGeneration.current += 1;
-    if (state !== "completed") void cancelSession(session);
     onClose();
   };
 
@@ -321,6 +357,9 @@ export default function ConsentCollectionDialog({
                   {t("consent-qr-copy-error")}
                 </Alert>
               )}
+              <Typography variant="caption" className="text-text-secondary">
+                {t("consent-qr-keep-valid-note")}
+              </Typography>
             </>
           )}
 
@@ -345,7 +384,7 @@ export default function ConsentCollectionDialog({
       </DialogContent>
       <DialogActions className="flex-wrap">
         <Button color="grey" variant="text" onClick={close} className="min-h-11">
-          {t(state === "completed" ? "close" : "cancel")}
+          {t("close")}
         </Button>
         {(state === "expired" || state === "error") && (
           <Button

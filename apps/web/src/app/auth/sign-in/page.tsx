@@ -11,7 +11,6 @@ import {
   AlertTitle,
   Box,
   Button,
-  capitalize,
   Divider,
   FormControl,
   FormLabel,
@@ -238,6 +237,7 @@ export default function Page() {
                     <Input
                       id="email"
                       name="email"
+                      type="email"
                       autoComplete="email"
                       placeholder=""
                       value={formik.values.email}
@@ -292,19 +292,7 @@ export default function Page() {
                   )}
                   {submitted && !formik.isValid && (
                     <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
-                      <AlertTitle variant="subtitle2">The following inputs have errors!</AlertTitle>
-                      {Object.entries(formik.errors).map(([key, value]) => {
-                        return (
-                          <Box className="flex flex-row gap-0.5" key={crypto.randomUUID()}>
-                            <Typography variant="body2" className="text-error">
-                              {capitalize(key)}:
-                            </Typography>
-                            <Typography variant="body2" className="text-text-primary">
-                              {value}
-                            </Typography>
-                          </Box>
-                        );
-                      })}
+                      <AlertTitle variant="subtitle2">{t("errors-title")}</AlertTitle>
                     </Alert>
                   )}
                   <Box className="flex flex-col gap-2">

@@ -1,5 +1,4 @@
-import { LIBRARY_COLLECTIONS } from "./clinical-reasoning";
-
+import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { detectSafetyFlags, type SafetyFlag } from "@/lib/clinical-safety";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 import { type KnowledgeSearchResult, resolveCollectionIds, searchKnowledge } from "@flyee/knowledge";
@@ -105,12 +104,6 @@ export interface PlanInput {
   /** Patterns the professional accepted or edited — the plan follows these. */
   acceptedPatterns: string[];
 }
-
-const COLLECTION_KIND: Record<string, "traditional" | "protocol" | "evidence"> = {
-  "mtc-fontes-tradicionais": "traditional",
-  "mtc-protocolos-internos": "protocol",
-  "mtc-evidencia-cientifica": "evidence",
-};
 
 const stringArray = { type: "array", items: { type: "string" } };
 

@@ -4,6 +4,9 @@ import { Box, FormControl, FormLabel, Input, MenuItem, Select, Typography } from
 
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 
+/** Display symbols for the currencies the catalog uses; unknown codes fall back to the code itself. */
+export const CURRENCY_SYMBOLS: Record<string, string> = { BRL: "R$ ", USD: "$ ", EUR: "€ " };
+
 export const Field = ({
   label,
   value,

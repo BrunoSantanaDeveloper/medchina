@@ -24,16 +24,19 @@ import {
 } from "@mui/material";
 
 import EmptyState from "@/components/product/empty-state";
+import PatientEditDialog from "@/components/product/patient-edit-dialog";
 import ScheduleDialog from "@/components/product/schedule-dialog";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiArchive from "@/icons/nexture/ni-archive";
 import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
+import NiPen from "@/icons/nexture/ni-pen";
 import { defaultAppointmentStart, startAppointment } from "@/lib/agenda";
 import { recordAudit } from "@/lib/audit";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
+import { formatCpf, formatPhoneBr } from "@flyee/fields";
 
 type Patient = {
   id: string;
@@ -41,6 +44,7 @@ type Patient = {
   fullName: string;
   birthDate: string | null;
   phone: string | null;
+  document: string | null;
   email: string | null;
   notes: string | null;
   alerts: { label: string }[];
@@ -102,6 +106,7 @@ export default function PacienteFicha() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<Confirmation>(null);
   const [deletionReason, setDeletionReason] = useState("");
 
@@ -152,6 +157,7 @@ export default function PacienteFicha() {
       fullName: row.full_name,
       birthDate: row.birth_date,
       phone: row.phone,
+      document: row.document,
       email: row.email,
       notes: row.notes,
       alerts: (row.alerts as { label: string }[] | null) ?? [],
@@ -376,6 +382,7 @@ export default function PacienteFicha() {
         name: patient.fullName,
         birthDate: patient.birthDate,
         phone: patient.phone,
+        document: patient.document,
         email: patient.email,
         notes: patient.notes,
         alerts: patient.alerts,
@@ -626,14 +633,27 @@ export default function PacienteFicha() {
       <Grid size={{ xs: 12, lg: 4 }} className="flex flex-col gap-5">
         <Card component="section">
           <CardContent className="flex flex-col gap-3">
-            <Typography variant="h5" component="h2" className="card-title">
-              {t("patient-data-title")}
-            </Typography>
+            <Box className="flex flex-row items-start justify-between gap-2">
+              <Typography variant="h5" component="h2" className="card-title mb-0">
+                {t("patient-data-title")}
+              </Typography>
+              {!patient.archivedAt && (
+                <Button
+                  variant="text"
+                  size="small"
+                  startIcon={<NiPen size="small" />}
+                  onClick={() => setEditOpen(true)}
+                >
+                  {t("patient-edit")}
+                </Button>
+              )}
+            </Box>
             <Field
               label={t("patient-birth")}
               value={patient.birthDate ? formatDate(patient.birthDate, locale) : null}
             />
-            <Field label={t("patient-phone")} value={patient.phone} />
+            <Field label={t("patient-phone")} value={patient.phone ? formatPhoneBr(patient.phone) : null} />
+            <Field label={t("patient-cpf")} value={patient.document ? formatCpf(patient.document) : null} />
             <Field label={t("patient-email")} value={patient.email} />
             <Field label={t("patient-notes")} value={patient.notes} />
             <Button
@@ -681,6 +701,16 @@ export default function PacienteFicha() {
         </Card>
       </Grid>
 
+      <PatientEditDialog
+        open={editOpen}
+        patient={patient}
+        onClose={() => setEditOpen(false)}
+        onSaved={async () => {
+          enqueueSnackbar(t("patient-edit-success"), { variant: "success" });
+          await load();
+        }}
+      />
+
       <ScheduleDialog
         open={scheduleOpen}
         orgId={orgId ?? patient.orgId}
@@ -690,8 +720,18 @@ export default function PacienteFicha() {
           startAt: defaultAppointmentStart(new Date(), new Date(), timezone).toISOString(),
         }}
         onClose={() => setScheduleOpen(false)}
-        onSaved={async () => {
-          enqueueSnackbar(t("agenda-schedule-success"), { variant: "success" });
+        onSaved={async (outcome) => {
+          enqueueSnackbar(
+            outcome.kind === "series"
+              ? t("agenda-series-success", { count: outcome.createdCount })
+              : t("agenda-schedule-success"),
+            { variant: "success" },
+          );
+          if (outcome.kind === "series" && outcome.conflictCount > 0) {
+            enqueueSnackbar(t("agenda-series-conflict-count", { count: outcome.conflictCount }), {
+              variant: "warning",
+            });
+          }
           await load();
         }}
       />

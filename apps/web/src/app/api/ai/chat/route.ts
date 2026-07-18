@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { COLLECTION_KIND, type KnowledgeSourceRef, SOURCES_SENTINEL } from "@/lib/clinical-library";
+import { alertAfterLibraryMessage } from "@/lib/usage";
 import { type ChatAttachment, type ChatMessage, getChatProvider } from "@flyee/ai";
 import { createClient } from "@flyee/auth/server";
 import {
@@ -18,6 +20,8 @@ type ChatRequest = {
   conversationId?: string;
   message: string;
   attachments?: AttachmentRef[];
+  /** When true, the retrieved knowledge sources open the stream as a sentinel-framed JSON prelude. */
+  includeSources?: boolean;
 };
 
 const HISTORY_LIMIT = 30;
@@ -63,6 +67,36 @@ export async function POST(request: Request) {
       { status: 402 },
     );
   }
+  // Data-driven monthly quota: the assistant's config names a plans.limits key
+  // (e.g. the library assistant → "library_messages"). The SQL RPC is the
+  // single source of truth; the UI only displays what it returns.
+  const quotaKey = (assistant.config as { quota_limit_key?: string } | null)?.quota_limit_key;
+  let messageAllowance: {
+    allowed?: boolean;
+    unlimited?: boolean;
+    used?: number;
+    limit?: number;
+    window_start?: string;
+  } | null = null;
+  if (quotaKey) {
+    const { data: allowance, error: allowanceError } = await supabase.rpc("org_message_allowance", {
+      target_org: body.orgId,
+      target_assistant: body.assistantSlug,
+    });
+    if (allowanceError) return NextResponse.json({ error: allowanceError.message }, { status: 403 });
+    messageAllowance = allowance ?? null;
+    if (allowance && allowance.allowed === false) {
+      return NextResponse.json(
+        {
+          error: "Monthly message limit reached for this plan.",
+          code: "quota_exhausted",
+          used: allowance.used ?? 0,
+          limit: allowance.limit ?? 0,
+        },
+        { status: 402 },
+      );
+    }
+  }
   if (assistant.credits_per_message > 0) {
     const { error: creditError } = await supabase.rpc("consume_credits", {
       target_org: body.orgId,
@@ -98,6 +132,16 @@ export async function POST(request: Request) {
     attachments,
   });
 
+  // 80/95/100% bell alert for the monthly quota, counting THIS message
+  // (PRD §5.8 pattern shared with audio minutes). Best-effort by design.
+  if (messageAllowance?.unlimited === false && messageAllowance.window_start) {
+    await alertAfterLibraryMessage(body.orgId, {
+      used: (messageAllowance.used ?? 0) + 1,
+      limit: messageAllowance.limit ?? 0,
+      windowStart: messageAllowance.window_start,
+    });
+  }
+
   const { data: history } = await supabase
     .from("messages")
     .select("role, content, attachments")
@@ -127,6 +171,7 @@ export async function POST(request: Request) {
 
   // Ground the assistant in its configured knowledge collections (RAG).
   let systemPrompt: string = assistant.system_prompt;
+  let sources: KnowledgeSourceRef[] = [];
   const knowledgeConfig = (assistant.config as { knowledge?: AssistantKnowledgeConfig } | null)?.knowledge;
   if (knowledgeConfig?.collections?.length && body.message.trim() && isEmbeddingConfigured()) {
     try {
@@ -137,6 +182,22 @@ export async function POST(request: Request) {
         maxTrust: knowledgeConfig.maxTrust,
       });
       systemPrompt += buildKnowledgeContext(results);
+      // The prompt numbers excerpts [1..n] in this same order — the refs the
+      // client renders must line up with the [n] marks in the answer.
+      if (body.includeSources && results.length > 0) {
+        const { data: collections } = await supabase
+          .from("knowledge_collections")
+          .select("id, slug")
+          .in("id", [...new Set(results.map((result) => result.collection_id))]);
+        const slugById = new Map((collections ?? []).map((row) => [row.id as string, row.slug as string]));
+        sources = results.map((result, index) => ({
+          index: index + 1,
+          title: result.title,
+          source: result.source,
+          kind: COLLECTION_KIND[slugById.get(result.collection_id) ?? ""] ?? "unknown",
+          trustLevel: result.trust_level,
+        }));
+      }
     } catch {
       // Retrieval must never take the chat down — answer without extra context.
     }
@@ -148,6 +209,11 @@ export async function POST(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
+        // Sentinel-framed prelude: the client that asked for sources splits it
+        // off before rendering text. Clients that did not ask see plain text.
+        if (body.includeSources) {
+          controller.enqueue(encoder.encode(`${SOURCES_SENTINEL}${JSON.stringify({ sources })}${SOURCES_SENTINEL}`));
+        }
         const generator = provider.streamChat(
           {
             provider: assistant.provider,
@@ -173,6 +239,9 @@ export async function POST(request: Request) {
             conversation_id: conversationId,
             role: "assistant",
             content: fullText,
+            // Citations persist WITH the answer, so reopening the conversation
+            // still shows what grounded it.
+            ...(sources.length > 0 ? { metadata: { knowledge_sources: sources } } : {}),
           });
         }
       }

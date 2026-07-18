@@ -55,6 +55,55 @@ export async function listActivePatientOptions(
   };
 }
 
+export type UpdatePatientInput = {
+  orgId: string;
+  patientId: string;
+  fullName: string;
+  birthDate?: string;
+  phone?: string;
+  document?: string;
+  email?: string;
+  notes?: string;
+  alerts: { label: string }[];
+};
+
+/**
+ * Updates the patient's demographic record. Phone/document persist DIGITS
+ * (never the mask); empty optionals store null, not "". The audit event
+ * carries only the names of the changed fields — values live in the row
+ * versioning history, not in the audit log.
+ */
+export async function updatePatientDetails(
+  supabase: SupabaseClient,
+  input: UpdatePatientInput,
+  changedFields: string[],
+): Promise<PatientResult<null>> {
+  const { error } = await supabase
+    .from("patients")
+    .update({
+      full_name: input.fullName.trim().replace(/\s+/g, " "),
+      birth_date: input.birthDate || null,
+      phone: input.phone ? onlyDigits(input.phone) : null,
+      document: input.document ? onlyDigits(input.document) : null,
+      email: input.email?.trim() || null,
+      notes: input.notes?.trim() || null,
+      alerts: input.alerts,
+    })
+    .eq("id", input.patientId)
+    .eq("org_id", input.orgId);
+
+  if (error) return { ok: false, error: error.message };
+
+  await recordAudit(supabase, "patient.updated", {
+    orgId: input.orgId,
+    entityType: "patient",
+    entityId: input.patientId,
+    metadata: { changedFields },
+  });
+
+  return { ok: true, data: null };
+}
+
 export async function createQuickPatient(
   supabase: SupabaseClient,
   input: CreatePatientInput,

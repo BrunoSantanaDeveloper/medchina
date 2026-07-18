@@ -1,6 +1,6 @@
 "use client";
 
-import { Field, RowLine, RowText, SelectField } from "./catalog-shared";
+import { CURRENCY_SYMBOLS, Field, RowLine, RowText, SelectField } from "./catalog-shared";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from "@mui/material";
 
+import { CurrencyField } from "@/components/product/fields";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
@@ -28,7 +29,8 @@ type ModuleForm = {
   name: string;
   description: string;
   kind: string;
-  price_cents: number;
+  /** Amount in currency units as a numeric string ("49.9"); converted to cents on save. */
+  price: string;
   limits: string;
   is_active: boolean;
   sort: number;
@@ -39,7 +41,7 @@ const EMPTY: ModuleForm = {
   name: "",
   description: "",
   kind: "recurring",
-  price_cents: 0,
+  price: "",
   limits: "{}",
   is_active: true,
   sort: 0,
@@ -70,7 +72,7 @@ export default function ModulesAdmin() {
             name: row.name as string,
             description: (row.description as string) ?? "",
             kind: row.kind as string,
-            price_cents: row.price_cents as number,
+            price: row.price_cents ? String((row.price_cents as number) / 100) : "",
             limits: JSON.stringify(row.limits ?? {}, null, 2),
             is_active: row.is_active as boolean,
             sort: row.sort as number,
@@ -96,7 +98,7 @@ export default function ModulesAdmin() {
       name: form.name.trim(),
       description: form.description || null,
       kind: form.kind,
-      price_cents: Number(form.price_cents) || 0,
+      price_cents: Math.round(Number(form.price) * 100) || 0,
       limits,
       is_active: form.is_active,
       sort: Number(form.sort) || 0,
@@ -162,11 +164,13 @@ export default function ModulesAdmin() {
               ]}
               onChange={(v) => setForm({ ...form, kind: v })}
             />
-            <Field
-              label="Price (cents)"
-              type="number"
-              value={form.price_cents}
-              onChange={(v) => setForm({ ...form, price_cents: Number(v) })}
+            <CurrencyField
+              label="Price"
+              size="small"
+              name="price"
+              currencySymbol={CURRENCY_SYMBOLS.BRL}
+              value={form.price}
+              onChange={(event) => setForm({ ...form, price: event.target.value })}
             />
             <Field label="Limits (JSON)" value={form.limits} onChange={(v) => setForm({ ...form, limits: v })} />
             <Field

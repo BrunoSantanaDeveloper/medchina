@@ -1,6 +1,6 @@
 "use client";
 
-import { Field, RowLine, RowText, SelectField } from "./catalog-shared";
+import { CURRENCY_SYMBOLS, Field, RowLine, RowText, SelectField } from "./catalog-shared";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from "@mui/material";
 
+import { CurrencyField } from "@/components/product/fields";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
@@ -29,7 +30,8 @@ type PlanForm = {
   description: string;
   kind: string;
   period: string;
-  price_cents: number;
+  /** Amount in currency units as a numeric string ("199.9"); converted to cents on save. */
+  price: string;
   currency: string;
   credit_amount: number | "";
   credits_expire: boolean;
@@ -46,7 +48,7 @@ const EMPTY: PlanForm = {
   description: "",
   kind: "recurring",
   period: "monthly",
-  price_cents: 0,
+  price: "",
   currency: "BRL",
   credit_amount: "",
   credits_expire: false,
@@ -85,7 +87,7 @@ export default function PlansAdmin() {
       description: (row.description as string) ?? "",
       kind: row.kind as string,
       period: (row.period as string) ?? "none",
-      price_cents: row.price_cents as number,
+      price: row.price_cents ? String((row.price_cents as number) / 100) : "",
       currency: row.currency as string,
       credit_amount: (row.credit_amount as number) ?? "",
       credits_expire: row.credits_expire as boolean,
@@ -115,7 +117,7 @@ export default function PlansAdmin() {
       description: form.description || null,
       kind: form.kind,
       period: form.period === "none" ? null : form.period,
-      price_cents: Number(form.price_cents) || 0,
+      price_cents: Math.round(Number(form.price) * 100) || 0,
       currency: form.currency,
       credit_amount: form.credit_amount === "" ? null : Number(form.credit_amount),
       credits_expire: form.credits_expire,
@@ -199,11 +201,13 @@ export default function PlansAdmin() {
               ]}
               onChange={(v) => setForm({ ...form, period: v })}
             />
-            <Field
-              label="Price (cents)"
-              type="number"
-              value={form.price_cents}
-              onChange={(v) => setForm({ ...form, price_cents: Number(v) })}
+            <CurrencyField
+              label={`Price (${form.currency})`}
+              size="small"
+              name="price"
+              currencySymbol={CURRENCY_SYMBOLS[form.currency] ?? `${form.currency} `}
+              value={form.price}
+              onChange={(event) => setForm({ ...form, price: event.target.value })}
             />
             <Field
               label="Credit amount (credits plans)"

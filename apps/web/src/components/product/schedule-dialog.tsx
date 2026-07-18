@@ -1,12 +1,5 @@
 "use client";
 
-// The picker renders month/weekday names through the dayjs adapter, so every
-// supported locale must be registered or the calendar silently falls back to en.
-import "dayjs/locale/de";
-import "dayjs/locale/es";
-import "dayjs/locale/fr";
-import "dayjs/locale/pt-br";
-
 import dayjs, { type Dayjs } from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
@@ -32,13 +25,22 @@ import {
 } from "@mui/material";
 import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { deDE, enUS, esES, frFR, ptBR } from "@mui/x-date-pickers/locales";
 
 import PatientQuickCreate from "@/components/product/patient-quick-create";
-import { type AgendaMutationResult, saveAppointment, type ScheduleConflict } from "@/lib/agenda";
+import { pickerLocaleText } from "@/components/product/picker-locale";
+import {
+  type AgendaMutationResult,
+  calendarDayRange,
+  saveAppointment,
+  saveAppointmentSeries,
+  type ScheduleConflict,
+  type SeriesConflict,
+  weeklyOccurrences,
+} from "@/lib/agenda";
 import { listActivePatientOptions, type PatientOption } from "@/lib/patients";
 import { trackProductEvent } from "@/lib/product-events";
 import { createClient } from "@flyee/auth/client";
+import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
 dayjs.extend(utc);
 dayjs.extend(timezonePlugin);
@@ -53,14 +55,17 @@ export type ScheduleSeed = {
   reason?: string;
 };
 
+/** What the dialog reports back after a successful save. */
+export type ScheduleSaveOutcome =
+  | { kind: "created" | "updated"; result: AgendaMutationResult }
+  | { kind: "series"; createdCount: number; conflictCount: number; conflicts: SeriesConflict[] };
+
 const DURATIONS = [30, 45, 50, 60, 90, 120];
 
-/** The picker's own chrome (action buttons, aria labels) ships per locale in MUI X. */
-const PICKER_LOCALES = { "pt-BR": ptBR, en: enUS, es: esES, fr: frFR, de: deDE } as const;
+/** Weekly-series sizes offered in the repeat select (1 = single session). */
+const REPEAT_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12];
 
-const pickerLocaleText = (locale: string) =>
-  (PICKER_LOCALES[locale as keyof typeof PICKER_LOCALES] ?? ptBR).components.MuiLocalizationProvider.defaultProps
-    .localeText;
+type DayAgendaItem = { id: string; patientName: string; scheduledFor: string; durationMinutes: number };
 
 const patientSecondary = (patient: PatientOption) => {
   const bits: string[] = [];
@@ -82,7 +87,7 @@ export default function ScheduleDialog({
   timeZone: string;
   seed?: ScheduleSeed;
   onClose: () => void;
-  onSaved: (result: AgendaMutationResult) => void | Promise<void>;
+  onSaved: (outcome: ScheduleSaveOutcome) => void | Promise<void>;
 }) {
   const t = useTranslations("product");
   const locale = useLocale();
@@ -94,6 +99,9 @@ export default function ScheduleDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ScheduleConflict | null>(null);
+  const [repeatCount, setRepeatCount] = useState(1);
+  const [seriesConflicts, setSeriesConflicts] = useState<SeriesConflict[] | null>(null);
+  const [dayAgenda, setDayAgenda] = useState<RemoteState<DayAgendaItem[], string>>(() => remoteSuccess([]));
   const trackedOpen = useRef(false);
   const saved = useRef(false);
 
@@ -139,6 +147,8 @@ export default function ScheduleDialog({
     setBusy(false);
     setError(null);
     setConflict(null);
+    setRepeatCount(1);
+    setSeriesConflicts(null);
     formik.resetForm({
       values: {
         patientId: "",
@@ -175,6 +185,52 @@ export default function ScheduleDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, orgId, seed?.patientId, t]);
 
+  // The chosen day's existing appointments, so the time is picked informed
+  // instead of discovering a conflict only after submitting.
+  const previewDayKey = formik.values.start?.isValid() ? formik.values.start.format("YYYY-MM-DD") : null;
+  const rescheduleId = seed?.consultationId;
+  useEffect(() => {
+    if (!open || !previewDayKey) return;
+    let active = true;
+    setDayAgenda(remoteLoading());
+    const load = async () => {
+      const [year, month, date] = previewDayKey.split("-").map(Number);
+      const { start, end } = calendarDayRange(new Date(year, month - 1, date), timeZone);
+      let query = createClient()
+        .from("consultations")
+        .select("id, scheduled_for, duration_minutes, patients(full_name)")
+        .eq("org_id", orgId)
+        .in("status", ["scheduled", "in_progress"])
+        .gte("scheduled_for", start.toISOString())
+        .lt("scheduled_for", end.toISOString())
+        .order("scheduled_for", { ascending: true });
+      if (rescheduleId) query = query.neq("id", rescheduleId);
+      const { data, error: queryError } = await query;
+      if (!active) return;
+      if (queryError) {
+        setDayAgenda(remoteError(t("agenda-day-preview-error")));
+        return;
+      }
+      setDayAgenda(
+        remoteSuccess(
+          (data ?? []).map((row) => {
+            const patientRow = row.patients as unknown as { full_name: string } | null;
+            return {
+              id: row.id as string,
+              patientName: patientRow?.full_name ?? t("patient-unknown"),
+              scheduledFor: row.scheduled_for as string,
+              durationMinutes: row.duration_minutes as number,
+            };
+          }),
+        ),
+      );
+    };
+    load();
+    return () => {
+      active = false;
+    };
+  }, [open, orgId, previewDayKey, rescheduleId, t, timeZone]);
+
   const handleClose = () => {
     if (busy) return;
     if (!saved.current && (formik.dirty || view === "patient")) {
@@ -203,6 +259,46 @@ export default function ScheduleDialog({
 
     setBusy(true);
     setError(null);
+    setSeriesConflicts(null);
+
+    // A weekly series is N independent appointments in one atomic call.
+    // Conflicting occurrences are skipped and reported — no bulk override.
+    if (!isReschedule && repeatCount > 1) {
+      const starts = weeklyOccurrences(formik.values.start.toISOString(), repeatCount, timeZone).map((occurrence) =>
+        occurrence.toISOString(),
+      );
+      const seriesResult = await saveAppointmentSeries(createClient(), {
+        orgId,
+        patientId: patient.id,
+        starts,
+        durationMinutes: formik.values.duration,
+        appointmentNote: formik.values.appointmentNote,
+      });
+      setBusy(false);
+
+      if (!seriesResult.ok) {
+        if (seriesResult.code === "series_all_conflict") {
+          trackProductEvent("appointment.conflict", { origin: "agenda" });
+          setSeriesConflicts(seriesResult.conflicts);
+          return;
+        }
+        setError(errorForCode(seriesResult.code));
+        return;
+      }
+
+      saved.current = true;
+      trackProductEvent("appointment.completed", { origin: "agenda" });
+      await onSaved({
+        kind: "series",
+        createdCount: seriesResult.createdCount,
+        conflictCount: seriesResult.conflictCount,
+        conflicts: seriesResult.conflicts,
+      });
+      trackedOpen.current = false;
+      onClose();
+      return;
+    }
+
     const result = await saveAppointment(createClient(), {
       orgId,
       patientId: patient.id,
@@ -226,7 +322,7 @@ export default function ScheduleDialog({
 
     saved.current = true;
     trackProductEvent("appointment.completed", { origin: "agenda" });
-    await onSaved(result);
+    await onSaved({ kind: result.code === "updated" ? "updated" : "created", result });
     trackedOpen.current = false;
     onClose();
   };
@@ -327,6 +423,7 @@ export default function ScheduleDialog({
                 onChange={(value) => {
                   formik.setFieldValue("start", value);
                   setConflict(null);
+                  setSeriesConflicts(null);
                 }}
                 onClose={() => formik.setFieldTouched("start", true)}
                 ampm={false}
@@ -342,6 +439,46 @@ export default function ScheduleDialog({
               />
             </LocalizationProvider>
 
+            {previewDayKey && (
+              <Box className="flex flex-col gap-1" aria-live="polite">
+                <Typography
+                  variant="body2"
+                  className="text-text-secondary text-xs font-semibold tracking-wide uppercase"
+                >
+                  {t("agenda-day-preview-title", { date: formik.values.start!.toDate().toLocaleDateString(locale) })}
+                </Typography>
+                {dayAgenda.status === "loading" || dayAgenda.status === "idle" ? (
+                  <Typography variant="body2" className="text-text-secondary text-xs">
+                    {t("agenda-day-preview-loading")}
+                  </Typography>
+                ) : dayAgenda.status === "error" ? (
+                  <Typography variant="body2" className="text-text-secondary text-xs">
+                    {dayAgenda.error}
+                  </Typography>
+                ) : dayAgenda.status === "success" && dayAgenda.data.length === 0 ? (
+                  <Typography variant="body2" className="text-text-secondary text-xs">
+                    {t("agenda-day-preview-free")}
+                  </Typography>
+                ) : dayAgenda.status === "success" ? (
+                  dayAgenda.data.map((item) => (
+                    <Typography key={item.id} variant="body2" className="text-text-secondary text-xs tabular-nums">
+                      {`${new Date(item.scheduledFor).toLocaleTimeString(locale, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone,
+                      })} – ${new Date(
+                        new Date(item.scheduledFor).getTime() + item.durationMinutes * 60_000,
+                      ).toLocaleTimeString(locale, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone,
+                      })} · ${item.patientName}`}
+                    </Typography>
+                  ))
+                ) : null}
+              </Box>
+            )}
+
             <TextField
               select
               required
@@ -351,6 +488,7 @@ export default function ScheduleDialog({
               onChange={(event) => {
                 formik.setFieldValue("duration", Number(event.target.value));
                 setConflict(null);
+                setSeriesConflicts(null);
               }}
             >
               {DURATIONS.map((minutes) => (
@@ -359,6 +497,39 @@ export default function ScheduleDialog({
                 </MenuItem>
               ))}
             </TextField>
+
+            {!isReschedule && (
+              <Box className="flex flex-col gap-1">
+                <TextField
+                  select
+                  name="repeat"
+                  label={t("agenda-field-repeat")}
+                  value={repeatCount}
+                  onChange={(event) => {
+                    setRepeatCount(Number(event.target.value));
+                    setSeriesConflicts(null);
+                  }}
+                  helperText={repeatCount > 1 ? t("agenda-repeat-hint") : undefined}
+                >
+                  {REPEAT_OPTIONS.map((count) => (
+                    <MenuItem key={count} value={count}>
+                      {count === 1 ? t("agenda-repeat-none") : t("agenda-repeat-weekly", { count })}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {repeatCount > 1 && formik.values.start?.isValid() && (
+                  <Typography variant="body2" className="text-text-secondary text-xs">
+                    {t("agenda-repeat-dates", {
+                      dates: weeklyOccurrences(formik.values.start.toISOString(), repeatCount, timeZone)
+                        .map((occurrence) =>
+                          occurrence.toLocaleDateString(locale, { day: "2-digit", month: "2-digit", timeZone }),
+                        )
+                        .join(", "),
+                    })}
+                  </Typography>
+                )}
+              </Box>
+            )}
 
             <TextField
               name="appointmentNote"
@@ -386,6 +557,23 @@ export default function ScheduleDialog({
                 >
                   {t("agenda-schedule-anyway")}
                 </Button>
+              </Alert>
+            )}
+
+            {seriesConflicts && seriesConflicts.length > 0 && (
+              <Alert severity="warning" className="neutral bg-background-paper/60! flex flex-col gap-1">
+                <Typography variant="body2">{t("agenda-series-all-conflict")}</Typography>
+                {seriesConflicts.map((item) => (
+                  <Typography key={item.scheduledFor} variant="body2" className="text-xs tabular-nums">
+                    {`${new Date(item.scheduledFor).toLocaleDateString(locale, { timeZone })} · ${new Date(
+                      item.scheduledFor,
+                    ).toLocaleTimeString(locale, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone,
+                    })} — ${item.conflict.patientName}`}
+                  </Typography>
+                ))}
               </Alert>
             )}
           </Box>

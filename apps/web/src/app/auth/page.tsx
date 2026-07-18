@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 
 export default function Auth() {
   const router = useRouter();
@@ -10,5 +10,6 @@ export default function Auth() {
     router.push("/auth/sign-in");
   }, [router]);
 
-  return <div>Welcome!</div>;
+  // Pure redirect — rendering nothing avoids a flash of untranslated text.
+  return null;
 }

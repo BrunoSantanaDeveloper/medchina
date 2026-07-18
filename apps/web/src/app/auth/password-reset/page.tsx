@@ -19,25 +19,32 @@ export default function Page() {
   const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
   const [email, setEmail] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (busy) return;
     setServerError(null);
     if (!isSupabaseConfigured) {
       setServerError(t("not-configured"));
       return;
     }
-    const supabase = createClient();
-    const passwordNew = new URL("/auth/password-new", window.location.origin);
-    if (next) passwordNew.searchParams.set("next", next);
-    const callback = new URL("/auth/callback", window.location.origin);
-    callback.searchParams.set("next", `${passwordNew.pathname}${passwordNew.search}`);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: callback.toString() });
-    if (error) {
-      setServerError(t("request-failed"));
-      return;
+    setBusy(true);
+    try {
+      const supabase = createClient();
+      const passwordNew = new URL("/auth/password-new", window.location.origin);
+      if (next) passwordNew.searchParams.set("next", next);
+      const callback = new URL("/auth/callback", window.location.origin);
+      callback.searchParams.set("next", `${passwordNew.pathname}${passwordNew.search}`);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: callback.toString() });
+      if (error) {
+        setServerError(t("request-failed"));
+        return;
+      }
+      router.push("/auth/password-sent");
+    } finally {
+      setBusy(false);
     }
-    router.push("/auth/password-sent");
   };
 
   return (
@@ -67,6 +74,7 @@ export default function Page() {
                   id="email"
                   name="email"
                   type="email"
+                  required
                   autoComplete="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -79,7 +87,7 @@ export default function Page() {
                 </Alert>
               )}
 
-              <Button type="submit" variant="contained" className="mt-2 mb-4">
+              <Button type="submit" variant="contained" className="mt-2 mb-4" disabled={busy}>
                 {t("reset-submit")}
               </Button>
             </Box>

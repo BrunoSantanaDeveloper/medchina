@@ -142,6 +142,7 @@ export default function TwoFactorCard() {
                   <FormLabel component="label">{t("security-code")}</FormLabel>
                   <Input
                     value={code}
+                    autoComplete="one-time-code"
                     inputProps={{ inputMode: "numeric", maxLength: 6 }}
                     onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
                   />

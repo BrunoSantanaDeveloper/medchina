@@ -26,6 +26,7 @@ export default function PatientQuickCreate({
 }) {
   const t = useTranslations("product");
   const [serverError, setServerError] = useState<string | null>(null);
+  const todayIso = new Date().toISOString().slice(0, 10);
 
   const formik = useFormik({
     initialValues: { fullName: "", phone: "", birthDate: "" },
@@ -36,6 +37,7 @@ export default function PatientQuickCreate({
         .min(3, t("field-min", { count: 3 }))
         .required(t("field-required")),
       phone: yup.string().test("phone", t("patient-phone-invalid"), (value) => !value || isValidPhoneBr(value)),
+      birthDate: yup.string().test("past", t("patient-birth-future"), (value) => !value || value <= todayIso),
     }),
     onSubmit: async (values) => {
       setServerError(null);
@@ -60,7 +62,8 @@ export default function PatientQuickCreate({
   );
 
   return (
-    <Box component="form" onSubmit={formik.handleSubmit} className="flex flex-col gap-4" noValidate>
+    // Patient data, not the professional's own — keep browser autofill out.
+    <Box component="form" onSubmit={formik.handleSubmit} autoComplete="off" className="flex flex-col gap-4" noValidate>
       <Box className="flex flex-col gap-1">
         <Typography variant="h6" component="h3">
           {t("patient-quick-title")}
@@ -118,7 +121,9 @@ export default function PatientQuickCreate({
         value={formik.values.birthDate}
         onChange={formik.handleChange}
         onBlur={formik.handleBlur}
-        slotProps={{ inputLabel: { shrink: true } }}
+        error={formik.touched.birthDate && Boolean(formik.errors.birthDate)}
+        helperText={formik.touched.birthDate && formik.errors.birthDate}
+        slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayIso } }}
       />
 
       {serverError && (

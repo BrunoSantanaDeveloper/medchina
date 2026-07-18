@@ -18,7 +18,7 @@ import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import NiUsers from "@/icons/nexture/ni-users";
-import { calendarDayRange, startAppointment } from "@/lib/agenda";
+import { calendarDayRange, calendarOverdueRange, startAppointment } from "@/lib/agenda";
 import { getProductAction } from "@/lib/product-actions";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -40,9 +40,13 @@ type HomeData = {
   today: HomeConsultation[];
   work: HomeConsultation[];
   recent: HomeConsultation[];
+  overdue: HomeConsultation[];
 };
 
 const WORK_PRIORITY: Record<string, number> = { in_progress: 0, awaiting_review: 1, draft: 2 };
+
+/** How far back the "left behind" check scans for never-started appointments. */
+const OVERDUE_LOOKBACK_DAYS = 60;
 const NEW_PATIENT_HREF = getProductAction("new-patient").href;
 const NEW_APPOINTMENT_HREF = getProductAction("new-appointment").href;
 const PATIENTS_HREF = getProductAction("patients").href;
@@ -63,7 +67,7 @@ export default function Inicio() {
   const load = useCallback(async () => {
     setHomeState(remoteLoading());
     if (!isSupabaseConfigured) {
-      setHomeState(remoteSuccess({ patients: 0, finalized: 0, today: [], work: [], recent: [] }));
+      setHomeState(remoteSuccess({ patients: 0, finalized: 0, today: [], work: [], recent: [], overdue: [] }));
       return;
     }
     if (orgLoading) return;
@@ -74,8 +78,9 @@ export default function Inicio() {
 
     const supabase = createClient();
     const { start, end } = calendarDayRange(new Date(), timezone);
+    const overdueRange = calendarOverdueRange(new Date(), OVERDUE_LOOKBACK_DAYS, timezone);
     const consultationFields = "id, status, started_at, scheduled_for, appointment_note, patients(full_name)";
-    const [patientsResult, finalizedResult, todayResult, workResult, recentResult] = await Promise.all([
+    const [patientsResult, finalizedResult, todayResult, workResult, recentResult, overdueResult] = await Promise.all([
       supabase
         .from("patients")
         .select("id", { count: "exact", head: true })
@@ -109,9 +114,25 @@ export default function Inicio() {
         .eq("status", "finalized")
         .order("finalized_at", { ascending: false })
         .limit(5),
+      supabase
+        .from("consultations")
+        .select(consultationFields)
+        .eq("org_id", orgId)
+        .eq("status", "scheduled")
+        .gte("scheduled_for", overdueRange.start.toISOString())
+        .lt("scheduled_for", overdueRange.end.toISOString())
+        .order("scheduled_for", { ascending: true })
+        .limit(10),
     ]);
 
-    if (patientsResult.error || finalizedResult.error || todayResult.error || workResult.error || recentResult.error) {
+    if (
+      patientsResult.error ||
+      finalizedResult.error ||
+      todayResult.error ||
+      workResult.error ||
+      recentResult.error ||
+      overdueResult.error
+    ) {
       setHomeState(remoteError(t("home-load-error")));
       return;
     }
@@ -139,6 +160,7 @@ export default function Inicio() {
       })
       .slice(0, 6);
     const recent = mapRows(recentResult.data);
+    const overdue = mapRows(overdueResult.data);
 
     setHomeState(
       remoteSuccess({
@@ -147,6 +169,7 @@ export default function Inicio() {
         today,
         work,
         recent,
+        overdue,
       }),
     );
   }, [orgId, orgLoading, t, timezone]);
@@ -225,6 +248,66 @@ export default function Inicio() {
         </Grid>
       ) : (
         <>
+          {data!.overdue.length > 0 && (
+            <Grid size={12}>
+              <Alert
+                severity="warning"
+                icon={<NiCalendar />}
+                className="neutral bg-background-paper/60!"
+                component="section"
+                aria-label={t("home-overdue-title", { count: data!.overdue.length })}
+              >
+                <Box className="flex flex-col gap-2">
+                  <Box>
+                    <Typography variant="body2" className="font-semibold">
+                      {t("home-overdue-title", { count: data!.overdue.length })}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary text-xs">
+                      {t("home-overdue-body")}
+                    </Typography>
+                  </Box>
+                  {data!.overdue.map((consultation) => {
+                    const instant = new Date(consultation.scheduledFor ?? consultation.startedAt);
+                    const dia = new Intl.DateTimeFormat("en-CA", {
+                      timeZone: timezone,
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                    }).format(instant);
+                    return (
+                      <Box key={consultation.id} className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1">
+                        <Typography variant="body2" className="tabular-nums">
+                          {`${instant.toLocaleDateString(locale, {
+                            weekday: "short",
+                            day: "2-digit",
+                            month: "2-digit",
+                            timeZone: timezone,
+                          })} · ${instant.toLocaleTimeString(locale, {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZone: timezone,
+                          })}`}
+                        </Typography>
+                        <Typography variant="body2" className="font-medium">
+                          {consultation.patientName}
+                        </Typography>
+                        <Button
+                          variant="text"
+                          color="grey"
+                          size="small"
+                          href={`/agenda?dia=${dia}`}
+                          LinkComponent={Link}
+                          aria-label={t("home-overdue-resolve-for", { patient: consultation.patientName })}
+                        >
+                          {t("home-overdue-resolve")}
+                        </Button>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </Alert>
+            </Grid>
+          )}
           <Grid size={12}>
             <Card component="section">
               <CardContent className="flex flex-col gap-3">

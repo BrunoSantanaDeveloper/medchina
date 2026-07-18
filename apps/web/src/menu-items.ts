@@ -31,6 +31,14 @@ export const leftMenuItems: MenuItem[] = [
     href: "/agenda",
   },
   {
+    id: "biblioteca",
+    icon: "NiBook",
+    label: "menu-biblioteca",
+    description: "menu-biblioteca-description",
+    color: "text-primary",
+    href: "/biblioteca",
+  },
+  {
     id: "primeiros-passos",
     icon: "NiPath",
     label: "menu-primeiros-passos",

@@ -1,5 +1,7 @@
 "use client";
 
+import dayjs from "dayjs";
+import NextLink from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useSnackbar } from "notistack";
@@ -18,14 +20,18 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  Link as MuiLink,
   Skeleton,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
+import { LocalizationProvider, MobileDatePicker } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
 import EmptyState from "@/components/product/empty-state";
+import { pickerLocaleText } from "@/components/product/picker-locale";
 import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule-dialog";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
@@ -34,11 +40,14 @@ import NiChevronRight from "@/icons/nexture/ni-chevron-right";
 import {
   calendarDateInTimeZone,
   calendarDayRange,
+  calendarOverdueRange,
   calendarUpcomingRange,
   cancelAppointment,
+  type CancellationCategory,
   defaultAppointmentStart,
   restoreAppointment,
   startAppointment,
+  whatsappConfirmationLink,
 } from "@/lib/agenda";
 import { cn } from "@/lib/utils";
 import { createClient } from "@flyee/auth/client";
@@ -51,12 +60,20 @@ type Appointment = {
   durationMinutes: number;
   appointmentNote: string | null;
   cancellationReason: string | null;
+  cancellationCategory: string | null;
   patientId: string;
   patientName: string;
+  patientPhone: string | null;
 };
 
 /** How far the "upcoming" list looks ahead. */
 const UPCOMING_DAYS = 30;
+
+/** How far back the "left behind" check scans for never-started appointments. */
+const OVERDUE_LOOKBACK_DAYS = 60;
+
+const APPOINTMENT_FIELDS =
+  "id, status, scheduled_for, duration_minutes, appointment_note, cancellation_reason, cancellation_category, patient_id, patients(full_name, phone)";
 
 type AgendaView = "day" | "upcoming";
 
@@ -88,11 +105,50 @@ export default function Agenda() {
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelCategory, setCancelCategory] = useState<CancellationCategory>("patient");
   const [cancelling, setCancelling] = useState(false);
+  const [overdueState, setOverdueState] = useState<RemoteState<Appointment[], string>>(() => remoteLoading());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const appliedInitialDay = useRef(false);
 
+  // The initial day honours a `?dia=YYYY-MM-DD` deep link (from /inicio's
+  // "left behind" block); otherwise it is today in the practice timezone.
   useEffect(() => {
-    if (!orgLoading) setDay(calendarDateInTimeZone(new Date(), timezone));
-  }, [orgLoading, timezone]);
+    if (orgLoading || appliedInitialDay.current) return;
+    appliedInitialDay.current = true;
+    const dia = searchParams.get("dia");
+    if (dia && /^\d{4}-\d{2}-\d{2}$/.test(dia)) {
+      const [year, month, date] = dia.split("-").map(Number);
+      const parsed = new Date(year, month - 1, date);
+      if (!Number.isNaN(parsed.getTime())) {
+        setView("day");
+        setDay(startOfDay(parsed));
+        router.replace("/agenda", { scroll: false });
+        return;
+      }
+    }
+    setDay(calendarDateInTimeZone(new Date(), timezone));
+  }, [orgLoading, router, searchParams, timezone]);
+
+  const mapAppointmentRows = useCallback(
+    (rows: Record<string, unknown>[] | null): Appointment[] =>
+      (rows ?? []).map((row) => {
+        const patient = row.patients as unknown as { full_name: string; phone: string | null } | null;
+        return {
+          id: row.id as string,
+          status: row.status as string,
+          scheduledFor: row.scheduled_for as string,
+          durationMinutes: row.duration_minutes as number,
+          appointmentNote: (row.appointment_note as string | null) ?? null,
+          cancellationReason: (row.cancellation_reason as string | null) ?? null,
+          cancellationCategory: (row.cancellation_category as string | null) ?? null,
+          patientId: row.patient_id as string,
+          patientName: patient?.full_name ?? t("patient-unknown"),
+          patientPhone: patient?.phone ?? null,
+        };
+      }),
+    [t],
+  );
 
   const load = useCallback(async () => {
     if (orgLoading) return;
@@ -110,9 +166,7 @@ export default function Agenda() {
         : calendarDayRange(day, timezone);
     let query = supabase
       .from("consultations")
-      .select(
-        "id, status, scheduled_for, duration_minutes, appointment_note, cancellation_reason, patient_id, patients(full_name)",
-      )
+      .select(APPOINTMENT_FIELDS)
       .eq("org_id", orgId)
       .gte("scheduled_for", start.toISOString())
       .lt("scheduled_for", end.toISOString())
@@ -120,29 +174,32 @@ export default function Agenda() {
     // Cancelled appointments are a day-view audit detail; the upcoming list is
     // about what still stands, so it never shows them.
     query = view === "day" && showCancelled ? query.eq("status", "cancelled") : query.neq("status", "cancelled");
-    const { data, error } = await query;
+
+    // "Left behind": still-scheduled appointments on PREVIOUS practice days.
+    // They vanish from every forward-looking view, so they get their own block.
+    const overdueRange = calendarOverdueRange(new Date(), OVERDUE_LOOKBACK_DAYS, timezone);
+    const overdueQuery = supabase
+      .from("consultations")
+      .select(APPOINTMENT_FIELDS)
+      .eq("org_id", orgId)
+      .eq("status", "scheduled")
+      .gte("scheduled_for", overdueRange.start.toISOString())
+      .lt("scheduled_for", overdueRange.end.toISOString())
+      .order("scheduled_for", { ascending: true });
+
+    const [{ data, error }, { data: overdueData, error: overdueError }] = await Promise.all([query, overdueQuery]);
 
     if (currentRequest !== requestId.current) return;
     if (error) {
       setAppointmentsState(remoteError(t("agenda-load-error")));
-      return;
+    } else {
+      const appointments = mapAppointmentRows(data);
+      setAppointmentsState(appointments.length === 0 ? remoteEmpty() : remoteSuccess(appointments));
     }
-
-    const appointments = (data ?? []).map((row) => {
-      const patient = row.patients as unknown as { full_name: string } | null;
-      return {
-        id: row.id as string,
-        status: row.status as string,
-        scheduledFor: row.scheduled_for as string,
-        durationMinutes: row.duration_minutes as number,
-        appointmentNote: (row.appointment_note as string | null) ?? null,
-        cancellationReason: (row.cancellation_reason as string | null) ?? null,
-        patientId: row.patient_id as string,
-        patientName: patient?.full_name ?? t("patient-unknown"),
-      };
-    });
-    setAppointmentsState(appointments.length === 0 ? remoteEmpty() : remoteSuccess(appointments));
-  }, [day, orgId, orgLoading, showCancelled, t, timezone, view]);
+    // A failed overdue check must say so — silence would read as "nothing pending".
+    if (overdueError) setOverdueState(remoteError(t("agenda-overdue-load-error")));
+    else setOverdueState(remoteSuccess(mapAppointmentRows(overdueData)));
+  }, [day, mapAppointmentRows, orgId, orgLoading, showCancelled, t, timezone, view]);
 
   useEffect(() => {
     load();
@@ -182,11 +239,17 @@ export default function Agenda() {
     router.push(`/consultas/${appointment.id}`);
   };
 
+  const openCancelDialog = (appointment: Appointment, category: CancellationCategory) => {
+    setCancelTarget(appointment);
+    setCancelReason("");
+    setCancelCategory(category);
+  };
+
   const confirmCancel = async () => {
     if (!orgId || !cancelTarget || cancelling) return;
     setCancelling(true);
     const target = cancelTarget;
-    const result = await cancelAppointment(createClient(), orgId, target.id, cancelReason);
+    const result = await cancelAppointment(createClient(), orgId, target.id, cancelReason, cancelCategory);
     setCancelling(false);
     if (!result.ok) {
       enqueueSnackbar(t("agenda-cancel-error"), { variant: "error" });
@@ -294,6 +357,34 @@ export default function Agenda() {
     return `${fmt(start)} – ${fmt(end)}`;
   };
 
+  const whatsappLink = (appointment: Appointment) => {
+    const start = new Date(appointment.scheduledFor);
+    return whatsappConfirmationLink(
+      appointment.patientPhone,
+      t("agenda-whatsapp-message", {
+        patient: appointment.patientName,
+        date: start.toLocaleDateString(locale, {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          timeZone: timezone,
+        }),
+        time: start.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", timeZone: timezone }),
+      }),
+    );
+  };
+
+  const cancellationCategoryLabel = (category: string | null) =>
+    category === "patient"
+      ? t("agenda-category-patient")
+      : category === "no_show"
+        ? t("agenda-category-no-show")
+        : category === "professional"
+          ? t("agenda-category-professional")
+          : category === "other"
+            ? t("agenda-category-other")
+            : null;
+
   const renderAppointment = (appointment: Appointment) => {
     const isScheduled = appointment.status === "scheduled";
     const isFinalized = appointment.status === "finalized";
@@ -312,19 +403,34 @@ export default function Agenda() {
               </Typography>
               {statusChip(appointment.status)}
             </Box>
-            <Typography variant="body1" className="text-text-primary truncate font-medium">
+            <MuiLink
+              component={NextLink}
+              href={`/pacientes/${appointment.patientId}`}
+              variant="body1"
+              underline="hover"
+              className="text-text-primary self-start truncate font-medium"
+              aria-label={t("agenda-open-patient", { patient: appointment.patientName })}
+            >
               {appointment.patientName}
-            </Typography>
+            </MuiLink>
             {appointment.appointmentNote && (
               <Typography variant="body2" className="text-text-secondary truncate text-xs">
                 {appointment.appointmentNote}
               </Typography>
             )}
-            {isCancelled && appointment.cancellationReason && (
-              <Typography variant="body2" className="text-text-secondary text-xs">
-                {t("agenda-cancellation-reason", { reason: appointment.cancellationReason })}
-              </Typography>
-            )}
+            {isCancelled &&
+              (cancellationCategoryLabel(appointment.cancellationCategory) || appointment.cancellationReason) && (
+                <Typography variant="body2" className="text-text-secondary text-xs">
+                  {[
+                    cancellationCategoryLabel(appointment.cancellationCategory),
+                    appointment.cancellationReason
+                      ? t("agenda-cancellation-reason", { reason: appointment.cancellationReason })
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </Typography>
+              )}
           </Box>
           <Box className="flex flex-row flex-wrap gap-2">
             {isCancelled ? (
@@ -374,13 +480,24 @@ export default function Agenda() {
                   color="grey"
                   size="small"
                   aria-label={t("agenda-cancel-for", { patient: appointment.patientName })}
-                  onClick={() => {
-                    setCancelTarget(appointment);
-                    setCancelReason("");
-                  }}
+                  onClick={() => openCancelDialog(appointment, "patient")}
                 >
                   {t("agenda-cancel-appointment")}
                 </Button>
+                {whatsappLink(appointment) && (
+                  <Button
+                    variant="text"
+                    color="grey"
+                    size="small"
+                    component="a"
+                    href={whatsappLink(appointment)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={t("agenda-whatsapp-for", { patient: appointment.patientName })}
+                  >
+                    {t("agenda-whatsapp-confirm")}
+                  </Button>
+                )}
               </>
             )}
           </Box>
@@ -452,9 +569,32 @@ export default function Agenda() {
                 <NiChevronLeft size="medium" />
               </IconButton>
               <Box className="flex flex-col items-center" aria-live="polite">
-                <Typography variant="h6" component="p" className="mb-0 capitalize">
-                  {dayLabel}
-                </Typography>
+                <Button
+                  variant="text"
+                  color="grey"
+                  onClick={() => setDatePickerOpen(true)}
+                  aria-label={t("agenda-pick-date", { date: dayLabel })}
+                  className="normal-case"
+                >
+                  <Typography variant="h6" component="span" className="mb-0 capitalize">
+                    {dayLabel}
+                  </Typography>
+                </Button>
+                <LocalizationProvider
+                  dateAdapter={AdapterDayjs}
+                  adapterLocale={locale.toLowerCase()}
+                  localeText={pickerLocaleText(locale)}
+                >
+                  <MobileDatePicker
+                    open={datePickerOpen}
+                    onClose={() => setDatePickerOpen(false)}
+                    value={dayjs(day)}
+                    onAccept={(value) => {
+                      if (value?.isValid()) setDay(startOfDay(value.toDate()));
+                    }}
+                    slotProps={{ textField: { className: "hidden", tabIndex: -1, "aria-hidden": true } }}
+                  />
+                </LocalizationProvider>
                 {!today ? (
                   <Button variant="text" color="grey" size="small" onClick={() => setDay(officeToday)}>
                     {t("agenda-today")}
@@ -483,6 +623,98 @@ export default function Agenda() {
             value={patientFilter}
             onChange={(event) => setPatientFilter(event.target.value)}
           />
+        </Grid>
+      )}
+
+      {/* Appointments that stayed "scheduled" on a past day vanish from every
+          forward-looking view — this block is where they get resolved. */}
+      {view === "day" && overdueState.status === "error" && (
+        <Grid size={12}>
+          <Alert severity="warning" className="neutral bg-background-paper/60!">
+            {overdueState.error}
+          </Alert>
+        </Grid>
+      )}
+      {view === "day" && overdueState.status === "success" && overdueState.data.length > 0 && (
+        <Grid size={12}>
+          <Alert
+            severity="warning"
+            icon={<NiCalendarClock />}
+            className="neutral bg-background-paper/60!"
+            component="section"
+            aria-label={t("agenda-overdue-title", { count: overdueState.data.length })}
+          >
+            <Box className="flex flex-col gap-2">
+              <Box>
+                <Typography variant="body2" className="font-semibold">
+                  {t("agenda-overdue-title", { count: overdueState.data.length })}
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary text-xs">
+                  {t("agenda-overdue-body")}
+                </Typography>
+              </Box>
+              {overdueState.data.map((appointment) => (
+                <Box key={appointment.id} className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1">
+                  <Typography variant="body2" className="tabular-nums">
+                    {`${new Date(appointment.scheduledFor).toLocaleDateString(locale, {
+                      weekday: "short",
+                      day: "2-digit",
+                      month: "2-digit",
+                      timeZone: timezone,
+                    })} · ${timeRange(appointment)}`}
+                  </Typography>
+                  <MuiLink
+                    component={NextLink}
+                    href={`/pacientes/${appointment.patientId}`}
+                    variant="body2"
+                    underline="hover"
+                    className="text-text-primary font-medium"
+                  >
+                    {appointment.patientName}
+                  </MuiLink>
+                  <Box className="flex flex-row flex-wrap gap-1">
+                    <Button
+                      variant="text"
+                      color="grey"
+                      size="small"
+                      disabled={openingId === appointment.id}
+                      onClick={() => openConsultation(appointment)}
+                      aria-label={t("agenda-open-for", { patient: appointment.patientName })}
+                    >
+                      {t("agenda-start")}
+                    </Button>
+                    <Button
+                      variant="text"
+                      color="grey"
+                      size="small"
+                      aria-label={t("agenda-reschedule-for", { patient: appointment.patientName })}
+                      onClick={() => {
+                        setSeed({
+                          consultationId: appointment.id,
+                          patientId: appointment.patientId,
+                          startAt: appointment.scheduledFor,
+                          durationMinutes: appointment.durationMinutes,
+                          appointmentNote: appointment.appointmentNote ?? undefined,
+                        });
+                        setDialogOpen(true);
+                      }}
+                    >
+                      {t("agenda-reschedule")}
+                    </Button>
+                    <Button
+                      variant="text"
+                      color="grey"
+                      size="small"
+                      aria-label={t("agenda-no-show-for", { patient: appointment.patientName })}
+                      onClick={() => openCancelDialog(appointment, "no_show")}
+                    >
+                      {t("agenda-mark-no-show")}
+                    </Button>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Alert>
         </Grid>
       )}
 
@@ -580,10 +812,31 @@ export default function Agenda() {
           timeZone={timezone}
           seed={seed}
           onClose={() => setDialogOpen(false)}
-          onSaved={async (result) => {
-            enqueueSnackbar(result.code === "updated" ? t("agenda-reschedule-success") : t("agenda-schedule-success"), {
-              variant: "success",
-            });
+          onSaved={async (outcome) => {
+            if (outcome.kind === "series") {
+              enqueueSnackbar(t("agenda-series-success", { count: outcome.createdCount }), { variant: "success" });
+              if (outcome.conflictCount > 0) {
+                enqueueSnackbar(
+                  t("agenda-series-partial-conflict", {
+                    count: outcome.conflictCount,
+                    dates: outcome.conflicts
+                      .map((item) =>
+                        new Date(item.scheduledFor).toLocaleDateString(locale, {
+                          day: "2-digit",
+                          month: "2-digit",
+                          timeZone: timezone,
+                        }),
+                      )
+                      .join(", "),
+                  }),
+                  { variant: "warning", autoHideDuration: 10_000 },
+                );
+              }
+            } else {
+              enqueueSnackbar(t(outcome.kind === "updated" ? "agenda-reschedule-success" : "agenda-schedule-success"), {
+                variant: "success",
+              });
+            }
             await load();
           }}
         />
@@ -597,6 +850,20 @@ export default function Agenda() {
               ? t("agenda-cancel-body", { patient: cancelTarget.patientName, time: timeRange(cancelTarget) })
               : ""}
           </Typography>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={cancelCategory}
+            aria-label={t("agenda-cancel-category-label")}
+            onChange={(_, next: CancellationCategory | null) => {
+              if (next) setCancelCategory(next);
+            }}
+          >
+            <ToggleButton value="patient">{t("agenda-category-patient")}</ToggleButton>
+            <ToggleButton value="no_show">{t("agenda-category-no-show")}</ToggleButton>
+            <ToggleButton value="professional">{t("agenda-category-professional")}</ToggleButton>
+            <ToggleButton value="other">{t("agenda-category-other")}</ToggleButton>
+          </ToggleButtonGroup>
           <TextField
             autoFocus
             label={t("agenda-cancel-reason")}
@@ -611,7 +878,11 @@ export default function Agenda() {
             {t("agenda-keep-appointment")}
           </Button>
           <Button variant="contained" color="error" onClick={confirmCancel} disabled={cancelling}>
-            {cancelling ? t("saving") : t("agenda-confirm-cancel")}
+            {cancelling
+              ? t("saving")
+              : cancelCategory === "no_show"
+                ? t("agenda-confirm-no-show")
+                : t("agenda-confirm-cancel")}
           </Button>
         </DialogActions>
       </Dialog>

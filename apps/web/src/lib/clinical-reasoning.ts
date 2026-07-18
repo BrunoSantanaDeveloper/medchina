@@ -1,4 +1,5 @@
 import { ANAMNESIS_BLOCKS } from "@/lib/anamnesis";
+import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 import { type KnowledgeSearchResult, resolveCollectionIds, searchKnowledge } from "@flyee/knowledge";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -32,19 +33,6 @@ export const REASONING_PROMPT_VERSION = "hypotheses-2026-07-15";
 
 const DEFAULT_PROVIDER: AiProviderName = "gemini";
 const DEFAULT_MODEL = "gemini-2.5-flash";
-
-/** The clinical library, kept separate by kind (PRD §9.9). */
-export const LIBRARY_COLLECTIONS = [
-  "mtc-fontes-tradicionais",
-  "mtc-protocolos-internos",
-  "mtc-evidencia-cientifica",
-] as const;
-
-const COLLECTION_KIND: Record<string, "traditional" | "protocol" | "evidence"> = {
-  "mtc-fontes-tradicionais": "traditional",
-  "mtc-protocolos-internos": "protocol",
-  "mtc-evidencia-cientifica": "evidence",
-};
 
 export type Correspondence = "weak" | "moderate" | "strong";
 

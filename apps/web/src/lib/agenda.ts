@@ -15,6 +15,10 @@ export type ScheduleConflict = {
   durationMinutes: number;
 };
 
+/** Structured reason an appointment left the calendar (0041). */
+export const CANCELLATION_CATEGORIES = ["patient", "no_show", "professional", "other"] as const;
+export type CancellationCategory = (typeof CANCELLATION_CATEGORIES)[number];
+
 export type AgendaMutationResult = {
   ok: boolean;
   code: string;
@@ -68,6 +72,65 @@ export async function saveAppointment(
   return result;
 }
 
+export type SeriesConflict = { scheduledFor: string; conflict: ScheduleConflict };
+
+export type SaveSeriesResult = {
+  ok: boolean;
+  code: string;
+  createdCount: number;
+  conflictCount: number;
+  created: { consultationId: string; scheduledFor: string }[];
+  conflicts: SeriesConflict[];
+};
+
+export type SaveSeriesInput = {
+  orgId: string;
+  patientId: string;
+  /** ISO timestamps of every occurrence, already stepped in the practice timezone. */
+  starts: string[];
+  durationMinutes: number;
+  appointmentNote?: string;
+};
+
+/**
+ * Creates a weekly series as N INDEPENDENT appointments in one atomic RPC.
+ * Conflicting occurrences are skipped and reported back — the professional
+ * books those manually; there is deliberately no bulk conflict override.
+ */
+export async function saveAppointmentSeries(
+  supabase: SupabaseClient,
+  input: SaveSeriesInput,
+): Promise<SaveSeriesResult> {
+  const failure = (code: string): SaveSeriesResult => ({
+    ok: false,
+    code,
+    createdCount: 0,
+    conflictCount: 0,
+    created: [],
+    conflicts: [],
+  });
+
+  const { data, error } = await supabase.rpc("save_scheduled_series", {
+    target_org: input.orgId,
+    target_patient: input.patientId,
+    target_starts: input.starts,
+    target_duration: input.durationMinutes,
+    target_note: input.appointmentNote?.trim() || null,
+  });
+  if (error) return failure(error.code || "save_failed");
+  if (!data || typeof data !== "object") return failure("unexpected_response");
+
+  const row = data as Record<string, unknown>;
+  return {
+    ok: Boolean(row.ok),
+    code: typeof row.code === "string" ? row.code : "unexpected_response",
+    createdCount: typeof row.createdCount === "number" ? row.createdCount : 0,
+    conflictCount: typeof row.conflictCount === "number" ? row.conflictCount : 0,
+    created: Array.isArray(row.created) ? (row.created as SaveSeriesResult["created"]) : [],
+    conflicts: Array.isArray(row.conflicts) ? (row.conflicts as SeriesConflict[]) : [],
+  };
+}
+
 export async function startAppointment(
   supabase: SupabaseClient,
   orgId: string,
@@ -87,10 +150,12 @@ export async function cancelAppointment(
   orgId: string,
   consultationId: string,
   reason?: string,
+  category?: CancellationCategory,
 ): Promise<AgendaMutationResult> {
   const { data, error } = await supabase.rpc("cancel_scheduled_consultation", {
     target_consultation: consultationId,
     reason: reason?.trim() || null,
+    category: category ?? null,
   });
   if (error) return failed(error.code || "cancel_failed");
   const result = parseRpcResult(data);
@@ -168,4 +233,52 @@ export function defaultAppointmentStart(
     return officeNow.add(1, "hour").startOf("hour").toDate();
   }
   return dayjs.tz(`${dayKey}T09:00:00`, timeZone).toDate();
+}
+
+/**
+ * Weekly occurrences for a series: the first is `startAt` itself, each next one
+ * keeps the same WALL-CLOCK time in the practice timezone one week later.
+ * Stepping is done on the CALENDAR date and rebuilt in the timezone — a dayjs
+ * `.add(7, "day")` on a tz object adds exact 168h, which drifts the wall clock
+ * across a DST change.
+ */
+export function weeklyOccurrences(startAt: string | Date, count: number, timeZone: string): Date[] {
+  const first = dayjs(startAt).tz(timeZone);
+  const datePart = first.format("YYYY-MM-DD");
+  const timePart = first.format("HH:mm:ss");
+  return Array.from({ length: Math.max(count, 1) }, (_, index) => {
+    if (index === 0) return first.toDate();
+    const stepped = new Date(`${datePart}T00:00:00Z`);
+    stepped.setUTCDate(stepped.getUTCDate() + index * 7);
+    return dayjs.tz(`${stepped.toISOString().slice(0, 10)}T${timePart}`, timeZone).toDate();
+  });
+}
+
+/**
+ * Window for "appointments left behind": every practice day BEFORE today,
+ * bounded so the query never scans unlimited history. Today's own appointments
+ * are excluded on purpose — they are visible right in the day view.
+ */
+export function calendarOverdueRange(
+  now: Date,
+  lookbackDays: number,
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): { start: Date; end: Date } {
+  const todayStart = dayjs.tz(calendarKey(calendarDateInTimeZone(now, timeZone)), timeZone).startOf("day");
+  return { start: todayStart.subtract(lookbackDays, "day").toDate(), end: todayStart.toDate() };
+}
+
+/**
+ * wa.me deep link with a prefilled confirmation message, or null when the
+ * stored phone cannot be a reachable Brazilian WhatsApp number. Phones are
+ * persisted as bare digits (packages/fields); local numbers get the country
+ * code, numbers already carrying 55 pass through.
+ */
+export function whatsappConfirmationLink(phone: string | null | undefined, message: string): string | null {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  let full: string | null = null;
+  if (digits.length === 10 || digits.length === 11) full = `55${digits}`;
+  else if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) full = digits;
+  if (!full) return null;
+  return `https://wa.me/${full}?text=${encodeURIComponent(message)}`;
 }

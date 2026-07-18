@@ -108,3 +108,58 @@ export async function alertAfterAudioUsage(supabase: SupabaseClient, orgId: stri
     // A notification outage cannot roll back already committed clinical work.
   }
 }
+
+/**
+ * The same 80/95/100% alerts for the clinical library's monthly message quota
+ * (`plans.limits.library_messages`, migration 0042) — both product currencies
+ * warn the professional the same way. `meter` keeps the idempotency key apart
+ * from the audio alerts (migration 0043).
+ *
+ * Called by the chat route AFTER the user message is stored, with the counts
+ * the allowance RPC reported plus that message. Best-effort: the answer she
+ * asked for matters more than the warning about the next one — and the writes
+ * go through the service role because members cannot insert alerts or other
+ * users' notifications (that is the point of those policies).
+ */
+export async function alertAfterLibraryMessage(
+  orgId: string,
+  after: { used: number; limit: number; windowStart: string },
+): Promise<void> {
+  try {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+    if (after.limit <= 0) return;
+
+    const percent = Math.floor((after.used * 100) / after.limit);
+    const crossed = THRESHOLDS.find((threshold) => percent >= threshold);
+    if (!crossed) return;
+
+    const { createServiceClient } = await import("@flyee/auth/service");
+    const service = createServiceClient();
+
+    const { data: inserted } = await service
+      .from("usage_alerts")
+      .insert({ org_id: orgId, meter: "library_messages", window_start: after.windowStart, threshold: crossed })
+      .select("id")
+      .maybeSingle();
+    if (!inserted) return; // already alerted for this threshold this month
+
+    const { data: members } = await service.from("memberships").select("user_id").eq("org_id", orgId);
+    const userIds = (members ?? []).map((row) => row.user_id as string);
+    if (userIds.length === 0) return;
+
+    // Stored text, so it is written in the default locale (pt-BR) at creation.
+    const remaining = Math.max(after.limit - after.used, 0);
+    const title =
+      crossed === 100
+        ? "Você usou as mensagens da biblioteca deste mês"
+        : `Você já usou ${crossed}% das mensagens da biblioteca`;
+    const body =
+      crossed === 100
+        ? "As conversas continuam disponíveis para leitura. Para continuar perguntando, escolha um plano."
+        : `${remaining} de ${after.limit} mensagens restantes neste mês.`;
+
+    await notifyUsers(userIds, { type: "billing", title, body, href: "/settings/billing" });
+  } catch {
+    // A notification outage must never take the chat down.
+  }
+}

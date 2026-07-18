@@ -188,6 +188,7 @@ export default function Page() {
                 <Input
                   id="name"
                   name="name"
+                  autoComplete="name"
                   value={formik.values.name}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
@@ -204,6 +205,7 @@ export default function Page() {
                 <Input
                   id="company"
                   name="company"
+                  autoComplete="organization"
                   value={formik.values.company}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}

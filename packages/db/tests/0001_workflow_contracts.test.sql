@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(96);
+select plan(100);
 
 select ok(
   exists(select 1 from information_schema.columns where table_schema = 'public' and table_name = 'consultations' and column_name = 'clinical_revision'),
@@ -15,6 +15,10 @@ select ok(
   'only one active clinical consultation is allowed per patient'
 );
 select ok(exists(select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'save_scheduled_consultation'), 'schedule save is atomic');
+select ok(to_regprocedure('public.save_scheduled_series(uuid,uuid,timestamptz[],integer,text)') is not null, 'weekly series are created atomically server-side');
+select ok(has_function_privilege('authenticated', 'public.save_scheduled_series(uuid,uuid,timestamptz[],integer,text)', 'EXECUTE'), 'professionals can schedule a weekly series');
+select ok(to_regprocedure('public.cancel_scheduled_consultation(uuid,text)') is null, 'the pre-category cancel overload is gone so the RPC call stays unambiguous');
+select ok(exists(select 1 from information_schema.columns where table_schema = 'public' and table_name = 'consultations' and column_name = 'cancellation_category'), 'cancellations carry a structured category including no-show');
 select ok(exists(select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'restore_cancelled_consultation'), 'cancelled appointments can be restored through validation');
 select ok(exists(select 1 from pg_proc where pronamespace = 'public'::regnamespace and proname = 'finalize_consultation'), 'consultation finalization is server coordinated');
 select ok(

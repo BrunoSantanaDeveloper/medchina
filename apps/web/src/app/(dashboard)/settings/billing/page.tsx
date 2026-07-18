@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Box, Breadcrumbs, Button, CircularProgress, Drawer, Grid, Tooltip, Typography } from "@mui/material";
 
 import AudioUsageCard from "@/components/product/audio-usage-card";
+import LibraryUsageCard from "@/components/product/library-usage-card";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
 import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
@@ -147,8 +148,11 @@ export default function BillingSettings() {
 
         {currentOrg && detailsAvailable && (
           <>
-            <Grid size={12}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <AudioUsageCard showWhenEmpty />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <LibraryUsageCard />
             </Grid>
             <CurrentSubscription
               orgId={currentOrg.id}

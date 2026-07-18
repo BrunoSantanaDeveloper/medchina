@@ -97,6 +97,7 @@ export default function AccountCard() {
               <Input
                 name="email"
                 type="email"
+                autoComplete="email"
                 placeholder={currentEmail || "email@example.com"}
                 value={emailForm.values.email}
                 onChange={emailForm.handleChange}

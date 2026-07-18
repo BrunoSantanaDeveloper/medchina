@@ -23,13 +23,16 @@ import {
   Typography,
 } from "@mui/material";
 
-import { PhoneField } from "@/components/product/fields";
+import { CpfField, PhoneField } from "@/components/product/fields";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
-import { isValidPhoneBr, onlyDigits } from "@flyee/fields";
+import { isValidCpf, isValidPhoneBr, onlyDigits } from "@flyee/fields";
+
+/** Native date input bound: a birth date is never in the future. */
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 /**
  * First patient (PRD §9.4 + activation step 2). The job is "get this person
@@ -53,10 +56,12 @@ export default function NovoPaciente() {
       .min(3, t("field-min", { count: 3 })),
     email: yup.string().email(t("field-email")),
     phone: yup.string().test("phone", t("patient-phone-invalid"), (value) => !value || isValidPhoneBr(value)),
+    document: yup.string().test("cpf", t("patient-document-invalid"), (value) => !value || isValidCpf(value)),
+    birthDate: yup.string().test("past", t("patient-birth-future"), (value) => !value || value <= todayIso()),
   });
 
   const formik = useFormik({
-    initialValues: { fullName: "", birthDate: "", phone: "", email: "", notes: "" },
+    initialValues: { fullName: "", birthDate: "", phone: "", email: "", document: "", notes: "" },
     validationSchema,
     validateOnBlur: false,
     onSubmit: async (values) => {
@@ -87,6 +92,7 @@ export default function NovoPaciente() {
           full_name: values.fullName.trim(),
           birth_date: values.birthDate || null,
           phone: onlyDigits(values.phone) || null,
+          document: onlyDigits(values.document) || null,
           email: values.email.trim() || null,
           notes: values.notes.trim() || null,
           alerts: alerts.map((label) => ({ label })),
@@ -138,7 +144,9 @@ export default function NovoPaciente() {
       <Grid size={{ xs: 12, lg: 8 }}>
         <Card component="section">
           <CardContent>
-            <Box component="form" onSubmit={formik.handleSubmit} className="flex flex-col gap-1">
+            {/* This form describes the PATIENT: browser autofill would inject the
+                professional's own contact data into the wrong person's record. */}
+            <Box component="form" onSubmit={formik.handleSubmit} autoComplete="off" className="flex flex-col gap-1">
               <FormControl className="outlined" variant="standard" size="small">
                 <FormLabel component="label" htmlFor="fullName">
                   {t("patient-name")}
@@ -164,9 +172,14 @@ export default function NovoPaciente() {
                     id="birthDate"
                     name="birthDate"
                     type="date"
+                    inputProps={{ max: todayIso() }}
                     value={formik.values.birthDate}
                     onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
                   />
+                  {formik.touched.birthDate && formik.errors.birthDate && (
+                    <FormHelperText className="text-error">{formik.errors.birthDate}</FormHelperText>
+                  )}
                 </FormControl>
 
                 <PhoneField
@@ -179,15 +192,34 @@ export default function NovoPaciente() {
                 />
               </Box>
 
-              <FormControl className="outlined" variant="standard" size="small">
-                <FormLabel component="label" htmlFor="email">
-                  {t("patient-email")}
-                </FormLabel>
-                <Input id="email" name="email" value={formik.values.email} onChange={formik.handleChange} />
-                {formik.touched.email && formik.errors.email && (
-                  <FormHelperText className="text-error">{formik.errors.email}</FormHelperText>
-                )}
-              </FormControl>
+              <Box className="grid gap-x-4 sm:grid-cols-2">
+                <CpfField
+                  name="document"
+                  label={t("patient-document")}
+                  value={formik.values.document}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  invalidMessage={t("patient-document-invalid")}
+                />
+
+                <FormControl className="outlined" variant="standard" size="small">
+                  <FormLabel component="label" htmlFor="email">
+                    {t("patient-email")}
+                  </FormLabel>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    inputProps={{ inputMode: "email" }}
+                    value={formik.values.email}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                  />
+                  {formik.touched.email && formik.errors.email && (
+                    <FormHelperText className="text-error">{formik.errors.email}</FormHelperText>
+                  )}
+                </FormControl>
+              </Box>
 
               <FormControl className="outlined" variant="standard" size="small">
                 <FormLabel component="label" htmlFor="alertDraft">
