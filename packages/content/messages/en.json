@@ -1032,6 +1032,7 @@
     "capture-idle": "Ready to record",
     "capture-recording": "Recording",
     "capture-paused": "Paused",
+    "capture-screen-on-hint": "Keep the app open while recording. We keep the screen on; if you lock the device or switch apps, we stop and save the recording.",
     "capture-start": "Start recording",
     "capture-pause": "Pause",
     "capture-resume": "Resume",

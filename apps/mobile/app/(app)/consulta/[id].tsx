@@ -3,6 +3,7 @@ import { Alert, AppState, ScrollView, View } from "react-native";
 import { ActivityIndicator, Button, Card, Chip, SegmentedButtons, Text, useTheme } from "react-native-paper";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { File } from "expo-file-system";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import * as Linking from "expo-linking";
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { useTranslations } from "use-intl";
@@ -28,6 +29,8 @@ import { enqueueRecording, flushQueue, queueForConsultation, retryItem, type Que
 import { MAX_RECORDING_SECONDS, RecordingLimitError, type RecordingMode } from "@/lib/recording-store";
 import { supabase } from "@/lib/supabase";
 import { GRID, RADIUS, TOUCH_TARGET } from "@/theme";
+
+const KEEP_AWAKE_TAG = "medchina-capture";
 
 export default function ConsultationCapture() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -77,6 +80,20 @@ export default function ConsultationCapture() {
   }, [consultation, navigation]);
 
   const recording = recorderState.isRecording || paused;
+
+  // A consultation runs 40–60 min with the phone resting on the table. The
+  // device's auto-lock would otherwise fire AppState → finish() and truncate
+  // the capture silently (there is no background-audio entitlement, so the mic
+  // cannot keep running once suspended). Holding the screen awake while
+  // recording removes that failure; deliberate backgrounding still stops and
+  // saves (the audio is queued, never lost).
+  useEffect(() => {
+    if (!recording) return;
+    void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
+    return () => {
+      void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
+    };
+  }, [recording]);
 
   useEffect(
     () =>
@@ -368,6 +385,11 @@ export default function ConsultationCapture() {
               </View>
             )}
 
+            {recording ? (
+              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}>
+                {t("capture-screen-on-hint")}
+              </Text>
+            ) : null}
             {nearLimit && recording ? (
               <Text
                 accessibilityLiveRegion="polite"

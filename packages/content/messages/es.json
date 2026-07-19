@@ -1032,6 +1032,7 @@
     "capture-idle": "Lista para grabar",
     "capture-recording": "Grabando",
     "capture-paused": "En pausa",
+    "capture-screen-on-hint": "Mantén la app abierta durante la grabación. Mantenemos la pantalla encendida; si bloqueas el dispositivo o cambias de app, detenemos y guardamos la grabación.",
     "capture-start": "Iniciar grabación",
     "capture-pause": "Pausar",
     "capture-resume": "Reanudar",

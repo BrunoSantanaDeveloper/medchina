@@ -109,6 +109,23 @@ export default function Notifications() {
     refresh();
   }, [refresh]);
 
+  // The bell is how the practitioner learns, AT THE COMPUTER, that a capture
+  // finished processing — the mobile push lands on the phone, but the row is
+  // also written to `notifications`. Refresh when the tab regains focus (she
+  // came back from the phone) and on a slow interval, so the badge updates
+  // without a page reload. Work only runs while the tab is visible.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", refreshIfVisible);
+    const interval = window.setInterval(refreshIfVisible, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.clearInterval(interval);
+    };
+  }, [refresh]);
+
   const unreadCount = items.filter((item) => !item.readAt).length;
 
   const handleToggle = () => {

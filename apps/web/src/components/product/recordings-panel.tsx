@@ -31,9 +31,14 @@ type Recording = {
 export default function RecordingsPanel({
   consultationId,
   onProcessed,
+  refreshSignal,
 }: {
   consultationId: string;
   onProcessed: () => void;
+  /** Bumped by the parent when the consultation re-syncs (background job or a
+   * capture that started on the phone) so this list reflects it without a
+   * manual refresh. A no-flicker reload that keeps the current rows visible. */
+  refreshSignal?: number;
 }) {
   const t = useTranslations("product");
   const [recordingsState, setRecordingsState] = useState<RemoteState<Recording[], "load_failed">>(() =>
@@ -92,6 +97,18 @@ export default function RecordingsPanel({
   useEffect(() => {
     void load(false);
   }, [load]);
+
+  // Re-sync on the parent's tick (a background job settled, or a recording was
+  // captured on the phone) without clearing the list first — the mount load
+  // above owns the initial spinner.
+  const firstRefresh = useRef(true);
+  useEffect(() => {
+    if (firstRefresh.current) {
+      firstRefresh.current = false;
+      return;
+    }
+    void load(true);
+  }, [refreshSignal, load]);
 
   const process = async (recordingId: string) => {
     setBusyId(recordingId);

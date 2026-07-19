@@ -54,7 +54,25 @@
 <!-- marketing-page Pass 0.R writes here when the user drops reference screenshots in attachments/. Structural ingredients only (composition, depth, breakout, imagery, motion) mapped to library primitives — never copied hex/fonts. -->
 _None ingested — direction chosen from generated candidates (A · Cuidado Sereno; previews in the session artifact)._
 
-## Reference blueprint (committed 2026-07-15 from `attachments/medchina-clinica/` — HOME structure is FIXED)
+## Reference blueprint (committed 2026-07-19 from `attachments/medchina-clinical-source/` — HOME structure is FIXED)
+
+The latest user-built source supersedes the 2026-07-15 composition. The production home follows this order while preserving the shared MedChina tokens, i18n, official chrome, clinical-safety language and catalog-driven prices.
+
+| # | Reference section | Production mapping |
+|---|---|---|
+| 1 | Split hero with supervised-AI proposition and real web/mobile composite | `Hero layout="split"` + `ProductComposition` + supplied composite and localized floating readouts. |
+| 2 | Four-column clinical-value strip | `Section background="contrast"` with four numbered trust statements. |
+| 3 | Continuous three-step journey with real captures | `FeatureRows` + supplied consultation, anamnesis and plan images inside `ProductFrame`. |
+| 4 | Deep clinical-presence chapter with benefit rail and consultation image | `Section background="deep"`; all benefits stay visible in a responsive grid beside the supplied image. |
+| 5 | Mobile capture chapter | `Section background="paper" decor="mesh"` + supplied phone composition and four operational assurances. |
+| 6 | Supervised evidence demo | Existing `AnamnesisDemo`, with canonical clear/attention/empty field states. |
+| 7 | MTC specialization index | `IndexGrid` beside an editorial `SectionHeader`. |
+| 8 | Deep security chapter | `Section background="deep"` + `RuledGrid variant="deep"`. |
+| 9 | Pricing, FAQ and final CTA | `PricingSection` (live catalog) + `Faq layout="split"` + `Cta variant="deep"`. |
+
+Assets are routed to `apps/web/public/images/marketing/clinical-home/`. Intentional deviations: the production page keeps the official shared header/footer, uses internal routes, and presents all clinical-presence benefits without requiring hover or client-side state.
+
+### Previous blueprint (superseded 2026-07-19)
 
 The user rebuilt the home externally and asked for the current home to follow it 1:1. Structure comes from the blueprint; identity (Teal/Camel tokens, TT Chocolates, Phosphor icons, `<Logo>`) stays ours. The reference has NO photos/images — every visual is a token-driven mock we rebuild as library components.
 

@@ -146,6 +146,7 @@ export default function ConsultaPage() {
   const [addendumReason, setAddendumReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [provenanceAnchor, setProvenanceAnchor] = useState<{ el: HTMLElement; data: Provenance } | null>(null);
+  const [recordingsRefresh, setRecordingsRefresh] = useState(0);
   const revisionRef = useRef(0);
 
   const { isPrimary, takeOver } = useConsultationTabGuard(params.id);
@@ -264,6 +265,34 @@ export default function ConsultaPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A capture finishes OUT OF BAND with this open tab, in two ways the page
+  // cannot otherwise see: the AI pipeline drafts the anamnesis in a background
+  // job, and a recording can be captured on the PHONE while she has the record
+  // open on the computer. Nothing pushes to an open tab, so without this the
+  // drafted anamnesis and the phone's live capture state never appear until a
+  // manual refresh. Poll lightly while the record is still open, pause while
+  // the tab is hidden (no work when she isn't looking), and re-sync the moment
+  // it regains focus — the exact instant she walks back from the phone to the
+  // computer. Never fight the autosave: skip a tick with unsaved edits.
+  const syncFromServer = useCallback(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (saveCoordinator.hasUnsavedChanges()) return;
+    void load();
+    setRecordingsRefresh((value) => value + 1);
+  }, [load, saveCoordinator]);
+
+  useEffect(() => {
+    const status = consultation?.status;
+    if (!status || status === "finalized" || status === "cancelled") return;
+    const interval = window.setInterval(syncFromServer, 12_000);
+    const onVisible = () => syncFromServer();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [consultation?.status, syncFromServer]);
 
   const isFinalized = consultation?.status === "finalized";
   const recordingStatus = context?.recording?.status ?? null;
@@ -811,10 +840,13 @@ export default function ConsultaPage() {
               audioConsent={context?.consents.audio}
               aiConsent={context?.consents.ai}
               onRequestConsent={() => setConsentCollectionOpen(true)}
+              onChanged={syncFromServer}
             />
           )}
 
-          {canEdit && <RecordingsPanel consultationId={consultation.id} onProcessed={load} />}
+          {canEdit && (
+            <RecordingsPanel consultationId={consultation.id} onProcessed={load} refreshSignal={recordingsRefresh} />
+          )}
 
           {/* Pattern hypotheses (PRD §10.8) — prepared on demand, because a
               pattern is read from the tongue and pulse, and those are HER
