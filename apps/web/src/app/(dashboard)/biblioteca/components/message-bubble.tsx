@@ -1,11 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 
-import { Box, Card, CardContent, Chip, Skeleton, Typography } from "@mui/material";
+import { Box, Card, CardContent, Chip, Link as MuiLink, Skeleton, Typography } from "@mui/material";
 
+import ProductMarkdown from "@/components/product/product-markdown";
 import type { KnowledgeSourceRef } from "@/lib/clinical-library";
 
 export type ThreadMessage = {
@@ -52,20 +52,7 @@ export default function MessageBubble({ message }: { message: ThreadMessage }) {
   return (
     <Card className="w-full">
       <CardContent>
-        <Box
-          className={[
-            "text-text-primary text-base leading-relaxed",
-            "[&_p]:mb-3 [&_p:last-child]:mb-0",
-            "[&_li]:mb-1 [&_ol]:mb-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:pl-5",
-            "[&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:text-base [&_h3]:font-semibold",
-            "[&_strong]:font-semibold",
-            "[&_code]:bg-grey-25 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-sm",
-            "[&_blockquote]:border-grey-100 [&_blockquote]:text-text-secondary [&_blockquote]:mb-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-4",
-            "[&_th]:border-grey-100 [&_td]:border-grey-50 [&_table]:mb-3 [&_table]:w-full [&_td]:border-b [&_td]:p-2 [&_th]:border-b [&_th]:p-2 [&_th]:text-left",
-          ].join(" ")}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-        </Box>
+        <ProductMarkdown>{message.content}</ProductMarkdown>
 
         {message.sources && message.sources.length > 0 && (
           <Box className="border-grey-100 mt-4 flex flex-col gap-2 border-t pt-3">
@@ -77,9 +64,23 @@ export default function MessageBubble({ message }: { message: ThreadMessage }) {
                 <Typography variant="body2" className="text-text-secondary font-mono">
                   [{source.index}]
                 </Typography>
-                <Typography variant="body2" className="text-text-primary">
-                  {source.title}
-                </Typography>
+                {source.documentId ? (
+                  // The citation opens its acervo page — the professional can
+                  // read the whole document behind every [n].
+                  <MuiLink
+                    component={Link}
+                    href={`/biblioteca/acervo/${source.documentId}`}
+                    variant="body2"
+                    underline="hover"
+                    className="text-text-primary"
+                  >
+                    {source.title}
+                  </MuiLink>
+                ) : (
+                  <Typography variant="body2" className="text-text-primary">
+                    {source.title}
+                  </Typography>
+                )}
                 {source.source && (
                   <Typography variant="body2" className="text-text-secondary">
                     — {source.source}

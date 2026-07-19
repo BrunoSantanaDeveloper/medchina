@@ -36,6 +36,8 @@ export type KnowledgeSourceRef = {
   source: string | null;
   kind: LibraryKind | "unknown";
   trustLevel: number;
+  /** Links the citation to its acervo page (/biblioteca/acervo/<id>). Absent on citations persisted before fase 4. */
+  documentId?: string;
 };
 
 /**

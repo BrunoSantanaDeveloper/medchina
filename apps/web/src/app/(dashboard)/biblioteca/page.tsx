@@ -340,14 +340,25 @@ export default function Biblioteca() {
             <Typography variant="body2">{t("library-title")}</Typography>
           </Breadcrumbs>
         </Box>
-        <Button
-          variant="outlined"
-          color="grey"
-          startIcon={<NiPlus size="small" />}
-          onClick={() => startNewConversation()}
-        >
-          {t("library-new-conversation")}
-        </Button>
+        <Box className="flex flex-row flex-wrap gap-2">
+          <Button
+            variant="outlined"
+            color="grey"
+            startIcon={<NiBook size="small" />}
+            href="/biblioteca/acervo"
+            LinkComponent={Link}
+          >
+            {t("acervo-title")}
+          </Button>
+          <Button
+            variant="outlined"
+            color="grey"
+            startIcon={<NiPlus size="small" />}
+            onClick={() => startNewConversation()}
+          >
+            {t("library-new-conversation")}
+          </Button>
+        </Box>
       </Box>
 
       <Typography variant="body1" className="text-text-secondary max-w-3xl">

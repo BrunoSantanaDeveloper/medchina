@@ -275,6 +275,7 @@ export async function POST(request: Request) {
           source: result.source,
           kind: COLLECTION_KIND[slugById.get(result.collection_id) ?? ""] ?? "unknown",
           trustLevel: result.trust_level,
+          documentId: result.document_id,
         }));
       }
     } catch {
