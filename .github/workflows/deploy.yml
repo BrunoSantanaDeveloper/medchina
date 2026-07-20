@@ -49,7 +49,11 @@ jobs:
     name: Preview deploy
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # `vercel deploy` BLOCKS until the cloud build finishes, so this ceiling is
+    # really "how long may a Vercel build take". At 30m the runner killed the
+    # job while the build was still running on Vercel — the deployment itself
+    # was never cancelled, only our wait for it, which reported a false failure.
+    timeout-minutes: 60
     concurrency:
       group: vercel-preview-${{ github.head_ref }}
       cancel-in-progress: true
@@ -76,7 +80,11 @@ jobs:
     name: Production deploy
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # `vercel deploy` BLOCKS until the cloud build finishes, so this ceiling is
+    # really "how long may a Vercel build take". At 30m the runner killed the
+    # job while the build was still running on Vercel — the deployment itself
+    # was never cancelled, only our wait for it, which reported a false failure.
+    timeout-minutes: 60
     concurrency:
       group: vercel-production
       cancel-in-progress: false

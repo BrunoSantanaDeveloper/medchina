@@ -159,3 +159,21 @@ barra final).
   usa **Production**).
 - Deploy de produção "preso" → o job usa concurrency `vercel-production` sem
   cancelamento: deploys enfileiram na ordem dos pushes.
+- `The job has exceeded the maximum execution time` / `The operation was
+  canceled` durante o "Building…" → **quem foi cancelado foi o runner do
+  GitHub, não o build da Vercel**. Como o deploy é build na nuvem, o
+  `vercel deploy` fica BLOQUEADO esperando a Vercel terminar; o
+  `timeout-minutes` do job é, na prática, "quanto tempo o build pode levar".
+  Duas coisas seguram isso hoje:
+  1. `timeout-minutes: 60` no workflow (era 30).
+  2. `.vercelignore` na raiz exclui `apps/web/src/app/(dashboard)/ui` — o
+     showcase de componentes do template, que sozinho é **121 das 201 rotas**
+     do app. Ele é referência de desenvolvimento (nada fora dele o importa e o
+     menu não linka), mas era gerado estaticamente em todo build de produção —
+     e o build roda com `experimental.cpus: 1` (o container de 8 GB dá OOM com
+     workers paralelos), ou seja, rota a rota. Verificado localmente: sem o
+     `/ui`, o build completo leva **~4,5 min**. O código continua no git e
+     segue acessível em `http://localhost:3000/ui` no dev.
+
+  Antes de mexer em timeout, **confira o build na Vercel** (link "Inspect" do
+  log): se ele concluiu, o deploy foi para produção mesmo com o job vermelho.
