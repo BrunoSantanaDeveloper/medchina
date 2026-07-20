@@ -148,8 +148,11 @@ export default function RecordingsPanel({
     }
   };
 
-  const discard = async (recordingId: string) => {
-    if (!window.confirm(t("recordings-discard-confirm"))) return;
+  const discard = async (recordingId: string, status: string) => {
+    // Discarding an OPEN capture can throw away audio still being captured —
+    // the confirmation has to name that, not reuse the failed-recording copy.
+    const open = ["recording", "local", "uploading"].includes(status);
+    if (!window.confirm(open ? t("recordings-discard-open-confirm") : t("recordings-discard-confirm"))) return;
     setBusyId(recordingId);
     setActionError(null);
     setActionSuccess(null);
@@ -255,6 +258,10 @@ export default function RecordingsPanel({
               (recording.status === "uploaded" ||
                 (recording.status === "failed" &&
                   ["transcription", "extraction", "apply"].includes(recording.failureStage ?? "")));
+            // A capture interrupted by a reload or a closed tab stays in an open
+            // status forever and blocks every new one at the server. Discarding
+            // must be reachable from ANY stuck status, not only from 'failed'.
+            const canDiscard = ["failed", "recording", "local", "uploading"].includes(recording.status);
             const isProcessing = recording.status === "processing" || busyId === recording.id;
             const visibleStatus =
               recording.status === "ready" && recording.mode === "audio_only"
@@ -295,8 +302,13 @@ export default function RecordingsPanel({
                           {t("recordings-process")}
                         </Button>
                       )}
-                      {recording.status === "failed" && (
-                        <Button size="small" variant="text" color="grey" onClick={() => discard(recording.id)}>
+                      {canDiscard && (
+                        <Button
+                          size="small"
+                          variant="text"
+                          color="grey"
+                          onClick={() => discard(recording.id, recording.status)}
+                        >
                           {t("recordings-discard")}
                         </Button>
                       )}

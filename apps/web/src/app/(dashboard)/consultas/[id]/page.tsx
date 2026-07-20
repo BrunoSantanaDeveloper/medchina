@@ -296,6 +296,10 @@ export default function ConsultaPage() {
 
   const isFinalized = consultation?.status === "finalized";
   const recordingStatus = context?.recording?.status ?? null;
+  /** A capture is in flight, so the AI will draft over this record shortly. */
+  const captureInFlight = Boolean(
+    recordingStatus && ["recording", "local", "uploading", "uploaded", "processing"].includes(recordingStatus),
+  );
   const experience = consultation
     ? deriveConsultationState(
         { status: consultation.status },
@@ -728,7 +732,9 @@ export default function ConsultaPage() {
                 {t("consultation-anamnesis-title")}
               </Typography>
               <Typography variant="body2" className="text-text-secondary">
-                {t("consultation-anamnesis-subtitle")}
+                {captureInFlight
+                  ? t("consultation-anamnesis-subtitle-capturing")
+                  : t("consultation-anamnesis-subtitle")}
               </Typography>
             </Box>
 
@@ -832,17 +838,35 @@ export default function ConsultaPage() {
 
       <Grid size={{ xs: 12, lg: 4 }}>
         <Box className="flex flex-col gap-5">
-          {capabilities?.canRecord && isPrimary && (
-            <ConsultationRecorder
-              orgId={consultation.orgId}
-              patientId={consultation.patientId}
-              consultationId={consultation.id}
-              audioConsent={context?.consents.audio}
-              aiConsent={context?.consents.ai}
-              onRequestConsent={() => setConsentCollectionOpen(true)}
-              onChanged={syncFromServer}
-            />
-          )}
+          {/* The recorder is the ONLY capture surface. When another tab holds
+              the session it must not silently vanish — that reads as "recording
+              is unavailable" and costs a consultation. */}
+          {capabilities?.canRecord &&
+            (isPrimary ? (
+              <ConsultationRecorder
+                orgId={consultation.orgId}
+                patientId={consultation.patientId}
+                consultationId={consultation.id}
+                audioConsent={context?.consents.audio}
+                aiConsent={context?.consents.ai}
+                onRequestConsent={() => setConsentCollectionOpen(true)}
+                onChanged={syncFromServer}
+              />
+            ) : (
+              <Card component="section">
+                <CardContent className="flex flex-col gap-2">
+                  <Typography variant="h6" component="h2">
+                    {t("recorder-title")}
+                  </Typography>
+                  <Typography variant="body2" className="text-text-secondary leading-6">
+                    {t("recorder-other-tab")}
+                  </Typography>
+                  <Button variant="contained" color="primary" onClick={takeOver} className="self-start">
+                    {t("recorder-take-over")}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
 
           {canEdit && (
             <RecordingsPanel consultationId={consultation.id} onProcessed={load} refreshSignal={recordingsRefresh} />
