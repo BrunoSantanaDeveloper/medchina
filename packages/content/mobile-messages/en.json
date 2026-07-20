@@ -101,7 +101,19 @@
     "capture-upload-progress": "Upload: {progress}%",
     "capture-failed-kept": "The audio remains protected on this device. You can retry the same upload.",
     "capture-quarantined": "The item was preserved for recovery and will not be deleted automatically.",
-    "capture-pending-notification": "A recording is waiting to be uploaded."
+    "capture-pending-notification": "A recording is waiting to be uploaded.",
+    "capture-background-hint": "Recording continues even with the screen locked or the app in the background. It only ends when you tap Finish.",
+    "capture-leave-finish": "Finish and leave",
+    "capture-leave-stay": "Keep recording",
+    "capture-offline-copy": "Offline: showing the saved copy of this consultation.",
+    "capture-unavailable-offline": "This consultation could not be loaded. Check your connection and try again.",
+    "deliveries-hint": "They are still stored on this phone. Nothing was deleted.",
+    "deliveries-title": "Stopped recordings",
+    "delivery-minutes": "{minutes} min",
+    "delivery-open-consultation": "Open consultation",
+    "today-offline-cached": "Offline. List saved at {time}.",
+    "today-offline-hint": "No connection to the server. Pull down to try again.",
+    "today-offline-title": "Could not load today"
   },
   "dashboard": {
     "de": "Deutsch",

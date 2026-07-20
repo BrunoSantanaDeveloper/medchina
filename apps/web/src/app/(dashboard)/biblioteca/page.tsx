@@ -15,6 +15,10 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Skeleton,
   TextareaAutosize,
   TextField,
@@ -24,11 +28,14 @@ import {
 import EmptyState from "@/components/product/empty-state";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
 import NiBook from "@/icons/nexture/ni-book";
+import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import NiSendUpRight from "@/icons/nexture/ni-send-up-right";
 import { type KnowledgeSourceRef, LIBRARY_ASSISTANT_SLUG, SOURCES_SENTINEL } from "@/lib/clinical-library";
 import { listActivePatientOptions, type PatientOption } from "@/lib/patients";
+import { trackProductEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -73,6 +80,8 @@ export default function Biblioteca() {
   const [patients, setPatients] = useState<PatientOption[] | null>(null);
   const [casePatient, setCasePatient] = useState<CasePatient | null>(null);
   const [consentMissingId, setConsentMissingId] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState<ConversationRow | null>(null);
   const deepLinkApplied = useRef(false);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
@@ -185,6 +194,28 @@ export default function Biblioteca() {
     );
   }, []);
 
+  const renameConversation = useCallback(async () => {
+    if (!renaming) return;
+    const title = renaming.title.trim();
+    if (!title) return;
+    await createClient().from("conversations").update({ title }).eq("id", renaming.id);
+    setRenaming(null);
+    await loadConversations();
+  }, [renaming, loadConversations]);
+
+  const removeConversation = useCallback(async () => {
+    if (!deleting) return;
+    // Messages cascade with the conversation.
+    await createClient().from("conversations").delete().eq("id", deleting.id);
+    if (activeConversationId === deleting.id) {
+      setActiveConversationId(null);
+      setMessages([]);
+      setCasePatient(null);
+    }
+    setDeleting(null);
+    await loadConversations();
+  }, [deleting, activeConversationId, loadConversations]);
+
   const startNewConversation = useCallback((patient: CasePatient | null = null) => {
     setActiveConversationId(null);
     setMessages([]);
@@ -237,6 +268,8 @@ export default function Biblioteca() {
           } | null;
           removeAssistantPlaceholder();
           if (payload?.code === "quota_exhausted") {
+            // The upgrade signal: how often the free quota is what stops her.
+            trackProductEvent("library.quota_hit");
             setQuotaExhausted({ used: payload.used ?? 0, limit: payload.limit ?? 0 });
           } else if (payload?.code === "patient_ai_consent_missing") {
             // Consent is the path, not a dead end: the alert links to granting it.
@@ -250,7 +283,13 @@ export default function Biblioteca() {
         }
 
         const newConversationId = response.headers.get("X-Conversation-Id");
+        const startedNewConversation = Boolean(newConversationId) && !activeConversationId;
         if (newConversationId && !activeConversationId) setActiveConversationId(newConversationId);
+
+        // Does studying between consultations become a habit — and how often
+        // does it involve a real patient (the Pro value)?
+        trackProductEvent("library.message_sent", { has_patient: casePatient ? "true" : "false" });
+        if (startedNewConversation && casePatient) trackProductEvent("case_review.started");
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -341,6 +380,15 @@ export default function Biblioteca() {
           </Breadcrumbs>
         </Box>
         <Box className="flex flex-row flex-wrap gap-2">
+          <Button
+            variant="outlined"
+            color="grey"
+            startIcon={<NiPen size="small" />}
+            href="/biblioteca/protocolos"
+            LinkComponent={Link}
+          >
+            {t("protocols-title")}
+          </Button>
           <Button
             variant="outlined"
             color="grey"
@@ -544,11 +592,11 @@ export default function Biblioteca() {
             ) : (
               <Box component="ul" className="m-0 flex list-none flex-col gap-1 p-0">
                 {conversationsState.data.map((conversation) => (
-                  <Box component="li" key={conversation.id}>
+                  <Box component="li" key={conversation.id} className="group flex flex-row items-center gap-1">
                     <Button
                       color="grey"
                       variant={conversation.id === activeConversationId ? "pastel" : "text"}
-                      className="w-full justify-start text-start"
+                      className="min-w-0 flex-1 justify-start text-start"
                       onClick={() => openConversation(conversation)}
                     >
                       <Box className="flex min-w-0 flex-col">
@@ -565,6 +613,35 @@ export default function Biblioteca() {
                         </Typography>
                       </Box>
                     </Button>
+                    <Button
+                      size="tiny"
+                      color="grey"
+                      variant="text"
+                      className="icon-only min-w-0 flex-none"
+                      aria-label={t("library-conversation-rename-for", {
+                        title: conversation.title || t("library-untitled-conversation"),
+                      })}
+                      onClick={() =>
+                        setRenaming({
+                          id: conversation.id,
+                          title: conversation.title || t("library-untitled-conversation"),
+                        })
+                      }
+                    >
+                      <NiPen size="tiny" />
+                    </Button>
+                    <Button
+                      size="tiny"
+                      color="grey"
+                      variant="text"
+                      className="icon-only min-w-0 flex-none"
+                      aria-label={t("library-conversation-delete-for", {
+                        title: conversation.title || t("library-untitled-conversation"),
+                      })}
+                      onClick={() => setDeleting(conversation)}
+                    >
+                      <NiBinEmpty size="tiny" />
+                    </Button>
                   </Box>
                 ))}
               </Box>
@@ -572,6 +649,47 @@ export default function Biblioteca() {
           </CardContent>
         </Card>
       </Box>
+
+      <Dialog open={Boolean(renaming)} onClose={() => setRenaming(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t("library-conversation-rename")}</DialogTitle>
+        <DialogContent className="pt-2!">
+          <TextField
+            fullWidth
+            label={t("library-conversation-title-field")}
+            value={renaming?.title ?? ""}
+            onChange={(event) =>
+              setRenaming((current) => (current ? { ...current, title: event.target.value } : current))
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setRenaming(null)}>
+            {t("protocols-cancel")}
+          </Button>
+          <Button variant="contained" color="primary" onClick={renameConversation} disabled={!renaming?.title.trim()}>
+            {t("protocols-save")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(deleting)} onClose={() => setDeleting(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t("library-conversation-delete")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" className="text-text-secondary">
+            {t("library-conversation-delete-body", {
+              title: deleting?.title || t("library-untitled-conversation"),
+            })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setDeleting(null)}>
+            {t("protocols-cancel")}
+          </Button>
+          <Button variant="contained" color="error" onClick={removeConversation}>
+            {t("library-conversation-delete")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

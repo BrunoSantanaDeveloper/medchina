@@ -11,6 +11,7 @@ import EmptyState from "@/components/product/empty-state";
 import ProductMarkdown from "@/components/product/product-markdown";
 import NiBook from "@/icons/nexture/ni-book";
 import { COLLECTION_KIND } from "@/lib/clinical-library";
+import { trackProductEvent } from "@/lib/product-events";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
@@ -67,6 +68,8 @@ export default function AcervoDocumento() {
         kind: COLLECTION_KIND[collection.slug ?? ""] ?? "unknown",
       }),
     );
+    // Is the acervo actually read, or only reached through chat citations?
+    trackProductEvent("acervo.document_opened");
   }, [params.id]);
 
   useEffect(() => {

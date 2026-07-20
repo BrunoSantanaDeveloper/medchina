@@ -101,7 +101,19 @@
     "capture-upload-progress": "Envio: {progress}%",
     "capture-failed-kept": "O áudio continua protegido neste dispositivo. Você pode tentar o mesmo envio novamente.",
     "capture-quarantined": "O item foi preservado para recuperação e não será apagado automaticamente.",
-    "capture-pending-notification": "Existe uma gravação aguardando envio."
+    "capture-pending-notification": "Existe uma gravação aguardando envio.",
+    "capture-background-hint": "A gravação continua mesmo com a tela bloqueada ou o app em segundo plano. Ela só termina quando você tocar em Encerrar.",
+    "capture-leave-finish": "Encerrar e sair",
+    "capture-leave-stay": "Continuar gravando",
+    "capture-offline-copy": "Sem conexão: mostrando a cópia salva desta consulta.",
+    "capture-unavailable-offline": "Não foi possível carregar esta consulta. Verifique a conexão e tente novamente.",
+    "deliveries-hint": "Continuam guardadas no celular. Nada foi apagado.",
+    "deliveries-title": "Gravações paradas",
+    "delivery-minutes": "{minutes} min",
+    "delivery-open-consultation": "Abrir consulta",
+    "today-offline-cached": "Sem conexão. Lista salva às {time}.",
+    "today-offline-hint": "Sem conexão com o servidor. Puxe a tela para baixo para tentar de novo.",
+    "today-offline-title": "Não foi possível carregar o dia"
   },
   "dashboard": {
     "de": "Deutsch",

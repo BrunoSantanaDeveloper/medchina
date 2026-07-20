@@ -7,6 +7,7 @@ import {
   acquireUploadLease,
   createTemporaryPlainFile,
   deleteEncryptedAudio,
+  deleteQueueItem,
   getQueueItem,
   hasAllEncryptedChunks,
   persistEncryptedRecording,
@@ -22,6 +23,7 @@ import {
 import {
   isDeliveredRecordingStatus,
   isProcessingDispatchAccepted,
+  shouldPurgeDeliveredItem,
   type DeliveredRecordingStatus,
 } from "@/lib/recording-state";
 import { supabase, supabaseAnonKey, supabaseUrl } from "@/lib/supabase";
@@ -307,6 +309,18 @@ async function dispatchUploadedItem(item: QueueItem): Promise<void> {
   }
 }
 
+/**
+ * Delivered rows are history, not work. They are dropped once the retention
+ * window passes so the day's list keeps saying something true. Anything that
+ * still holds audio on the phone stays until she decides — see
+ * `shouldPurgeDeliveredItem`.
+ */
+async function purgeDeliveredItems(): Promise<void> {
+  for (const item of await readQueue()) {
+    if (shouldPurgeDeliveredItem(item)) await deleteQueueItem(item.id).catch(() => undefined);
+  }
+}
+
 let activeFlush: Promise<QueueItem[]> | null = null;
 
 async function runFlush(): Promise<QueueItem[]> {
@@ -320,6 +334,7 @@ async function runFlush(): Promise<QueueItem[]> {
     if (item.state === "uploaded" && item.mode === "ai") await dispatchUploadedItem(item);
   }
   await refreshQueueStatuses();
+  await purgeDeliveredItems();
   return readQueue();
 }
 

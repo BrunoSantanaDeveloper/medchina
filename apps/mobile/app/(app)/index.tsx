@@ -4,11 +4,19 @@ import { ActivityIndicator, Banner, Card, Chip, Text, useTheme } from "react-nat
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslations } from "use-intl";
 
+import { QueueItemRow } from "@/components/queue-item-row";
 import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
 import { getCurrentOrgId, listTodayConsultations, type TodayConsultation } from "@/lib/clinical";
-import { flushQueue, readQueue, type QueueItem } from "@/lib/recording-queue";
+import { flushQueue, readQueue, retryItem, type QueueItem } from "@/lib/recording-queue";
+import { isAwaitingDelivery, needsAttention } from "@/lib/recording-state";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { GRID, RADIUS, TOUCH_TARGET } from "@/theme";
+
+type DayState = {
+  consultations: TodayConsultation[];
+  offline: boolean;
+  cachedAt: string | null;
+};
 
 /**
  * The app's home: TODAY'S CONSULTATIONS (PRD §11, HOME-SPEC §15.7).
@@ -19,26 +27,26 @@ import { GRID, RADIUS, TOUCH_TARGET } from "@/theme";
  *
  * Every visit also nudges the upload queue: a consultation recorded in a room
  * with bad signal gets sent as soon as the phone can, without her doing
- * anything (PRD §11).
+ * anything (PRD §11). Recordings that STOPPED are pulled up here from any day —
+ * a failure from yesterday must not be buried inside yesterday's consultation.
  */
 export default function Today() {
   const t = useTranslations("mobile");
   const theme = useTheme();
   const router = useRouter();
-  const [consultations, setConsultations] = useState<TodayConsultation[] | null>(null);
-  const [pending, setPending] = useState<QueueItem[]>([]);
+  const [day, setDay] = useState<DayState | null>(null);
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
-      setConsultations([]);
+      setDay({ consultations: [], offline: false, cachedAt: null });
       return;
     }
     const orgId = await getCurrentOrgId();
-    setConsultations(orgId ? await listTodayConsultations(orgId) : []);
+    setDay(orgId ? await listTodayConsultations(orgId) : { consultations: [], offline: false, cachedAt: null });
     // Best effort: never block the list on the network.
-    const queue = await flushQueue().catch(() => readQueue());
-    setPending(queue.filter((item) => item.state !== "uploaded"));
+    setQueue(await flushQueue().catch(() => readQueue()));
   }, []);
 
   useFocusEffect(
@@ -56,6 +64,9 @@ export default function Today() {
   const time = (value: string) =>
     new Date(value).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
+  const awaiting = queue.filter((item) => isAwaitingDelivery(item.state));
+  const stuck = queue.filter((item) => needsAttention(item.state));
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -63,17 +74,53 @@ export default function Today() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Honest about audio still on the phone (HOME-SPEC §15.5). */}
-      {pending.length > 0 && (
+      {awaiting.length > 0 && (
         <Banner visible icon="upload" style={{ borderRadius: RADIUS.xl, borderCurve: "continuous" }}>
-          {t("today-pending", { count: pending.length })}
+          {t("today-pending", { count: awaiting.length })}
         </Banner>
       )}
 
-      {!consultations ? (
+      {/* Stopped recordings, from any day — the only queue items that need her. */}
+      {stuck.length > 0 && (
+        <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>
+          <Card.Content style={{ gap: GRID }}>
+            <Text variant="titleSmall">{t("deliveries-title")}</Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              {t("deliveries-hint")}
+            </Text>
+            {stuck.map((item) => (
+              <QueueItemRow
+                key={item.id}
+                item={item}
+                onRetry={async (id) => setQueue(await retryItem(id))}
+                onOpenConsultation={(consultationId) => router.push(`/consulta/${consultationId}`)}
+              />
+            ))}
+          </Card.Content>
+        </Card>
+      )}
+
+      {day?.offline && day.cachedAt ? (
+        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+          {t("today-offline-cached", { time: time(day.cachedAt) })}
+        </Text>
+      ) : null}
+
+      {!day ? (
         <View style={{ paddingVertical: GRID * 6, alignItems: "center" }}>
           <ActivityIndicator />
         </View>
-      ) : consultations.length === 0 ? (
+      ) : day.offline && day.consultations.length === 0 ? (
+        // A day we could not read is NOT an empty day.
+        <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>
+          <Card.Content style={{ gap: GRID, alignItems: "center", paddingVertical: GRID * 4 }}>
+            <Text variant="titleMedium">{t("today-offline-title")}</Text>
+            <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}>
+              {t("today-offline-hint")}
+            </Text>
+          </Card.Content>
+        </Card>
+      ) : day.consultations.length === 0 ? (
         <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>
           <Card.Content style={{ gap: GRID, alignItems: "center", paddingVertical: GRID * 4 }}>
             <NiCalendarClock size="large" color={theme.colors.primary} />
@@ -84,7 +131,7 @@ export default function Today() {
           </Card.Content>
         </Card>
       ) : (
-        consultations.map((consultation) => (
+        day.consultations.map((consultation) => (
           <Card
             key={consultation.id}
             mode="outlined"

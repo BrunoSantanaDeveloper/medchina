@@ -15,7 +15,9 @@ import {
   DialogTitle,
   Divider,
   FormControl,
+  FormControlLabel,
   FormLabel,
+  Switch,
   TextareaAutosize,
   Tooltip,
   Typography,
@@ -28,7 +30,7 @@ import NiRefresh from "@/icons/nexture/ni-refresh";
 import { createClient } from "@flyee/auth/client";
 import { TRUST_LEVEL_LABELS } from "@flyee/knowledge";
 
-type CollectionRow = { id: string; slug: string; name: string; description: string | null };
+type CollectionRow = { id: string; slug: string; name: string; description: string | null; browsable: boolean };
 type DocumentRow = {
   id: string;
   title: string;
@@ -70,7 +72,7 @@ export default function KnowledgeAdmin() {
     // Superadmin console manages global collections (org_id null).
     const { data } = await supabase
       .from("knowledge_collections")
-      .select("id, slug, name, description")
+      .select("id, slug, name, description, browsable")
       .is("org_id", null)
       .order("name");
     setCollections(data ?? []);
@@ -217,10 +219,26 @@ export default function KnowledgeAdmin() {
       {selectedId && (
         <>
           <Divider className="my-1" />
-          <Box className="flex flex-row items-center gap-2">
+          <Box className="flex flex-row flex-wrap items-center gap-2">
             <Typography variant="h6" className="flex-1">
               Documents
             </Typography>
+            {/* Licensing kill-switch (docs/LICENSING-LIBRARY.md): unlisting a
+                collection hides it from the member acervo without touching RAG. */}
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={collections.find((item) => item.id === selectedId)?.browsable ?? false}
+                  onChange={async (event) => {
+                    const browsable = event.target.checked;
+                    await createClient().from("knowledge_collections").update({ browsable }).eq("id", selectedId);
+                    await refreshCollections();
+                  }}
+                />
+              }
+              label="Browsable"
+            />
             <Button
               variant="outlined"
               size="small"

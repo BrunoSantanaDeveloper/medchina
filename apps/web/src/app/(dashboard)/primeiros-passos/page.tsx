@@ -377,6 +377,26 @@ export default function GettingStartedPage() {
                   </Button>
                 )}
               </Box>
+
+              {/* The scripted demo is fictional by design; the library is the
+                  same AI answering for real, with no patient or audio needed. */}
+              <Box className="border-grey-100 flex flex-col gap-2 rounded-3xl border border-dashed p-5">
+                <Typography variant="h6" component="h3">
+                  {t("getting-demo-library-title")}
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary">
+                  {t("getting-demo-library-body")}
+                </Typography>
+                <Button
+                  LinkComponent={Link}
+                  href="/biblioteca"
+                  variant="contained"
+                  color="primary"
+                  className="self-start"
+                >
+                  {t("getting-demo-library-cta")}
+                </Button>
+              </Box>
             </Box>
           )}
         </CardContent>

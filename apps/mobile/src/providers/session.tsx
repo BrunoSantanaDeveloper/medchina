@@ -6,7 +6,9 @@ import { AppState, type AppStateStatus } from "react-native";
 
 import type { Session } from "@supabase/supabase-js";
 
+import { clearClinicalCache } from "@/lib/clinical-cache";
 import { destinationFromUrl, type MobileDestination } from "@/lib/mobile-navigation";
+import { clearCaptureAuthorization } from "@/lib/recording-authorization";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const BIOMETRIC_KEY = "medchina.biometric-lock.v1";
@@ -168,6 +170,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       },
       signOut: async () => {
         await supabase?.auth.signOut();
+        // The next professional on this device must not inherit her day or her
+        // capture grants. Queued audio is deliberately NOT touched: it is still
+        // hers and still owed to a patient record.
+        await clearClinicalCache().catch(() => undefined);
+        await clearCaptureAuthorization().catch(() => undefined);
+        await storePendingPath(null).catch(() => undefined);
         setAssurance("unknown");
         setLocalUnlocked(true);
       },

@@ -39,6 +39,19 @@ export async function getDisplayPlans(): Promise<PublicPlanDisplay[]> {
     if (typeof audioMinutes === "number" && audioMinutes > 0) {
       features.push(t("pricing-feature-audio", { minutes: audioMinutes, sessions: Math.floor(audioMinutes / 50) }));
     }
+    // The clinical library (fases 1-4) is part of what a plan sells. Derived
+    // from the SAME limits the runtime enforces: a missing library_messages
+    // key means unlimited (org_message_allowance), and clinical_reasoning is
+    // what unlocks reviewing a patient's own case.
+    const libraryMessages = plan.limits.library_messages;
+    if (typeof libraryMessages === "number" && libraryMessages > 0) {
+      features.push(t("pricing-feature-library-quota", { count: libraryMessages }));
+    } else if (libraryMessages === undefined) {
+      features.push(t("pricing-feature-library-unlimited"));
+    }
+    if (typeof plan.limits.clinical_reasoning === "number" && plan.limits.clinical_reasoning > 0) {
+      features.push(t("pricing-feature-case-review"));
+    }
     // One professional per workspace in the MVP, so "1 member" is noise —
     // only surface the seat count when a plan actually adds seats.
     if (typeof plan.limits.members === "number" && plan.limits.members > 1) {

@@ -56,7 +56,7 @@ _None ingested — direction chosen from generated candidates (A · Cuidado Sere
 
 ## Reference blueprint (committed 2026-07-19 from `attachments/medchina-clinical-source/` — HOME structure is FIXED)
 
-The latest user-built source supersedes the 2026-07-15 composition. The production home follows this order while preserving the shared MedChina tokens, i18n, official chrome, clinical-safety language and catalog-driven prices.
+The latest user-built source supersedes the 2026-07-15 composition. On 2026-07-19 the user explicitly made this source authoritative over the shared marketing-template conventions: the production home now ports its JSX, interactions, copy, styling, header and footer directly rather than approximating them with library primitives.
 
 | # | Reference section | Production mapping |
 |---|---|---|
@@ -70,7 +70,7 @@ The latest user-built source supersedes the 2026-07-15 composition. The producti
 | 8 | Deep security chapter | `Section background="deep"` + `RuledGrid variant="deep"`. |
 | 9 | Pricing, FAQ and final CTA | `PricingSection` (live catalog) + `Faq layout="split"` + `Cta variant="deep"`. |
 
-Assets are routed to `apps/web/public/images/marketing/clinical-home/`. Intentional deviations: the production page keeps the official shared header/footer, uses internal routes, and presents all clinical-presence benefits without requiring hover or client-side state.
+The direct port lives in `components/marketing/clinical-source-home.tsx` with its route-owned stylesheet `app/(marketing)/clinical-source-home.css`. The only integration changes are internal sign-in/sign-up URLs, route-local suppression of the duplicate shared chrome, and public asset/font paths; these do not change the rendered page.
 
 ### Previous blueprint (superseded 2026-07-19)
 

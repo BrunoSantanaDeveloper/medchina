@@ -11,6 +11,14 @@ recording indicator, uploads encrypted recoverable chunks, and shows processing
 status. Review, patient management, documents, account administration and all
 commercial activity are web-only.
 
+Recording continues while the screen is locked or the app is backgrounded: a
+consultation lasts 40–60 minutes with the phone resting on the table, and the
+professional's attention belongs to the patient. This uses the iOS `audio`
+background mode and an Android microphone foreground service (both from
+`enableBackgroundRecording` in `app.json`), and it stops when she taps
+“Encerrar”, not when the OS suspends the app. Both stores require this to be
+declared — see the release gates below.
+
 The app contains no price, subscription comparison, checkout, external purchase
 link, renewal control or upgrade CTA. A server may grant a limited promotional
 AI allowance on the professional's first real capture. This is not an App Store
@@ -38,6 +46,23 @@ unavailable; manual care and `audio_only` remain usable according to consent.
 
 ## Release gates
 
+- Create the EAS project (`eas init`) so `extra.eas.projectId` exists: push
+  registration returns `configuration_missing` without it. Add `eas.json` with
+  `development`/`preview`/`production` profiles and `appVersionSource: remote`
+  plus `autoIncrement` — there is no `buildNumber`/`versionCode` in the repo.
+- Answer `ITSAppUsesNonExemptEncryption` in `ios.infoPlist` before the first
+  TestFlight upload. The app does more than HTTPS: recordings, the queue payload
+  and the Supabase session are sealed locally with AES-256-GCM (`@noble/ciphers`,
+  key in SecureStore). Decide the exemption with counsel and record it here.
+- Declare background recording in both consoles: Apple asks why the `audio`
+  background mode is needed (clinical capture with the screen locked), and Google
+  Play requires the Foreground Service (microphone) declaration with a video of
+  the flow. An undeclared foreground service type is an automatic rejection.
+- Export `assets/icon.png` without an alpha channel (App Store Connect rejects a
+  store icon with transparency); add `expo-splash-screen` so the app does not
+  open on a blank white screen.
+- `android.allowBackup` is `false` on purpose: encrypted clinical audio and
+  session material must not be swept into Google's cloud backup. Keep it false.
 - Set `EXPO_PUBLIC_WEB_URL` to the production HTTPS origin.
 - Set `APPLE_TEAM_ID` and `ANDROID_CERT_SHA256` in the web deployment and verify
   both `/.well-known/apple-app-site-association` and
@@ -49,6 +74,13 @@ unavailable; manual care and `audio_only` remain usable according to consent.
   Android physical devices.
 - Run the Maestro development-build journeys, including MFA, airplane mode,
   process kill, chunk retry and notification deep link.
+- Run the background-capture matrix on PHYSICAL devices, iOS and Android. None
+  of it can be exercised from Node, and each row is a way a consultation gets
+  truncated: 45-minute capture untouched (screen auto-locks); power button
+  mid-capture; incoming phone call; Control Center / notification shade; switch
+  apps and return; kill the process (the capture must be recovered on next
+  launch, never discarded); low battery / battery saver on Android. Record the
+  result per device here before inviting testers.
 - Confirm static bundle strings contain no trial, price, plan, upgrade,
   checkout or purchase copy.
 - Complete Apple privacy labels and Google Data Safety from the actual release

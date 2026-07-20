@@ -4,15 +4,13 @@ import { Directory, File, FileMode, Paths } from "expo-file-system";
 import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite";
 
 import { decryptBytes, decryptJson, encryptBytes, encryptJson } from "@/lib/recording-crypto";
-import { recoverQueueState, type QueueState } from "@/lib/recording-state";
+import { recoverQueueState, type QueueState, type RecordingMode } from "@/lib/recording-state";
 
-export type { QueueState } from "@/lib/recording-state";
+export type { QueueState, RecordingMode } from "@/lib/recording-state";
 
 export const RECORDING_CHUNK_BYTES = 6 * 1024 * 1024;
 export const MAX_RECORDING_BYTES = 512 * 1024 * 1024;
 export const MAX_RECORDING_SECONDS = 120 * 60;
-
-export type RecordingMode = "ai" | "audio_only";
 
 export type QueuePayload = {
   consultationId: string;

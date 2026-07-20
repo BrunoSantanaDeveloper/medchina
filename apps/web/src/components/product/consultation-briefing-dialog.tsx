@@ -20,6 +20,7 @@ import {
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { loadPatientBriefing, type PatientBriefing } from "@/lib/patient-briefing";
+import { trackProductEvent } from "@/lib/product-events";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
@@ -65,6 +66,8 @@ export default function ConsultationBriefingDialog({
     setState(remoteLoading());
     const result = await loadPatientBriefing(createClient(), patientId);
     setState(result.ok ? remoteSuccess(result.data) : remoteError(result.error));
+    // Does preparing before the visit become part of the routine?
+    if (result.ok) trackProductEvent("briefing.opened");
   }, [patientId, t]);
 
   useEffect(() => {

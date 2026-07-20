@@ -12,7 +12,13 @@ export const LIBRARY_COLLECTIONS = [
   "mtc-fontes-tradicionais",
   "mtc-protocolos-internos",
   "mtc-evidencia-cientifica",
+  // The professional's own protocols (fase 5). Same slug in every workspace;
+  // RLS resolves it to HER collection and never to another's.
+  "meus-protocolos",
 ] as const;
+
+/** The org-scoped collection holding the professional's own protocols. */
+export const OWN_PROTOCOLS_SLUG = "meus-protocolos";
 
 export type LibraryKind = "traditional" | "protocol" | "evidence";
 
@@ -20,6 +26,7 @@ export const COLLECTION_KIND: Record<string, LibraryKind> = {
   "mtc-fontes-tradicionais": "traditional",
   "mtc-protocolos-internos": "protocol",
   "mtc-evidencia-cientifica": "evidence",
+  "meus-protocolos": "protocol",
 };
 
 /** The seeded study assistant the /biblioteca screen talks to (migration 0042). */

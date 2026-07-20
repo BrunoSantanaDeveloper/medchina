@@ -10,13 +10,23 @@ import { DeliveryProvider } from "@/providers/delivery";
 import { SettingsProvider, useSettings } from "@/providers/settings";
 import { getTheme } from "@/theme";
 
+function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 function ThemedApp() {
   const { themeName, mode, locale } = useSettings();
   const theme = getTheme(themeName, mode);
 
   return (
     <PaperProvider theme={theme}>
-      <IntlProvider locale={locale} messages={MESSAGES[locale]} timeZone="UTC">
+      {/* Consultation times are read against the phone's clock, in the room
+          where she is — never UTC. */}
+      <IntlProvider locale={locale} messages={MESSAGES[locale]} timeZone={deviceTimeZone()}>
         <SessionProvider>
           <DeliveryProvider>
             <StatusBar style={mode === "dark" ? "light" : "dark"} />

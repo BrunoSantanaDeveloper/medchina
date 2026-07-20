@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, AppState, ScrollView, View } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import { ActivityIndicator, Button, Card, Chip, SegmentedButtons, Text, useTheme } from "react-native-paper";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { File } from "expo-file-system";
-import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import * as Linking from "expo-linking";
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { useTranslations } from "use-intl";
 
+import { QueueItemRow } from "@/components/queue-item-row";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import { clearActiveCapture, saveActiveCapture, updateActiveCaptureSource } from "@/lib/active-capture";
 import {
@@ -16,7 +16,7 @@ import {
   getCurrentOrgId,
   hasPatientConsent,
   type AudioAllowance,
-  type TodayConsultation,
+  type ConsultationResult,
 } from "@/lib/clinical";
 import {
   authorizeCapture,
@@ -30,8 +30,6 @@ import { MAX_RECORDING_SECONDS, RecordingLimitError, type RecordingMode } from "
 import { supabase } from "@/lib/supabase";
 import { GRID, RADIUS, TOUCH_TARGET } from "@/theme";
 
-const KEEP_AWAKE_TAG = "medchina-capture";
-
 export default function ConsultationCapture() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const t = useTranslations("mobile");
@@ -41,7 +39,7 @@ export default function ConsultationCapture() {
   const recorderState = useAudioRecorderState(recorder);
 
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [consultation, setConsultation] = useState<TodayConsultation | null | undefined>(undefined);
+  const [result, setResult] = useState<ConsultationResult | null>(null);
   const [audioConsent, setAudioConsent] = useState<boolean | null>(null);
   const [aiConsent, setAiConsent] = useState<boolean | null>(null);
   const [allowance, setAllowance] = useState<AudioAllowance | null>(null);
@@ -52,14 +50,16 @@ export default function ConsultationCapture() {
   const [busy, setBusy] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
 
+  const consultation = result?.status === "found" ? result.consultation : null;
   const refreshQueue = useCallback(async () => setQueue(await queueForConsultation(id)), [id]);
 
   useEffect(() => {
     const load = async () => {
       const org = await getCurrentOrgId();
       setOrgId(org);
-      const row = await getConsultation(id);
-      setConsultation(row);
+      const current = await getConsultation(id, org);
+      setResult(current);
+      const row = current.status === "found" ? current.consultation : null;
       if (org && row) {
         const [audio, ai, currentAllowance] = await Promise.all([
           hasPatientConsent(org, row.patientId, "audio-recording"),
@@ -81,31 +81,6 @@ export default function ConsultationCapture() {
 
   const recording = recorderState.isRecording || paused;
 
-  // A consultation runs 40–60 min with the phone resting on the table. The
-  // device's auto-lock would otherwise fire AppState → finish() and truncate
-  // the capture silently (there is no background-audio entitlement, so the mic
-  // cannot keep running once suspended). Holding the screen awake while
-  // recording removes that failure; deliberate backgrounding still stops and
-  // saves (the audio is queued, never lost).
-  useEffect(() => {
-    if (!recording) return;
-    void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
-    return () => {
-      void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => undefined);
-    };
-  }, [recording]);
-
-  useEffect(
-    () =>
-      navigation.addListener("beforeRemove", (event) => {
-        if (!recording) return;
-        event.preventDefault();
-        trackProductEvent("recording.interrupted", { mode, state: paused ? "paused" : "recording" });
-        Alert.alert(t("capture-leave-title"), t("capture-leave-hint"));
-      }),
-    [mode, navigation, paused, recording, t],
-  );
-
   const start = async () => {
     if (!orgId || !consultation) return;
     const permission = await AudioModule.requestRecordingPermissionsAsync();
@@ -114,7 +89,12 @@ export default function ConsultationCapture() {
       return;
     }
 
-    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });
+    // The capture must survive a locked screen or an app switch during a
+    // 40–60 min consultation with the phone on the table. `allowsBackgroundRecording`
+    // + the `enableBackgroundRecording` config plugin (iOS UIBackgroundModes
+    // audio, Android microphone foreground service) keep the mic running in the
+    // background instead of the OS suspending it.
+    await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true, allowsBackgroundRecording: true });
     await recorder.prepareToRecordAsync();
     recorder.record();
     setPaused(false);
@@ -208,12 +188,28 @@ export default function ConsultationCapture() {
     }
   }, [authorization, busy, consultation, mode, orgId, recorder, recorderState.durationMillis, refreshQueue, t]);
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state !== "active" && recording && authorization && !busy) void finish();
-    });
-    return () => subscription.remove();
-  }, [authorization, busy, finish, recording]);
+  // Recording continues in the background now (foreground service on Android,
+  // UIBackgroundModes audio on iOS), so leaving the app no longer ends the
+  // capture — that used to truncate a consultation the moment the screen
+  // auto-locked. The recorder keeps running until she taps "Encerrar".
+
+  // Walking away from the screen IS a real intention (she was called out of the
+  // room), so it gets a real choice instead of a dead end that only says "no".
+  useEffect(
+    () =>
+      navigation.addListener("beforeRemove", (event) => {
+        if (!recording) return;
+        event.preventDefault();
+        Alert.alert(t("capture-leave-title"), t("capture-leave-hint"), [
+          { text: t("capture-leave-stay"), style: "cancel" },
+          {
+            text: t("capture-leave-finish"),
+            onPress: () => void finish().then(() => navigation.dispatch(event.data.action)),
+          },
+        ]);
+      }),
+    [finish, navigation, recording, t],
+  );
 
   useEffect(() => {
     if (recorderState.isRecording && recorderState.durationMillis >= MAX_RECORDING_SECONDS * 1_000 && !busy) {
@@ -221,17 +217,20 @@ export default function ConsultationCapture() {
     }
   }, [busy, finish, recorderState.durationMillis, recorderState.isRecording]);
 
-  if (consultation === undefined) {
+  if (!result) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator />
       </View>
     );
   }
-  if (!consultation) {
+  if (result.status !== "found") {
+    // "I could not read it" is not "it does not exist".
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: GRID * 3 }}>
-        <Text variant="bodyMedium">{t("capture-not-found")}</Text>
+        <Text variant="bodyMedium" style={{ textAlign: "center" }}>
+          {result.status === "not_found" ? t("capture-not-found") : t("capture-unavailable-offline")}
+        </Text>
       </View>
     );
   }
@@ -243,31 +242,26 @@ export default function ConsultationCapture() {
   const totalSeconds = Math.floor(recorderState.durationMillis / 1_000);
   const mmss = `${String(Math.floor(totalSeconds / 60)).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`;
   const nearLimit = totalSeconds >= MAX_RECORDING_SECONDS - 10 * 60;
-  const consentHandoff = buildWebHandoff("consent", { patientId: consultation.patientId });
-
-  const stateLabels: Record<QueueItem["state"], string> = {
-    local: t("capture-state-local"),
-    authorizing: t("capture-state-authorizing"),
-    uploading: t("capture-state-uploading"),
-    uploaded: t("capture-state-uploaded"),
-    processing: t("capture-state-processing"),
-    ready: t("capture-state-ready"),
-    failed: t("capture-state-failed"),
-    blocked: t("capture-state-blocked"),
-    quarantined: t("capture-state-quarantined"),
-  };
+  const consentHandoff = buildWebHandoff("consent", { patientId: result.consultation.patientId });
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ padding: GRID * 2, gap: GRID * 1.5, paddingBottom: GRID * 5 }}
     >
-      {consultation.alerts.length > 0 && (
+      {/* Showing a local copy is fine; pretending it is live is not. */}
+      {result.offline ? (
+        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+          {t("capture-offline-copy")}
+        </Text>
+      ) : null}
+
+      {result.consultation.alerts.length > 0 && (
         <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>
           <Card.Content style={{ gap: GRID / 2 }}>
             <Text variant="titleSmall">{t("capture-alerts")}</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: GRID / 2 }}>
-              {consultation.alerts.map((alert, index) => (
+              {result.consultation.alerts.map((alert, index) => (
                 <Chip key={index} compact mode="outlined" textStyle={{ fontSize: 11 }}>
                   {alert.label}
                 </Chip>
@@ -387,7 +381,7 @@ export default function ConsultationCapture() {
 
             {recording ? (
               <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, textAlign: "center" }}>
-                {t("capture-screen-on-hint")}
+                {t("capture-background-hint")}
               </Text>
             ) : null}
             {nearLimit && recording ? (
@@ -413,43 +407,7 @@ export default function ConsultationCapture() {
           <Card.Content style={{ gap: GRID }}>
             <Text variant="titleSmall">{t("capture-queue")}</Text>
             {queue.map((item) => (
-              <View key={item.id} style={{ gap: GRID / 2 }}>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: GRID }}
-                >
-                  <Text variant="bodyMedium">
-                    {new Date(item.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })} ·{" "}
-                    {Math.max(1, Math.round(item.durationSeconds / 60))} min
-                  </Text>
-                  <Chip compact mode="flat" textStyle={{ fontSize: 11 }}>
-                    {stateLabels[item.state]}
-                  </Chip>
-                </View>
-                {item.state === "uploading" ? (
-                  <Text
-                    accessibilityLiveRegion="polite"
-                    variant="bodySmall"
-                    style={{ color: theme.colors.onSurfaceVariant }}
-                  >
-                    {t("capture-upload-progress", { progress: Math.round(item.progress * 100) })}
-                  </Text>
-                ) : null}
-                {["blocked", "failed"].includes(item.state) ? (
-                  <View style={{ gap: GRID / 2 }}>
-                    <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                      {item.state === "blocked" ? t("capture-blocked-kept") : t("capture-failed-kept")}
-                    </Text>
-                    <Button compact mode="text" onPress={async () => setQueue(await retryItem(item.id))}>
-                      {t("capture-retry")}
-                    </Button>
-                  </View>
-                ) : null}
-                {item.state === "quarantined" ? (
-                  <Text accessibilityLiveRegion="polite" variant="bodySmall" style={{ color: theme.colors.error }}>
-                    {t("capture-quarantined")}
-                  </Text>
-                ) : null}
-              </View>
+              <QueueItemRow key={item.id} item={item} onRetry={async (itemId) => setQueue(await retryItem(itemId))} />
             ))}
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
               {t("capture-queue-note")}

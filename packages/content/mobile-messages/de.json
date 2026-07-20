@@ -101,7 +101,19 @@
     "capture-upload-progress": "Upload: {progress}%",
     "capture-failed-kept": "Das Audio bleibt auf diesem Gerät geschützt. Sie können denselben Upload erneut versuchen.",
     "capture-quarantined": "Das Element wurde zur Wiederherstellung aufbewahrt und wird nicht automatisch gelöscht.",
-    "capture-pending-notification": "Eine Aufnahme wartet auf den Upload."
+    "capture-pending-notification": "Eine Aufnahme wartet auf den Upload.",
+    "capture-background-hint": "Die Aufnahme läuft weiter, auch bei gesperrtem Bildschirm oder wenn die App im Hintergrund ist. Sie endet erst, wenn Sie auf Beenden tippen.",
+    "capture-leave-finish": "Beenden und verlassen",
+    "capture-leave-stay": "Weiter aufnehmen",
+    "capture-offline-copy": "Offline: gespeicherte Kopie dieser Konsultation.",
+    "capture-unavailable-offline": "Diese Konsultation konnte nicht geladen werden. Prüfen Sie die Verbindung und versuchen Sie es erneut.",
+    "deliveries-hint": "Sie bleiben auf dem Telefon gespeichert. Nichts wurde gelöscht.",
+    "deliveries-title": "Gestoppte Aufnahmen",
+    "delivery-minutes": "{minutes} Min.",
+    "delivery-open-consultation": "Konsultation öffnen",
+    "today-offline-cached": "Offline. Liste gespeichert um {time}.",
+    "today-offline-hint": "Keine Verbindung zum Server. Zum Aktualisieren nach unten ziehen.",
+    "today-offline-title": "Der Tag konnte nicht geladen werden"
   },
   "dashboard": {
     "de": "Deutsch",

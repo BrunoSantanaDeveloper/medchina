@@ -36,12 +36,13 @@ type AcervoDoc = {
   meridian: string | null;
 };
 
-const KIND_FILTERS = ["all", "acupuncture_point", "herbal_formula", "tung_point"] as const;
+const KIND_FILTERS = ["all", "acupuncture_point", "herbal_formula", "tung_point", "internal_protocol"] as const;
 type KindFilter = (typeof KIND_FILTERS)[number];
 const KIND_LABEL_KEY: Record<string, string> = {
   acupuncture_point: "acervo-kind-points",
   herbal_formula: "acervo-kind-formulas",
   tung_point: "acervo-kind-tung",
+  internal_protocol: "acervo-kind-protocols",
 };
 
 /** "ID11" → "ID", "EX - CP 5" → "EX", "B35" → "B". */

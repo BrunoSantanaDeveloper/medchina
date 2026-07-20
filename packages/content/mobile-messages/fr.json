@@ -101,7 +101,19 @@
     "capture-upload-progress": "Envoi : {progress}%",
     "capture-failed-kept": "L'audio reste protégé sur cet appareil. Vous pouvez réessayer le même envoi.",
     "capture-quarantined": "L'élément est conservé pour récupération et ne sera pas supprimé automatiquement.",
-    "capture-pending-notification": "Un enregistrement est en attente d'envoi."
+    "capture-pending-notification": "Un enregistrement est en attente d'envoi.",
+    "capture-background-hint": "L'enregistrement continue même avec l'écran verrouillé ou l'app en arrière-plan. Il ne s'arrête que lorsque vous appuyez sur Terminer.",
+    "capture-leave-finish": "Terminer et quitter",
+    "capture-leave-stay": "Continuer l'enregistrement",
+    "capture-offline-copy": "Hors ligne : copie enregistrée de cette consultation.",
+    "capture-unavailable-offline": "Impossible de charger cette consultation. Vérifiez la connexion et réessayez.",
+    "deliveries-hint": "Ils restent stockés sur le téléphone. Rien n'a été supprimé.",
+    "deliveries-title": "Enregistrements bloqués",
+    "delivery-minutes": "{minutes} min",
+    "delivery-open-consultation": "Ouvrir la consultation",
+    "today-offline-cached": "Hors ligne. Liste enregistrée à {time}.",
+    "today-offline-hint": "Aucune connexion au serveur. Tirez vers le bas pour réessayer.",
+    "today-offline-title": "Impossible de charger la journée"
   },
   "dashboard": {
     "de": "Deutsch",

@@ -7,6 +7,7 @@ import { Box, Card, CardContent, Chip, Link as MuiLink, Skeleton, Typography } f
 
 import ProductMarkdown from "@/components/product/product-markdown";
 import type { KnowledgeSourceRef } from "@/lib/clinical-library";
+import { trackProductEvent } from "@/lib/product-events";
 
 export type ThreadMessage = {
   id: string;
@@ -73,6 +74,8 @@ export default function MessageBubble({ message }: { message: ThreadMessage }) {
                     variant="body2"
                     underline="hover"
                     className="text-text-primary"
+                    // Are the citations trusted at face value, or actually read?
+                    onClick={() => trackProductEvent("citation.opened")}
                   >
                     {source.title}
                   </MuiLink>
