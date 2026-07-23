@@ -37,22 +37,28 @@ Split by where the event physically happens:
 | `ViewContent` | `/planos` (`TrackEvent`) |
 
 **Server (Meta Conversions API — no browser tracker in the app)**
-| Event | Where it fires | Match keys |
-|---|---|---|
-| `InitiateCheckout` | `settings/billing/actions.ts` → `startCheckout` | email, org id, `_fbp`/`_fbc` cookies, IP/UA |
-| `Purchase` | `api/webhooks/[provider]` → `payment_succeeded` (once per paid invoice) | org id, value |
+| Event | Where it fires | event_id | Match keys |
+|---|---|---|---|
+| `CompleteRegistration` | `auth/callback/route.ts` (new account only) | user id | email, user id, `_fbp`/`_fbc`, IP/UA |
+| `StartTrial` | `api/billing/start-trial` → `start_pro_trial` succeeds | `trial:<org>` | email, org id, `_fbp`/`_fbc`, IP/UA |
+| `InitiateCheckout` | `settings/billing/actions.ts` → `startCheckout` | idempotency key | email, org id, `_fbp`/`_fbc`, IP/UA |
+| `Purchase` | `api/webhooks/[provider]` → `payment_succeeded` (once per paid invoice) | `<provider>:<invoice>` | org id, value |
 
-`event_id` is stable per event (checkout: the idempotency key; purchase: the
-invoice id) so a browser event of the same name deduplicates against the server
-one, and renewals count as distinct purchases.
+`event_id` is stable per event so a browser event of the same name deduplicates
+against the server one, and renewals count as distinct purchases.
 
-### Not yet wired (fast-follow)
-- `StartTrial` — the anchor event. `start_pro_trial()` is called client-side in
-  `hooks/use-audio-allowance.ts`; needs a thin server touchpoint to fire CAPI.
-- `CompleteRegistration` / `Lead` — on sign-up. Fire from the server after the
-  profile/org trigger.
+`StartTrial` is the anchor event: `start_pro_trial()` now runs behind a server
+route (`hooks/use-audio-allowance.ts` calls it) so the conversion fires on real
+success and cannot be spoofed. `CompleteRegistration` fires in the auth callback,
+which covers the confirmed-email and OAuth flows; if email confirmation is ever
+DISABLED (the sign-up page then gets an immediate session and skips the
+callback), add a server touchpoint on that path too.
+
+### Fast-follow (better match quality)
 - Store `_fbp`/`_fbc` at checkout so the (later, browserless) `Purchase` webhook
   can match on them too, and look up the org owner's email for `Purchase`.
+- Add a predicted value to `StartTrial` (the Pro plan price) for value-based ad
+  optimization.
 
 ## Configuration — where to get each value
 

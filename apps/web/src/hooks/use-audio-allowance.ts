@@ -8,9 +8,11 @@ import { createClient } from "@flyee/auth/client";
 
 /**
  * Reads the workspace's audio allowance (minutes left, trial state) for the
- * screens that must reflect it. Read-only by nature: `start_pro_trial` is the
- * only thing here that changes anything, and it is a deliberate call the
- * professional makes (PRD §5.7) — never a side effect of rendering.
+ * screens that must reflect it. Read-only by nature: starting the Pro trial is
+ * the only thing here that changes anything, and it is a deliberate call the
+ * professional makes (PRD §5.7) — never a side effect of rendering. That start
+ * now goes through POST /api/billing/start-trial (server-side) so the Meta CAPI
+ * StartTrial conversion fires on real success; the reads stay client-side.
  */
 /** What the trial is worth, as configured by the superadmin (never hardcoded). */
 export type TrialParams = { days: number; minutes: number };
@@ -62,11 +64,23 @@ export function useAudioAllowance(orgId: string | null) {
 
   const startTrial = useCallback(async (): Promise<string | null> => {
     if (!orgId) return "not_authorized";
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc("start_pro_trial", { target_org: orgId });
-    if (error) return "allowance_unavailable";
-    if (data) setAllowance(toAllowance(data as AllowanceRow));
-    return null;
+    // Started server-side (POST /api/billing/start-trial) so the Meta CAPI
+    // StartTrial conversion fires on real success and cannot be spoofed.
+    // Same RLS authorization, same allowance row back — the return contract
+    // (null on success, an error string otherwise) is unchanged for callers.
+    try {
+      const response = await fetch("/api/billing/start-trial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId }),
+      });
+      const json = (await response.json().catch(() => null)) as { allowance?: AllowanceRow; error?: string } | null;
+      if (!response.ok) return json?.error ?? "allowance_unavailable";
+      if (json?.allowance) setAllowance(toAllowance(json.allowance));
+      return null;
+    } catch {
+      return "allowance_unavailable";
+    }
   }, [orgId]);
 
   return { allowance, trialParams, loading, error, reload: load, startTrial };
