@@ -739,8 +739,14 @@ export default function ConsultaPage() {
         <Box className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start">
           <Box className="order-1 flex min-w-0 flex-col gap-5 lg:col-start-2 lg:row-start-1">
             {/* This is the only capture surface and remains first in DOM order
-                so mobile visual order and keyboard focus order stay aligned. */}
-            {capabilities?.canRecord &&
+                so mobile visual order and keyboard focus order stay aligned.
+                Mount on canEditClinicalRecord, NOT canRecord: canRecord means
+                "may START a new recording" and flips false the instant a
+                capture begins (status → recording is a blocking op). Gating the
+                mount on it would UNMOUNT the recorder mid-capture — its cleanup
+                stops the mic and the take drops to ~1s. Editability is stable
+                across the whole record → upload → process lifecycle. */}
+            {capabilities?.canEditClinicalRecord &&
               (isPrimary ? (
                 <ConsultationRecorder
                   orgId={consultation.orgId}
