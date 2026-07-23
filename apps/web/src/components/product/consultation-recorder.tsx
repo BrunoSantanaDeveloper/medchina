@@ -451,11 +451,16 @@ export default function ConsultationRecorder({
       try {
         const checksum = await sha256(blob);
         if (!checksum) throw new Error("checksum_unavailable");
+        // A non-empty but sub-second capture measures 0s (also true of blobs
+        // persisted before this floor existed). mark_recording_local rejects a
+        // 0 duration as invalid (surfaced as 413), so floor any real audio to
+        // one second — the billed duration is measured server-side regardless.
+        const durationSeconds = blob.size > 0 ? Math.max(1, duration) : duration;
         const persistedRecording: PersistedWebRecording = {
           recordingId: id,
           consultationId,
           orgId,
-          duration,
+          duration: durationSeconds,
           mime,
           checksumSha256: checksum,
           createdAt: new Date().toISOString(),
@@ -467,7 +472,7 @@ export default function ConsultationRecorder({
         clientUploadId.current = null;
         await setRecordingState(id, {
           action: "local",
-          durationSeconds: duration,
+          durationSeconds,
           sizeBytes: blob.size,
           mime,
           checksumSha256: checksum,
