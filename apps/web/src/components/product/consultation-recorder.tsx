@@ -21,11 +21,14 @@ import {
 } from "@mui/material";
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
+import InfoHint from "@/components/product/info-hint";
 import { type PersistedWebRecording, useRecordingSession } from "@/components/product/recording-session-provider";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
+import NiAi from "@/icons/nexture/ni-ai";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiPause from "@/icons/nexture/ni-pause";
+import NiSoundOn from "@/icons/nexture/ni-sound-on";
 import NiSquare from "@/icons/nexture/ni-square";
 import { trialDaysLeft } from "@/lib/audio-allowance";
 import { recordAudit } from "@/lib/audit";
@@ -892,8 +895,18 @@ export default function ConsultationRecorder({
               disabled={modeLocked}
               aria-label={t("capture-mode-title")}
             >
-              <ToggleButton value="ai">{t("capture-mode-ai")}</ToggleButton>
-              <ToggleButton value="audio_only">{t("capture-mode-audio")}</ToggleButton>
+              {/* `outlined` (the template's own toggle variant) keeps the
+                  selected mode as an outline + tint. Solid-filled it was the
+                  same shape and colour as the "start recording" CTA below, so a
+                  CHOICE read as a COMMAND. Icons reinforce the distinction. */}
+              <ToggleButton value="ai" className="outlined gap-1.5">
+                <NiAi size="tiny" />
+                {t("capture-mode-ai")}
+              </ToggleButton>
+              <ToggleButton value="audio_only" className="outlined gap-1.5">
+                <NiSoundOn size="tiny" />
+                {t("capture-mode-audio")}
+              </ToggleButton>
             </ToggleButtonGroup>
             <Typography variant="body2" className="text-text-secondary text-xs leading-5">
               {mode === "ai" ? t("capture-mode-ai-hint") : t("capture-mode-audio-hint")}
@@ -1134,9 +1147,9 @@ export default function ConsultationRecorder({
                 )}
               </Box>
 
-              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                {t("recorder-note")}
-              </Typography>
+              {/* Operational detail (server confirmation, plan tier) sits behind
+                  an info affordance; the clinical framing stays on the page. */}
+              <InfoHint label={t("recorder-note")} />
               {mode === "ai" && allowance && allowance.minutesLimit > 0 && (
                 <Typography variant="body2" className="text-text-secondary text-xs leading-5">
                   {allowance.source === "trial"

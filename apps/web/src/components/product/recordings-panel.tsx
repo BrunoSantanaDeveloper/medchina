@@ -18,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import InfoHint from "@/components/product/info-hint";
 import TranscriptViewer from "@/components/product/transcript-viewer";
 import NiListCheck from "@/icons/nexture/ni-list-check";
 import { cn } from "@/lib/utils";
@@ -376,9 +377,8 @@ export default function RecordingsPanel({
           })}
         </Box>
 
-        <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-          {t("recordings-note")}
-        </Typography>
+        {/* How processing works is operational detail, not clinical framing. */}
+        <InfoHint label={t("recordings-note")} />
       </CardContent>
 
       {transcriptFor && (

@@ -99,6 +99,9 @@ export default function HypothesesPanel({
   const [note, setNote] = useState("");
   const [pattern, setPattern] = useState("");
   const [showPrior, setShowPrior] = useState(false);
+  // Reviewing patterns is deliberate work over long content — it happens in a
+  // dialog so this column stays a summary instead of a scroll.
+  const [reviewOpen, setReviewOpen] = useState(false);
   const upgradeViewedRef = useRef(false);
 
   const load = useCallback(
@@ -367,139 +370,172 @@ export default function HypothesesPanel({
           </>
         ) : (
           <>
-            {hypotheses.map((hypothesis) => (
-              <Box
-                key={hypothesis.id}
-                className={cn(
-                  "border-grey-100 flex flex-col gap-2.5 rounded-2xl border px-3.5 py-3",
-                  hypothesis.status === "rejected" && "opacity-60",
-                )}
-              >
-                <Box className="flex flex-row flex-wrap items-center gap-2">
-                  <Typography variant="body1" className="text-text-primary font-semibold">
-                    {hypothesis.pattern}
-                  </Typography>
-                  {/* Correspondence with the RECORDED data — never confidence. */}
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={correspondenceLabel(hypothesis.correspondence)}
-                    className="text-xs"
-                  />
-                  {hypothesis.status !== "draft" && (
-                    <Chip
-                      size="small"
-                      label={t(`hypotheses-status-${hypothesis.status}`)}
-                      className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
-                    />
-                  )}
-                </Box>
+            {/* The column states WHERE the review stands; the reviewing itself
+                happens in the dialog below, which has room for the reasoning. */}
+            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+              {hypotheses.some((item) => item.status === "draft")
+                ? t("hypotheses-summary-pending", {
+                    count: hypotheses.filter((item) => item.status === "draft").length,
+                  })
+                : t("hypotheses-summary-done")}
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<NiClipboard size="tiny" />}
+              className="self-start"
+              onClick={() => setReviewOpen(true)}
+            >
+              {t("hypotheses-review-open", { count: hypotheses.length })}
+            </Button>
 
-                {/* Stated BEFORE the pattern is read, not as a footnote. */}
-                {hypothesis.staleAt && (
-                  <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
-                    {t("hypotheses-stale")}
-                  </Alert>
-                )}
-                {hypothesis.limitation && (
-                  <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
-                    {hypothesis.limitation}
-                  </Alert>
-                )}
-
-                {hypothesis.rationale && (
-                  <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                    {hypothesis.rationale}
-                  </Typography>
-                )}
-
-                <SignList title={t("hypotheses-supporting")} signs={hypothesis.supportingSigns} />
-                {/* Same visual weight as the supporting ones, on purpose. */}
-                <SignList title={t("hypotheses-contradicting")} signs={hypothesis.contradictingSigns} />
-
-                {hypothesis.missingData.length > 0 && (
-                  <Box className="flex flex-col gap-1">
-                    <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                      {t("hypotheses-missing")}
-                    </Typography>
-                    {hypothesis.missingData.map((item, index) => (
-                      <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-                        · {item}
+            <Dialog open={reviewOpen} onClose={() => setReviewOpen(false)} maxWidth="md" fullWidth scroll="paper">
+              <DialogTitle>{t("hypotheses-title")}</DialogTitle>
+              <DialogContent dividers className="flex flex-col gap-3">
+                {hypotheses.map((hypothesis) => (
+                  <Box
+                    key={hypothesis.id}
+                    className={cn(
+                      "border-grey-100 flex flex-col gap-2.5 rounded-2xl border px-3.5 py-3",
+                      hypothesis.status === "rejected" && "opacity-60",
+                    )}
+                  >
+                    <Box className="flex flex-row flex-wrap items-center gap-2">
+                      <Typography variant="body1" className="text-text-primary font-semibold">
+                        {hypothesis.pattern}
                       </Typography>
-                    ))}
-                  </Box>
-                )}
-
-                <Box className="flex flex-col gap-1">
-                  <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                    {t("hypotheses-sources")}
-                  </Typography>
-                  {hypothesis.sources.length === 0 ? (
-                    // Say it plainly rather than leave a confident-looking gap.
-                    <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                      {t("hypotheses-no-sources")}
-                    </Typography>
-                  ) : (
-                    hypothesis.sources.map((source, index) => (
-                      <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-                        · {source.title}
-                        {source.source ? ` — ${source.source}` : ""} ({kindLabel(source.kind)})
-                      </Typography>
-                    ))
-                  )}
-                </Box>
-
-                {hypothesis.reviewNote && (
-                  <Typography variant="body2" className="text-text-secondary text-xs leading-5 italic">
-                    {t("hypotheses-your-note")}: {hypothesis.reviewNote}
-                  </Typography>
-                )}
-
-                {!isFinalized && (
-                  <Box className="flex flex-row flex-wrap gap-2">
-                    {hypothesis.status !== "accepted" && (
-                      <Button
+                      {/* Correspondence with the RECORDED data — never confidence. */}
+                      <Chip
                         size="small"
                         variant="outlined"
-                        color="primary"
-                        disabled={busy}
-                        onClick={() => review(hypothesis, "accepted")}
-                      >
-                        {t("hypotheses-accept")}
-                      </Button>
+                        label={correspondenceLabel(hypothesis.correspondence)}
+                        className="text-xs"
+                      />
+                      {hypothesis.status !== "draft" && (
+                        <Chip
+                          size="small"
+                          label={t(`hypotheses-status-${hypothesis.status}`)}
+                          className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
+                        />
+                      )}
+                    </Box>
+
+                    {/* Stated BEFORE the pattern is read, not as a footnote. */}
+                    {hypothesis.staleAt && (
+                      <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
+                        {t("hypotheses-stale")}
+                      </Alert>
                     )}
-                    {/* Editing makes the reading hers, not the model's (PRD §10.10). */}
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="grey"
-                      disabled={busy}
-                      onClick={() => {
-                        setReviewing({ hypothesis, mode: "edit" });
-                        setPattern(hypothesis.pattern);
-                        setNote("");
-                      }}
-                    >
-                      {t("hypotheses-edit")}
-                    </Button>
-                    {hypothesis.status !== "rejected" && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="grey"
-                        disabled={busy}
-                        onClick={() => {
-                          setReviewing({ hypothesis, mode: "reject" });
-                          setNote("");
-                        }}
-                      >
-                        {t("hypotheses-reject")}
-                      </Button>
+                    {hypothesis.limitation && (
+                      <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
+                        {hypothesis.limitation}
+                      </Alert>
+                    )}
+
+                    {hypothesis.rationale && (
+                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                        {hypothesis.rationale}
+                      </Typography>
+                    )}
+
+                    <SignList title={t("hypotheses-supporting")} signs={hypothesis.supportingSigns} />
+                    {/* Same visual weight as the supporting ones, on purpose. */}
+                    <SignList title={t("hypotheses-contradicting")} signs={hypothesis.contradictingSigns} />
+
+                    {hypothesis.missingData.length > 0 && (
+                      <Box className="flex flex-col gap-1">
+                        <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+                          {t("hypotheses-missing")}
+                        </Typography>
+                        {hypothesis.missingData.map((item, index) => (
+                          <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
+                            · {item}
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+
+                    <Box className="flex flex-col gap-1">
+                      <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+                        {t("hypotheses-sources")}
+                      </Typography>
+                      {hypothesis.sources.length === 0 ? (
+                        // Say it plainly rather than leave a confident-looking gap.
+                        <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                          {t("hypotheses-no-sources")}
+                        </Typography>
+                      ) : (
+                        hypothesis.sources.map((source, index) => (
+                          <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
+                            · {source.title}
+                            {source.source ? ` — ${source.source}` : ""} ({kindLabel(source.kind)})
+                          </Typography>
+                        ))
+                      )}
+                    </Box>
+
+                    {hypothesis.reviewNote && (
+                      <Typography variant="body2" className="text-text-secondary text-xs leading-5 italic">
+                        {t("hypotheses-your-note")}: {hypothesis.reviewNote}
+                      </Typography>
+                    )}
+
+                    {!isFinalized && (
+                      <Box className="flex flex-row flex-wrap gap-2">
+                        {hypothesis.status !== "accepted" && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                            disabled={busy}
+                            onClick={() => review(hypothesis, "accepted")}
+                          >
+                            {t("hypotheses-accept")}
+                          </Button>
+                        )}
+                        {/* Editing makes the reading hers, not the model's (PRD §10.10). */}
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="grey"
+                          disabled={busy}
+                          onClick={() => {
+                            setReviewing({ hypothesis, mode: "edit" });
+                            setPattern(hypothesis.pattern);
+                            setNote("");
+                          }}
+                        >
+                          {t("hypotheses-edit")}
+                        </Button>
+                        {hypothesis.status !== "rejected" && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="grey"
+                            disabled={busy}
+                            onClick={() => {
+                              setReviewing({ hypothesis, mode: "reject" });
+                              setNote("");
+                            }}
+                          >
+                            {t("hypotheses-reject")}
+                          </Button>
+                        )}
+                      </Box>
                     )}
                   </Box>
-                )}
-              </Box>
-            ))}
+                ))}
+                {/* PRD §10.11 travels WITH the reasoning it qualifies. */}
+                <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                  {t("hypotheses-disclaimer")}
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button color="grey" onClick={() => setReviewOpen(false)}>
+                  {t("close")}
+                </Button>
+              </DialogActions>
+            </Dialog>
 
             {prior.length > 0 && (
               <Box className="flex flex-col gap-1">
@@ -538,7 +574,8 @@ export default function HypothesesPanel({
           </>
         )}
 
-        {/* PRD §10.11 — mandatory, verbatim, always visible. */}
+        {/* PRD §10.11 — mandatory and verbatim. Kept here too (not only in the
+            review dialog) so the framing is on screen before anything is read. */}
         <Typography variant="body2" className="text-text-secondary text-xs leading-5">
           {t("hypotheses-disclaimer")}
         </Typography>

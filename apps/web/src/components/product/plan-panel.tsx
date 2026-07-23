@@ -12,6 +12,10 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   MenuItem,
   TextField,
@@ -82,6 +86,9 @@ export default function PlanPanel({
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Reading and editing the plan is deliberate work over long content — it
+  // happens in a dialog so this column stays a summary.
+  const [planOpen, setPlanOpen] = useState(false);
   const [draft, setDraft] = useState<{ objective: string; modalities: Record<string, Modality> } | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const issueKey = useRef<string | null>(null);
@@ -438,127 +445,159 @@ export default function PlanPanel({
               </Alert>
             )}
 
-            {/* Objective */}
-            <Box className="flex flex-col gap-1">
-              <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                {t("plan-objective")}
-              </Typography>
-              {editing ? (
-                <TextField
-                  multiline
-                  minRows={2}
-                  fullWidth
-                  size="small"
-                  value={draft?.objective ?? ""}
-                  onChange={(event) => setDraft((d) => (d ? { ...d, objective: event.target.value } : d))}
-                />
-              ) : (
-                <Typography variant="body2" className="text-text-secondary leading-6">
-                  {plan.objective || "—"}
-                </Typography>
-              )}
-            </Box>
+            {/* The column summarises; the plan itself is read and edited in the
+                dialog, which has room for every modality's fields. Safety flags
+                above stay on the page — they are never behind a click. */}
+            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+              {activeModalities.length > 0
+                ? t("plan-summary-modalities", { count: activeModalities.length })
+                : t("plan-summary-empty")}
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<NiListCheck size="tiny" />}
+              className="self-start"
+              onClick={() => setPlanOpen(true)}
+            >
+              {t("plan-open")}
+            </Button>
 
-            {activeModalities.map((modality) => (
-              <ModalityCard
-                key={modality.slug}
-                slug={modality.slug}
-                fields={modality.fields}
-                data={
-                  ((editing ? draft?.modalities[modality.slug] : plan.modalities[modality.slug]) ?? {
-                    enabled: false,
-                  }) as Modality
-                }
-                editing={editing}
-                t={t}
-                onChange={(next) =>
-                  setDraft((d) => (d ? { ...d, modalities: { ...d.modalities, [modality.slug]: next } } : d))
-                }
-              />
-            ))}
-
-            {plan.sources.length > 0 && (
-              <Box className="flex flex-col gap-1">
-                <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                  {t("plan-sources")}
-                </Typography>
-                {plan.sources.map((source, index) => (
-                  <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-                    · {source.title}
-                    {source.source ? ` — ${source.source}` : ""}
+            <Dialog open={planOpen} onClose={() => setPlanOpen(false)} maxWidth="md" fullWidth scroll="paper">
+              <DialogTitle>{t("plan-title")}</DialogTitle>
+              <DialogContent dividers className="flex flex-col gap-3">
+                {/* Objective */}
+                <Box className="flex flex-col gap-1">
+                  <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+                    {t("plan-objective")}
                   </Typography>
-                ))}
-              </Box>
-            )}
+                  {editing ? (
+                    <TextField
+                      multiline
+                      minRows={2}
+                      fullWidth
+                      size="small"
+                      value={draft?.objective ?? ""}
+                      onChange={(event) => setDraft((d) => (d ? { ...d, objective: event.target.value } : d))}
+                    />
+                  ) : (
+                    <Typography variant="body2" className="text-text-secondary leading-6">
+                      {plan.objective || "—"}
+                    </Typography>
+                  )}
+                </Box>
 
-            {!isFinalized && (
-              <Box className="flex flex-col gap-2">
-                {editing ? (
-                  <Box className="flex flex-row flex-wrap gap-2">
-                    <Button variant="contained" color="primary" onClick={saveEdit} disabled={busy}>
-                      {t("plan-save")}
-                    </Button>
-                    <Button
-                      color="grey"
-                      onClick={() => {
-                        setEditing(false);
-                        setDraft(null);
-                      }}
-                    >
-                      {t("plan-cancel")}
-                    </Button>
+                {activeModalities.map((modality) => (
+                  <ModalityCard
+                    key={modality.slug}
+                    slug={modality.slug}
+                    fields={modality.fields}
+                    data={
+                      ((editing ? draft?.modalities[modality.slug] : plan.modalities[modality.slug]) ?? {
+                        enabled: false,
+                      }) as Modality
+                    }
+                    editing={editing}
+                    t={t}
+                    onChange={(next) =>
+                      setDraft((d) => (d ? { ...d, modalities: { ...d.modalities, [modality.slug]: next } } : d))
+                    }
+                  />
+                ))}
+
+                {plan.sources.length > 0 && (
+                  <Box className="flex flex-col gap-1">
+                    <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+                      {t("plan-sources")}
+                    </Typography>
+                    {plan.sources.map((source, index) => (
+                      <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
+                        · {source.title}
+                        {source.source ? ` — ${source.source}` : ""}
+                      </Typography>
+                    ))}
                   </Box>
-                ) : (
-                  <>
-                    {plan.status === "draft" && mustAcknowledge && (
-                      <FormControlLabel
-                        control={
-                          <Checkbox checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} />
-                        }
-                        label={
-                          <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                            {t("plan-acknowledge")}
-                          </Typography>
-                        }
-                      />
-                    )}
-                    <Box className="flex flex-row flex-wrap gap-2">
-                      {plan.status === "draft" && (
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={validate}
-                          disabled={busy || (mustAcknowledge && !acknowledged)}
-                        >
-                          {t("plan-validate")}
-                        </Button>
-                      )}
-                      <Button variant="outlined" color="grey" onClick={startEdit} disabled={busy}>
-                        {t("plan-edit")}
-                      </Button>
-                      {canReason && plan.status === "draft" && plan.origin === "ai" && (
-                        <Button variant="text" color="grey" onClick={() => prepare()} disabled={busy}>
-                          {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
-                        </Button>
-                      )}
-                      {/* A validated plan can become a signed document (PRD §9.8).
-                          Issuing again supersedes the previous version. */}
-                      {plan.status === "validated" && (
-                        <Button variant="contained" color="primary" onClick={issue} disabled={busy}>
-                          {busy ? (
-                            <CircularProgress size={16} />
-                          ) : documents.some((doc) => doc.status === "issued") ? (
-                            t("plan-reissue")
-                          ) : (
-                            t("plan-issue")
-                          )}
-                        </Button>
-                      )}
-                    </Box>
-                  </>
                 )}
-              </Box>
-            )}
+
+                {!isFinalized && (
+                  <Box className="flex flex-col gap-2">
+                    {editing ? (
+                      <Box className="flex flex-row flex-wrap gap-2">
+                        <Button variant="contained" color="primary" onClick={saveEdit} disabled={busy}>
+                          {t("plan-save")}
+                        </Button>
+                        <Button
+                          color="grey"
+                          onClick={() => {
+                            setEditing(false);
+                            setDraft(null);
+                          }}
+                        >
+                          {t("plan-cancel")}
+                        </Button>
+                      </Box>
+                    ) : (
+                      <>
+                        {plan.status === "draft" && mustAcknowledge && (
+                          <FormControlLabel
+                            control={
+                              <Checkbox checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} />
+                            }
+                            label={
+                              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                                {t("plan-acknowledge")}
+                              </Typography>
+                            }
+                          />
+                        )}
+                        <Box className="flex flex-row flex-wrap gap-2">
+                          {plan.status === "draft" && (
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              onClick={validate}
+                              disabled={busy || (mustAcknowledge && !acknowledged)}
+                            >
+                              {t("plan-validate")}
+                            </Button>
+                          )}
+                          <Button variant="outlined" color="grey" onClick={startEdit} disabled={busy}>
+                            {t("plan-edit")}
+                          </Button>
+                          {canReason && plan.status === "draft" && plan.origin === "ai" && (
+                            <Button variant="text" color="grey" onClick={() => prepare()} disabled={busy}>
+                              {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
+                            </Button>
+                          )}
+                          {/* A validated plan can become a signed document (PRD §9.8).
+                          Issuing again supersedes the previous version. */}
+                          {plan.status === "validated" && (
+                            <Button variant="contained" color="primary" onClick={issue} disabled={busy}>
+                              {busy ? (
+                                <CircularProgress size={16} />
+                              ) : documents.some((doc) => doc.status === "issued") ? (
+                                t("plan-reissue")
+                              ) : (
+                                t("plan-issue")
+                              )}
+                            </Button>
+                          )}
+                        </Box>
+                      </>
+                    )}
+                  </Box>
+                )}
+                {/* The draft-not-a-prescription framing travels with the plan. */}
+                <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                  {t("plan-disclaimer")}
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button color="grey" onClick={() => setPlanOpen(false)}>
+                  {t("close")}
+                </Button>
+              </DialogActions>
+            </Dialog>
 
             {/* Issued documents — viewable and verifiable even after the record
                 is finalized (the plan freezes, the documents remain). */}
