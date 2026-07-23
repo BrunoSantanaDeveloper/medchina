@@ -3,9 +3,24 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
+} from "@mui/material";
 
 import TranscriptViewer from "@/components/product/transcript-viewer";
+import NiListCheck from "@/icons/nexture/ni-list-check";
+import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
@@ -20,6 +35,20 @@ type Recording = {
   transcriptionId: string | null;
   audioPath: string | null;
 };
+
+/** One status, one visual language. Red stays reserved for risk (PRD §16): a
+ * failed capture is attention (terracotta), never alarm. */
+const STATUS_TONE: Record<string, string> = {
+  ready: "bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light",
+  failed: "bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light",
+  recording: "bg-accent-2/15 text-accent-2-dark dark:text-accent-2-light",
+  processing: "bg-primary/12 text-primary",
+  uploading: "bg-primary/12 text-primary",
+  uploaded: "bg-primary/12 text-primary",
+};
+
+/** A destructive confirmation that names its own consequence. */
+type Confirmation = { kind: "discard" | "delete-audio"; recordingId: string; status: string };
 
 /**
  * The recordings captured for this consultation and their processing state.
@@ -48,6 +77,10 @@ export default function RecordingsPanel({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  // Mounted only while open, so transcripts are fetched on demand instead of
+  // for every recording in the list.
+  const [transcriptFor, setTranscriptFor] = useState<{ recordingId: string; transcriptionId: string } | null>(null);
 
   const load = useCallback(
     async (preservePrevious = true) => {
@@ -148,11 +181,7 @@ export default function RecordingsPanel({
     }
   };
 
-  const discard = async (recordingId: string, status: string) => {
-    // Discarding an OPEN capture can throw away audio still being captured —
-    // the confirmation has to name that, not reuse the failed-recording copy.
-    const open = ["recording", "local", "uploading"].includes(status);
-    if (!window.confirm(open ? t("recordings-discard-open-confirm") : t("recordings-discard-confirm"))) return;
+  const discard = async (recordingId: string) => {
     setBusyId(recordingId);
     setActionError(null);
     setActionSuccess(null);
@@ -173,7 +202,6 @@ export default function RecordingsPanel({
   };
 
   const deleteAudio = async (recordingId: string) => {
-    if (!window.confirm(t("recordings-delete-audio-confirm"))) return;
     setBusyId(recordingId);
     setActionError(null);
     setActionSuccess(null);
@@ -272,55 +300,76 @@ export default function RecordingsPanel({
               : null;
             return (
               <Box key={recording.id} className="border-grey-100 flex flex-col gap-3 rounded-2xl border p-3">
-                <Box className="flex flex-row items-center gap-3">
-                  <Box className="min-w-0 flex-1">
-                    <Typography variant="body2" className="text-text-primary font-medium">
-                      {new Date(recording.createdAt).toLocaleString()}
-                      {duration ? ` · ${duration}` : ""}
-                    </Typography>
-                    <Typography variant="body2" className="text-text-secondary text-xs">
-                      {visibleStatus}
-                    </Typography>
-                  </Box>
-                  {isProcessing ? (
-                    <CircularProgress size={20} aria-label={visibleStatus} />
-                  ) : recording.status === "ready" ? (
-                    <Box className="flex flex-wrap items-center justify-end gap-1">
-                      <span className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light rounded-full px-2.5 py-1 text-xs font-semibold">
-                        {visibleStatus}
-                      </span>
-                      {recording.mode === "audio_only" && recording.audioPath && (
-                        <Button size="small" color="grey" onClick={() => void deleteAudio(recording.id)}>
-                          {t("recordings-delete-audio")}
-                        </Button>
-                      )}
-                    </Box>
-                  ) : (
-                    <Box className="flex flex-wrap items-center gap-1">
-                      {canProcess && (
-                        <Button size="small" variant="contained" color="primary" onClick={() => process(recording.id)}>
-                          {t("recordings-process")}
-                        </Button>
-                      )}
-                      {canDiscard && (
+                <Box className="flex flex-row flex-wrap items-center gap-x-3 gap-y-2">
+                  {/* One status, stated once: the chip is the single source of
+                      truth (it used to be repeated as a caption below the date). */}
+                  <Typography variant="body2" className="text-text-primary min-w-0 flex-1 font-medium tabular-nums">
+                    {new Date(recording.createdAt).toLocaleString()}
+                    {duration ? ` · ${duration}` : ""}
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={visibleStatus}
+                    className={cn(
+                      "text-xs font-semibold",
+                      STATUS_TONE[recording.status] ?? "bg-grey-100 text-text-secondary",
+                    )}
+                  />
+                  {isProcessing && <CircularProgress size={18} aria-label={visibleStatus} />}
+                  <Box className="flex flex-wrap items-center gap-1">
+                    {!isProcessing && canProcess && (
+                      <Button size="small" variant="contained" color="primary" onClick={() => process(recording.id)}>
+                        {t("recordings-process")}
+                      </Button>
+                    )}
+                    {!isProcessing && canDiscard && (
+                      <Button
+                        size="small"
+                        variant="text"
+                        color="grey"
+                        onClick={() =>
+                          setConfirmation({ kind: "discard", recordingId: recording.id, status: recording.status })
+                        }
+                      >
+                        {t("recordings-discard")}
+                      </Button>
+                    )}
+                    {!isProcessing &&
+                      recording.status === "ready" &&
+                      recording.mode === "audio_only" &&
+                      recording.audioPath && (
                         <Button
                           size="small"
                           variant="text"
                           color="grey"
-                          onClick={() => discard(recording.id, recording.status)}
+                          onClick={() =>
+                            setConfirmation({
+                              kind: "delete-audio",
+                              recordingId: recording.id,
+                              status: recording.status,
+                            })
+                          }
                         >
-                          {t("recordings-discard")}
+                          {t("recordings-delete-audio")}
                         </Button>
                       )}
-                    </Box>
-                  )}
+                  </Box>
                 </Box>
+                {/* The transcript opens in a dialog: a dozen segments inlined
+                    here made this column taller than the whole chart. */}
                 {recording.status === "ready" && recording.transcriptionId && (
-                  <TranscriptViewer
-                    recordingId={recording.id}
-                    transcriptionId={recording.transcriptionId}
-                    consultationId={consultationId}
-                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    className="self-start"
+                    startIcon={<NiListCheck size="tiny" />}
+                    onClick={() =>
+                      setTranscriptFor({ recordingId: recording.id, transcriptionId: recording.transcriptionId! })
+                    }
+                  >
+                    {t("transcript-open")}
+                  </Button>
                 )}
               </Box>
             );
@@ -331,6 +380,51 @@ export default function RecordingsPanel({
           {t("recordings-note")}
         </Typography>
       </CardContent>
+
+      {transcriptFor && (
+        <TranscriptViewer
+          recordingId={transcriptFor.recordingId}
+          transcriptionId={transcriptFor.transcriptionId}
+          consultationId={consultationId}
+          onClose={() => setTranscriptFor(null)}
+        />
+      )}
+
+      {/* Destructive actions get a real dialog that names their consequence —
+          discarding an OPEN capture can throw away audio still being recorded,
+          which is a different loss from clearing a failed attempt. */}
+      <Dialog open={confirmation !== null} onClose={() => setConfirmation(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          {confirmation?.kind === "delete-audio" ? t("recordings-delete-audio") : t("recordings-discard")}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {confirmation?.kind === "delete-audio"
+              ? t("recordings-delete-audio-confirm")
+              : ["recording", "local", "uploading"].includes(confirmation?.status ?? "")
+                ? t("recordings-discard-open-confirm")
+                : t("recordings-discard-confirm")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setConfirmation(null)}>
+            {t("cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              const pending = confirmation;
+              setConfirmation(null);
+              if (!pending) return;
+              if (pending.kind === "delete-audio") void deleteAudio(pending.recordingId);
+              else void discard(pending.recordingId);
+            }}
+          >
+            {confirmation?.kind === "delete-audio" ? t("recordings-delete-audio") : t("recordings-discard")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }

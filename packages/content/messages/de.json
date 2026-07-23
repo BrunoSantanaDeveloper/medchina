@@ -1774,6 +1774,7 @@
     "recordings-status-failed": "Fehlgeschlagen",
     "recordings-status-cancelled": "Abgebrochen",
     "transcript-title": "Transkript",
+    "transcript-open": "Transkript ansehen",
     "transcript-validated-chip": "Validiert",
     "transcript-segments": "{count} Abschnitte",
     "transcript-load-error": "Das Transkript konnte nicht geladen werden. Versuchen Sie es erneut.",

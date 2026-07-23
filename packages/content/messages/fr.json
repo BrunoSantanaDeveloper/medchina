@@ -1774,6 +1774,7 @@
     "recordings-status-failed": "Échec",
     "recordings-status-cancelled": "Annulé",
     "transcript-title": "Transcription",
+    "transcript-open": "Voir la transcription",
     "transcript-validated-chip": "Validée",
     "transcript-segments": "{count} segments",
     "transcript-load-error": "Impossible de charger la transcription. Réessayez.",

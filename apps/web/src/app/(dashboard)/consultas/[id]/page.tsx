@@ -737,7 +737,11 @@ export default function ConsultaPage() {
 
       <Grid size={12}>
         <Box className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start">
-          <Box className="order-1 flex min-w-0 flex-col gap-5 lg:col-start-2 lg:row-start-1">
+          {/* On desktop the assistant column scrolls INSIDE itself and sticks:
+              its tools (hypotheses, plan) can grow far taller than the chart,
+              and letting them stretch the page forced scrolling past everything
+              to reach what is below. On mobile it stays a normal stacked block. */}
+          <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
             {/* This is the only capture surface and remains first in DOM order
                 so mobile visual order and keyboard focus order stay aligned.
                 Mount on canEditClinicalRecord, NOT canRecord: canRecord means

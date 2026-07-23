@@ -4,19 +4,19 @@ import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Typography,
 } from "@mui/material";
 
 import NiCheck from "@/icons/nexture/ni-check";
-import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiPlay from "@/icons/nexture/ni-play";
 import { ANAMNESIS_BLOCKS } from "@/lib/anamnesis";
 import { parseTranscriptResult, type TranscriptSegment, transcriptTimestampSeconds } from "@/lib/transcript";
@@ -55,17 +55,26 @@ function dataFromState(state: RemoteState<TranscriptData, "load_failed">) {
   return undefined;
 }
 
-/** Review boundary for a generated transcript. Source audio stays private and
+/**
+ * Review boundary for a generated transcript. Source audio stays private and
  * is exposed through a short-lived URL only while the retention policy allows
- * it. Every mapped field points back to the segment that supplied it. */
+ * it. Every mapped field points back to the segment that supplied it.
+ *
+ * Presented as a DIALOG, not a panel in the sidebar column: reading a
+ * consultation transcript and reconciling it against the chart is a focused
+ * task that needs width, and inlining a dozen segments in a 20rem column made
+ * the page scroll past everything else to reach the tools below it.
+ */
 export default function TranscriptViewer({
   recordingId,
   transcriptionId,
   consultationId,
+  onClose,
 }: {
   recordingId: string;
   transcriptionId: string;
   consultationId: string;
+  onClose: () => void;
 }) {
   const t = useTranslations("product");
   const locale = useLocale();
@@ -77,6 +86,18 @@ export default function TranscriptViewer({
   const [actionError, setActionError] = useState(false);
   const [validatedNow, setValidatedNow] = useState(false);
   const [audioDeletedNow, setAudioDeletedNow] = useState(false);
+  const [confirmDeleteAudio, setConfirmDeleteAudio] = useState(false);
+
+  /** Jump from a segment to the chart field it fed — the reason to open this
+   *  at all. Closing first puts the field in view instead of behind the modal. */
+  const goToField = (blockKey: string, fieldKey: string) => {
+    onClose();
+    window.setTimeout(() => {
+      const field = document.getElementById(`consultation-field-${blockKey}-${fieldKey}`);
+      field?.scrollIntoView({ behavior: "smooth", block: "center" });
+      field?.focus({ preventScroll: true });
+    }, 0);
+  };
 
   const load = useCallback(
     async (preservePrevious = true) => {
@@ -168,7 +189,8 @@ export default function TranscriptViewer({
   };
 
   const deleteAudio = async () => {
-    if (deletingAudio || !window.confirm(t("transcript-delete-audio-confirm"))) return;
+    if (deletingAudio) return;
+    setConfirmDeleteAudio(false);
     setDeletingAudio(true);
     setActionError(false);
     setAudioDeletedNow(false);
@@ -190,26 +212,17 @@ export default function TranscriptViewer({
   const failed = state.status === "error";
 
   return (
-    <Accordion
-      id={`transcription-${transcriptionId}`}
-      elevation={0}
-      disableGutters
-      className="border-divider bg-background-paper w-full rounded-2xl! border"
-    >
-      <AccordionSummary expandIcon={<NiChevronDownSmall />}>
-        <Box className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <Typography component="h3" variant="subtitle2">
-            {t("transcript-title")}
-          </Typography>
-          {data?.validatedAt && (
-            <Chip size="small" color="success" icon={<NiCheck size="tiny" />} label={t("transcript-validated-chip")} />
-          )}
-          {data && (
-            <Chip size="small" variant="outlined" label={t("transcript-segments", { count: data.segments.length })} />
-          )}
-        </Box>
-      </AccordionSummary>
-      <AccordionDetails className="flex flex-col gap-4 pt-0!">
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth scroll="paper">
+      <DialogTitle className="flex flex-wrap items-center gap-2">
+        {t("transcript-title")}
+        {data?.validatedAt && (
+          <Chip size="small" color="success" icon={<NiCheck size="tiny" />} label={t("transcript-validated-chip")} />
+        )}
+        {data && (
+          <Chip size="small" variant="outlined" label={t("transcript-segments", { count: data.segments.length })} />
+        )}
+      </DialogTitle>
+      <DialogContent dividers className="flex flex-col gap-4">
         {initialLoading && <CircularProgress size={22} aria-label={t("loading")} />}
         {failed && !data && (
           <Alert severity="error" action={<Button onClick={() => void load(false)}>{t("retry")}</Button>}>
@@ -243,15 +256,21 @@ export default function TranscriptViewer({
             </Box>
 
             {data.audioUrl ? (
-              <audio
-                ref={audioRef}
-                src={data.audioUrl}
-                controls
-                controlsList="nodownload"
-                preload="metadata"
-                className="w-full"
-                aria-label={t("transcript-source-audio")}
-              />
+              // The native player stays: it is the accessible, keyboard-ready
+              // control and the seek target for "play this segment". It only
+              // gets a surface so it sits inside the card instead of floating
+              // as raw browser chrome.
+              <Box className="bg-grey-50 border-divider rounded-2xl border p-2">
+                <audio
+                  ref={audioRef}
+                  src={data.audioUrl}
+                  controls
+                  controlsList="nodownload"
+                  preload="metadata"
+                  className="block w-full"
+                  aria-label={t("transcript-source-audio")}
+                />
+              </Box>
             ) : (
               <Alert severity="info" className="neutral bg-background-paper/60!">
                 {t("transcript-audio-unavailable")}
@@ -292,13 +311,14 @@ export default function TranscriptViewer({
                             {t("transcript-linked-fields")}
                           </Typography>
                           {links.map((field) => (
-                            <a
+                            <Chip
                               key={`${field.blockKey}.${field.fieldKey}`}
-                              href={`#consultation-field-${field.blockKey}-${field.fieldKey}`}
-                              className="bg-primary/10 text-primary-dark dark:text-primary-light rounded-full px-2.5 py-1 text-xs font-semibold"
-                            >
-                              {t(field.labelKey)}
-                            </a>
+                              size="small"
+                              clickable
+                              label={t(field.labelKey)}
+                              className="bg-primary/10 text-primary-dark dark:text-primary-light text-xs font-semibold"
+                              onClick={() => goToField(field.blockKey, field.fieldKey)}
+                            />
                           ))}
                         </Box>
                       )}
@@ -327,14 +347,43 @@ export default function TranscriptViewer({
                 <Typography variant="body2" className="text-text-secondary">
                   {t("transcript-delete-audio-help")}
                 </Typography>
-                <Button color="grey" variant="outlined" onClick={() => void deleteAudio()} disabled={deletingAudio}>
+                <Button
+                  color="grey"
+                  variant="outlined"
+                  onClick={() => setConfirmDeleteAudio(true)}
+                  disabled={deletingAudio}
+                >
                   {deletingAudio ? t("transcript-deleting-audio") : t("transcript-delete-audio")}
                 </Button>
               </Box>
             )}
           </>
         )}
-      </AccordionDetails>
-    </Accordion>
+      </DialogContent>
+      <DialogActions>
+        <Button color="grey" onClick={onClose}>
+          {t("close")}
+        </Button>
+      </DialogActions>
+
+      {/* Deleting the source audio is irreversible — it gets its own dialog
+          naming the consequence, never a browser popup. */}
+      <Dialog open={confirmDeleteAudio} onClose={() => setConfirmDeleteAudio(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t("transcript-delete-audio")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {t("transcript-delete-audio-confirm")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setConfirmDeleteAudio(false)}>
+            {t("cancel")}
+          </Button>
+          <Button variant="contained" color="error" onClick={() => void deleteAudio()} disabled={deletingAudio}>
+            {t("transcript-delete-audio")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Dialog>
   );
 }
