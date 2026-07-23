@@ -123,7 +123,12 @@ export default function ConsultaPage() {
   const [returnSeed, setReturnSeed] = useState<ScheduleSeed | undefined>();
   // Reasoning is the Pro layer (PRD §10.8) — the same allowance that governs
   // minutes says whether this workspace has it.
-  const { allowance } = useAudioAllowance(consultation?.orgId ?? null);
+  const {
+    allowance,
+    loading: allowanceLoading,
+    error: allowanceError,
+    reload: reloadAllowance,
+  } = useAudioAllowance(consultation?.orgId ?? null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [fields, setFields] = useState<Record<string, FieldMeta>>({});
   const [headerDraft, setHeaderDraft] = useState({ chiefComplaint: "", summary: "" });
@@ -613,15 +618,11 @@ export default function ConsultaPage() {
             <Button variant="outlined" color="grey" onClick={() => setAddendumOpen(true)}>
               {t("consultation-add-addendum")}
             </Button>
-          ) : capabilities?.canFinalize && isPrimary ? (
-            <Button variant="contained" color="primary" onClick={prepareFinalize} disabled={busy}>
-              {t("consultation-finalize")}
-            </Button>
           ) : null}
         </Box>
       </Grid>
 
-      <Grid size={12}>
+      <Grid size={12} className="sticky top-20 z-20">
         <ClinicalContextBar
           patientId={consultation.patientId}
           patientName={consultation.patientName}
@@ -634,6 +635,16 @@ export default function ConsultaPage() {
           recordingStatus={recordingStatus}
           nextAction={nextAction}
           onRetrySave={() => void saveCoordinator.retry().catch(() => setErrorKey("consultation-save-error"))}
+          primaryAction={
+            !isFinalized && capabilities?.canFinalize && isPrimary
+              ? {
+                  label: t("consultation-review-finalize"),
+                  onClick: prepareFinalize,
+                  disabled: busy,
+                  variant: consultationIsEmpty && consultation.status !== "awaiting_review" ? "outlined" : "contained",
+                }
+              : undefined
+          }
         />
       </Grid>
 
@@ -724,228 +735,235 @@ export default function ConsultaPage() {
         </Grid>
       )}
 
-      <Grid size={{ xs: 12, lg: 8 }}>
-        <Card component="section">
-          <CardContent className="flex flex-col gap-4">
-            <Box>
-              <Typography variant="h5" component="h2" className="card-title">
-                {t("consultation-anamnesis-title")}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary">
-                {captureInFlight
-                  ? t("consultation-anamnesis-subtitle-capturing")
-                  : t("consultation-anamnesis-subtitle")}
-              </Typography>
-            </Box>
+      <Grid size={12}>
+        <Box className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start">
+          <Box className="order-1 flex min-w-0 flex-col gap-5 lg:col-start-2 lg:row-start-1">
+            {/* This is the only capture surface and remains first in DOM order
+                so mobile visual order and keyboard focus order stay aligned. */}
+            {capabilities?.canRecord &&
+              (isPrimary ? (
+                <ConsultationRecorder
+                  orgId={consultation.orgId}
+                  patientId={consultation.patientId}
+                  consultationId={consultation.id}
+                  audioConsent={context?.consents.audio}
+                  aiConsent={context?.consents.ai}
+                  onRequestConsent={() => setConsentCollectionOpen(true)}
+                  onChanged={syncFromServer}
+                />
+              ) : (
+                <Card component="section">
+                  <CardContent className="flex flex-col gap-2">
+                    <Typography variant="h6" component="h2">
+                      {t("recorder-title")}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary leading-6">
+                      {t("recorder-other-tab")}
+                    </Typography>
+                    <Button variant="contained" color="primary" onClick={takeOver} className="self-start">
+                      {t("recorder-take-over")}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
 
-            <FormControl className="outlined" variant="standard" size="small">
-              <FormLabel component="label" htmlFor="consultation-chief-complaint">
-                {t("field-main-complaint")}
-              </FormLabel>
-              <Input
-                id="consultation-chief-complaint"
-                multiline
-                minRows={2}
-                readOnly={isReadOnly}
-                value={headerDraft.chiefComplaint}
-                onChange={(event) => queueHeaderSave("chiefComplaint", event.target.value)}
-                onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
-              />
-            </FormControl>
+            {canEdit && (
+              <RecordingsPanel consultationId={consultation.id} onProcessed={load} refreshSignal={recordingsRefresh} />
+            )}
+          </Box>
 
-            {ANAMNESIS_BLOCKS.map((block) => (
-              <Accordion
-                key={block.key}
-                elevation={0}
-                disableGutters
-                defaultExpanded={block.key === "complaint"}
-                className="border-grey-100 bg-background-paper rounded-2xl! border"
-              >
-                <AccordionSummary expandIcon={<NiChevronDownSmall />} className="px-5! py-2!">
-                  <Typography component="h3" variant="subtitle1">
-                    {t(block.title)}
+          <Box className="order-2 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+            <Card component="section">
+              <CardContent className="flex flex-col gap-4">
+                <Box>
+                  <Typography variant="h5" component="h2" className="card-title">
+                    {t("consultation-anamnesis-title")}
                   </Typography>
-                </AccordionSummary>
-                <AccordionDetails className="flex flex-col gap-1 px-5! pt-0! pb-5!">
-                  {block.fields.map((field) => {
-                    const composite = `${block.key}.${field.key}`;
-                    const meta = fields[composite];
-                    const isObservation = PROFESSIONAL_OBSERVATION_FIELDS.has(composite);
-                    return (
-                      <FormControl key={field.key} className="outlined" variant="standard" size="small">
-                        <FormLabel
-                          component="label"
-                          htmlFor={`consultation-field-${block.key}-${field.key}`}
-                          className="flex flex-row flex-wrap items-center gap-2"
-                        >
-                          {t(field.label)}
-                          {isObservation && (
-                            <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
-                              {t("field-observation-badge")}
-                            </span>
-                          )}
-                          {meta?.value && (
-                            <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
-                          )}
-                          {meta?.provenance?.quote && (
-                            <button
-                              type="button"
-                              className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
-                              onClick={(event) =>
-                                setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
-                              }
+                  <Typography variant="body2" className="text-text-secondary">
+                    {captureInFlight
+                      ? t("consultation-anamnesis-subtitle-capturing")
+                      : t("consultation-anamnesis-subtitle")}
+                  </Typography>
+                </Box>
+
+                <FormControl className="outlined" variant="standard" size="small">
+                  <FormLabel component="label" htmlFor="consultation-chief-complaint">
+                    {t("field-main-complaint")}
+                  </FormLabel>
+                  <Input
+                    id="consultation-chief-complaint"
+                    multiline
+                    minRows={2}
+                    readOnly={isReadOnly}
+                    value={headerDraft.chiefComplaint}
+                    onChange={(event) => queueHeaderSave("chiefComplaint", event.target.value)}
+                    onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
+                  />
+                </FormControl>
+
+                {ANAMNESIS_BLOCKS.map((block) => (
+                  <Accordion
+                    key={block.key}
+                    elevation={0}
+                    disableGutters
+                    defaultExpanded={block.key === "complaint"}
+                    className="border-grey-100 bg-background-paper rounded-2xl! border"
+                  >
+                    <AccordionSummary expandIcon={<NiChevronDownSmall />} className="px-5! py-2!">
+                      <Typography component="h3" variant="subtitle1">
+                        {t(block.title)}
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails className="flex flex-col gap-1 px-5! pt-0! pb-5!">
+                      {block.fields.map((field) => {
+                        const composite = `${block.key}.${field.key}`;
+                        const meta = fields[composite];
+                        const isObservation = PROFESSIONAL_OBSERVATION_FIELDS.has(composite);
+                        return (
+                          <FormControl key={field.key} className="outlined" variant="standard" size="small">
+                            <FormLabel
+                              component="label"
+                              htmlFor={`consultation-field-${block.key}-${field.key}`}
+                              className="flex flex-row flex-wrap items-center gap-2"
                             >
-                              <NiPlay size="tiny" />
-                              {t("field-provenance")}
-                            </button>
-                          )}
-                        </FormLabel>
-                        <Input
-                          id={`consultation-field-${block.key}-${field.key}`}
-                          multiline={field.multiline}
-                          minRows={field.multiline ? 2 : undefined}
-                          readOnly={isReadOnly}
-                          value={meta?.value ?? ""}
-                          onChange={(event) => queueAnswerSave(block.key, field.key, event.target.value)}
-                          onBlur={() =>
-                            void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
-                          }
-                        />
-                      </FormControl>
-                    );
-                  })}
-                </AccordionDetails>
-              </Accordion>
-            ))}
+                              {t(field.label)}
+                              {isObservation && (
+                                <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
+                                  {t("field-observation-badge")}
+                                </span>
+                              )}
+                              {meta?.value && (
+                                <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
+                              )}
+                              {meta?.provenance?.quote && (
+                                <button
+                                  type="button"
+                                  className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
+                                  onClick={(event) =>
+                                    setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
+                                  }
+                                >
+                                  <NiPlay size="tiny" />
+                                  {t("field-provenance")}
+                                </button>
+                              )}
+                            </FormLabel>
+                            <Input
+                              id={`consultation-field-${block.key}-${field.key}`}
+                              multiline={field.multiline}
+                              minRows={field.multiline ? 2 : undefined}
+                              readOnly={isReadOnly}
+                              value={meta?.value ?? ""}
+                              onChange={(event) => queueAnswerSave(block.key, field.key, event.target.value)}
+                              onBlur={() =>
+                                void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
+                              }
+                            />
+                          </FormControl>
+                        );
+                      })}
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
 
-            <FormControl className="outlined" variant="standard" size="small">
-              <FormLabel component="label" htmlFor="consultation-summary">
-                {t("consultation-summary")}
-              </FormLabel>
-              <Input
-                id="consultation-summary"
-                multiline
-                minRows={3}
-                readOnly={isReadOnly}
-                value={headerDraft.summary}
-                onChange={(event) => queueHeaderSave("summary", event.target.value)}
-                onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
-              />
-            </FormControl>
-          </CardContent>
-        </Card>
-      </Grid>
+                <FormControl className="outlined" variant="standard" size="small">
+                  <FormLabel component="label" htmlFor="consultation-summary">
+                    {t("consultation-summary")}
+                  </FormLabel>
+                  <Input
+                    id="consultation-summary"
+                    multiline
+                    minRows={3}
+                    readOnly={isReadOnly}
+                    value={headerDraft.summary}
+                    onChange={(event) => queueHeaderSave("summary", event.target.value)}
+                    onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
+                  />
+                </FormControl>
+              </CardContent>
+            </Card>
+          </Box>
 
-      <Grid size={{ xs: 12, lg: 4 }}>
-        <Box className="flex flex-col gap-5">
-          {/* The recorder is the ONLY capture surface. When another tab holds
-              the session it must not silently vanish — that reads as "recording
-              is unavailable" and costs a consultation. */}
-          {capabilities?.canRecord &&
-            (isPrimary ? (
-              <ConsultationRecorder
-                orgId={consultation.orgId}
-                patientId={consultation.patientId}
-                consultationId={consultation.id}
-                audioConsent={context?.consents.audio}
-                aiConsent={context?.consents.ai}
-                onRequestConsent={() => setConsentCollectionOpen(true)}
-                onChanged={syncFromServer}
-              />
-            ) : (
+          <Box className="order-3 flex min-w-0 flex-col gap-5 lg:col-start-2 lg:row-start-2">
+            {/* Pattern hypotheses (PRD §10.8) — prepared on demand, because a
+              pattern is read from the tongue and pulse, and those are HER
+              observations, never inferred from the recording (PRD §10.3). */}
+            <HypothesesPanel
+              consultationId={consultation.id}
+              patientId={consultation.patientId}
+              reasoningEntitled={Boolean(allowance?.clinicalReasoning)}
+              canPrepare={Boolean(canEdit && allowance?.clinicalReasoning)}
+              entitlementLoading={allowanceLoading}
+              entitlementError={allowanceError}
+              onRetryEntitlement={() => void reloadAllowance()}
+              isFinalized={isReadOnly}
+            />
+
+            {/* Therapeutic plan (PRD §10.9) — built on the accepted hypotheses,
+              a draft until she validates it (PRD §10.10). */}
+            <PlanPanel
+              consultationId={consultation.id}
+              canReason={Boolean(canEdit && allowance?.clinicalReasoning)}
+              isFinalized={isReadOnly}
+            />
+
+            {/* Gaps are suggestions to investigate — never answers (PRD §10.7). */}
+            {consultation.aiGaps.length > 0 && canEdit && (
               <Card component="section">
                 <CardContent className="flex flex-col gap-2">
                   <Typography variant="h6" component="h2">
-                    {t("recorder-title")}
+                    {t("consultation-gaps-title")}
                   </Typography>
-                  <Typography variant="body2" className="text-text-secondary leading-6">
-                    {t("recorder-other-tab")}
+                  <Typography variant="body2" className="text-text-secondary text-xs">
+                    {t("consultation-gaps-subtitle")}
                   </Typography>
-                  <Button variant="contained" color="primary" onClick={takeOver} className="self-start">
-                    {t("recorder-take-over")}
-                  </Button>
+                  <Box component="ul" className="flex flex-col gap-1.5">
+                    {consultation.aiGaps.map((gap) => (
+                      <li key={gap} className="text-text-primary flex items-start gap-2 text-sm leading-5">
+                        <span aria-hidden className="bg-accent-3 mt-1.5 h-1.5 w-1.5 flex-none rounded-full" />
+                        {gap}
+                      </li>
+                    ))}
+                  </Box>
                 </CardContent>
               </Card>
-            ))}
+            )}
 
-          {canEdit && (
-            <RecordingsPanel consultationId={consultation.id} onProcessed={load} refreshSignal={recordingsRefresh} />
-          )}
-
-          {/* Pattern hypotheses (PRD §10.8) — prepared on demand, because a
-              pattern is read from the tongue and pulse, and those are HER
-              observations, never inferred from the recording (PRD §10.3). */}
-          <HypothesesPanel
-            consultationId={consultation.id}
-            patientId={consultation.patientId}
-            canReason={Boolean(canEdit && allowance?.clinicalReasoning)}
-            isFinalized={isReadOnly}
-          />
-
-          {/* Therapeutic plan (PRD §10.9) — built on the accepted hypotheses,
-              a draft until she validates it (PRD §10.10). */}
-          <PlanPanel
-            consultationId={consultation.id}
-            canReason={Boolean(canEdit && allowance?.clinicalReasoning)}
-            isFinalized={isReadOnly}
-          />
-
-          {/* Gaps are suggestions to investigate — never answers (PRD §10.7). */}
-          {consultation.aiGaps.length > 0 && canEdit && (
             <Card component="section">
               <CardContent className="flex flex-col gap-2">
                 <Typography variant="h6" component="h2">
-                  {t("consultation-gaps-title")}
+                  {t("consultation-state-title")}
                 </Typography>
-                <Typography variant="body2" className="text-text-secondary text-xs">
-                  {t("consultation-gaps-subtitle")}
+                <Typography variant="body2" className="text-text-secondary leading-6">
+                  {t("consultation-state-body", { count: filledCount })}
                 </Typography>
-                <Box component="ul" className="flex flex-col gap-1.5">
-                  {consultation.aiGaps.map((gap) => (
-                    <li key={gap} className="text-text-primary flex items-start gap-2 text-sm leading-5">
-                      <span aria-hidden className="bg-accent-3 mt-1.5 h-1.5 w-1.5 flex-none rounded-full" />
-                      {gap}
-                    </li>
+                <Typography variant="body2" className="text-text-secondary leading-6">
+                  {t("consultation-absence-note")}
+                </Typography>
+              </CardContent>
+            </Card>
+
+            {addenda.length > 0 && (
+              <Card component="section">
+                <CardContent className="flex flex-col gap-3">
+                  <Typography variant="h6" component="h2">
+                    {t("consultation-addenda-title")}
+                  </Typography>
+                  {addenda.map((addendum) => (
+                    <Box key={addendum.id} className="border-grey-100 rounded-2xl border p-3">
+                      <Typography variant="body2" className="text-text-primary leading-6">
+                        {addendum.body}
+                      </Typography>
+                      <Typography variant="body2" className="text-text-secondary mt-1 text-xs">
+                        {new Date(addendum.createdAt).toLocaleString()}
+                        {addendum.reason ? ` · ${addendum.reason}` : ""}
+                      </Typography>
+                    </Box>
                   ))}
-                </Box>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card component="section">
-            <CardContent className="flex flex-col gap-2">
-              <Typography variant="h6" component="h2">
-                {t("consultation-state-title")}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary leading-6">
-                {t("consultation-state-body", { count: filledCount })}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary leading-6">
-                {t("consultation-absence-note")}
-              </Typography>
-            </CardContent>
-          </Card>
-
-          {addenda.length > 0 && (
-            <Card component="section">
-              <CardContent className="flex flex-col gap-3">
-                <Typography variant="h6" component="h2">
-                  {t("consultation-addenda-title")}
-                </Typography>
-                {addenda.map((addendum) => (
-                  <Box key={addendum.id} className="border-grey-100 rounded-2xl border p-3">
-                    <Typography variant="body2" className="text-text-primary leading-6">
-                      {addendum.body}
-                    </Typography>
-                    <Typography variant="body2" className="text-text-secondary mt-1 text-xs">
-                      {new Date(addendum.createdAt).toLocaleString()}
-                      {addendum.reason ? ` · ${addendum.reason}` : ""}
-                    </Typography>
-                  </Box>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
+          </Box>
         </Box>
       </Grid>
 

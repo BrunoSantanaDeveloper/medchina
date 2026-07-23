@@ -27,7 +27,21 @@ export type ProductEventName =
   | "acervo.document_opened"
   | "citation.opened"
   | "briefing.opened"
-  | "protocol.saved";
+  | "protocol.saved"
+  | "upgrade.prompt_viewed"
+  | "upgrade.prompt_clicked"
+  | "billing.contact_clicked";
+
+export type CommercialEventOrigin = "menu" | "consultation" | "home" | "usage" | "billing";
+export type CommercialEventFeature = "plans" | "audio" | "clinical_reasoning";
+
+export function trackCommercialEvent(
+  event: Extract<ProductEventName, "upgrade.prompt_viewed" | "upgrade.prompt_clicked" | "billing.contact_clicked">,
+  origin: CommercialEventOrigin,
+  feature: CommercialEventFeature,
+): void {
+  trackProductEvent(event, { origin, feature });
+}
 
 export function trackProductEvent(event: ProductEventName, properties: Record<string, string> = {}): void {
   const supabase = createClient();

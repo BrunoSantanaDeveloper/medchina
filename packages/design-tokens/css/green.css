@@ -40,23 +40,23 @@
 
     --secondary: 31 45% 62%;
     --secondary-light: 31 45% 72%;
-    --secondary-dark: 31 45% 52%;
+    --secondary-dark: 31 45% 38%;
 
     --accent-1: 158 30% 50%;
     --accent-1-light: 158 30% 60%;
-    --accent-1-dark: 158 30% 40%;
+    --accent-1-dark: 158 30% 32%;
 
     --accent-2: 210 42% 58%;
     --accent-2-light: 210 42% 68%;
-    --accent-2-dark: 210 42% 48%;
+    --accent-2-dark: 210 42% 40%;
 
     --accent-3: 16 55% 60%;
     --accent-3-light: 16 55% 70%;
-    --accent-3-dark: 16 55% 50%;
+    --accent-3-dark: 16 55% 42%;
 
     --accent-4: 327 30% 56%;
     --accent-4-light: 327 30% 66%;
-    --accent-4-dark: 327 30% 46%;
+    --accent-4-dark: 327 30% 42%;
 
     color-scheme: dark;
   }

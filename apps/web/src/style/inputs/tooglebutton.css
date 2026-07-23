@@ -205,3 +205,15 @@
     }
   }
 }
+
+.dark {
+  .MuiToggleButton-root.Mui-selected,
+  .MuiToggleButton-root.Mui-selected:hover {
+    @apply bg-primary-dark text-text-contrast;
+  }
+
+  .MuiToggleButton-root.outlined.Mui-selected,
+  .MuiToggleButton-root.outlined.Mui-selected:hover {
+    @apply border-primary-light! text-primary-light bg-transparent;
+  }
+}

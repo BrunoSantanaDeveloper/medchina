@@ -189,7 +189,7 @@
   }
 
   .MuiChip-filled.MuiChip-colorWarning {
-    @apply bg-warning;
+    @apply bg-warning text-text-primary-dark dark:text-background;
     &.MuiChip-clickable:hover {
       @apply bg-warning-light;
     }
@@ -471,6 +471,16 @@
     @apply h-auto;
     .MuiChip-label {
       @apply block whitespace-normal;
+    }
+  }
+}
+
+.dark {
+  .MuiChip-filled.MuiChip-colorPrimary {
+    @apply bg-primary-dark text-text-contrast;
+
+    &.MuiChip-clickable:hover {
+      @apply bg-primary-dark;
     }
   }
 }

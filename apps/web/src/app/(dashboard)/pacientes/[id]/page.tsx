@@ -452,23 +452,36 @@ export default function PacienteFicha() {
           </Box>
 
           {!patient.archivedAt && (
-            <Box className="flex flex-row flex-wrap gap-2">
+            <Box className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
               {/* Case review in the library — Pro/trial only (route re-enforces). */}
-              {audioAllowance?.clinicalReasoning && (
+              {audioAllowance?.clinicalReasoning && timelineItems.length > 0 && (
                 <Button
                   variant="outlined"
                   color="grey"
                   startIcon={<NiBook />}
                   href={`/biblioteca?paciente=${patient.id}`}
                   LinkComponent={Link}
+                  className="w-full sm:w-auto"
                 >
                   {t("patient-study-case")}
                 </Button>
               )}
-              <Button variant="outlined" color="grey" startIcon={<NiCalendar />} onClick={() => setScheduleOpen(true)}>
+              <Button
+                variant="outlined"
+                color="grey"
+                startIcon={<NiCalendar />}
+                onClick={() => setScheduleOpen(true)}
+                className="w-full sm:w-auto"
+              >
                 {t("patient-schedule-consultation")}
               </Button>
-              <Button variant="contained" color="primary" onClick={runPrimaryAction} disabled={busy}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={runPrimaryAction}
+                disabled={busy}
+                className="w-full sm:w-auto"
+              >
                 {primaryLabel}
               </Button>
             </Box>
@@ -533,11 +546,6 @@ export default function PacienteFicha() {
                 icon={<NiClipboard />}
                 title={t("patient-timeline-empty-title")}
                 description={t("patient-timeline-empty-body")}
-                action={
-                  patient.archivedAt
-                    ? undefined
-                    : { label: t("patient-start-consultation"), onClick: createConsultation }
-                }
                 className="border-none py-8"
               />
             ) : (

@@ -9,6 +9,7 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   timezone: text("timezone").notNull().default("America/Sao_Paulo"),
+  timezoneConfirmedAt: timestamp("timezone_confirmed_at", { withTimezone: true }),
   audioRetention: text("audio_retention").notNull().default("after_validation"),
   createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

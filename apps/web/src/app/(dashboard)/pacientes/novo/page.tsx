@@ -147,7 +147,7 @@ export default function NovoPaciente() {
             {/* This form describes the PATIENT: browser autofill would inject the
                 professional's own contact data into the wrong person's record. */}
             <Box component="form" onSubmit={formik.handleSubmit} autoComplete="off" className="flex flex-col gap-1">
-              <FormControl className="outlined" variant="standard" size="small">
+              <FormControl className="outlined" variant="standard" size="small" required>
                 <FormLabel component="label" htmlFor="fullName">
                   {t("patient-name")}
                 </FormLabel>
@@ -157,6 +157,8 @@ export default function NovoPaciente() {
                   value={formik.values.fullName}
                   onChange={formik.handleChange}
                   autoFocus
+                  required
+                  inputProps={{ "aria-required": true }}
                 />
                 {formik.touched.fullName && formik.errors.fullName && (
                   <FormHelperText className="text-error">{formik.errors.fullName}</FormHelperText>

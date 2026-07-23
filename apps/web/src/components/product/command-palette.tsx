@@ -27,6 +27,7 @@ import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiSearch from "@/icons/nexture/ni-search";
 import NiUser from "@/icons/nexture/ni-user";
+import { selectContextConsultations } from "@/lib/command-consultations";
 import { PRODUCT_ACTIONS } from "@/lib/product-actions";
 import { createClient } from "@flyee/auth/client";
 import { remoteEmpty, remoteError, remoteIdle, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
@@ -95,22 +96,23 @@ export default function CommandPalette() {
     const loadLatest = async () => {
       const { data } = await createClient()
         .from("consultations")
-        .select("id, status, started_at, patients(full_name)")
+        .select("id, status, started_at, scheduled_for, updated_at, patients(full_name)")
         .eq("org_id", orgId)
         .in("status", OPEN_STATUSES)
         .order("updated_at", { ascending: false })
         .limit(20);
       if (!active || !data) return;
-      const review = data.find((consultation) => consultation.status === "awaiting_review");
-      const continuation = data.find((consultation) => consultation.status !== "awaiting_review");
       setContextActions(
-        [review, continuation].filter(Boolean).map((consultation) => {
-          const row = consultation!;
+        selectContextConsultations(data).map(({ kind, consultation: row }) => {
           const patient = row.patients as unknown as { full_name: string } | null;
           return {
             id: `latest-${row.id}`,
             label:
-              row.status === "awaiting_review" ? t("command-review-consultation") : t("command-continue-consultation"),
+              kind === "review"
+                ? t("command-review-consultation")
+                : kind === "upcoming"
+                  ? t("command-upcoming-appointment")
+                  : t("command-continue-consultation"),
             description: t("command-consultation-description", {
               patient: patient?.full_name ?? t("command-patient"),
             }),
@@ -340,7 +342,13 @@ export default function CommandPalette() {
             </Alert>
           )}
 
-          <List id="command-results" role="listbox" className="mt-2 max-h-[55vh] overflow-y-auto py-0">
+          <List
+            id="command-results"
+            role="listbox"
+            tabIndex={0}
+            aria-label={t("command-title")}
+            className="mt-2 max-h-[55vh] overflow-y-auto py-0"
+          >
             {results.map((result, index) => {
               const previous = results[index - 1];
               const startsGroup = !previous || previous.group !== result.group;

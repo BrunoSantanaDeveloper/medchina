@@ -17,7 +17,6 @@ import { useCurrentOrg } from "@/hooks/use-current-org";
 import { useProfile } from "@/hooks/use-profile";
 import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
-import NiClipboard from "@/icons/nexture/ni-clipboard";
 import NiUsers from "@/icons/nexture/ni-users";
 import { calendarDayRange, calendarOverdueRange, startAppointment } from "@/lib/agenda";
 import { getProductAction } from "@/lib/product-actions";
@@ -51,7 +50,6 @@ const WORK_PRIORITY: Record<string, number> = { in_progress: 0, awaiting_review:
 const OVERDUE_LOOKBACK_DAYS = 60;
 const NEW_PATIENT_HREF = getProductAction("new-patient").href;
 const NEW_APPOINTMENT_HREF = getProductAction("new-appointment").href;
-const PATIENTS_HREF = getProductAction("patients").href;
 
 /** The Home answers, in order: what happens today, what is unfinished, and
  * what happened recently. Counts stay supporting context instead of taking
@@ -62,7 +60,7 @@ export default function Inicio() {
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const { displayName } = useProfile();
-  const { orgId, timezone, loading: orgLoading } = useCurrentOrg();
+  const { orgId, timezone, loading: orgLoading, error: orgError, reload: reloadOrg } = useCurrentOrg();
   const [homeState, setHomeState] = useState<RemoteState<HomeData, string>>(() => remoteLoading());
   const [startingId, setStartingId] = useState<string | null>(null);
   const [briefingFor, setBriefingFor] = useState<HomeConsultation | null>(null);
@@ -74,6 +72,10 @@ export default function Inicio() {
       return;
     }
     if (orgLoading) return;
+    if (orgError) {
+      setHomeState(remoteError(t("home-load-error")));
+      return;
+    }
     if (!orgId) {
       setHomeState(remoteError(t("home-no-workspace")));
       return;
@@ -84,7 +86,7 @@ export default function Inicio() {
     const overdueRange = calendarOverdueRange(new Date(), OVERDUE_LOOKBACK_DAYS, timezone);
     const consultationFields =
       "id, status, started_at, scheduled_for, appointment_note, patient_id, patients(full_name)";
-    const [patientsResult, finalizedResult, todayResult, workResult, recentResult, overdueResult] = await Promise.all([
+    const results = await Promise.all([
       supabase
         .from("patients")
         .select("id", { count: "exact", head: true })
@@ -127,7 +129,14 @@ export default function Inicio() {
         .lt("scheduled_for", overdueRange.end.toISOString())
         .order("scheduled_for", { ascending: true })
         .limit(10),
-    ]);
+    ]).catch(() => null);
+
+    if (!results) {
+      setHomeState(remoteError(t("home-load-error")));
+      return;
+    }
+
+    const [patientsResult, finalizedResult, todayResult, workResult, recentResult, overdueResult] = results;
 
     if (
       patientsResult.error ||
@@ -177,7 +186,7 @@ export default function Inicio() {
         overdue,
       }),
     );
-  }, [orgId, orgLoading, t, timezone]);
+  }, [orgError, orgId, orgLoading, t, timezone]);
 
   useEffect(() => {
     load();
@@ -216,19 +225,22 @@ export default function Inicio() {
               <Typography variant="body2">{t("home-breadcrumb")}</Typography>
             </Breadcrumbs>
           </Box>
-          <Button variant="contained" href={NEW_APPOINTMENT_HREF} LinkComponent={Link} startIcon={<NiCalendar />}>
-            {t("home-schedule-cta")}
-          </Button>
+          {data && (
+            <Button
+              variant="contained"
+              href={data.patients === 0 ? NEW_PATIENT_HREF : NEW_APPOINTMENT_HREF}
+              LinkComponent={Link}
+              startIcon={data.patients === 0 ? <NiUsers /> : <NiCalendar />}
+            >
+              {data.patients === 0 ? t("home-empty-cta") : t("home-schedule-cta")}
+            </Button>
+          )}
         </Box>
-      </Grid>
-
-      <Grid size={12}>
-        <OnboardingChecklistCard />
       </Grid>
 
       {homeState.status === "error" && (
         <Grid size={12}>
-          <Alert severity="error" action={<Button onClick={load}>{t("retry")}</Button>}>
+          <Alert severity="error" action={<Button onClick={orgError ? reloadOrg : load}>{t("retry")}</Button>}>
             {homeState.error}
           </Alert>
         </Grid>
@@ -239,17 +251,21 @@ export default function Inicio() {
           <Skeleton variant="rounded" height={300} className="rounded-3xl" />
         </Grid>
       ) : homeState.status === "empty" ? null : data!.patients === 0 ? (
-        <Grid size={12}>
-          <Card component="section">
-            <CardContent>
-              <EmptyState
-                icon={<NiUsers />}
-                title={t("home-empty-title")}
-                description={t("home-empty-body")}
-                action={{ label: t("home-empty-cta"), href: NEW_PATIENT_HREF }}
-              />
-            </CardContent>
-          </Card>
+        <Grid size={12} className="empty:hidden">
+          <OnboardingChecklistCard
+            fallback={
+              <Card component="section">
+                <CardContent>
+                  <EmptyState
+                    icon={<NiUsers />}
+                    title={t("home-empty-title")}
+                    description={t("home-empty-body")}
+                    action={{ label: t("home-empty-cta"), href: NEW_PATIENT_HREF }}
+                  />
+                </CardContent>
+              </Card>
+            }
+          />
         </Grid>
       ) : (
         <>
@@ -361,24 +377,20 @@ export default function Inicio() {
             </Card>
           </Grid>
 
-          <Grid size={{ xs: 12, lg: 7 }}>
-            <Card component="section" className="h-full">
-              <CardContent className="flex flex-col gap-3">
-                <Typography variant="h5" component="h2" className="card-title">
-                  {t("home-work-title")}
-                </Typography>
-                <Typography variant="body2" className="text-text-secondary -mt-2">
-                  {t("home-work-subtitle")}
-                </Typography>
-                {data!.work.length === 0 ? (
-                  <EmptyState
-                    icon={<NiClipboard />}
-                    title={t("home-work-empty-title")}
-                    description={t("home-work-empty-body")}
-                    action={{ label: t("home-work-empty-cta"), href: PATIENTS_HREF }}
-                    className="border-none py-8"
-                  />
-                ) : (
+          <Grid size={12} className="empty:hidden">
+            <OnboardingChecklistCard />
+          </Grid>
+
+          {data!.work.length > 0 && (
+            <Grid size={{ xs: 12, lg: data!.recent.length > 0 ? 7 : 12 }}>
+              <Card component="section" className="h-full">
+                <CardContent className="flex flex-col gap-3">
+                  <Typography variant="h5" component="h2" className="card-title">
+                    {t("home-work-title")}
+                  </Typography>
+                  <Typography variant="body2" className="text-text-secondary -mt-2">
+                    {t("home-work-subtitle")}
+                  </Typography>
                   <Box className="flex flex-col gap-1">
                     {data!.work.map((consultation) => (
                       <ConsultationRow
@@ -392,29 +404,21 @@ export default function Inicio() {
                       />
                     ))}
                   </Box>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
-          <Grid size={{ xs: 12, lg: 5 }}>
-            <Card component="section" className="h-full">
-              <CardContent className="flex flex-col gap-3">
-                <Typography variant="h5" component="h2" className="card-title">
-                  {t("home-recent-title")}
-                </Typography>
-                <Typography variant="body2" className="text-text-secondary -mt-2">
-                  {t("home-recent-subtitle")}
-                </Typography>
-                {data!.recent.length === 0 ? (
-                  <EmptyState
-                    icon={<NiCheckSquare />}
-                    title={t("home-recent-empty")}
-                    description={t("home-recent-empty-body")}
-                    action={{ label: t("home-recent-empty-cta"), href: PATIENTS_HREF }}
-                    className="border-none py-8"
-                  />
-                ) : (
+          {data!.recent.length > 0 && (
+            <Grid size={{ xs: 12, lg: data!.work.length > 0 ? 5 : 12 }}>
+              <Card component="section" className="h-full">
+                <CardContent className="flex flex-col gap-3">
+                  <Typography variant="h5" component="h2" className="card-title">
+                    {t("home-recent-title")}
+                  </Typography>
+                  <Typography variant="body2" className="text-text-secondary -mt-2">
+                    {t("home-recent-subtitle")}
+                  </Typography>
                   <Box className="flex flex-col gap-1">
                     {data!.recent.map((consultation) => (
                       <ConsultationRow
@@ -426,10 +430,10 @@ export default function Inicio() {
                       />
                     ))}
                   </Box>
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
           <Grid size={12}>
             <Box className="grid gap-4 sm:grid-cols-2">
@@ -452,9 +456,11 @@ export default function Inicio() {
         </>
       )}
 
-      <Grid size={12}>
-        <AudioUsageCard />
-      </Grid>
+      {homeState.status === "success" && data!.patients > 0 && (
+        <Grid size={12}>
+          <AudioUsageCard />
+        </Grid>
+      )}
 
       {briefingFor?.patientId && (
         <ConsultationBriefingDialog
@@ -529,12 +535,12 @@ function ConsultationRow({
   secondary?: { label: string; onClick: () => void };
 }) {
   return (
-    <Box className="hover:bg-grey-25 flex flex-row items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors">
+    <Box className="hover:bg-grey-25 flex flex-col items-stretch gap-3 rounded-2xl px-3 py-3 transition-colors sm:flex-row sm:items-center sm:py-2.5">
       <Box className="min-w-0 flex-1">
-        <Typography variant="body1" className="text-text-primary truncate font-medium">
+        <Typography variant="body1" className="text-text-primary font-medium break-words sm:truncate">
           {consultation.patientName}
         </Typography>
-        <Typography variant="body2" className="text-text-secondary truncate">
+        <Typography variant="body2" className="text-text-secondary break-words sm:truncate">
           {new Intl.DateTimeFormat(locale, {
             dateStyle: "short",
             timeStyle: consultation.scheduledFor ? "short" : undefined,
@@ -543,27 +549,36 @@ function ConsultationRow({
           {consultation.appointmentNote ? ` · ${consultation.appointmentNote}` : ""}
         </Typography>
       </Box>
-      {secondary && (
-        <Button size="small" variant="text" color="grey" onClick={secondary.onClick} className="flex-none">
-          {secondary.label}
-        </Button>
-      )}
-      {onAction ? (
-        <Button size="small" variant="text" color="primary" onClick={onAction} disabled={busy} className="flex-none">
-          {label}
-        </Button>
-      ) : (
-        <Button
-          size="small"
-          variant="text"
-          color="primary"
-          href={`/consultas/${consultation.id}`}
-          LinkComponent={Link}
-          className="flex-none"
-        >
-          {label}
-        </Button>
-      )}
+      <Box className="flex w-full flex-col gap-2 min-[420px]:flex-row sm:w-auto">
+        {secondary && (
+          <Button size="small" variant="text" color="grey" onClick={secondary.onClick} className="flex-1 sm:flex-none">
+            {secondary.label}
+          </Button>
+        )}
+        {onAction ? (
+          <Button
+            size="small"
+            variant="text"
+            color="primary"
+            onClick={onAction}
+            disabled={busy}
+            className="flex-1 sm:flex-none"
+          >
+            {label}
+          </Button>
+        ) : (
+          <Button
+            size="small"
+            variant="text"
+            color="primary"
+            href={`/consultas/${consultation.id}`}
+            LinkComponent={Link}
+            className="flex-1 sm:flex-none"
+          >
+            {label}
+          </Button>
+        )}
+      </Box>
     </Box>
   );
 }

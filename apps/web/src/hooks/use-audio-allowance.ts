@@ -15,33 +15,45 @@ import { createClient } from "@flyee/auth/client";
 /** What the trial is worth, as configured by the superadmin (never hardcoded). */
 export type TrialParams = { days: number; minutes: number };
 
-const TRIAL_FALLBACK: TrialParams = { days: 14, minutes: 300 };
-
 export function useAudioAllowance(orgId: string | null) {
   const [allowance, setAllowance] = useState<AudioAllowance | null>(null);
-  const [trialParams, setTrialParams] = useState<TrialParams>(TRIAL_FALLBACK);
+  const [trialParams, setTrialParams] = useState<TrialParams | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
+    setError(false);
     if (!orgId || !isSupabaseConfigured) {
       setAllowance(null);
       setLoading(false);
       return;
     }
-    const supabase = createClient();
-    const [{ data }, { data: settings }] = await Promise.all([
-      supabase.rpc("org_audio_allowance", { target_org: orgId }),
-      // The offer the professional is about to accept must be the configured
-      // one, not a number frozen into the copy.
-      supabase.from("platform_settings").select("value").eq("key", "trial").maybeSingle(),
-    ]);
-    setAllowance(data ? toAllowance(data as AllowanceRow) : null);
-    const value = settings?.value as Partial<TrialParams> | undefined;
-    setTrialParams({
-      days: Number(value?.days) > 0 ? Number(value?.days) : TRIAL_FALLBACK.days,
-      minutes: Number(value?.minutes) > 0 ? Number(value?.minutes) : TRIAL_FALLBACK.minutes,
-    });
-    setLoading(false);
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const [allowanceResult, settingsResult] = await Promise.all([
+        supabase.rpc("org_audio_allowance", { target_org: orgId }),
+        // The offer the professional is about to accept must be the configured
+        // one, not a number frozen into the copy.
+        supabase.from("platform_settings").select("value").eq("key", "trial").maybeSingle(),
+      ]);
+      if (allowanceResult.error) {
+        setAllowance(null);
+        setError(true);
+      } else {
+        setAllowance(allowanceResult.data ? toAllowance(allowanceResult.data as AllowanceRow) : null);
+      }
+      const value = settingsResult.data?.value as Partial<TrialParams> | undefined;
+      const days = Number(value?.days);
+      const minutes = Number(value?.minutes);
+      setTrialParams(days > 0 && minutes > 0 ? { days, minutes } : null);
+    } catch {
+      setAllowance(null);
+      setTrialParams(null);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [orgId]);
 
   useEffect(() => {
@@ -57,5 +69,5 @@ export function useAudioAllowance(orgId: string | null) {
     return null;
   }, [orgId]);
 
-  return { allowance, trialParams, loading, reload: load, startTrial };
+  return { allowance, trialParams, loading, error, reload: load, startTrial };
 }

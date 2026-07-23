@@ -4,6 +4,7 @@ import User from "../user/user";
 import Link from "next/link";
 import * as React from "react";
 import { useEffect, useState } from "react";
+import { useTranslations } from "use-intl";
 
 import { Box, Button } from "@mui/material";
 
@@ -14,6 +15,7 @@ import NiMenuSplit from "@/icons/nexture/ni-menu-split";
 import { cn } from "@/lib/utils";
 
 export default function Header() {
+  const t = useTranslations("dashboard");
   const { showLeftInMobile, showLeftMobileButton, leftMenuWidth, leftShowBackdrop } = useLayoutContext();
 
   const [mounted, setMounted] = useState(false);
@@ -59,6 +61,9 @@ export default function Header() {
             leftMenuWidth.primary > 0 && "active",
           )}
           onClick={() => showLeftInMobile()}
+          aria-label={t("menu-open")}
+          aria-expanded={leftMenuWidth.primary > 0}
+          aria-controls="primary-navigation"
           startIcon={<NiMenuSplit size={24} />}
         />
         <Box className="flex h-full flex-row items-center gap-6">

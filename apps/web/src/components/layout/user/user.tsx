@@ -24,7 +24,7 @@ import { createClient } from "@flyee/auth/client";
 /**
  * Header user menu backed by the real session: the signed-in user's name,
  * email and avatar (profiles table), preference switches, and a working
- * sign-out. Shows a neutral guest state on a fresh clone without Supabase.
+ * sign-out. Shows a localized neutral account state on a fresh clone without Supabase.
  */
 export default function User() {
   const [open, setOpen] = React.useState(false);
@@ -32,7 +32,7 @@ export default function User() {
   const t = useTranslations("dashboard");
   const { displayName, email, avatarUrl } = useProfile();
 
-  const shownName = displayName || "Guest";
+  const shownName = displayName || email?.split("@")[0] || t("account-fallback");
   const initial = shownName.charAt(0).toUpperCase();
 
   const handleToggle = () => {
@@ -68,6 +68,8 @@ export default function User() {
             open && "active bg-grey-25 py-1! pr-1.5!",
           )}
           onClick={handleToggle}
+          aria-expanded={open}
+          aria-controls="user-menu"
         >
           <Box>{shownName}</Box>
           <Avatar
@@ -93,6 +95,9 @@ export default function User() {
             open && "active bg-grey-25 p-1.5!",
           )}
           onClick={handleToggle}
+          aria-label={t("user-menu-for", { name: shownName })}
+          aria-expanded={open}
+          aria-controls="user-menu"
           startIcon={
             <Avatar
               alt={shownName}
@@ -118,7 +123,7 @@ export default function User() {
           <Fade {...TransitionProps}>
             <Box>
               <ClickAwayListener onClickAway={handleClose}>
-                <Card className="shadow-darker-sm!">
+                <Card id="user-menu" className="shadow-darker-sm!">
                   <CardContent>
                     <Box className="max-w-64 sm:w-72 sm:max-w-none">
                       <Box className="mb-4 flex flex-col items-center">

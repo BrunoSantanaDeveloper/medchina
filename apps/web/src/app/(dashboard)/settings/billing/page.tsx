@@ -15,12 +15,16 @@ import { Alert, Box, Breadcrumbs, Button, CircularProgress, Drawer, Grid, Toolti
 
 import AudioUsageCard from "@/components/product/audio-usage-card";
 import LibraryUsageCard from "@/components/product/library-usage-card";
+import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
 import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
 export default function BillingSettings() {
   const t = useTranslations("product");
-  const checkout = useSearchParams().get("checkout");
+  const searchParams = useSearchParams();
+  const checkout = searchParams.get("checkout");
+  const source = searchParams.get("source");
+  const feature = searchParams.get("feature");
   const [openDrawer, setOpenDrawer] = useState(false);
   const [checkoutState, setCheckoutState] = useState<RemoteState<boolean, "check_failed">>(() => remoteLoading());
   const {
@@ -38,6 +42,7 @@ export default function BillingSettings() {
     retry,
     refreshDetails,
   } = useBilling();
+  const { trialParams } = useAudioAllowance(currentOrg?.id ?? null);
 
   const loadCheckoutAvailability = useCallback(async () => {
     setCheckoutState(remoteLoading());
@@ -108,6 +113,11 @@ export default function BillingSettings() {
             <Alert severity="info">{t("billing-checkout-canceled")}</Alert>
           </Grid>
         )}
+        {source === "consultation" && feature === "clinical_reasoning" && (
+          <Grid size={12}>
+            <Alert severity="info">{t("billing-clinical-reasoning-context")}</Alert>
+          </Grid>
+        )}
         {checkoutState.status === "error" && (
           <Grid size={12}>
             <Alert
@@ -166,6 +176,7 @@ export default function BillingSettings() {
               plans={plans}
               canManage={canManage}
               checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
+              trialParams={trialParams}
             />
             <InvoicesCard invoices={invoices} />
           </>

@@ -19,21 +19,8 @@ import {
   Typography,
 } from "@mui/material";
 
+import { COMMON_TIMEZONES, isValidTimeZone } from "@/lib/practice-context";
 import { createClient } from "@flyee/auth/client";
-
-const COMMON_TIMEZONES = [
-  "America/Sao_Paulo",
-  "America/Bahia",
-  "America/Belem",
-  "America/Boa_Vista",
-  "America/Cuiaba",
-  "America/Fortaleza",
-  "America/Manaus",
-  "America/Porto_Velho",
-  "America/Recife",
-  "Europe/Lisbon",
-  "UTC",
-];
 
 export default function OrgGeneral({ org, onUpdated }: { org: OrgSummary; onUpdated: () => void }) {
   const t = useTranslations("product");
@@ -52,9 +39,7 @@ export default function OrgGeneral({ org, onUpdated }: { org: OrgSummary; onUpda
   const handleSave = async () => {
     const normalized = name.trim();
     const normalizedTimezone = timezone.trim();
-    try {
-      new Intl.DateTimeFormat("en-US", { timeZone: normalizedTimezone });
-    } catch {
+    if (!isValidTimeZone(normalizedTimezone)) {
       setStatus("error");
       return;
     }
@@ -98,7 +83,7 @@ export default function OrgGeneral({ org, onUpdated }: { org: OrgSummary; onUpda
             <Autocomplete
               freeSolo
               autoSelect
-              options={COMMON_TIMEZONES}
+              options={[...COMMON_TIMEZONES]}
               value={timezone}
               onChange={(_, value) => setTimezone(value ?? "")}
               onInputChange={(_, value) => setTimezone(value)}

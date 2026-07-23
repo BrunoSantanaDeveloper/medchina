@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { Box, Button } from "@mui/material";
 
-import GettingStartedHubCard from "@/components/product/getting-started-hub-card";
 import OnboardingChecklist from "@/components/product/onboarding-checklist";
 import {
   type ActivationFacts,
@@ -30,7 +29,15 @@ const GETTING_STARTED_HREF = getProductAction("getting-started").href;
  * unconfigured, the flow is complete, or the user dismissed it — safe to mount
  * unconditionally.
  */
-export default function OnboardingChecklistCard({ title, className }: { title?: string; className?: string }) {
+export default function OnboardingChecklistCard({
+  title,
+  className,
+  fallback = null,
+}: {
+  title?: string;
+  className?: string;
+  fallback?: ReactNode;
+}) {
   const t = useTranslations("product");
   const [flowKey, setFlowKey] = useState<FlowKey | null>(null);
   const [state, setState] = useState<OnboardingStateRow | null>(null);
@@ -65,7 +72,7 @@ export default function OnboardingChecklistCard({ title, className }: { title?: 
   if (!state || !facts) return null;
 
   const activated = facts.hasProfileName && facts.hasPatient && facts.hasFinalizedConsultation;
-  if (state.dismissed || state.completedAt || activated) return <GettingStartedHubCard className={className} />;
+  if (state.dismissed || state.completedAt || activated) return fallback;
 
   // Step titles/descriptions are declared as i18n keys (lib/onboarding.ts).
   const steps = buildOnboardingSteps(facts).map((step) => ({

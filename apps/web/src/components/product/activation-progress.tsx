@@ -31,7 +31,15 @@ export default function ActivationProgress({
 
   return (
     <Box className={cn("flex flex-row items-center gap-3", className)}>
-      <Box className="relative flex-none" style={{ width: size, height: size }}>
+      <Box
+        className="relative flex-none"
+        style={{ width: size, height: size }}
+        role="progressbar"
+        aria-label={label ?? `${done}/${total}`}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={done}
+      >
         <svg width={size} height={size} className="-rotate-90">
           <circle
             cx={size / 2}

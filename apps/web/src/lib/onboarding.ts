@@ -25,6 +25,7 @@ export const ONBOARDING_ORG_SCOPED = false;
 
 export interface ActivationFacts {
   hasProfileName: boolean;
+  hasPracticeContext: boolean;
   hasPatient: boolean;
   hasFinalizedConsultation: boolean;
 }
@@ -37,13 +38,22 @@ export interface ExperienceFacts extends ActivationFacts {
 
 /** Reads the real product state the checklist is derived from. */
 export async function getActivationFacts(supabase: SupabaseClient, userId: string): Promise<ActivationFacts> {
-  const [profile, patients, finalized] = await Promise.all([
+  const [profile, membership, patients, finalized] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle(),
+    supabase
+      .from("memberships")
+      .select("organizations(timezone_confirmed_at)")
+      .eq("user_id", userId)
+      .order("created_at")
+      .limit(1)
+      .maybeSingle(),
     supabase.from("patients").select("id", { count: "exact", head: true }),
     supabase.from("consultations").select("id", { count: "exact", head: true }).eq("status", "finalized"),
   ]);
+  const organization = membership.data?.organizations as unknown as { timezone_confirmed_at?: string | null } | null;
   const facts = {
     hasProfileName: Boolean(profile.data?.display_name?.trim()),
+    hasPracticeContext: Boolean(organization?.timezone_confirmed_at),
     hasPatient: (patients.count ?? 0) > 0,
     hasFinalizedConsultation: (finalized.count ?? 0) > 0,
   };
@@ -90,11 +100,11 @@ export async function getExperienceFacts(supabase: SupabaseClient, userId: strin
 export function buildOnboardingSteps(facts?: ActivationFacts): OnboardingStep[] {
   return [
     {
-      key: "profile",
-      title: "onboarding-step-profile",
-      description: "onboarding-step-profile-description",
-      href: "/settings",
-      done: facts?.hasProfileName,
+      key: "practice-context",
+      title: "onboarding-step-context",
+      description: "onboarding-step-context-description",
+      href: "/primeiros-passos?etapa=contexto",
+      done: facts?.hasPracticeContext,
     },
     {
       key: "first-patient",

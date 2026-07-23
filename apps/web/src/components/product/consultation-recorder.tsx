@@ -37,6 +37,7 @@ import {
   requestNotificationPermission,
 } from "@/lib/capture-alert";
 import { getProductAction } from "@/lib/product-actions";
+import { trackCommercialEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { clearWebRecordingRequest, getOrCreateWebRecordingRequest } from "@/lib/web-recording-request";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -68,7 +69,7 @@ const sha256 = async (blob: Blob) => {
 
 const MAX_DURATION_SECONDS = 120 * 60;
 const MAX_SIZE_BYTES = 512 * 1024 * 1024;
-const BILLING_HREF = getProductAction("billing").href;
+const BILLING_HREF = `${getProductAction("billing").href}?source=consultation&feature=audio`;
 
 // Statuses from which `begin_clinical_recording` may resume the SAME capture.
 // A row OUTSIDE this set (cancelled / failed / ready) means the stored upload
@@ -109,7 +110,13 @@ export default function ConsultationRecorder({
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [mode, setMode] = useState<RecordingMode>("ai");
-  const { allowance, trialParams, loading: allowanceLoading, reload: reloadAllowance } = useAudioAllowance(orgId);
+  const {
+    allowance,
+    trialParams,
+    loading: allowanceLoading,
+    error: allowanceError,
+    reload: reloadAllowance,
+  } = useAudioAllowance(orgId);
   const [trialDialog, setTrialDialog] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const [micPrimer, setMicPrimer] = useState<{ startTrial: boolean } | null>(null);
@@ -119,6 +126,11 @@ export default function ConsultationRecorder({
   const [level, setLevel] = useState(0);
   /** Silence watchdog: the mic is open but nothing is reaching it. */
   const [silent, setSilent] = useState(false);
+  // The audio uploaded fine but the AI prep step failed (e.g. the provider is
+  // unavailable). This is NOT a lost recording — it is retryable — so it must
+  // never render as a capture failure that invites re-recording.
+  const [processingFailed, setProcessingFailed] = useState(false);
+  const upgradePromptViewed = useRef(false);
 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -450,6 +462,7 @@ export default function ConsultationRecorder({
       setPhase("uploading");
       setUploadProgress(0);
       setError(null);
+      setProcessingFailed(false);
       let uploadConfirmed = false;
       try {
         const checksum = await sha256(blob);
@@ -502,7 +515,11 @@ export default function ConsultationRecorder({
           try {
             await requestProcessing(id);
           } catch {
-            setError(t("recorder-processing-error"));
+            // The audio is uploaded and safe — only the AI prep failed. Say so
+            // plainly and offer to retry it, instead of an error that reads as
+            // a lost recording and invites re-recording over the saved audio.
+            setError(null);
+            setProcessingFailed(true);
             setPhase("error");
           }
         } else {
@@ -564,6 +581,7 @@ export default function ConsultationRecorder({
   const start = async (startTrial = false) => {
     setError(null);
     setMicBlocked(false);
+    setProcessingFailed(false);
     setNearSizeLimit(false);
     setCaptureLimit(null);
     clearTabAlert(document);
@@ -611,7 +629,9 @@ export default function ConsultationRecorder({
           code === "audio_allowance_exhausted"
             ? t("recorder-limit-body")
             : code === "trial_not_started"
-              ? t("recorder-trial-body", trialParams)
+              ? trialParams
+                ? t("recorder-trial-body", trialParams)
+                : t("recorder-trial-body-generic")
               : code === "recording_already_open"
                 ? t("recorder-open-recording")
                 : t("recorder-error"),
@@ -768,6 +788,16 @@ export default function ConsultationRecorder({
     const pending = pendingBlob.current;
     if (pending) void upload(pending.blob, pending.duration, pending.mime);
   };
+  /** Re-run only the AI prep — the audio is already uploaded server-side. */
+  const retryProcessing = () => {
+    const id = recordingId.current;
+    if (!id) return;
+    setProcessingFailed(false);
+    void requestProcessing(id).catch(() => {
+      setProcessingFailed(true);
+      setPhase("error");
+    });
+  };
   const confirmTrial = async () => {
     setStartingTrial(true);
     setTrialDialog(false);
@@ -777,6 +807,25 @@ export default function ConsultationRecorder({
   };
 
   const mmss = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  const capturing = phase === "recording" || phase === "paused" || phase === "uploading" || phase === "processing";
+  const needsTrial = mode === "ai" && !capturing && allowance?.trialAvailable === true && !allowance.canStart;
+  const exhausted =
+    mode === "ai" && !capturing && allowance !== null && !allowance.canStart && !allowance.trialAvailable;
+  const overrunning =
+    mode === "ai" &&
+    phase === "recording" &&
+    allowance !== null &&
+    allowance.minutesLimit > 0 &&
+    seconds > allowance.minutesRemaining * 60;
+  const nearingCaptureLimit = phase === "recording" && (seconds >= MAX_DURATION_SECONDS - 10 * 60 || nearSizeLimit);
+  const hasRequiredConsent = consents?.audio === true && (mode === "audio_only" || consents.ai);
+  const modeLocked = capturing || Boolean(pendingBlob.current) || Boolean(clientUploadId.current);
+
+  useEffect(() => {
+    if (!exhausted || upgradePromptViewed.current) return;
+    upgradePromptViewed.current = true;
+    trackCommercialEvent("upgrade.prompt_viewed", "consultation", "audio");
+  }, [exhausted]);
 
   // Reserve the space instead of vanishing: on a slow connection an absent card
   // reads as "recording is not available here".
@@ -791,20 +840,6 @@ export default function ConsultationRecorder({
       </Card>
     );
   }
-
-  const capturing = phase === "recording" || phase === "paused" || phase === "uploading" || phase === "processing";
-  const needsTrial = mode === "ai" && !capturing && allowance?.trialAvailable === true && !allowance.canStart;
-  const exhausted =
-    mode === "ai" && !capturing && allowance !== null && !allowance.canStart && !allowance.trialAvailable;
-  const overrunning =
-    mode === "ai" &&
-    phase === "recording" &&
-    allowance !== null &&
-    allowance.minutesLimit > 0 &&
-    seconds > allowance.minutesRemaining * 60;
-  const nearingCaptureLimit = phase === "recording" && (seconds >= MAX_DURATION_SECONDS - 10 * 60 || nearSizeLimit);
-  const hasRequiredConsent = consents.audio && (mode === "audio_only" || consents.ai);
-  const modeLocked = capturing || Boolean(pendingBlob.current) || Boolean(clientUploadId.current);
 
   return (
     <>
@@ -865,7 +900,15 @@ export default function ConsultationRecorder({
             </Typography>
           </Box>
 
-          {!hasRequiredConsent ? (
+          {allowanceError && mode === "ai" ? (
+            <Alert
+              severity="error"
+              className="neutral bg-background-paper/60!"
+              action={<Button onClick={() => void reloadAllowance()}>{t("retry")}</Button>}
+            >
+              {t("recorder-allowance-error")}
+            </Alert>
+          ) : !hasRequiredConsent ? (
             <>
               <Typography variant="body2" className="text-text-secondary leading-6">
                 {consents.audio ? t("recorder-no-ai-consent") : t("recorder-no-consent")}
@@ -877,7 +920,7 @@ export default function ConsultationRecorder({
           ) : needsTrial ? (
             <>
               <Typography variant="body2" className="text-text-secondary leading-6">
-                {t("recorder-trial-body", trialParams)}
+                {trialParams ? t("recorder-trial-body", trialParams) : t("recorder-trial-body-generic")}
               </Typography>
               <Button variant="contained" color="primary" onClick={() => setTrialDialog(true)} className="self-start">
                 {t("recorder-trial-start")}
@@ -892,7 +935,13 @@ export default function ConsultationRecorder({
                 {allowance?.suspended ? t("recorder-suspended-body") : t("recorder-limit-body")}
               </Typography>
               {!allowance?.suspended && (
-                <Button variant="contained" color="primary" href={BILLING_HREF} className="self-start">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  href={BILLING_HREF}
+                  className="self-start"
+                  onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "audio")}
+                >
                   {t("recorder-limit-cta")}
                 </Button>
               )}
@@ -988,6 +1037,13 @@ export default function ConsultationRecorder({
                   {mode === "ai" ? t("recorder-ready") : t("recorder-audio-ready")}
                 </Alert>
               )}
+              {/* The capture succeeded; only the AI prep failed. A warning, not an
+                  error — nothing was lost, and it is retryable. */}
+              {processingFailed && (
+                <Alert severity="warning" icon={<NiCheckSquare />}>
+                  {t("recorder-ai-failed")}
+                </Alert>
+              )}
               {error && (
                 <Alert severity="error">
                   {error}
@@ -1012,7 +1068,19 @@ export default function ConsultationRecorder({
                     {t("recorder-start")}
                   </Button>
                 )}
-                {phase === "error" && pendingBlob.current && (
+                {/* AI prep failed but the audio is saved: offer to retry the prep,
+                    never a "record again" that would abandon the saved audio. */}
+                {processingFailed && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<NiCheckSquare size="tiny" />}
+                    onClick={retryProcessing}
+                  >
+                    {t("recorder-ai-retry")}
+                  </Button>
+                )}
+                {phase === "error" && !processingFailed && pendingBlob.current && (
                   <Button
                     variant="contained"
                     color="primary"
@@ -1022,7 +1090,7 @@ export default function ConsultationRecorder({
                     {t("recorder-retry-upload")}
                   </Button>
                 )}
-                {phase === "error" && !pendingBlob.current && (
+                {phase === "error" && !processingFailed && !pendingBlob.current && (
                   <Button
                     variant="contained"
                     color="primary"
@@ -1087,7 +1155,7 @@ export default function ConsultationRecorder({
           <DialogTitle>{t("recorder-trial-title")}</DialogTitle>
           <DialogContent className="flex flex-col gap-2">
             <Typography variant="body2" className="text-text-secondary leading-6">
-              {t("recorder-trial-explain", trialParams)}
+              {trialParams ? t("recorder-trial-explain", trialParams) : t("recorder-trial-explain-generic")}
             </Typography>
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("recorder-trial-note")}

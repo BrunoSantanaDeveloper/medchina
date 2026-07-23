@@ -71,8 +71,8 @@ export const PrimaryItem = memo(function PrimaryItem({ item, onSelect, isActive,
           component="span"
           className={cn(
             "text-text-primary line-clamp-2 w-full text-center font-semibold transition-all",
-            (selected || isActive) && "text-primary mt-0 mb-0",
-            selected && "text-primary",
+            (selected || isActive) && "text-primary-dark dark:text-primary-light mt-0 mb-0",
+            selected && "text-primary-dark dark:text-primary-light",
           )}
         >
           {t(item.label)}

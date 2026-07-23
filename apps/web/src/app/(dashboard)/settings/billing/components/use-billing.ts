@@ -37,6 +37,7 @@ export interface PlanRow {
   trialDays: number;
   isFree: boolean;
   audioMinutes: number;
+  limits: Record<string, unknown>;
 }
 
 export interface ModuleRow {
@@ -239,6 +240,7 @@ export function useBilling() {
           trialDays: p.trial_days,
           isFree: p.is_free,
           audioMinutes: Number((p.limits as { audio_minutes?: number } | null)?.audio_minutes ?? 0),
+          limits: (p.limits as Record<string, unknown> | null) ?? {},
         })),
         modules: (modulesResult.data ?? []).map((m) => ({
           id: m.id,

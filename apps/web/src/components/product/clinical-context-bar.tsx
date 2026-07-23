@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 
-import { Box, Button, Card, CardContent, Chip, Divider, Stack, Typography } from "@mui/material";
+import { Box, Button, Card, CardContent, Chip, Typography } from "@mui/material";
 
 import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
 import NiShieldCheck from "@/icons/nexture/ni-shield-check";
@@ -23,6 +24,12 @@ export type ClinicalContextBarProps = {
   recordingStatus?: RecordingStatus | null;
   nextAction: string;
   onRetrySave?: () => void;
+  primaryAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    variant: "outlined" | "contained";
+  };
 };
 
 const EXPERIENCE_KEYS: Record<ConsultationExperienceState, string> = {
@@ -60,22 +67,16 @@ export default function ClinicalContextBar({
   recordingStatus,
   nextAction,
   onRetrySave,
+  primaryAction,
 }: ClinicalContextBarProps) {
   const t = useTranslations("product");
+  const [showDetails, setShowDetails] = useState(false);
   const formatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
   return (
-    <Card
-      component="section"
-      aria-label={t("context-title")}
-      className="bg-background-paper/95 sticky top-20 z-20 backdrop-blur"
-    >
+    <Card component="section" aria-label={t("context-title")} className="bg-background-paper/95 backdrop-blur">
       <CardContent className="flex flex-col gap-3 py-3!">
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          divider={<Divider flexItem orientation="vertical" />}
-        >
+        <Box className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
           <Box className="min-w-0 flex-1">
             <Typography variant="caption" className="text-text-secondary flex items-center gap-1 font-semibold">
               <NiUser size="tiny" aria-hidden /> {t("context-identity")}
@@ -99,50 +100,64 @@ export default function ClinicalContextBar({
             </Box>
           </Box>
 
-          <Box className="min-w-48">
-            <Typography variant="caption" className="text-text-secondary flex items-center gap-1 font-semibold">
-              <NiCalendarClock size="tiny" aria-hidden /> {t("context-appointment")}
-            </Typography>
-            <Typography variant="body2">
-              {scheduledFor ? formatter.format(new Date(scheduledFor)) : t("context-no-appointment")}
-            </Typography>
-            <Chip
-              size="small"
-              className="mt-1"
-              color={experience === "failed" ? "warning" : "primary"}
-              label={t(EXPERIENCE_KEYS[experience])}
-            />
-          </Box>
+          <Button
+            size="small"
+            color="grey"
+            variant="text"
+            className="self-start md:hidden"
+            aria-expanded={showDetails}
+            aria-controls="clinical-context-details"
+            onClick={() => setShowDetails((current) => !current)}
+          >
+            {t(showDetails ? "context-hide-details" : "context-show-details")}
+          </Button>
 
-          <Box className="min-w-48">
-            <Typography variant="caption" className="text-text-secondary flex items-center gap-1 font-semibold">
-              <NiShieldCheck size="tiny" aria-hidden /> {t("context-consents")}
-            </Typography>
-            <Box className="mt-1 flex flex-wrap gap-1">
+          <Box id="clinical-context-details" className={`${showDetails ? "grid" : "hidden"} gap-3 md:contents`}>
+            <Box className="md:border-grey-100 min-w-48 md:border-l md:pl-4">
+              <Typography variant="caption" className="text-text-secondary flex items-center gap-1 font-semibold">
+                <NiCalendarClock size="tiny" aria-hidden /> {t("context-appointment")}
+              </Typography>
+              <Typography variant="body2">
+                {scheduledFor ? formatter.format(new Date(scheduledFor)) : t("context-no-appointment")}
+              </Typography>
               <Chip
                 size="small"
-                color={consents.audio ? "success" : "default"}
-                label={t(consents.audio ? "context-audio-granted" : "context-audio-missing")}
-              />
-              <Chip
-                size="small"
-                color={consents.ai ? "success" : "default"}
-                label={t(consents.ai ? "context-ai-granted" : "context-ai-missing")}
+                className="mt-1"
+                color={experience === "failed" ? "warning" : "primary"}
+                label={t(EXPERIENCE_KEYS[experience])}
               />
             </Box>
-            {(!consents.audio || !consents.ai) && (
-              <Button
-                component={Link}
-                href={`/pacientes/${patientId}/consentimentos`}
-                size="small"
-                className="mt-1 px-0!"
-              >
-                {t("context-manage-consents")}
-              </Button>
-            )}
+
+            <Box className="md:border-grey-100 min-w-48 md:border-l md:pl-4">
+              <Typography variant="caption" className="text-text-secondary flex items-center gap-1 font-semibold">
+                <NiShieldCheck size="tiny" aria-hidden /> {t("context-consents")}
+              </Typography>
+              <Box className="mt-1 flex flex-wrap gap-1">
+                <Chip
+                  size="small"
+                  color={consents.audio ? "success" : "default"}
+                  label={t(consents.audio ? "context-audio-granted" : "context-audio-missing")}
+                />
+                <Chip
+                  size="small"
+                  color={consents.ai ? "success" : "default"}
+                  label={t(consents.ai ? "context-ai-granted" : "context-ai-missing")}
+                />
+              </Box>
+              {(!consents.audio || !consents.ai) && (
+                <Button
+                  component={Link}
+                  href={`/pacientes/${patientId}/consentimentos`}
+                  size="small"
+                  className="mt-1 px-0!"
+                >
+                  {t("context-manage-consents")}
+                </Button>
+              )}
+            </Box>
           </Box>
 
-          <Box className="min-w-44 flex-1">
+          <Box className="md:border-grey-100 min-w-44 flex-1 md:border-l md:pl-4">
             <Typography variant="caption" className="text-text-secondary font-semibold">
               {t("context-next-action")}
             </Typography>
@@ -164,7 +179,19 @@ export default function ClinicalContextBar({
               </Button>
             )}
           </Box>
-        </Stack>
+
+          {primaryAction && (
+            <Button
+              variant={primaryAction.variant}
+              color="primary"
+              onClick={primaryAction.onClick}
+              disabled={primaryAction.disabled}
+              className="w-full flex-none md:w-auto md:self-center"
+            >
+              {primaryAction.label}
+            </Button>
+          )}
+        </Box>
       </CardContent>
     </Card>
   );

@@ -161,7 +161,7 @@ export default function Notifications() {
           badgeContent={unreadCount}
           color="primary"
           slotProps={{
-            badge: { className: "right-2 top-2 pointer-events-none" },
+            badge: { className: "right-2 top-2 pointer-events-none", "aria-hidden": true },
           }}
         >
           <Button
@@ -176,6 +176,11 @@ export default function Notifications() {
             onMouseEnter={() => setTooltipShow(true)}
             onMouseLeave={() => setTooltipShow(false)}
             ref={anchorRef}
+            aria-label={
+              unreadCount > 0 ? t("notifications-unread-count", { count: unreadCount }) : t("notifications-title")
+            }
+            aria-expanded={open}
+            aria-controls="notifications-panel"
             startIcon={<NiBell size="large" variant={open ? "contained" : "outlined"} />}
           />
         </Badge>
@@ -183,7 +188,8 @@ export default function Notifications() {
       <Popper
         open={open}
         anchorEl={anchorRef.current}
-        role={undefined}
+        role="dialog"
+        aria-label={t("notifications-title")}
         placement="bottom-end"
         className="mt-3!"
         transition
@@ -192,7 +198,7 @@ export default function Notifications() {
           <Fade {...TransitionProps}>
             <Box>
               <ClickAwayListener onClickAway={handleClose}>
-                <Card className="shadow-darker-sm! w-xs md:w-sm">
+                <Card id="notifications-panel" className="shadow-darker-sm! w-xs md:w-sm">
                   <Box className="flex flex-1 flex-row items-start justify-between pr-4">
                     <Typography variant="h5" component="h5" className="card-title px-4 pt-4">
                       {t("notifications-title")}
@@ -205,6 +211,7 @@ export default function Notifications() {
                       startIcon={<NiSettings size={"small"} />}
                       href="/settings"
                       component={Link}
+                      aria-label={t("notifications-settings")}
                     />
                   </Box>
 
@@ -219,7 +226,7 @@ export default function Notifications() {
                       </Typography>
                     </Box>
                   ) : (
-                    <List className="my-2 max-h-96 overflow-auto">
+                    <List className="my-2 max-h-96 overflow-auto" tabIndex={0} aria-label={t("notifications-list")}>
                       {items.map((item) => {
                         const style = TYPE_STYLE[item.type] ?? DEFAULT_STYLE;
                         return (

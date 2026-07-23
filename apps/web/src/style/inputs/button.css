@@ -1756,3 +1756,54 @@
     @apply ring-grey-100 ring-2 ring-offset-1;
   }
 }
+
+@media (pointer: coarse), (max-width: 600px) {
+  #main-content button,
+  #main-content [role="button"],
+  #main-content .MuiButtonBase-root,
+  #main-content .MuiButton-root,
+  #main-content .MuiIconButton-root,
+  #main-content .MuiAccordionSummary-root {
+    min-height: 44px;
+  }
+
+  #main-content button,
+  #main-content .MuiIconButton-root,
+  #main-content .MuiButton-root.icon-only {
+    min-width: 44px;
+  }
+}
+
+.dark {
+  .MuiButton-contained.MuiButton-colorPrimary {
+    @apply bg-primary-dark text-text-contrast;
+  }
+
+  .MuiButton-contained.MuiButton-colorSecondary {
+    @apply bg-secondary-dark text-text-contrast;
+  }
+
+  .MuiButton-contained.MuiButton-colorAccent-1 {
+    @apply bg-accent-1-dark text-text-contrast;
+  }
+
+  .MuiButton-contained.MuiButton-colorAccent-2 {
+    @apply bg-accent-2-dark text-text-contrast;
+  }
+
+  .MuiButton-contained.MuiButton-colorAccent-3 {
+    @apply bg-accent-3-dark text-text-contrast;
+  }
+
+  .MuiButton-contained.MuiButton-colorAccent-4 {
+    @apply bg-accent-4-dark text-text-contrast;
+  }
+
+  .MuiButton-text.MuiButton-colorPrimary {
+    @apply text-primary-light;
+  }
+
+  .MuiButton-outlined.MuiButton-colorPrimary {
+    @apply border-primary-light text-primary-light;
+  }
+}

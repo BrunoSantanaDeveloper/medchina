@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -22,6 +23,8 @@ import {
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
+import { deriveHypothesesPanelMode } from "@/lib/hypotheses-access";
+import { trackCommercialEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -69,12 +72,20 @@ type HypothesesData = { hypotheses: Hypothesis[]; prior: PriorPattern[] };
 export default function HypothesesPanel({
   consultationId,
   patientId,
-  canReason,
+  reasoningEntitled,
+  canPrepare,
+  entitlementLoading,
+  entitlementError,
+  onRetryEntitlement,
   isFinalized,
 }: {
   consultationId: string;
   patientId: string;
-  canReason: boolean;
+  reasoningEntitled: boolean;
+  canPrepare: boolean;
+  entitlementLoading: boolean;
+  entitlementError: boolean;
+  onRetryEntitlement: () => void;
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
@@ -88,6 +99,7 @@ export default function HypothesesPanel({
   const [note, setNote] = useState("");
   const [pattern, setPattern] = useState("");
   const [showPrior, setShowPrior] = useState(false);
+  const upgradeViewedRef = useRef(false);
 
   const load = useCallback(
     async (preservePrevious = true) => {
@@ -162,6 +174,7 @@ export default function HypothesesPanel({
   }, [load]);
 
   const prepare = async () => {
+    if (!canPrepare) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -242,6 +255,20 @@ export default function HypothesesPanel({
   const initialLoading = hypothesesState.status === "loading" && !resource;
   const loadFailed = hypothesesState.status === "error";
   const refreshing = hypothesesState.status === "loading" && Boolean(resource);
+  const hasAny = hypotheses.length > 0;
+  const panelMode = deriveHypothesesPanelMode({
+    reasoningEntitled,
+    canPrepare,
+    isFinalized,
+    hasHypotheses: hasAny,
+  });
+  const locked = !initialLoading && !entitlementLoading && !entitlementError && panelMode === "locked" && !loadFailed;
+
+  useEffect(() => {
+    if (!locked || upgradeViewedRef.current) return;
+    upgradeViewedRef.current = true;
+    trackCommercialEvent("upgrade.prompt_viewed", "consultation", "clinical_reasoning");
+  }, [locked]);
 
   if (initialLoading) {
     return <CircularProgress size={24} aria-label={t("loading")} />;
@@ -261,11 +288,9 @@ export default function HypothesesPanel({
       evidence: t("hypotheses-kind-evidence"),
     })[kind] ?? t("hypotheses-kind-unknown");
 
-  const hasAny = hypotheses.length > 0;
-
   // Without the Pro layer there is nothing to show and nothing to sell here —
   // the consultation screen is not a place to advertise (PRD §7.4).
-  if (!canReason && !hasAny && !loadFailed) return null;
+  if (!entitlementLoading && !entitlementError && panelMode === "hidden" && !loadFailed) return null;
 
   return (
     <Card component="section">
@@ -274,7 +299,7 @@ export default function HypothesesPanel({
         <ConsultationStepHeader
           step={2}
           icon={<NiClipboard size="medium" />}
-          title={t("hypotheses-title")}
+          title={locked ? t("hypotheses-locked-title") : t("hypotheses-title")}
           hint={t("hypotheses-step-hint")}
         />
 
@@ -296,12 +321,38 @@ export default function HypothesesPanel({
 
         {refreshing && <CircularProgress size={18} aria-label={t("loading")} />}
 
-        {loadFailed && !resource ? null : !hasAny ? (
+        {entitlementError && !hasAny ? (
+          <Alert
+            severity="error"
+            className="neutral bg-background-paper/60!"
+            action={<Button onClick={onRetryEntitlement}>{t("retry")}</Button>}
+          >
+            {t("hypotheses-entitlement-error")}
+          </Alert>
+        ) : entitlementLoading && !hasAny ? (
+          <CircularProgress size={18} aria-label={t("loading")} />
+        ) : locked ? (
+          <Box className="border-primary/25 bg-primary/5 flex flex-col items-start gap-3 rounded-2xl border p-4">
+            <Chip size="small" color="primary" label={t("hypotheses-pro-chip")} />
+            <Typography variant="body2" className="text-text-secondary leading-6">
+              {t("hypotheses-locked-body")}
+            </Typography>
+            <Button
+              variant="outlined"
+              color="primary"
+              href="/settings/billing?source=consultation&feature=clinical_reasoning"
+              LinkComponent={Link}
+              onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "clinical_reasoning")}
+            >
+              {t("hypotheses-locked-cta")}
+            </Button>
+          </Box>
+        ) : loadFailed && !resource ? null : !hasAny ? (
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("hypotheses-empty")}
             </Typography>
-            {!isFinalized && canReason && (
+            {canPrepare && (
               <Button
                 variant="contained"
                 color="primary"
@@ -472,7 +523,7 @@ export default function HypothesesPanel({
               </Box>
             )}
 
-            {!isFinalized && canReason && (
+            {canPrepare && (
               <Button
                 variant="outlined"
                 color="primary"

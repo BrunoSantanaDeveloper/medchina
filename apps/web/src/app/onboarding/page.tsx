@@ -117,7 +117,7 @@ export default function Onboarding() {
                   <Typography variant="body2" className="text-text-secondary flex-1 leading-5">
                     {t(`start-${choice.key}-body`)}
                   </Typography>
-                  <Box className="text-primary flex items-center gap-1 text-sm font-semibold">
+                  <Box className="text-primary dark:text-primary-light flex items-center gap-1 text-sm font-semibold">
                     {t(`start-${choice.key}-cta`)} <NiChevronRightSmall size="small" />
                   </Box>
                 </CardContent>

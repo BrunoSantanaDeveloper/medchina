@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 
 import ActivationProgress from "@/components/product/activation-progress";
+import PracticeContextForm from "@/components/product/practice-context-form";
 import NiAi from "@/icons/nexture/ni-ai";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
@@ -49,15 +50,22 @@ const TRACKS: { key: Track; icon: React.ReactNode; total: number }[] = [
 ];
 const DEMO_STEPS = ["demo:capture", "demo:organize", "demo:review"];
 const isTrack = (value: string | null): value is Track => value === "manual" || value === "demo" || value === "ai";
-const SETTINGS_HREF = getProductAction("settings").href;
 const NEW_PATIENT_HREF = getProductAction("new-patient").href;
 const PATIENTS_HREF = getProductAction("patients").href;
 
 function StepList({ steps, actionLabel }: { steps: LiveStep[]; actionLabel: string }) {
+  const t = useTranslations("product");
+  const nextKey = steps.find((step) => !step.done)?.key;
   return (
     <Box className="flex flex-col gap-2">
       {steps.map((step) => (
-        <Box key={step.key} className="border-divider flex items-start gap-3 rounded-2xl border p-3">
+        <Box
+          key={step.key}
+          className={cn(
+            "border-divider flex items-start gap-3 rounded-2xl border p-3",
+            step.key === nextKey && "border-primary/40 bg-primary/5",
+          )}
+        >
           <span
             className={cn(
               "mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full border",
@@ -70,6 +78,7 @@ function StepList({ steps, actionLabel }: { steps: LiveStep[]; actionLabel: stri
             <Typography variant="subtitle2" className={cn(step.done && "text-text-secondary")}>
               {step.title}
             </Typography>
+            {step.key === nextKey && <Chip size="small" color="primary" label={t("getting-next-step")} />}
             <Typography variant="body2" className="text-text-secondary">
               {step.body}
             </Typography>
@@ -145,11 +154,11 @@ export default function GettingStartedPage() {
 
   const demoDone = state ? DEMO_STEPS.filter((step) => state.completedSteps.includes(step)).length : 0;
   const manualDone = facts
-    ? [facts.hasProfileName, facts.hasPatient, facts.hasFinalizedConsultation].filter(Boolean).length
+    ? [facts.hasPracticeContext, facts.hasPatient, facts.hasFinalizedConsultation].filter(Boolean).length
     : 0;
   const aiDone = facts
     ? [
-        facts.hasProfileName,
+        facts.hasPracticeContext,
         facts.hasPatient,
         facts.hasAiReadyConsent,
         facts.hasRecording,
@@ -176,11 +185,10 @@ export default function GettingStartedPage() {
       facts
         ? [
             {
-              key: "profile",
-              title: t("getting-manual-profile"),
-              body: t("getting-manual-profile-body"),
-              href: SETTINGS_HREF,
-              done: facts.hasProfileName,
+              key: "practice-context",
+              title: t("getting-manual-context"),
+              body: t("getting-manual-context-body"),
+              done: facts.hasPracticeContext,
             },
             {
               key: "patient",
@@ -206,11 +214,10 @@ export default function GettingStartedPage() {
       facts
         ? [
             {
-              key: "profile",
-              title: t("getting-ai-profile"),
-              body: t("getting-ai-profile-body"),
-              href: SETTINGS_HREF,
-              done: facts.hasProfileName,
+              key: "practice-context",
+              title: t("getting-ai-context"),
+              body: t("getting-ai-context-body"),
+              done: facts.hasPracticeContext,
             },
             {
               key: "patient",
@@ -267,7 +274,7 @@ export default function GettingStartedPage() {
   if (loading)
     return (
       <Box className="flex min-h-72 items-center justify-center">
-        <CircularProgress />
+        <CircularProgress aria-label={t("loading")} />
       </Box>
     );
   if (error || !state || !facts) return <Alert severity="error">{t("getting-load-error")}</Alert>;
@@ -335,6 +342,15 @@ export default function GettingStartedPage() {
             />
           </Box>
 
+          {(selected === "manual" || selected === "ai") && !facts.hasPracticeContext && (
+            <Box id="practice-context" className="scroll-mt-28">
+              <PracticeContextForm
+                onCompleted={() =>
+                  setFacts((current) => (current ? { ...current, hasPracticeContext: true } : current))
+                }
+              />
+            </Box>
+          )}
           {selected === "manual" && <StepList steps={manualSteps} actionLabel={t("getting-open-step")} />}
           {selected === "ai" && <StepList steps={aiSteps} actionLabel={t("getting-open-step")} />}
           {selected === "demo" && (
@@ -342,7 +358,11 @@ export default function GettingStartedPage() {
               <Alert severity="info" className="neutral bg-background-paper/60!">
                 {t("getting-demo-fictional")}
               </Alert>
-              <LinearProgress variant="determinate" value={(demoDone / DEMO_STEPS.length) * 100} />
+              <LinearProgress
+                variant="determinate"
+                value={(demoDone / DEMO_STEPS.length) * 100}
+                aria-label={t("getting-progress", { done: demoDone, total: DEMO_STEPS.length })}
+              />
               <Box className="bg-grey-25 flex min-h-48 flex-col justify-center gap-3 rounded-3xl p-6">
                 <Typography variant="overline">
                   {t("getting-demo-stage", { current: demoDone === 3 ? 3 : demoStage + 1, total: 3 })}
