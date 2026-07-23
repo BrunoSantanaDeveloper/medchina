@@ -67,6 +67,11 @@ const MAX_DURATION_SECONDS = 120 * 60;
 const MAX_SIZE_BYTES = 512 * 1024 * 1024;
 const BILLING_HREF = getProductAction("billing").href;
 
+// Statuses from which `begin_clinical_recording` may resume the SAME capture.
+// A row OUTSIDE this set (cancelled / failed / ready) means the stored upload
+// id is spent — reusing it hands back a dead row and every state call 409s.
+const RESUMABLE_RECORDING_STATUSES = new Set(["recording", "local", "uploading", "uploaded", "processing"]);
+
 /** Recoverable, consented browser capture backed by the recording state RPCs. */
 export default function ConsultationRecorder({
   orgId,
@@ -130,6 +135,9 @@ export default function ConsultationRecorder({
   const audioContextRef = useRef<AudioContext | null>(null);
   const levelFrameRef = useRef<number | null>(null);
   const loudAtRef = useRef(0);
+  // A dead capture row is salvaged into a fresh one at most once per capture,
+  // so a persistent server rejection can never become an upload loop.
+  const salvageAttemptedRef = useRef(false);
 
   const pollUntilSettled = useCallback(
     async (id: string) => {
@@ -344,6 +352,56 @@ export default function ConsultationRecorder({
     return result;
   }, []);
 
+  /** Discards any stored upload id and returns a brand-new one. */
+  const mintFreshUploadId = useCallback(() => {
+    clearWebRecordingRequest(window.sessionStorage, consultationId);
+    clientUploadId.current = null;
+    return getOrCreateWebRecordingRequest(window.sessionStorage, consultationId, () => crypto.randomUUID());
+  }, [consultationId]);
+
+  /**
+   * Opens (or idempotently resumes) a server recording row. A reused upload id
+   * whose row is no longer startable (a prior capture that was cancelled or
+   * failed) is reported as `stale_upload_id` rather than handed back as if it
+   * were resumable — driving such a row forward always 409s.
+   */
+  const beginServerRecording = useCallback(
+    async (
+      uploadId: string,
+      startTrial: boolean,
+    ): Promise<{ ok: true; recordingId: string } | { ok: false; code: string; recordingId?: string }> => {
+      const response = await fetch(`/api/consultations/${consultationId}/recordings`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode,
+          clientUploadId: uploadId,
+          startTrial: mode === "ai" && startTrial,
+          capturedOn: "web",
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return {
+          ok: false,
+          code: responseCode(body) ?? "recorder_error",
+          recordingId: typeof body?.recordingId === "string" ? body.recordingId : undefined,
+        };
+      }
+      // Server may resolve the id to an EXISTING row. Only reuse it when it is
+      // genuinely resumable; a terminal row means the id is spent (belt to the
+      // 0049 server guard, and self-healing before that migration is applied).
+      if (body.code === "existing" && !RESUMABLE_RECORDING_STATUSES.has(body.status)) {
+        return { ok: false, code: "stale_upload_id" };
+      }
+      if (typeof body.recordingId !== "string" || !body.recordingId) {
+        return { ok: false, code: "invalid_begin_response" };
+      }
+      return { ok: true, recordingId: body.recordingId };
+    },
+    [consultationId, mode],
+  );
+
   /** Frees a dead capture so this consultation can be recorded again. */
   const discardOrphan = async () => {
     if (!orphan || discardingOrphan) return;
@@ -442,7 +500,22 @@ export default function ConsultationRecorder({
         } else {
           setPhase("ready");
         }
-      } catch {
+      } catch (cause) {
+        const failureCode = cause instanceof Error ? cause.message : "";
+        // The row is no longer writable (it was cancelled/failed out of band —
+        // e.g. a spent upload id). The AUDIO is safe in IndexedDB, so instead of
+        // looping "retry" against a dead row, salvage it into a FRESH recording
+        // and re-upload. One attempt only, so a persistent rejection still ends.
+        if (!uploadConfirmed && failureCode === "recording_invalid_state" && !salvageAttemptedRef.current) {
+          salvageAttemptedRef.current = true;
+          const fresh = await beginServerRecording(mintFreshUploadId(), false);
+          if (fresh.ok) {
+            recordingId.current = fresh.recordingId;
+            onChanged?.();
+            void upload(blob, duration, mime);
+            return;
+          }
+        }
         if (!uploadConfirmed) {
           await setRecordingState(id, {
             action: "failed",
@@ -460,7 +533,9 @@ export default function ConsultationRecorder({
       }
     },
     [
+      beginServerRecording,
       consultationId,
+      mintFreshUploadId,
       onChanged,
       orgId,
       persistSession,
@@ -499,32 +574,30 @@ export default function ConsultationRecorder({
       return;
     }
 
-    const uploadId =
-      clientUploadId.current ??
-      getOrCreateWebRecordingRequest(window.sessionStorage, consultationId, () => crypto.randomUUID());
-    clientUploadId.current = uploadId;
-
+    salvageAttemptedRef.current = false;
     let startedRecordingId: string;
     try {
-      const beginResponse = await fetch(`/api/consultations/${consultationId}/recordings`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          clientUploadId: uploadId,
-          startTrial: mode === "ai" && startTrial,
-          capturedOn: "web",
-        }),
-      });
-      const beginBody = await beginResponse.json().catch(() => ({}));
-      if (!beginResponse.ok) {
-        const code = responseCode(beginBody);
+      let uploadId =
+        clientUploadId.current ??
+        getOrCreateWebRecordingRequest(window.sessionStorage, consultationId, () => crypto.randomUUID());
+      clientUploadId.current = uploadId;
+
+      let result = await beginServerRecording(uploadId, startTrial);
+      // A stored id can point at a spent capture (a prior cancelled/failed row);
+      // mint a fresh one and start clean rather than surfacing a dead end.
+      if (!result.ok && result.code === "stale_upload_id") {
+        uploadId = mintFreshUploadId();
+        result = await beginServerRecording(uploadId, startTrial);
+      }
+
+      if (!result.ok) {
+        const code = result.code;
         if (code === "consent_required" || code === "audio_consent_required" || code === "ai_consent_required") {
           onRequestConsent?.();
         }
-        if (code === "recording_already_open" && typeof beginBody?.recordingId === "string") {
+        if (code === "recording_already_open" && result.recordingId) {
           // Surface the blocker WITH its way out instead of a dead-end message.
-          setOrphan({ id: beginBody.recordingId, status: "recording", createdAt: new Date().toISOString() });
+          setOrphan({ id: result.recordingId, status: "recording", createdAt: new Date().toISOString() });
         }
         setError(
           code === "audio_allowance_exhausted"
@@ -542,10 +615,7 @@ export default function ConsultationRecorder({
         clientUploadId.current = null;
         return;
       }
-      if (typeof beginBody.recordingId !== "string" || !beginBody.recordingId) {
-        throw new Error("invalid_begin_response");
-      }
-      startedRecordingId = beginBody.recordingId;
+      startedRecordingId = result.recordingId;
     } catch {
       // Ambiguous network/response failures retain the exact idempotency key.
       // A retry can recover a server commit whose response never arrived.

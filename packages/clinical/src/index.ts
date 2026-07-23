@@ -249,6 +249,7 @@ export const CLINICAL_ERROR_CODES = [
   "recording_pending",
   "recording_already_open",
   "recording_invalid_state",
+  "stale_upload_id",
   "recording_not_uploaded",
   "recording_integrity_failed",
   "recording_too_long",

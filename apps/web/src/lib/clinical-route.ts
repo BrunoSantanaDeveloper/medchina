@@ -43,6 +43,7 @@ const STATUS_BY_CODE: Partial<Record<ClinicalErrorCode, number>> = {
   recording_pending: 409,
   recording_already_open: 409,
   recording_invalid_state: 409,
+  stale_upload_id: 409,
   recording_not_uploaded: 409,
   recording_integrity_failed: 409,
   recording_too_long: 413,
