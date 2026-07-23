@@ -660,11 +660,14 @@ export default function ConsultationRecorder({
         const blob = new Blob(chunks.current, { type: effectiveMime });
         void upload(blob, secondsRef.current, effectiveMime);
       };
-      // The device disappearing mid-session (unplugged, Bluetooth dropped, OS
-      // revoked) is the silent failure this product cannot afford.
+      // Only a PERMANENT device loss ends the capture. `onended` fires when the
+      // track is gone for good (unplugged, OS revoked). `onmute` must NOT stop
+      // recording — it fires for TRANSIENT conditions (a Bluetooth headset
+      // renegotiating, a driver hiccup, the OS muting the track for a moment at
+      // capture start) and would drop the session in its first second. A mute
+      // that actually persists is caught by the 60s silence watchdog instead.
       media.getAudioTracks().forEach((track) => {
         track.onended = handleCaptureLoss;
-        track.onmute = handleCaptureLoss;
       });
       mediaRecorder.current = recorder;
       recorder.start(1000);
