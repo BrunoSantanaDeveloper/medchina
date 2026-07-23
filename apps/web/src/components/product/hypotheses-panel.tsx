@@ -15,12 +15,12 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   TextField,
   Typography,
 } from "@mui/material";
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
+import DialogHeader from "@/components/product/dialog-header";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import { deriveHypothesesPanelMode } from "@/lib/hypotheses-access";
@@ -343,6 +343,7 @@ export default function HypothesesPanel({
             <Button
               variant="outlined"
               color="primary"
+              fullWidth
               href="/settings/billing?source=consultation&feature=clinical_reasoning"
               LinkComponent={Link}
               onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "clinical_reasoning")}
@@ -359,10 +360,10 @@ export default function HypothesesPanel({
               <Button
                 variant="contained"
                 color="primary"
+                fullWidth
                 startIcon={busy ? undefined : <NiClipboard size="tiny" />}
                 onClick={prepare}
                 disabled={busy}
-                className="self-start"
               >
                 {busy ? <CircularProgress size={18} /> : t("hypotheses-prepare")}
               </Button>
@@ -382,16 +383,20 @@ export default function HypothesesPanel({
             <Button
               variant="contained"
               color="primary"
+              fullWidth
               startIcon={<NiClipboard size="tiny" />}
-              className="self-start"
               onClick={() => setReviewOpen(true)}
             >
               {t("hypotheses-review-open", { count: hypotheses.length })}
             </Button>
 
             <Dialog open={reviewOpen} onClose={() => setReviewOpen(false)} maxWidth="md" fullWidth scroll="paper">
-              <DialogTitle>{t("hypotheses-title")}</DialogTitle>
-              <DialogContent dividers className="flex flex-col gap-3">
+              <DialogHeader
+                title={t("hypotheses-title")}
+                closeLabel={t("close")}
+                onClose={() => setReviewOpen(false)}
+              />
+              <DialogContent dividers className="flex flex-col gap-3 py-5!">
                 {hypotheses.map((hypothesis) => (
                   <Box
                     key={hypothesis.id}
@@ -563,10 +568,10 @@ export default function HypothesesPanel({
               <Button
                 variant="outlined"
                 color="primary"
+                fullWidth
                 startIcon={busy ? undefined : <NiClipboard size="tiny" />}
                 onClick={prepare}
                 disabled={busy}
-                className="self-start"
               >
                 {busy ? <CircularProgress size={18} /> : t("hypotheses-reprepare")}
               </Button>
@@ -582,10 +587,12 @@ export default function HypothesesPanel({
       </CardContent>
 
       <Dialog open={Boolean(reviewing)} onClose={() => setReviewing(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>
-          {reviewing?.mode === "edit" ? t("hypotheses-edit-title") : t("hypotheses-reject-title")}
-        </DialogTitle>
-        <DialogContent className="flex flex-col gap-3">
+        <DialogHeader
+          title={reviewing?.mode === "edit" ? t("hypotheses-edit-title") : t("hypotheses-reject-title")}
+          closeLabel={t("close")}
+          onClose={() => setReviewing(null)}
+        />
+        <DialogContent className="flex flex-col gap-3 py-5!">
           <Typography variant="body2" className="text-text-secondary leading-6">
             {reviewing?.mode === "edit" ? t("hypotheses-edit-body") : t("hypotheses-reject-body")}
           </Typography>

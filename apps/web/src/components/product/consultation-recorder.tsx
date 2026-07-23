@@ -12,7 +12,6 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   LinearProgress,
   Skeleton,
   ToggleButton,
@@ -21,6 +20,7 @@ import {
 } from "@mui/material";
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
+import DialogHeader from "@/components/product/dialog-header";
 import InfoHint from "@/components/product/info-hint";
 import { type PersistedWebRecording, useRecordingSession } from "@/components/product/recording-session-provider";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
@@ -853,8 +853,11 @@ export default function ConsultationRecorder({
             icon={<NiMicrophone size="medium" />}
             title={t("recorder-title")}
             hint={t("recorder-step-hint")}
+            // Operational detail (server confirmation, plan tier) sits behind an
+            // info affordance, anchored to the title it qualifies. On its own
+            // line it read as a stray icon belonging to nothing.
+            trailing={<InfoHint label={t("recorder-note")} className="ml-auto" />}
           />
-
           {/* A capture left open by a reload or a refused microphone blocks every
             new one at the server. Never a dead end: state it and offer the exit. */}
           {orphan && (
@@ -1073,6 +1076,8 @@ export default function ConsultationRecorder({
                 {phase === "idle" && (
                   <Button
                     variant="contained"
+                    size="large"
+                    fullWidth
                     color="primary"
                     startIcon={<NiMicrophone size="tiny" />}
                     disabled={Boolean(orphan)}
@@ -1086,6 +1091,8 @@ export default function ConsultationRecorder({
                 {processingFailed && (
                   <Button
                     variant="contained"
+                    size="large"
+                    fullWidth
                     color="primary"
                     startIcon={<NiCheckSquare size="tiny" />}
                     onClick={retryProcessing}
@@ -1096,6 +1103,8 @@ export default function ConsultationRecorder({
                 {phase === "error" && !processingFailed && pendingBlob.current && (
                   <Button
                     variant="contained"
+                    size="large"
+                    fullWidth
                     color="primary"
                     startIcon={<NiMicrophone size="tiny" />}
                     onClick={retryUpload}
@@ -1106,6 +1115,8 @@ export default function ConsultationRecorder({
                 {phase === "error" && !processingFailed && !pendingBlob.current && (
                   <Button
                     variant="contained"
+                    size="large"
+                    fullWidth
                     color="primary"
                     startIcon={<NiMicrophone size="tiny" />}
                     disabled={Boolean(orphan)}
@@ -1117,6 +1128,8 @@ export default function ConsultationRecorder({
                 {phase === "ready" && (
                   <Button
                     variant="outlined"
+                    size="large"
+                    fullWidth
                     color="primary"
                     startIcon={<NiMicrophone size="tiny" />}
                     disabled={Boolean(orphan)}
@@ -1125,31 +1138,59 @@ export default function ConsultationRecorder({
                     {t("recorder-record-again")}
                   </Button>
                 )}
+                {/* Pause/finish are a PAIR: they split the row evenly instead of
+                    each taking a full line, so the card's height does not jump
+                    the moment capture starts. */}
                 {phase === "recording" && (
                   <>
-                    <Button variant="outlined" color="grey" startIcon={<NiPause size="tiny" />} onClick={pause}>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      color="grey"
+                      className="flex-1"
+                      startIcon={<NiPause size="tiny" />}
+                      onClick={pause}
+                    >
                       {t("recorder-pause")}
                     </Button>
-                    <Button variant="contained" color="primary" startIcon={<NiSquare size="tiny" />} onClick={finish}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      color="primary"
+                      className="flex-1"
+                      startIcon={<NiSquare size="tiny" />}
+                      onClick={finish}
+                    >
                       {t("recorder-finish")}
                     </Button>
                   </>
                 )}
                 {phase === "paused" && (
                   <>
-                    <Button variant="outlined" color="grey" startIcon={<NiMicrophone size="tiny" />} onClick={resume}>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      color="grey"
+                      className="flex-1"
+                      startIcon={<NiMicrophone size="tiny" />}
+                      onClick={resume}
+                    >
                       {t("recorder-resume")}
                     </Button>
-                    <Button variant="contained" color="primary" startIcon={<NiSquare size="tiny" />} onClick={finish}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      color="primary"
+                      className="flex-1"
+                      startIcon={<NiSquare size="tiny" />}
+                      onClick={finish}
+                    >
                       {t("recorder-finish")}
                     </Button>
                   </>
                 )}
               </Box>
 
-              {/* Operational detail (server confirmation, plan tier) sits behind
-                  an info affordance; the clinical framing stays on the page. */}
-              <InfoHint label={t("recorder-note")} />
               {mode === "ai" && allowance && allowance.minutesLimit > 0 && (
                 <Typography variant="body2" className="text-text-secondary text-xs leading-5">
                   {allowance.source === "trial"
@@ -1165,8 +1206,12 @@ export default function ConsultationRecorder({
         </CardContent>
 
         <Dialog open={trialDialog} onClose={() => setTrialDialog(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>{t("recorder-trial-title")}</DialogTitle>
-          <DialogContent className="flex flex-col gap-2">
+          <DialogHeader
+            title={t("recorder-trial-title")}
+            closeLabel={t("close")}
+            onClose={() => setTrialDialog(false)}
+          />
+          <DialogContent className="flex flex-col gap-2 py-5!">
             <Typography variant="body2" className="text-text-secondary leading-6">
               {trialParams ? t("recorder-trial-explain", trialParams) : t("recorder-trial-explain-generic")}
             </Typography>
@@ -1188,8 +1233,12 @@ export default function ConsultationRecorder({
           no explanation is reflexively dismissed — and a hard block cannot be
           undone from inside the page. */}
         <Dialog open={micPrimer !== null} onClose={() => setMicPrimer(null)} maxWidth="xs" fullWidth>
-          <DialogTitle>{t("recorder-mic-primer-title")}</DialogTitle>
-          <DialogContent className="flex flex-col gap-2">
+          <DialogHeader
+            title={t("recorder-mic-primer-title")}
+            closeLabel={t("close")}
+            onClose={() => setMicPrimer(null)}
+          />
+          <DialogContent className="flex flex-col gap-2 py-5!">
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("recorder-mic-primer-body")}
             </Typography>

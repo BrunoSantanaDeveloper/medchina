@@ -1,5 +1,6 @@
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { detectSafetyFlags, type SafetyFlag } from "@/lib/clinical-safety";
+import { PRACTICE_MODALITIES, type PracticeModality } from "@/lib/practice-context";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 import { type KnowledgeSearchResult, resolveCollectionIds, searchKnowledge } from "@flyee/knowledge";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -96,6 +97,8 @@ export interface TherapeuticPlanResult {
   model: string;
   promptVersion: string;
   retrieved: number;
+  /** The modalities the plan was allowed to propose (PRD §10.9 scope). */
+  scope: PracticeModality[];
 }
 
 export interface PlanInput {
@@ -103,77 +106,107 @@ export interface PlanInput {
   answers: { blockKey: string; fieldKey: string; value: string; source: string }[];
   /** Patterns the professional accepted or edited — the plan follows these. */
   acceptedPatterns: string[];
+  /**
+   * What this practitioner actually treats with (`profiles.practice_modalities`).
+   * A plan she cannot apply is noise at best and, since a validated plan is
+   * signed into a QR-verifiable document (PRD §9.8), a scope-of-practice
+   * problem at worst.
+   */
+  practiceModalities: readonly string[];
+}
+
+/**
+ * Her declared practice decides what the plan may propose. An empty declaration
+ * means she never answered the activation step — fall back to ALL modalities,
+ * never to none, so a skipped step can never produce an empty plan.
+ */
+export function resolvePlanScope(declared: readonly string[]): PracticeModality[] {
+  const scoped = PRACTICE_MODALITIES.filter((slug) => declared.includes(slug));
+  return scoped.length > 0 ? scoped : [...PRACTICE_MODALITIES];
 }
 
 const stringArray = { type: "array", items: { type: "string" } };
 
-const RESULT_SCHEMA = {
-  type: "object",
-  properties: {
-    objective: { type: "string", description: "The overall therapeutic aim, in the consultation's language." },
-    modalities: {
-      type: "object",
-      description: "Only include the modalities that fit this case. Omit the rest — do not pad.",
-      properties: {
-        acupuncture: {
-          type: "object",
-          properties: {
-            objective: { type: "string" },
-            mainPoints: stringArray,
-            complementaryPoints: stringArray,
-            meridians: stringArray,
-            strategy: { type: "string", enum: ["tonify", "disperse", "harmonize", "warm", "regulate"] },
-            frequency: { type: "string", description: "Suggested frequency — always the professional's to edit." },
-          },
-        },
-        diet: {
-          type: "object",
-          properties: {
-            thermalNature: { type: "string", description: "Predominant thermal nature observed." },
-            favor: stringArray,
-            reduce: { ...stringArray, description: "Foods to reduce TEMPORARILY." },
-            mealSuggestions: stringArray,
-            restrictions: { type: "string", description: "Clinical/nutritional restrictions, allergies, preferences." },
-          },
-        },
-        moxibustion: {
-          type: "object",
-          properties: {
-            technique: { type: "string" },
-            pointsOrRegion: { type: "string" },
-            objective: { type: "string" },
-            contraindicationChecklist: {
-              ...stringArray,
-              description: "Items to verify BEFORE applying moxibustion. Required for this modality.",
-            },
-          },
-        },
-        auriculotherapy: {
-          type: "object",
-          properties: {
-            points: stringArray,
-            material: { type: "string" },
-            side: { type: "string" },
-            stimulationGuidance: { type: "string" },
-            reassessment: { type: "string" },
-          },
-        },
-        cupping: {
-          type: "object",
-          properties: {
-            technique: { type: "string" },
-            region: { type: "string" },
-            intensity: { type: "string" },
-            duration: { type: "string" },
-            postSessionGuidance: { type: "string" },
-          },
-        },
+const MODALITY_SCHEMAS: Record<PracticeModality, object> = {
+  acupuncture: {
+    type: "object",
+    properties: {
+      objective: { type: "string" },
+      mainPoints: stringArray,
+      complementaryPoints: stringArray,
+      meridians: stringArray,
+      strategy: { type: "string", enum: ["tonify", "disperse", "harmonize", "warm", "regulate"] },
+      frequency: { type: "string", description: "Suggested frequency — always the professional's to edit." },
+    },
+  },
+  diet: {
+    type: "object",
+    properties: {
+      thermalNature: { type: "string", description: "Predominant thermal nature observed." },
+      favor: stringArray,
+      reduce: { ...stringArray, description: "Foods to reduce TEMPORARILY." },
+      mealSuggestions: stringArray,
+      restrictions: { type: "string", description: "Clinical/nutritional restrictions, allergies, preferences." },
+    },
+  },
+  moxibustion: {
+    type: "object",
+    properties: {
+      technique: { type: "string" },
+      pointsOrRegion: { type: "string" },
+      objective: { type: "string" },
+      contraindicationChecklist: {
+        ...stringArray,
+        description: "Items to verify BEFORE applying moxibustion. Required for this modality.",
       },
     },
-    citations: { type: "array", items: { type: "integer" }, description: "Library excerpt numbers used, e.g. [1,2]." },
   },
-  required: ["objective", "modalities"],
+  auriculotherapy: {
+    type: "object",
+    properties: {
+      points: stringArray,
+      material: { type: "string" },
+      side: { type: "string" },
+      stimulationGuidance: { type: "string" },
+      reassessment: { type: "string" },
+    },
+  },
+  cupping: {
+    type: "object",
+    properties: {
+      technique: { type: "string" },
+      region: { type: "string" },
+      intensity: { type: "string" },
+      duration: { type: "string" },
+      postSessionGuidance: { type: "string" },
+    },
+  },
 };
+
+/**
+ * The scope is enforced by the SCHEMA, not only by the prompt: a modality she
+ * does not practise has no property to be written into, so a fluent model
+ * cannot talk her into one.
+ */
+function buildResultSchema(scope: readonly PracticeModality[]) {
+  return {
+    type: "object",
+    properties: {
+      objective: { type: "string", description: "The overall therapeutic aim, in the consultation's language." },
+      modalities: {
+        type: "object",
+        description: "Only include the modalities that fit this case. Omit the rest — do not pad.",
+        properties: Object.fromEntries(scope.map((slug) => [slug, MODALITY_SCHEMAS[slug]])),
+      },
+      citations: {
+        type: "array",
+        items: { type: "integer" },
+        description: "Library excerpt numbers used, e.g. [1,2].",
+      },
+    },
+    required: ["objective", "modalities"],
+  };
+}
 
 function describeCase(input: PlanInput): string {
   const lines: string[] = [];
@@ -182,7 +215,12 @@ function describeCase(input: PlanInput): string {
   return lines.join("\n");
 }
 
-function buildPrompt(input: PlanInput, context: string, flags: SafetyFlag[]): string {
+function buildPrompt(
+  input: PlanInput,
+  context: string,
+  flags: SafetyFlag[],
+  scope: readonly PracticeModality[],
+): string {
   return [
     "You prepare a DRAFT therapeutic plan for a Traditional Chinese Medicine practitioner to validate and sign.",
     "You never prescribe, never conclude and never finalize. Everything is a draft for her review (PRD §10.9/§10.10).",
@@ -190,17 +228,21 @@ function buildPrompt(input: PlanInput, context: string, flags: SafetyFlag[]): st
     "Base the plan on the ACCEPTED PATTERN HYPOTHESES below — follow her clinical direction, do not re-diagnose.",
     "",
     "HARD RULES:",
-    "1. Include ONLY the modalities that genuinely fit this case. Omit the rest — never pad to look complete.",
-    "2. For moxibustion you MUST provide a contraindication checklist to verify before application (PRD §10.9).",
-    "3. NEVER hide a contraindication. The recorded case has these sensitive factors flagged; every modality you",
+    `1. SCOPE OF PRACTICE — this practitioner treats ONLY with: ${scope.join(", ")}. Propose modalities ONLY from`,
+    "   that list. Never propose, mention or hint at one outside it: she cannot apply it, and a validated plan is",
+    "   signed into a document under her professional responsibility.",
+    "2. Within that scope, include ONLY the modalities that genuinely fit this case. Omit the rest — never pad to",
+    "   look complete.",
+    "3. For moxibustion you MUST provide a contraindication checklist to verify before application (PRD §10.9).",
+    "4. NEVER hide a contraindication. The recorded case has these sensitive factors flagged; every modality you",
     "   propose must be compatible with them, and where one matters (e.g. cupping with an anticoagulant, moxa or",
     "   certain points in pregnancy, electro-stimulation with a pacemaker) say so plainly rather than omit it.",
     flags.length > 0
       ? `   SENSITIVE FACTORS ON RECORD: ${flags.map((f) => `${f.category} ("${f.matchedText}")`).join("; ")}.`
       : "   No sensitive factors were flagged, but stay alert to anything the record implies.",
-    "4. Frequencies and quantities are SUGGESTIONS, always the professional's to edit.",
-    "5. Cite library excerpts by number in `citations` only when one genuinely informs the plan; never invent one.",
-    "6. Write in the language of the recorded data (Brazilian Portuguese unless it clearly is not).",
+    "5. Frequencies and quantities are SUGGESTIONS, always the professional's to edit.",
+    "6. Cite library excerpts by number in `citations` only when one genuinely informs the plan; never invent one.",
+    "7. Write in the language of the recorded data (Brazilian Portuguese unless it clearly is not).",
     "",
     "ACCEPTED PATTERN HYPOTHESES:",
     input.acceptedPatterns.length > 0 ? input.acceptedPatterns.map((p) => `- ${p}`).join("\n") : "(none accepted yet)",
@@ -223,6 +265,8 @@ const cleanList = (list: unknown): string[] =>
 export async function buildTherapeuticPlan(supabase: SupabaseClient, input: PlanInput): Promise<TherapeuticPlanResult> {
   const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
   const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
+  const scope = resolvePlanScope(input.practiceModalities);
+  const inScope = new Set<PracticeModality>(scope);
 
   // Safety flags come from the RECORD, in code, before any model call — so they
   // exist whether or not the model cooperates (PRD §10.10).
@@ -267,11 +311,11 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       temperature: 0.2,
       maxTokens: 4096,
     },
-    [{ role: "user", content: buildPrompt(input, context, safetyFlags) }],
+    [{ role: "user", content: buildPrompt(input, context, safetyFlags, scope) }],
     {
       name: "therapeutic_plan",
       description: "A therapeutic plan draft for professional validation",
-      schema: RESULT_SCHEMA,
+      schema: buildResultSchema(scope),
     },
   )) as {
     objective?: string;
@@ -280,10 +324,13 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
   };
 
   // ---- Verify + assemble ---------------------------------------------------
+  // The scope is re-applied here on purpose: the schema already excludes what
+  // she does not practise, but a modality outside it must never survive into a
+  // plan she may sign, whatever the provider returns.
   const m = raw.modalities ?? {};
   const modalities: PlanModalities = {};
 
-  if (m.acupuncture) {
+  if (inScope.has("acupuncture") && m.acupuncture) {
     const a = m.acupuncture;
     modalities.acupuncture = {
       enabled: true,
@@ -299,7 +346,7 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       frequency: String(a.frequency ?? "").trim(),
     };
   }
-  if (m.diet) {
+  if (inScope.has("diet") && m.diet) {
     const d = m.diet;
     modalities.diet = {
       enabled: true,
@@ -310,7 +357,7 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       restrictions: String(d.restrictions ?? "").trim(),
     };
   }
-  if (m.moxibustion) {
+  if (inScope.has("moxibustion") && m.moxibustion) {
     const mo = m.moxibustion;
     const checklist = cleanList(mo.contraindicationChecklist);
     // PRD §10.9: moxibustion never ships without its pre-application checklist.
@@ -328,7 +375,7 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       contraindicationChecklist: checklist,
     };
   }
-  if (m.auriculotherapy) {
+  if (inScope.has("auriculotherapy") && m.auriculotherapy) {
     const au = m.auriculotherapy;
     modalities.auriculotherapy = {
       enabled: true,
@@ -339,7 +386,7 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       reassessment: String(au.reassessment ?? "").trim(),
     };
   }
-  if (m.cupping) {
+  if (inScope.has("cupping") && m.cupping) {
     const c = m.cupping;
     modalities.cupping = {
       enabled: true,
@@ -373,5 +420,6 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
     model,
     promptVersion: PLAN_PROMPT_VERSION,
     retrieved: retrieved.length,
+    scope,
   };
 }

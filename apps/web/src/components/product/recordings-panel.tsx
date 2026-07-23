@@ -14,10 +14,10 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   Typography,
 } from "@mui/material";
 
+import DialogHeader from "@/components/product/dialog-header";
 import InfoHint from "@/components/product/info-hint";
 import TranscriptViewer from "@/components/product/transcript-viewer";
 import NiListCheck from "@/icons/nexture/ni-list-check";
@@ -261,7 +261,7 @@ export default function RecordingsPanel({
         <Typography variant="h6" component="h2">
           {t("recordings-title")}
         </Typography>
-
+        <InfoHint label={t("recordings-note")} />
         {loadFailed && (
           <Alert
             severity="error"
@@ -360,10 +360,9 @@ export default function RecordingsPanel({
                     here made this column taller than the whole chart. */}
                 {recording.status === "ready" && recording.transcriptionId && (
                   <Button
-                    size="small"
                     variant="outlined"
                     color="primary"
-                    className="self-start"
+                    fullWidth
                     startIcon={<NiListCheck size="tiny" />}
                     onClick={() =>
                       setTranscriptFor({ recordingId: recording.id, transcriptionId: recording.transcriptionId! })
@@ -376,9 +375,6 @@ export default function RecordingsPanel({
             );
           })}
         </Box>
-
-        {/* How processing works is operational detail, not clinical framing. */}
-        <InfoHint label={t("recordings-note")} />
       </CardContent>
 
       {transcriptFor && (
@@ -394,10 +390,12 @@ export default function RecordingsPanel({
           discarding an OPEN capture can throw away audio still being recorded,
           which is a different loss from clearing a failed attempt. */}
       <Dialog open={confirmation !== null} onClose={() => setConfirmation(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>
-          {confirmation?.kind === "delete-audio" ? t("recordings-delete-audio") : t("recordings-discard")}
-        </DialogTitle>
-        <DialogContent>
+        <DialogHeader
+          title={confirmation?.kind === "delete-audio" ? t("recordings-delete-audio") : t("recordings-discard")}
+          closeLabel={t("close")}
+          onClose={() => setConfirmation(null)}
+        />
+        <DialogContent className="py-5!">
           <Typography variant="body2" className="text-text-secondary leading-6">
             {confirmation?.kind === "delete-audio"
               ? t("recordings-delete-audio-confirm")

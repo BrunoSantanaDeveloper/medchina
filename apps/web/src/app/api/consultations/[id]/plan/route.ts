@@ -51,13 +51,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (existing?.status === "validated") return clinicalError("plan_validated");
   if (existing?.origin === "manual" && body.replaceManual !== true) return clinicalError("manual_plan_exists");
 
-  const [{ data: answers }, { data: hypotheses }] = await Promise.all([
+  const [{ data: answers }, { data: hypotheses }, { data: profile }] = await Promise.all([
     supabase.from("anamnesis_answers").select("block_key, field_key, value, source").eq("consultation_id", id),
     supabase
       .from("consultation_hypotheses")
       .select("id, pattern, status, updated_at")
       .eq("consultation_id", id)
       .in("status", ["accepted", "edited"]),
+    // Her declared practice bounds what the plan may propose (PRD §10.9): a
+    // protocol she does not practise is noise she must review, and a validated
+    // plan is signed into a document under her professional responsibility.
+    supabase.from("profiles").select("practice_modalities").eq("id", user.id).maybeSingle(),
   ]);
   if (!hypotheses?.length) return clinicalError("accepted_hypothesis_required");
 
@@ -70,6 +74,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       source: row.source,
     })),
     acceptedPatterns: hypotheses.map((row) => row.pattern as string),
+    practiceModalities: (profile?.practice_modalities as string[] | null) ?? [],
   };
   if (input.answers.length === 0 && !input.chiefComplaint) return clinicalError("nothing_recorded");
 
@@ -110,6 +115,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     metadata: {
       consultationId: id,
       modalities: Object.keys(result.modalities),
+      practiceScope: result.scope,
       safetyFlags: result.safetyFlags.map((flag) => flag.category),
       model: result.model,
       promptVersion: result.promptVersion,

@@ -12,14 +12,15 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogTitle,
   Typography,
 } from "@mui/material";
 
+import DialogHeader from "@/components/product/dialog-header";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiPlay from "@/icons/nexture/ni-play";
 import { ANAMNESIS_BLOCKS } from "@/lib/anamnesis";
 import { parseTranscriptResult, type TranscriptSegment, transcriptTimestampSeconds } from "@/lib/transcript";
+import { cn } from "@/lib/utils";
 import { createClient } from "@flyee/auth/client";
 import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
@@ -48,6 +49,33 @@ type ApiTranscription = {
 const FIELD_LABELS: ReadonlyMap<string, string> = new Map(
   ANAMNESIS_BLOCKS.flatMap((block) => block.fields.map((field) => [`${block.key}.${field.key}`, field.label] as const)),
 );
+
+/**
+ * Speakers are diarized as opaque labels ("Speaker 1"), so the tone is derived
+ * from the label itself: the SAME speaker keeps the SAME colour for the whole
+ * transcript, which is what makes a wall of turns skimmable. Harmonic accents
+ * only — never red, which stays reserved for risk (docs/DESIGN.md).
+ */
+const SPEAKER_TONES = [
+  "bg-primary/12 text-primary",
+  "bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light",
+  "bg-accent-2/15 text-accent-2-dark dark:text-accent-2-light",
+  "bg-grey-100 text-text-secondary",
+] as const;
+
+function speakerTone(speaker: string): string {
+  let hash = 0;
+  for (const character of speaker) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  return SPEAKER_TONES[hash % SPEAKER_TONES.length];
+}
+
+/** "Speaker 1" → "S1"; a name → its initials. Falls back to the first glyph. */
+function speakerInitials(speaker: string): string {
+  const words = speaker.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
 
 function dataFromState(state: RemoteState<TranscriptData, "load_failed">) {
   if (state.status === "success") return state.data;
@@ -213,16 +241,27 @@ export default function TranscriptViewer({
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle className="flex flex-wrap items-center gap-2">
-        {t("transcript-title")}
-        {data?.validatedAt && (
-          <Chip size="small" color="success" icon={<NiCheck size="tiny" />} label={t("transcript-validated-chip")} />
-        )}
-        {data && (
-          <Chip size="small" variant="outlined" label={t("transcript-segments", { count: data.segments.length })} />
-        )}
-      </DialogTitle>
-      <DialogContent dividers className="flex flex-col gap-4">
+      <DialogHeader
+        title={t("transcript-title")}
+        closeLabel={t("close")}
+        onClose={onClose}
+        trailing={
+          <>
+            {data?.validatedAt && (
+              <Chip
+                size="small"
+                icon={<NiCheck size="tiny" />}
+                label={t("transcript-validated-chip")}
+                className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
+              />
+            )}
+            {data && (
+              <Chip size="small" variant="outlined" label={t("transcript-segments", { count: data.segments.length })} />
+            )}
+          </>
+        }
+      />
+      <DialogContent dividers className="flex flex-col gap-4 py-5!">
         {initialLoading && <CircularProgress size={22} aria-label={t("loading")} />}
         {failed && !data && (
           <Alert severity="error" action={<Button onClick={() => void load(false)}>{t("retry")}</Button>}>
@@ -257,19 +296,21 @@ export default function TranscriptViewer({
 
             {data.audioUrl ? (
               // The native player stays: it is the accessible, keyboard-ready
-              // control and the seek target for "play this segment". It only
-              // gets a surface so it sits inside the card instead of floating
-              // as raw browser chrome.
-              <Box className="bg-grey-50 border-divider rounded-2xl border p-2">
-                <audio
-                  ref={audioRef}
-                  src={data.audioUrl}
-                  controls
-                  controlsList="nodownload"
-                  preload="metadata"
-                  className="block w-full"
-                  aria-label={t("transcript-source-audio")}
-                />
+              // control and the seek target for "play this segment". Sticky,
+              // because every "ouvir este trecho" seeks THIS element — scrolling
+              // it out of view left the playback controls unreachable mid-review.
+              <Box className="bg-background-paper sticky top-0 z-10 -mt-1 pt-1 pb-2">
+                <Box className="bg-grey-50 border-divider rounded-2xl border p-2">
+                  <audio
+                    ref={audioRef}
+                    src={data.audioUrl}
+                    controls
+                    controlsList="nodownload"
+                    preload="metadata"
+                    className="block w-full"
+                    aria-label={t("transcript-source-audio")}
+                  />
+                </Box>
               </Box>
             ) : (
               <Alert severity="info" className="neutral bg-background-paper/60!">
@@ -280,97 +321,135 @@ export default function TranscriptViewer({
             {data.segments.length === 0 ? (
               <Alert severity="info">{t("transcript-empty")}</Alert>
             ) : (
-              <Box component="ol" className="m-0 flex list-none flex-col gap-2 p-0">
+              // A transcript is a CONVERSATION, so it reads as one: each turn is
+              // a speaker gutter (stable colour per speaker) beside the line,
+              // instead of a stack of identical bordered boxes where every turn
+              // looked equally important and the speaker was easy to lose.
+              <Box component="ol" className="m-0 flex list-none flex-col gap-1 p-0">
                 {data.segments.map((segment, index) => {
                   const links = data.linkedFields[segment.start] ?? [];
+                  const previous = index > 0 ? data.segments[index - 1] : null;
+                  const startsTurn = previous?.speaker !== segment.speaker;
                   return (
                     <Box
                       component="li"
                       key={`${segment.start}-${index}`}
-                      className="border-divider flex flex-col gap-2 rounded-2xl border p-3"
+                      className={cn(
+                        "hover:bg-grey-25 flex flex-row gap-3 rounded-2xl px-2 py-1.5 transition-colors",
+                        startsTurn && index > 0 && "mt-3",
+                      )}
                     >
-                      <Box className="flex flex-wrap items-center gap-2">
-                        <Typography variant="subtitle2">{segment.speaker}</Typography>
-                        <Button
-                          size="small"
-                          variant="text"
-                          startIcon={<NiPlay size="tiny" />}
-                          disabled={!data.audioUrl}
-                          onClick={() => void playSegment(segment.start)}
-                          aria-label={t("transcript-play-segment", { time: segment.start })}
-                        >
-                          {segment.start}
-                        </Button>
+                      <Box className="flex w-9 flex-none flex-col items-center gap-1">
+                        {startsTurn ? (
+                          <span
+                            aria-hidden
+                            className={cn(
+                              "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
+                              speakerTone(segment.speaker),
+                            )}
+                          >
+                            {speakerInitials(segment.speaker)}
+                          </span>
+                        ) : (
+                          <span aria-hidden className="bg-grey-100 mt-1 h-full w-px flex-none rounded-full" />
+                        )}
                       </Box>
-                      <Typography variant="body2" className="leading-6">
-                        {segment.text}
-                      </Typography>
-                      {links.length > 0 && (
-                        <Box className="flex flex-wrap items-center gap-2">
-                          <Typography variant="caption" className="text-text-secondary">
-                            {t("transcript-linked-fields")}
+
+                      <Box className="flex min-w-0 flex-1 flex-col gap-1">
+                        {startsTurn && (
+                          <Typography variant="subtitle2" className="text-text-primary leading-tight">
+                            {segment.speaker}
                           </Typography>
+                        )}
+                        <Typography variant="body2" className="text-text-primary leading-6">
+                          {segment.text}
+                        </Typography>
+                        <Box className="flex flex-wrap items-center gap-1.5">
+                          <Button
+                            size="tiny"
+                            variant="text"
+                            color="grey"
+                            startIcon={<NiPlay size="tiny" />}
+                            disabled={!data.audioUrl}
+                            onClick={() => void playSegment(segment.start)}
+                            aria-label={t("transcript-play-segment", { time: segment.start })}
+                            className="px-1! font-mono tabular-nums"
+                          >
+                            {segment.start}
+                          </Button>
                           {links.map((field) => (
                             <Chip
                               key={`${field.blockKey}.${field.fieldKey}`}
                               size="small"
                               clickable
                               label={t(field.labelKey)}
+                              title={t("transcript-linked-fields")}
                               className="bg-primary/10 text-primary-dark dark:text-primary-light text-xs font-semibold"
                               onClick={() => goToField(field.blockKey, field.fieldKey)}
                             />
                           ))}
                         </Box>
-                      )}
+                      </Box>
                     </Box>
                   );
                 })}
               </Box>
             )}
 
+            {/* The EXPLANATION of each act stays with the content it describes;
+                the act itself moved to the footer. */}
             {!data.validatedAt && (
-              <Box className="border-divider flex flex-col items-start gap-2 border-t pt-4">
-                <Typography variant="body2" className="text-text-secondary">
-                  {t("transcript-validation-help")}
-                </Typography>
-                <Button
-                  variant="contained"
-                  onClick={() => void validate()}
-                  disabled={validating || data.segments.length === 0}
-                >
-                  {validating ? t("transcript-validating") : t("transcript-validate")}
-                </Button>
-              </Box>
+              <Typography
+                variant="body2"
+                className="text-text-secondary border-divider border-t pt-4 text-xs leading-5"
+              >
+                {t("transcript-validation-help")}
+              </Typography>
             )}
             {data.validatedAt && data.audioUrl && (
-              <Box className="border-divider flex flex-col items-start gap-2 border-t pt-4">
-                <Typography variant="body2" className="text-text-secondary">
-                  {t("transcript-delete-audio-help")}
-                </Typography>
-                <Button
-                  color="grey"
-                  variant="outlined"
-                  onClick={() => setConfirmDeleteAudio(true)}
-                  disabled={deletingAudio}
-                >
-                  {deletingAudio ? t("transcript-deleting-audio") : t("transcript-delete-audio")}
-                </Button>
-              </Box>
+              <Typography
+                variant="body2"
+                className="text-text-secondary border-divider border-t pt-4 text-xs leading-5"
+              >
+                {t("transcript-delete-audio-help")}
+              </Typography>
             )}
           </>
         )}
       </DialogContent>
-      <DialogActions>
+      {/* A transcript runs dozens of turns; "Validar" at the end of the content
+          meant scrolling the whole conversation to reach it. Pinned in the
+          footer it is reachable from anywhere in the review. */}
+      <DialogActions className="flex flex-row flex-wrap justify-end gap-2">
         <Button color="grey" onClick={onClose}>
           {t("close")}
         </Button>
+        {data && data.validatedAt && data.audioUrl && (
+          <Button color="grey" variant="outlined" onClick={() => setConfirmDeleteAudio(true)} disabled={deletingAudio}>
+            {deletingAudio ? t("transcript-deleting-audio") : t("transcript-delete-audio")}
+          </Button>
+        )}
+        {data && !data.validatedAt && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => void validate()}
+            disabled={validating || data.segments.length === 0}
+          >
+            {validating ? t("transcript-validating") : t("transcript-validate")}
+          </Button>
+        )}
       </DialogActions>
 
       {/* Deleting the source audio is irreversible — it gets its own dialog
           naming the consequence, never a browser popup. */}
       <Dialog open={confirmDeleteAudio} onClose={() => setConfirmDeleteAudio(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t("transcript-delete-audio")}</DialogTitle>
-        <DialogContent>
+        <DialogHeader
+          title={t("transcript-delete-audio")}
+          closeLabel={t("close")}
+          onClose={() => setConfirmDeleteAudio(false)}
+        />
+        <DialogContent className="py-5!">
           <Typography variant="body2" className="text-text-secondary leading-6">
             {t("transcript-delete-audio-confirm")}
           </Typography>

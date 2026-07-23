@@ -3,15 +3,15 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 
-import { Alert, Box, Button, Card, CardContent, LinearProgress, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Typography } from "@mui/material";
 
+import UsageMeter from "@/components/product/usage-meter";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiClock from "@/icons/nexture/ni-clock";
 import { trialDaysLeft } from "@/lib/audio-allowance";
 import { getProductAction } from "@/lib/product-actions";
 import { trackCommercialEvent } from "@/lib/product-events";
-import { cn } from "@/lib/utils";
 
 const BILLING_HREF = `${getProductAction("billing").href}?source=usage&feature=audio`;
 
@@ -95,18 +95,37 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
               </Typography>
             </Box>
 
-            <LinearProgress
-              variant="determinate"
-              value={Math.min(allowance.percent, 100)}
-              color={nearLimit ? "warning" : "primary"}
-              aria-label={t("usage-title")}
+            {/* Used vs available, both named. Running low tints the consumed
+                share amber — never red, which stays reserved for clinical risk
+                and failure (docs/DESIGN.md); a commercial limit is neither. */}
+            <UsageMeter
+              ariaLabel={t("usage-title")}
+              headline={t("usage-meter-headline", {
+                used: allowance.minutesUsed,
+                limit: allowance.minutesLimit,
+              })}
+              caption={
+                isTrial
+                  ? t("usage-trial-caption", { used: allowance.minutesUsed, days: daysLeft ?? 0 })
+                  : t("usage-plan-caption", { used: allowance.minutesUsed, plan: allowance.planName ?? "" })
+              }
+              segments={[
+                {
+                  key: "used",
+                  label: t("usage-segment-used"),
+                  value: allowance.minutesUsed,
+                  display: t("usage-minutes", { minutes: allowance.minutesUsed }),
+                  tone: nearLimit ? "attention" : "primary",
+                },
+                {
+                  key: "available",
+                  label: t("usage-segment-available"),
+                  value: Math.max(0, allowance.minutesRemaining),
+                  display: t("usage-minutes", { minutes: Math.max(0, allowance.minutesRemaining) }),
+                  tone: "empty",
+                },
+              ]}
             />
-
-            <Typography variant="body2" className={cn("text-text-secondary text-xs leading-5")}>
-              {isTrial
-                ? t("usage-trial-caption", { used: allowance.minutesUsed, days: daysLeft ?? 0 })
-                : t("usage-plan-caption", { used: allowance.minutesUsed, plan: allowance.planName ?? "" })}
-            </Typography>
 
             {/* PRD §5.8: alert at 80/95/100 — here as state, not just a bell. */}
             {allowance.percent >= 100 ? (
