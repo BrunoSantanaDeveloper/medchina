@@ -3,6 +3,8 @@
 import { headers } from "next/headers";
 
 import { recordAudit } from "@/lib/audit";
+import { sendMetaConversion } from "@/lib/meta-capi";
+import { getMetaClientContext } from "@/lib/meta-capi-context";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
 import { type CheckoutPlan, defaultProvider, getProvider } from "@flyee/billing";
@@ -147,6 +149,20 @@ export async function startCheckout(input: {
       orgId: input.orgId,
       entityType: "plan",
       entityId: plan.id,
+    });
+
+    // Meta CAPI — InitiateCheckout. Server-side (no Pixel runs on the app);
+    // reuses the idempotency key as event_id and the request's _fbp/_fbc so it
+    // attributes to the ad click. No clinical data leaves the server.
+    const metaContext = await getMetaClientContext(`${origin}/settings/billing`);
+    await sendMetaConversion({
+      eventName: "InitiateCheckout",
+      eventId: input.idempotencyKey,
+      email: user.email,
+      externalId: input.orgId,
+      value: plan.priceCents / 100,
+      currency: plan.currency,
+      ...metaContext,
     });
 
     return { url: completed.result?.url ?? result.url };

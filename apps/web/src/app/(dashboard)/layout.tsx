@@ -7,7 +7,6 @@ import { Suspense } from "react";
 import { LicenseInfo } from "@mui/x-license";
 
 import Loading from "@/app/loading";
-import CookieConsent from "@/components/consent/cookie-consent";
 import AnnouncementBanner from "@/components/layout/announcements/announcement-banner";
 import ContentWrapper from "@/components/layout/containers/content-wrapper";
 import Header from "@/components/layout/containers/header";
@@ -43,7 +42,13 @@ export default function DashboardLayout({
       </Main>
       <MenuBackdrop />
       <SupportWidget />
-      <CookieConsent />
+      {/*
+        No cookie-consent banner and no ad/analytics tracker on the clinical
+        app: the Meta Pixel / GA4 live ONLY in the marketing layout (LGPD
+        Art. 11 — sensitive health data). In-app funnel events (checkout,
+        trial start, purchase) are sent server-side via the Conversions API
+        (lib/meta-capi.ts), never by a browser tracker over patient routes.
+      */}
     </RecordingSessionProvider>
   );
 }

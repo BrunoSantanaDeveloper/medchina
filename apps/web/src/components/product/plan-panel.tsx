@@ -18,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiListCheck from "@/icons/nexture/ni-list-check";
 import { type FieldDescriptor, type FieldKind, PLAN_MODALITIES, PLAN_STRATEGIES } from "@/lib/plan-modalities";
@@ -351,20 +352,22 @@ export default function PlanPanel({
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
-        <Box className="flex flex-row items-center gap-2">
-          <NiListCheck size="medium" className="text-primary" />
-          <Typography variant="h6" component="h2">
-            {t("plan-title")}
-          </Typography>
-          {plan?.status === "validated" && (
-            <Chip
-              size="small"
-              icon={<NiCheckSquare size="tiny" />}
-              label={t("plan-validated-badge")}
-              className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light ml-auto text-xs font-semibold"
-            />
-          )}
-        </Box>
+        <ConsultationStepHeader
+          step={3}
+          icon={<NiListCheck size="medium" />}
+          title={t("plan-title")}
+          hint={t("plan-step-hint")}
+          trailing={
+            plan?.status === "validated" ? (
+              <Chip
+                size="small"
+                icon={<NiCheckSquare size="tiny" />}
+                label={t("plan-validated-badge")}
+                className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light ml-auto text-xs font-semibold"
+              />
+            ) : undefined
+          }
+        />
 
         {loadFailed && (
           <Alert
@@ -391,11 +394,23 @@ export default function PlanPanel({
             </Typography>
             {!isFinalized && (
               <Box className="flex flex-row flex-wrap gap-2">
-                <Button variant="contained" color="primary" onClick={createManual} disabled={busy}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={busy ? undefined : <NiListCheck size="tiny" />}
+                  onClick={createManual}
+                  disabled={busy}
+                >
                   {busy ? <CircularProgress size={18} /> : t("plan-create-manual")}
                 </Button>
                 {canReason && (
-                  <Button variant="outlined" color="primary" onClick={() => prepare()} disabled={busy}>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<NiListCheck size="tiny" />}
+                    onClick={() => prepare()}
+                    disabled={busy}
+                  >
                     {t("plan-prepare")}
                   </Button>
                 )}

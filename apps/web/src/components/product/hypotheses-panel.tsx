@@ -19,6 +19,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import { cn } from "@/lib/utils";
@@ -269,13 +270,13 @@ export default function HypothesesPanel({
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
-        <Box className="flex flex-row items-center gap-2">
-          <NiClipboard size="medium" className="text-primary" />
-          {/* The heading is prescribed by PRD §10.8, word for word. */}
-          <Typography variant="h6" component="h2">
-            {t("hypotheses-title")}
-          </Typography>
-        </Box>
+        {/* The title is prescribed by PRD §10.8, word for word. */}
+        <ConsultationStepHeader
+          step={2}
+          icon={<NiClipboard size="medium" />}
+          title={t("hypotheses-title")}
+          hint={t("hypotheses-step-hint")}
+        />
 
         {loadFailed && (
           <Alert
@@ -301,7 +302,14 @@ export default function HypothesesPanel({
               {t("hypotheses-empty")}
             </Typography>
             {!isFinalized && canReason && (
-              <Button variant="contained" color="primary" onClick={prepare} disabled={busy} className="self-start">
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={busy ? undefined : <NiClipboard size="tiny" />}
+                onClick={prepare}
+                disabled={busy}
+                className="self-start"
+              >
                 {busy ? <CircularProgress size={18} /> : t("hypotheses-prepare")}
               </Button>
             )}
@@ -465,7 +473,14 @@ export default function HypothesesPanel({
             )}
 
             {!isFinalized && canReason && (
-              <Button variant="outlined" color="primary" onClick={prepare} disabled={busy} className="self-start">
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={busy ? undefined : <NiClipboard size="tiny" />}
+                onClick={prepare}
+                disabled={busy}
+                className="self-start"
+              >
                 {busy ? <CircularProgress size={18} /> : t("hypotheses-reprepare")}
               </Button>
             )}

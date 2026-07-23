@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { BRAND } from "@/brand";
 import CookieConsent from "@/components/consent/cookie-consent";
+import MarketingAnalytics from "@/components/consent/marketing-analytics";
 import JsonLd from "@/components/marketing/json-ld";
 import MarketingFooter from "@/components/marketing/marketing-footer";
 import MarketingHeader from "@/components/marketing/marketing-header";
@@ -57,6 +58,8 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <MarketingFooter />
       <SupportWidget support={support} />
       <CookieConsent />
+      {/* Marketing-only: keeps the Pixel/GA4 off the authenticated clinical app. */}
+      <MarketingAnalytics />
     </div>
   );
 }

@@ -20,10 +20,13 @@ import {
   Typography,
 } from "@mui/material";
 
+import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import { type PersistedWebRecording, useRecordingSession } from "@/components/product/recording-session-provider";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
+import NiPause from "@/icons/nexture/ni-pause";
+import NiSquare from "@/icons/nexture/ni-square";
 import { trialDaysLeft } from "@/lib/audio-allowance";
 import { recordAudit } from "@/lib/audit";
 import {
@@ -807,12 +810,12 @@ export default function ConsultationRecorder({
     <>
       <Card component="section">
         <CardContent className="flex flex-col gap-3">
-          <Box className="flex flex-row items-center gap-2">
-            <NiMicrophone size="medium" className="text-primary" />
-            <Typography variant="h6" component="h2">
-              {t("recorder-title")}
-            </Typography>
-          </Box>
+          <ConsultationStepHeader
+            step={1}
+            icon={<NiMicrophone size="medium" />}
+            title={t("recorder-title")}
+            hint={t("recorder-step-hint")}
+          />
 
           {/* A capture left open by a reload or a refused microphone blocks every
             new one at the server. Never a dead end: state it and offer the exit. */}
@@ -1002,6 +1005,7 @@ export default function ConsultationRecorder({
                   <Button
                     variant="contained"
                     color="primary"
+                    startIcon={<NiMicrophone size="tiny" />}
                     disabled={Boolean(orphan)}
                     onClick={() => void requestStart()}
                   >
@@ -1009,7 +1013,12 @@ export default function ConsultationRecorder({
                   </Button>
                 )}
                 {phase === "error" && pendingBlob.current && (
-                  <Button variant="contained" color="primary" onClick={retryUpload}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<NiMicrophone size="tiny" />}
+                    onClick={retryUpload}
+                  >
                     {t("recorder-retry-upload")}
                   </Button>
                 )}
@@ -1017,6 +1026,7 @@ export default function ConsultationRecorder({
                   <Button
                     variant="contained"
                     color="primary"
+                    startIcon={<NiMicrophone size="tiny" />}
                     disabled={Boolean(orphan)}
                     onClick={() => void requestStart()}
                   >
@@ -1027,6 +1037,7 @@ export default function ConsultationRecorder({
                   <Button
                     variant="outlined"
                     color="primary"
+                    startIcon={<NiMicrophone size="tiny" />}
                     disabled={Boolean(orphan)}
                     onClick={() => void requestStart()}
                   >
@@ -1035,20 +1046,20 @@ export default function ConsultationRecorder({
                 )}
                 {phase === "recording" && (
                   <>
-                    <Button variant="outlined" color="grey" onClick={pause}>
+                    <Button variant="outlined" color="grey" startIcon={<NiPause size="tiny" />} onClick={pause}>
                       {t("recorder-pause")}
                     </Button>
-                    <Button variant="contained" color="primary" onClick={finish}>
+                    <Button variant="contained" color="primary" startIcon={<NiSquare size="tiny" />} onClick={finish}>
                       {t("recorder-finish")}
                     </Button>
                   </>
                 )}
                 {phase === "paused" && (
                   <>
-                    <Button variant="outlined" color="grey" onClick={resume}>
+                    <Button variant="outlined" color="grey" startIcon={<NiMicrophone size="tiny" />} onClick={resume}>
                       {t("recorder-resume")}
                     </Button>
-                    <Button variant="contained" color="primary" onClick={finish}>
+                    <Button variant="contained" color="primary" startIcon={<NiSquare size="tiny" />} onClick={finish}>
                       {t("recorder-finish")}
                     </Button>
                   </>
@@ -1156,10 +1167,22 @@ export default function ConsultationRecorder({
             </Box>
           )}
           <Box className="flex flex-row gap-1">
-            <Button variant="text" color="grey" size="small" onClick={phase === "recording" ? pause : resume}>
+            <Button
+              variant="text"
+              color="grey"
+              size="small"
+              startIcon={phase === "recording" ? <NiPause size="tiny" /> : <NiMicrophone size="tiny" />}
+              onClick={phase === "recording" ? pause : resume}
+            >
               {phase === "recording" ? t("recorder-pause") : t("recorder-resume")}
             </Button>
-            <Button variant="contained" color="primary" size="small" onClick={finish}>
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<NiSquare size="tiny" />}
+              onClick={finish}
+            >
               {t("recorder-finish")}
             </Button>
           </Box>

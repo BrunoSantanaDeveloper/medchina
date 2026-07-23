@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { sendMetaConversion } from "@/lib/meta-capi";
 import { createServiceClient } from "@flyee/auth/service";
 import { type BillingEvent, type BillingPeriod, getProvider } from "@flyee/billing";
 
@@ -216,6 +217,20 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
           .eq("id", sub.id);
         if (recoveryError) throw new Error("subscription_reconciliation_failed");
       }
+
+      // Meta CAPI — Purchase. Fired once per paid invoice (event_id is the
+      // invoice id, so renewals count as distinct purchases and dedup safely).
+      // No browser context here (the provider called us): system_generated,
+      // matched only on the hashed org id. Never blocks reconciliation.
+      await sendMetaConversion({
+        eventName: "Purchase",
+        eventId: `${event.provider}:${event.providerInvoiceId}`,
+        externalId: orgId,
+        value: event.amountCents / 100,
+        currency: event.currency,
+        actionSource: "system_generated",
+        eventTime: Math.floor(event.paidAt.getTime() / 1000),
+      });
       break;
     }
 
