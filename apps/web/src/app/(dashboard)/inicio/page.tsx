@@ -15,15 +15,36 @@ import EmptyState from "@/components/product/empty-state";
 import OnboardingChecklistCard from "@/components/product/onboarding-checklist-card";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { useProfile } from "@/hooks/use-profile";
+import NiBook from "@/icons/nexture/ni-book";
 import NiCalendar from "@/icons/nexture/ni-calendar";
+import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiUsers from "@/icons/nexture/ni-users";
 import { calendarDayRange, calendarOverdueRange, startAppointment } from "@/lib/agenda";
-import { getProductAction } from "@/lib/product-actions";
+import { getProductAction, type ProductActionId } from "@/lib/product-actions";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
+
+/** Home shortcuts: short tile labels (the command-palette copy is too long for
+ * a 4-up grid), href resolved from the shared PRODUCT_ACTIONS registry. */
+const QUICK_ACTIONS: { id: ProductActionId; labelKey: string; icon: React.ReactNode; tone: keyof typeof TONE }[] = [
+  { id: "new-patient", labelKey: "home-quick-new-patient", icon: <NiUsers />, tone: "accent-2" },
+  { id: "new-appointment", labelKey: "home-quick-new-appointment", icon: <NiCalendarClock />, tone: "primary" },
+  { id: "agenda", labelKey: "home-quick-agenda", icon: <NiCalendar />, tone: "accent-1" },
+  { id: "library", labelKey: "home-quick-library", icon: <NiBook />, tone: "accent-4" },
+];
+
+/** Colored status signal reused across every consultation row on Home, so the
+ * two lists (in-progress vs recent) read apart without duplicating the label. */
+const STATUS_DOT: Record<string, string> = {
+  scheduled: "bg-accent-2",
+  in_progress: "bg-primary",
+  awaiting_review: "bg-accent-2",
+  draft: "bg-grey-300",
+  finalized: "bg-accent-1",
+};
 
 type HomeConsultation = {
   id: string;
@@ -235,6 +256,38 @@ export default function Inicio() {
               {data.patients === 0 ? t("home-empty-cta") : t("home-schedule-cta")}
             </Button>
           )}
+        </Box>
+      </Grid>
+
+      <Grid size={12}>
+        <Box className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {QUICK_ACTIONS.map((action) => {
+            const definition = getProductAction(action.id);
+            const toneStyle = TONE[action.tone];
+            return (
+              <Card
+                key={action.id}
+                component={Link}
+                href={definition.href}
+                className="hover:shadow-darker-sm transition-shadow"
+              >
+                <CardContent className="flex flex-col items-center gap-2 py-4! text-center">
+                  <span
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-2xl [&_svg]:h-5 [&_svg]:w-5",
+                      toneStyle.softBg,
+                      toneStyle.text,
+                    )}
+                  >
+                    {action.icon}
+                  </span>
+                  <Typography variant="body2" className="text-text-primary font-medium">
+                    {t(action.labelKey)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            );
+          })}
         </Box>
       </Grid>
 
@@ -537,7 +590,14 @@ function ConsultationRow({
   return (
     <Box className="hover:bg-grey-25 flex flex-col items-stretch gap-3 rounded-2xl px-3 py-3 transition-colors sm:flex-row sm:items-center sm:py-2.5">
       <Box className="min-w-0 flex-1">
-        <Typography variant="body1" className="text-text-primary font-medium break-words sm:truncate">
+        <Typography
+          variant="body1"
+          className="text-text-primary flex items-center gap-2 font-medium break-words sm:truncate"
+        >
+          <span
+            aria-hidden
+            className={cn("h-2 w-2 flex-none rounded-full", STATUS_DOT[consultation.status] ?? "bg-grey-300")}
+          />
           {consultation.patientName}
         </Typography>
         <Typography variant="body2" className="text-text-secondary break-words sm:truncate">

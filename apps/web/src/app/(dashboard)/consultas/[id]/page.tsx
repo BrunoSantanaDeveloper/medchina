@@ -38,6 +38,7 @@ import HypothesesPanel from "@/components/product/hypotheses-panel";
 import PlanPanel from "@/components/product/plan-panel";
 import RecordingsPanel from "@/components/product/recordings-panel";
 import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule-dialog";
+import UsageMeter from "@/components/product/usage-meter";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
@@ -45,6 +46,8 @@ import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiListCheck from "@/icons/nexture/ni-list-check";
 import NiLock from "@/icons/nexture/ni-lock";
 import NiPlay from "@/icons/nexture/ni-play";
+import NiProgress from "@/icons/nexture/ni-progress";
+import NiSearch from "@/icons/nexture/ni-search";
 import { calendarDateInTimeZone, defaultAppointmentStart, weeklyOccurrences } from "@/lib/agenda";
 import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
@@ -557,6 +560,9 @@ export default function ConsultaPage() {
   };
 
   const filledCount = useMemo(() => Object.values(fields).filter((meta) => meta.value.trim()).length, [fields]);
+  // Chief complaint lives on the consultation row, not among ANAMNESIS_BLOCKS
+  // fields, so it stays out of this count too (see the block comment above).
+  const totalFieldCount = useMemo(() => ANAMNESIS_BLOCKS.reduce((sum, block) => sum + block.fields.length, 0), []);
   const attentionCount = useMemo(
     () => Object.values(fields).filter((meta) => meta.state === "attention").length,
     [fields],
@@ -921,9 +927,17 @@ export default function ConsultaPage() {
             {consultation.aiGaps.length > 0 && canEdit && (
               <Card component="section">
                 <CardContent className="flex flex-col gap-2">
-                  <Typography variant="h6" component="h2">
-                    {t("consultation-gaps-title")}
-                  </Typography>
+                  <Box className="flex flex-row items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="bg-accent-3/10 text-accent-3 flex h-9 w-9 flex-none items-center justify-center rounded-xl"
+                    >
+                      <NiSearch size="small" />
+                    </span>
+                    <Typography variant="h6" component="h2" className="mb-0">
+                      {t("consultation-gaps-title")}
+                    </Typography>
+                  </Box>
                   <Typography variant="body2" className="text-text-secondary text-xs">
                     {t("consultation-gaps-subtitle")}
                   </Typography>
@@ -940,16 +954,41 @@ export default function ConsultaPage() {
             )}
 
             <Card component="section">
-              <CardContent className="flex flex-col gap-2">
-                <Typography variant="h6" component="h2">
-                  {t("consultation-state-title")}
-                </Typography>
-                <Typography variant="body2" className="text-text-secondary leading-6">
-                  {t("consultation-state-body", { count: filledCount })}
-                </Typography>
-                <Typography variant="body2" className="text-text-secondary leading-6">
-                  {t("consultation-absence-note")}
-                </Typography>
+              <CardContent className="flex flex-col gap-3">
+                <Box className="flex flex-row items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="bg-primary/10 text-primary flex h-9 w-9 flex-none items-center justify-center rounded-xl"
+                  >
+                    <NiProgress size="small" />
+                  </span>
+                  <Typography variant="h6" component="h2" className="mb-0">
+                    {t("consultation-state-title")}
+                  </Typography>
+                </Box>
+                {/* A completion readout, not a score: blank fields are "não
+                    informado", never a deficiency — grey, not amber/red. */}
+                <UsageMeter
+                  ariaLabel={t("consultation-state-title")}
+                  headline={t("consultation-state-body", { count: filledCount })}
+                  caption={t("consultation-absence-note")}
+                  segments={[
+                    {
+                      key: "filled",
+                      label: t("consultation-state-filled"),
+                      value: filledCount,
+                      display: String(filledCount),
+                      tone: "primary",
+                    },
+                    {
+                      key: "remaining",
+                      label: t("consultation-state-remaining"),
+                      value: Math.max(0, totalFieldCount - filledCount),
+                      display: String(Math.max(0, totalFieldCount - filledCount)),
+                      tone: "empty",
+                    },
+                  ]}
+                />
               </CardContent>
             </Card>
 
