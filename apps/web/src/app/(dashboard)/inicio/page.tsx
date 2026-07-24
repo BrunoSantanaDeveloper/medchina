@@ -19,6 +19,7 @@ import NiBook from "@/icons/nexture/ni-book";
 import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
+import NiListCheck from "@/icons/nexture/ni-list-check";
 import NiUsers from "@/icons/nexture/ni-users";
 import { calendarDayRange, calendarOverdueRange, startAppointment } from "@/lib/agenda";
 import { getProductAction, type ProductActionId } from "@/lib/product-actions";
@@ -386,14 +387,12 @@ export default function Inicio() {
             <Card component="section">
               <CardContent className="flex flex-col gap-3">
                 <Box className="flex flex-row flex-wrap items-start justify-between gap-2">
-                  <Box>
-                    <Typography variant="h5" component="h2" className="card-title">
-                      {t("home-today-title")}
-                    </Typography>
-                    <Typography variant="body2" className="text-text-secondary">
-                      {t("home-today-subtitle")}
-                    </Typography>
-                  </Box>
+                  <SectionHeader
+                    icon={<NiCalendar />}
+                    tone="primary"
+                    title={t("home-today-title")}
+                    subtitle={t("home-today-subtitle")}
+                  />
                   <Button size="small" href="/agenda" LinkComponent={Link}>
                     {t("home-open-agenda")}
                   </Button>
@@ -438,12 +437,12 @@ export default function Inicio() {
             <Grid size={{ xs: 12, lg: data!.recent.length > 0 ? 7 : 12 }}>
               <Card component="section" className="h-full">
                 <CardContent className="flex flex-col gap-3">
-                  <Typography variant="h5" component="h2" className="card-title">
-                    {t("home-work-title")}
-                  </Typography>
-                  <Typography variant="body2" className="text-text-secondary -mt-2">
-                    {t("home-work-subtitle")}
-                  </Typography>
+                  <SectionHeader
+                    icon={<NiListCheck />}
+                    tone="accent-3"
+                    title={t("home-work-title")}
+                    subtitle={t("home-work-subtitle")}
+                  />
                   <Box className="flex flex-col gap-1">
                     {data!.work.map((consultation) => (
                       <ConsultationRow
@@ -466,12 +465,12 @@ export default function Inicio() {
             <Grid size={{ xs: 12, lg: data!.work.length > 0 ? 5 : 12 }}>
               <Card component="section" className="h-full">
                 <CardContent className="flex flex-col gap-3">
-                  <Typography variant="h5" component="h2" className="card-title">
-                    {t("home-recent-title")}
-                  </Typography>
-                  <Typography variant="body2" className="text-text-secondary -mt-2">
-                    {t("home-recent-subtitle")}
-                  </Typography>
+                  <SectionHeader
+                    icon={<NiCheckSquare />}
+                    tone="accent-1"
+                    title={t("home-recent-title")}
+                    subtitle={t("home-recent-subtitle")}
+                  />
                   <Box className="flex flex-col gap-1">
                     {data!.recent.map((consultation) => (
                       <ConsultationRow
@@ -529,6 +528,47 @@ export default function Inicio() {
 }
 
 const consultationDate = (consultation: HomeConsultation) => consultation.scheduledFor ?? consultation.startedAt;
+
+/** Section header: icon in a tinted chip + title/subtitle — the same language
+ * as the quick-action tiles and the metric cards, so color carries through
+ * the whole page instead of pooling only at the very top and bottom. */
+function SectionHeader({
+  icon,
+  tone,
+  title,
+  subtitle,
+}: {
+  icon: React.ReactNode;
+  tone: keyof typeof TONE;
+  title: string;
+  subtitle?: string;
+}) {
+  const toneStyle = TONE[tone];
+  return (
+    <Box className="flex flex-row items-center gap-3">
+      <span
+        aria-hidden
+        className={cn(
+          "flex h-10 w-10 flex-none items-center justify-center rounded-2xl [&_svg]:h-5 [&_svg]:w-5",
+          toneStyle.softBg,
+          toneStyle.text,
+        )}
+      >
+        {icon}
+      </span>
+      <Box>
+        <Typography variant="h5" component="h2" className="card-title mb-0">
+          {title}
+        </Typography>
+        {subtitle && (
+          <Typography variant="body2" className="text-text-secondary">
+            {subtitle}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+}
 
 function Metric({
   icon,
@@ -596,7 +636,10 @@ function ConsultationRow({
         >
           <span
             aria-hidden
-            className={cn("h-2 w-2 flex-none rounded-full", STATUS_DOT[consultation.status] ?? "bg-grey-300")}
+            className={cn(
+              "border-background-paper h-2.5 w-2.5 flex-none rounded-full border-2",
+              STATUS_DOT[consultation.status] ?? "bg-grey-300",
+            )}
           />
           {consultation.patientName}
         </Typography>

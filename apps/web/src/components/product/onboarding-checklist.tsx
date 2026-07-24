@@ -8,6 +8,7 @@ import { Box, Button, Card, CardContent, Typography } from "@mui/material";
 import ActivationProgress from "@/components/product/activation-progress";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
+import NiCompass from "@/icons/nexture/ni-compass";
 import NiCross from "@/icons/nexture/ni-cross";
 import { cn } from "@/lib/utils";
 import { computeProgress, type OnboardingStateRow, type OnboardingStep } from "@flyee/onboarding";
@@ -43,13 +44,21 @@ export default function OnboardingChecklist({
     <Card component="section" className={className}>
       <CardContent className="flex flex-col gap-4">
         <Box className="flex flex-row items-start justify-between gap-3">
-          <Box>
-            <Typography variant="h5" component="h2" className="card-title">
-              {title ?? t("checklistTitle")}
-            </Typography>
-            <Typography variant="body2" className="text-text-secondary">
-              {t("checklistSubtitle")}
-            </Typography>
+          <Box className="flex flex-row items-center gap-3">
+            <span
+              aria-hidden
+              className="bg-secondary/10 text-secondary flex h-10 w-10 flex-none items-center justify-center rounded-2xl [&_svg]:h-5 [&_svg]:w-5"
+            >
+              <NiCompass />
+            </span>
+            <Box>
+              <Typography variant="h5" component="h2" className="card-title mb-0">
+                {title ?? t("checklistTitle")}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary">
+                {t("checklistSubtitle")}
+              </Typography>
+            </Box>
           </Box>
           <Box className="flex flex-row items-center gap-2">
             <ActivationProgress done={progress.done} total={progress.total} />

@@ -60,9 +60,14 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
-        <Box className="flex flex-row items-center gap-2">
-          <NiClock size="medium" className="text-primary" />
-          <Typography variant="h6" component="h2">
+        <Box className="flex flex-row items-center gap-3">
+          <span
+            aria-hidden
+            className="bg-primary/10 text-primary flex h-10 w-10 flex-none items-center justify-center rounded-2xl [&_svg]:h-5 [&_svg]:w-5"
+          >
+            <NiClock size="medium" />
+          </span>
+          <Typography variant="h6" component="h2" className="mb-0">
             {t("usage-title")}
           </Typography>
         </Box>
