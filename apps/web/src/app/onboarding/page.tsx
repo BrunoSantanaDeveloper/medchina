@@ -8,7 +8,6 @@ import { Box, Button, Card, CardContent, Chip, Typography } from "@mui/material"
 
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
-import NiAi from "@/icons/nexture/ni-ai";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiUsers from "@/icons/nexture/ni-users";
@@ -27,9 +26,16 @@ import {
 type Track = NonNullable<OnboardingStateRow["selectedTrack"]>;
 type Choice = { key: Track; icon: React.ReactNode };
 
+/**
+ * The scripted "demo" track was removed: it described the result in prose
+ * instead of showing it, and the page itself pointed at the clinical library
+ * as "the real demo". Seeing the AI without a patient is now the library's
+ * job, invited from /primeiros-passos. `selectedTrack` still accepts "demo"
+ * (template vocabulary + rows stored before this change) — callers normalise
+ * that legacy value instead of offering it.
+ */
 const CHOICES: Choice[] = [
   { key: "manual", icon: <NiUsers size="large" /> },
-  { key: "demo", icon: <NiAi size="large" /> },
   { key: "ai", icon: <NiMicrophone size="large" /> },
 ];
 
