@@ -9,7 +9,7 @@ import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiPause from "@/icons/nexture/ni-pause";
 import NiSquare from "@/icons/nexture/ni-square";
-import { isCaptureLinkToken } from "@/lib/capture-link";
+import { isCaptureLinkToken } from "@/lib/capture-link-token";
 import { cn } from "@/lib/utils";
 import { createClient } from "@flyee/auth/client";
 
