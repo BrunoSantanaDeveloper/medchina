@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
+import { notifyUsers } from "@/lib/notifications";
 import { createServiceClient } from "@flyee/auth/service";
 import { type BillingEvent, type BillingPeriod, getProvider } from "@flyee/billing";
 
@@ -73,6 +74,58 @@ async function ensureFreeSubscription(supabase: ServiceClient, orgId: string) {
   if (error) throw error;
 }
 
+/**
+ * Tells the workspace something about its billing, in the default locale
+ * (notification bodies are stored text, written at creation).
+ *
+ * Best-effort by construction: a notification outage must never make a
+ * reconciled provider event look unreconciled, which would replay it.
+ */
+async function notifyOrg(supabase: ServiceClient, orgId: string, input: { title: string; body: string; href: string }) {
+  try {
+    const { data: members } = await supabase.from("memberships").select("user_id").eq("org_id", orgId);
+    const userIds = (members ?? []).map((row) => row.user_id as string);
+    if (userIds.length === 0) return;
+    await notifyUsers(userIds, { type: "billing", ...input });
+  } catch {
+    // Reconciliation already succeeded; the bell is not worth replaying it.
+  }
+}
+
+/**
+ * Lets the 80/95/100% audio alerts fire again after a pack purchase.
+ *
+ * `usage_alerts` is keyed by (org, meter, window, threshold), which is exactly
+ * what makes the alerts idempotent. But buying minutes changes the
+ * DENOMINATOR mid-window: without this, someone who hit 100%, bought a pack
+ * and burned through it would never be warned a second time — the row saying
+ * "already alerted" would still be there from before the purchase.
+ *
+ * Best-effort: a missed reset costs a warning, not correctness.
+ */
+async function reopenAudioAlerts(supabase: ServiceClient, orgId: string) {
+  try {
+    const { data } = await supabase.rpc("org_audio_allowance", { target_org: orgId });
+    const windowStart = (data as { window_start?: string } | null)?.window_start;
+    if (!windowStart) return;
+    await supabase
+      .from("usage_alerts")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("meter", "audio")
+      .eq("window_start", windowStart);
+  } catch {
+    // The pack is already granted; that is the part that had to be right.
+  }
+}
+
+/** How many days the dunning window lasts, as configured (migration 0054). */
+async function graceDays(supabase: ServiceClient): Promise<number> {
+  const { data } = await supabase.from("platform_settings").select("value").eq("key", "dunning").maybeSingle();
+  const days = Number((data?.value as { grace_days?: unknown } | null)?.grace_days);
+  return Number.isFinite(days) && days > 0 ? Math.floor(days) : 0;
+}
+
 async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
   switch (event.type) {
     case "subscription_activated": {
@@ -97,6 +150,8 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
           provider: event.provider,
           provider_customer_id: event.providerCustomerId ?? sub.provider_customer_id,
           provider_subscription_id: event.providerSubscriptionId,
+          // Activation supersedes any open dunning window.
+          past_due_since: null,
           current_period_start: new Date().toISOString(),
           current_period_end:
             event.currentPeriodEnd?.toISOString() ??
@@ -164,6 +219,20 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
       const orgId = sub?.org_id ?? event.metadata.org_id;
       if (!orgId) throw new Error("billing_context_not_ready");
 
+      // Asaas emits PAYMENT_CONFIRMED then PAYMENT_RECEIVED for the SAME card
+      // payment. Reconciliation below is idempotent (invoice/credits dedup),
+      // but the analytics Purchase must fire ONCE per invoice — so we remember
+      // whether this invoice was already paid before this event and skip the
+      // conversion the second time (Meta dedups by event_id anyway; GA4 does
+      // not, so this is what keeps GA4 revenue honest).
+      const { data: priorInvoice } = await supabase
+        .from("invoices")
+        .select("status")
+        .eq("provider", event.provider)
+        .eq("provider_invoice_id", event.providerInvoiceId)
+        .maybeSingle();
+      const alreadyCounted = priorInvoice?.status === "paid";
+
       const { error: invoiceError } = await supabase.from("invoices").upsert(
         {
           org_id: orgId,
@@ -186,11 +255,38 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
       if (planId) {
         const { data: plan, error: planError } = await supabase
           .from("plans")
-          .select("kind, credit_amount, credits_expire, period, name")
+          .select("kind, credit_amount, credits_expire, period, name, is_addon, limits")
           .eq("id", planId)
           .maybeSingle();
         if (planError) throw new Error("plan_reconciliation_failed");
-        if (plan?.kind === "credits" && plan.credit_amount) {
+
+        // An à-la-carte minute pack (migration 0055). It is catalogued as a
+        // one-off `credits` plan, but it grants AUDIO MINUTES, not generic
+        // credits — so it takes this branch and never the one below, which
+        // would otherwise hand out both currencies for a single payment.
+        const packMinutes = Number((plan?.limits as { audio_minutes_pack?: unknown } | null)?.audio_minutes_pack);
+        if (plan?.is_addon && Number.isFinite(packMinutes) && packMinutes > 0) {
+          const { error: packError } = await supabase.from("audio_minute_packs").upsert(
+            {
+              org_id: orgId,
+              plan_id: planId,
+              source: "purchase",
+              minutes_purchased: packMinutes,
+              seconds_total: packMinutes * 60,
+              price_cents: event.amountCents,
+              currency: event.currency,
+              invoice_key: `${event.provider}:${event.providerInvoiceId}`,
+            },
+            { onConflict: "invoice_key", ignoreDuplicates: true },
+          );
+          if (packError) throw new Error("audio_pack_reconciliation_failed");
+          await reopenAudioAlerts(supabase, orgId);
+          await notifyOrg(supabase, orgId, {
+            title: `${packMinutes} minutos adicionados`,
+            body: "Seus minutos avulsos não expiram e são usados depois dos minutos do seu plano.",
+            href: "/settings/billing",
+          });
+        } else if (plan?.kind === "credits" && plan.credit_amount) {
           const expiresAt =
             plan.credits_expire && plan.period
               ? periodEnd(event.paidAt, plan.period as BillingPeriod).toISOString()
@@ -210,59 +306,66 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
         }
       }
 
-      // A paid invoice heals a past_due subscription.
+      // A paid invoice heals a past_due subscription — and closes the dunning
+      // window with it, so a later failure starts counting from scratch
+      // instead of inheriting the previous one's clock.
       if (sub && sub.status === "past_due") {
         const { error: recoveryError } = await supabase
           .from("subscriptions")
-          .update({ status: "active" })
+          .update({ status: "active", past_due_since: null })
           .eq("id", sub.id);
         if (recoveryError) throw new Error("subscription_reconciliation_failed");
+        await notifyOrg(supabase, orgId, {
+          title: "Pagamento confirmado",
+          body: "Sua assinatura está em dia e a gravação com IA segue disponível.",
+          href: "/settings/billing",
+        });
       }
 
-      // Meta CAPI — Purchase. Fired once per paid invoice (event_id is the
-      // invoice id, so renewals count as distinct purchases and dedup safely).
-      // The provider called us, so there is no browser here: we enrich the
-      // match with the ad-click signals captured at checkout (meta_attribution)
-      // — email + _fbp/_fbc + IP/UA — falling back to the hashed org id alone.
-      // Best-effort: it never blocks reconciliation.
-      try {
-        const { data: attribution } = await supabase
-          .from("meta_attribution")
-          .select("fbp, fbc, email, client_ip, client_user_agent, ga_client_id")
-          .eq("org_id", orgId)
-          .maybeSingle();
-        await sendMetaConversion({
-          eventName: "Purchase",
-          eventId: `${event.provider}:${event.providerInvoiceId}`,
-          externalId: orgId,
-          email: attribution?.email ?? null,
-          fbp: attribution?.fbp ?? null,
-          fbc: attribution?.fbc ?? null,
-          clientIp: attribution?.client_ip ?? null,
-          clientUserAgent: attribution?.client_user_agent ?? null,
-          value: event.amountCents / 100,
-          currency: event.currency,
-          // Honest source: the webhook fired this, no browser present. The
-          // match keys above still attribute it to the ad click.
-          actionSource: "system_generated",
-          eventTime: Math.floor(event.paidAt.getTime() / 1000),
-        });
-        // GA4 purchase — stitched to the web session via the _ga client id
-        // captured at checkout (no _ga cookie here). transaction_id = invoice.
-        await sendGa4Event({
-          clientId: attribution?.ga_client_id ?? null,
-          eventName: "purchase",
-          eventId: `${event.provider}:${event.providerInvoiceId}`,
-          eventTime: Math.floor(event.paidAt.getTime() / 1000),
-          params: {
-            currency: event.currency,
+      // Meta CAPI + GA4 — Purchase, once per paid invoice (renewals are distinct
+      // invoices, so they count as distinct purchases). The provider called us,
+      // so there is no browser here: we enrich the match with the ad-click
+      // signals captured at checkout (meta_attribution) — email + _fbp/_fbc +
+      // IP/UA + _ga client id. Best-effort: it never blocks reconciliation.
+      if (!alreadyCounted)
+        try {
+          const { data: attribution } = await supabase
+            .from("meta_attribution")
+            .select("fbp, fbc, email, client_ip, client_user_agent, ga_client_id")
+            .eq("org_id", orgId)
+            .maybeSingle();
+          await sendMetaConversion({
+            eventName: "Purchase",
+            eventId: `${event.provider}:${event.providerInvoiceId}`,
+            externalId: orgId,
+            email: attribution?.email ?? null,
+            fbp: attribution?.fbp ?? null,
+            fbc: attribution?.fbc ?? null,
+            clientIp: attribution?.client_ip ?? null,
+            clientUserAgent: attribution?.client_user_agent ?? null,
             value: event.amountCents / 100,
-            transaction_id: `${event.provider}:${event.providerInvoiceId}`,
-          },
-        });
-      } catch {
-        // Measurement is best-effort — a paid invoice is already reconciled.
-      }
+            currency: event.currency,
+            // Honest source: the webhook fired this, no browser present. The
+            // match keys above still attribute it to the ad click.
+            actionSource: "system_generated",
+            eventTime: Math.floor(event.paidAt.getTime() / 1000),
+          });
+          // GA4 purchase — stitched to the web session via the _ga client id
+          // captured at checkout (no _ga cookie here). transaction_id = invoice.
+          await sendGa4Event({
+            clientId: attribution?.ga_client_id ?? null,
+            eventName: "purchase",
+            eventId: `${event.provider}:${event.providerInvoiceId}`,
+            eventTime: Math.floor(event.paidAt.getTime() / 1000),
+            params: {
+              currency: event.currency,
+              value: event.amountCents / 100,
+              transaction_id: `${event.provider}:${event.providerInvoiceId}`,
+            },
+          });
+        } catch {
+          // Measurement is best-effort — a paid invoice is already reconciled.
+        }
       break;
     }
 
@@ -284,11 +387,26 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
       );
       if (invoiceError) throw new Error("invoice_reconciliation_failed");
       if (sub && ["trialing", "active"].includes(sub.status)) {
+        // The window has to count from a moment the database owns. Without
+        // this stamp the grace period would have to be inferred from
+        // `updated_at`, which any later write silently moves forward.
         const { error: pastDueError } = await supabase
           .from("subscriptions")
-          .update({ status: "past_due" })
+          .update({ status: "past_due", past_due_since: new Date().toISOString() })
           .eq("id", sub.id);
         if (pastDueError) throw new Error("subscription_reconciliation_failed");
+
+        // She has to learn about it here, not by discovering mid-appointment
+        // that the recorder stopped working.
+        const days = await graceDays(supabase);
+        await notifyOrg(supabase, orgId, {
+          title: "Não conseguimos processar seu pagamento",
+          body:
+            days > 0
+              ? `Atualize sua forma de pagamento em até ${days} dias para não interromper a gravação e a IA. Seus registros continuam acessíveis.`
+              : "Atualize sua forma de pagamento para continuar usando a gravação e a IA. Seus registros continuam acessíveis.",
+          href: "/settings/billing",
+        });
       }
       break;
     }

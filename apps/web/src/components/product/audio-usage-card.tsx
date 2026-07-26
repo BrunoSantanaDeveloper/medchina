@@ -9,11 +9,12 @@ import UsageMeter from "@/components/product/usage-meter";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiClock from "@/icons/nexture/ni-clock";
-import { trialDaysLeft } from "@/lib/audio-allowance";
+import { graceDaysLeft, trialDaysLeft } from "@/lib/audio-allowance";
 import { getProductAction } from "@/lib/product-actions";
 import { trackCommercialEvent } from "@/lib/product-events";
 
 const BILLING_HREF = `${getProductAction("billing").href}?source=usage&feature=audio`;
+const PAYMENT_HREF = `${getProductAction("billing").href}?source=usage&feature=payment`;
 
 /**
  * Audio minutes: what is left, and what happens when it runs out (PRD §5.8 —
@@ -37,9 +38,15 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
   const { allowance, loading } = useAudioAllowance(orgId);
   const promptViewed = useRef(false);
   const hasAllowance = Boolean(allowance && allowance.minutesLimit > 0);
+  // A failed renewal is not an exhausted allowance and is not an upgrade
+  // opportunity: it is answered by fixing the payment method, so it gets its
+  // own branch instead of borrowing the "buy more minutes" copy.
+  const paymentBlocked = allowance?.reason === "past_due_blocked";
+  const inGracePeriod = allowance?.reason === "past_due_grace";
   const promptVisible = Boolean(
     allowance &&
       !allowance.suspended &&
+      !paymentBlocked &&
       ((hasAllowance && allowance.percent >= 80) || (!hasAllowance && showWhenEmpty)),
   );
 
@@ -55,6 +62,8 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
 
   const isTrial = allowance.source === "trial";
   const daysLeft = isTrial ? trialDaysLeft(allowance) : null;
+  const graceLeft = graceDaysLeft(allowance);
+  const hasPack = allowance.packMinutesRemaining > 0;
   const nearLimit = allowance.percent >= 80;
 
   return (
@@ -75,17 +84,19 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
         {!hasAllowance ? (
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
-              {allowance.suspended ? t("usage-suspended") : t("usage-none")}
+              {allowance.suspended ? t("usage-suspended") : paymentBlocked ? t("usage-past-due") : t("usage-none")}
             </Typography>
             {!allowance.suspended && (
               <Button
-                variant="outlined"
+                variant={paymentBlocked ? "contained" : "outlined"}
                 color="primary"
-                href={BILLING_HREF}
+                href={paymentBlocked ? PAYMENT_HREF : BILLING_HREF}
                 className="self-start"
-                onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "usage", "audio")}
+                onClick={() =>
+                  trackCommercialEvent("upgrade.prompt_clicked", "usage", paymentBlocked ? "payment" : "audio")
+                }
               >
-                {t("usage-see-plans")}
+                {paymentBlocked ? t("usage-fix-payment") : t("usage-see-plans")}
               </Button>
             )}
           </>
@@ -96,7 +107,15 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
                 {allowance.minutesRemaining}
               </Typography>
               <Typography variant="body2" className="text-text-secondary">
-                {t("usage-remaining-of", { limit: allowance.minutesLimit })}
+                {/* With a pack in play the total exceeds the cycle limit, so
+                    "X of {limit}" would be arithmetically wrong. Name both
+                    pools instead — they behave differently at renewal. */}
+                {hasPack
+                  ? t("usage-remaining-with-pack", {
+                      cycle: allowance.cycleMinutesRemaining,
+                      pack: allowance.packMinutesRemaining,
+                    })
+                  : t("usage-remaining-of", { limit: allowance.minutesLimit })}
               </Typography>
             </Box>
 
@@ -125,17 +144,61 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
                 {
                   key: "available",
                   label: t("usage-segment-available"),
-                  value: Math.max(0, allowance.minutesRemaining),
-                  display: t("usage-minutes", { minutes: Math.max(0, allowance.minutesRemaining) }),
+                  value: Math.max(0, allowance.cycleMinutesRemaining),
+                  display: t("usage-minutes", { minutes: Math.max(0, allowance.cycleMinutesRemaining) }),
                   tone: "empty",
                 },
+                // Purchased minutes are a distinct segment because they behave
+                // differently: they do not reset at renewal, and they are only
+                // touched once the cycle above is spent.
+                ...(hasPack
+                  ? [
+                      {
+                        key: "pack",
+                        label: t("usage-segment-pack"),
+                        value: allowance.packMinutesRemaining,
+                        display: t("usage-minutes", { minutes: allowance.packMinutesRemaining }),
+                        tone: "secondary" as const,
+                      },
+                    ]
+                  : []),
               ]}
             />
+
+            {/* The window is still open, so the minutes above are real — but
+                they stop when it closes, and that deadline belongs next to
+                them rather than only in a notification she may have missed. */}
+            {inGracePeriod && (
+              <Alert
+                severity="warning"
+                className="neutral bg-background-paper/60!"
+                action={
+                  <Button
+                    size="small"
+                    color="inherit"
+                    href={PAYMENT_HREF}
+                    onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "usage", "payment")}
+                  >
+                    {t("usage-fix-payment")}
+                  </Button>
+                }
+              >
+                {graceLeft !== null
+                  ? t("usage-past-due-grace", { days: graceLeft })
+                  : t("usage-past-due-grace-generic")}
+              </Alert>
+            )}
 
             {/* PRD §5.8: alert at 80/95/100 — here as state, not just a bell. */}
             {allowance.percent >= 100 ? (
               <Alert severity="warning" className="neutral bg-background-paper/60!">
-                {isTrial ? t("usage-trial-over") : t("usage-limit-over")}
+                {/* "New recordings are unavailable" would simply be false while
+                    a purchased pack is still covering her. */}
+                {hasPack
+                  ? t("usage-limit-over-pack", { minutes: allowance.packMinutesRemaining })
+                  : isTrial
+                    ? t("usage-trial-over")
+                    : t("usage-limit-over")}
               </Alert>
             ) : nearLimit ? (
               <Alert severity="warning" className="neutral bg-background-paper/60!">

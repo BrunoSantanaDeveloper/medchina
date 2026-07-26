@@ -767,6 +767,10 @@ export default function ConsultaPage() {
                   aiConsent={context?.consents.ai}
                   onRequestConsent={() => setConsentCollectionOpen(true)}
                   onChanged={syncFromServer}
+                  // Phone-via-QR is an alternate METHOD for this same step, not
+                  // a step of its own — it renders inside the recorder's own
+                  // card instead of a second, confusingly-numbered "step 1".
+                  secondaryCapture={<MobileCaptureHandoff consultationId={consultation.id} />}
                 />
               ) : (
                 <Card component="section">
@@ -783,12 +787,6 @@ export default function ConsultaPage() {
                   </CardContent>
                 </Card>
               ))}
-
-            {/* Capture from her phone via QR — no login, no app, audio only.
-                Same editability gate as the web recorder. */}
-            {capabilities?.canEditClinicalRecord && isPrimary && (
-              <MobileCaptureHandoff consultationId={consultation.id} />
-            )}
 
             {canEdit && (
               <RecordingsPanel consultationId={consultation.id} onProcessed={load} refreshSignal={recordingsRefresh} />

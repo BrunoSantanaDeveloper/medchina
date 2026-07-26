@@ -38,39 +38,55 @@ const ICON_LIB_IMPORT = /from\s+["'](?:@phosphor-icons\/|lucide-react|react-icon
 const JSX_TEXT = />\s*([A-Za-zÀ-ÿ][^<>{}]*?\s+\S+\s+\S+[^<>{}]*?)\s*</;
 const ATTR_TEXT = /\b(?:alt|aria-label|placeholder)=["'][A-Za-zÀ-ÿ][^"']+["']/;
 
+/**
+ * Hand-crafted exception: the home (`/`) ships as a self-contained,
+ * pixel-tuned implementation (`ClinicalSourceHome` + its own CSS) instead of
+ * composing the shared library — a deliberate call (docs/DESIGN.md
+ * "ClinicalSourceHome exception") to keep its bespoke fidelity rather than
+ * regress it to the generic primitives. These files are exempt from the
+ * token/library/icon/i18n checks below; everything else (structure, SEO,
+ * GSAP, JSON-LD) still applies. Do not add files here casually — a new
+ * exception needs the same explicit, documented decision.
+ */
+const HAND_CRAFTED_EXCEPTIONS = new Set(["clinical-source-home.tsx", "clinical-source-home.css"]);
+
 function lint(filePath, content) {
   const p = filePath.replace(/\\/g, "/");
   const isPage = /\/app\/\(marketing\)\//.test(p);
   const file = basename(p);
+  const isExempt = HAND_CRAFTED_EXCEPTIONS.has(file);
   const violations = [];
   const advisories = [];
   const lines = content.split(/\r?\n/);
 
   lines.forEach((line, i) => {
     const at = `line ${i + 1}`;
-    if (RAW_HEX.test(line))
-      violations.push(
-        `[raw-color] ${at}: hex literal — colors come from tokens (hsl(var(--token)) / token Tailwind classes).`,
-      );
-    if (RAW_COLOR_FN.test(line)) violations.push(`[raw-color] ${at}: rgb()/oklch() literal — use hsl(var(--token)).`);
-    if (RAW_HSL.test(line))
-      violations.push(`[raw-color] ${at}: hsl() with raw values — only hsl(var(--token) / alpha) is allowed.`);
-    if (TW_DEFAULT_PALETTE.test(line))
-      violations.push(
-        `[raw-color] ${at}: Tailwind default-palette class — use the token classes (primary/secondary/accent-1..4/grey-*).`,
-      );
-    const arb = line.match(ARBITRARY_UTILITY);
-    // Any arbitrary value that RESOLVES THROUGH A TOKEN — bg-[hsl(var(--vg)/0.2)],
-    // w-[calc(var(--x)*2)] — is the sanctioned escape hatch, not a bypass.
-    if (arb && !ARBITRARY_ALLOWED.test(arb[1]) && !arb[1].includes("var(--"))
-      violations.push(
-        `[arbitrary-value] ${at}: "${arb[0].trim()}" — spacing/size/type come from the marketing tokens or the fluid display scale (text-display-*), never per-page arbitrary values.`,
-      );
-    if (ICON_LIB_IMPORT.test(line))
-      violations.push(
-        `[icon-import] ${at}: direct icon-library import — marketing imports icons only via @/icons/nexture/ni-* (see .claude/rules/icons.md).`,
-      );
-    if (isPage) {
+    if (!isExempt) {
+      if (RAW_HEX.test(line))
+        violations.push(
+          `[raw-color] ${at}: hex literal — colors come from tokens (hsl(var(--token)) / token Tailwind classes).`,
+        );
+      if (RAW_COLOR_FN.test(line))
+        violations.push(`[raw-color] ${at}: rgb()/oklch() literal — use hsl(var(--token)).`);
+      if (RAW_HSL.test(line))
+        violations.push(`[raw-color] ${at}: hsl() with raw values — only hsl(var(--token) / alpha) is allowed.`);
+      if (TW_DEFAULT_PALETTE.test(line))
+        violations.push(
+          `[raw-color] ${at}: Tailwind default-palette class — use the token classes (primary/secondary/accent-1..4/grey-*).`,
+        );
+      const arb = line.match(ARBITRARY_UTILITY);
+      // Any arbitrary value that RESOLVES THROUGH A TOKEN — bg-[hsl(var(--vg)/0.2)],
+      // w-[calc(var(--x)*2)] — is the sanctioned escape hatch, not a bypass.
+      if (arb && !ARBITRARY_ALLOWED.test(arb[1]) && !arb[1].includes("var(--"))
+        violations.push(
+          `[arbitrary-value] ${at}: "${arb[0].trim()}" — spacing/size/type come from the marketing tokens or the fluid display scale (text-display-*), never per-page arbitrary values.`,
+        );
+      if (ICON_LIB_IMPORT.test(line))
+        violations.push(
+          `[icon-import] ${at}: direct icon-library import — marketing imports icons only via @/icons/nexture/ni-* (see .claude/rules/icons.md).`,
+        );
+    }
+    if (isPage && !isExempt) {
       const text = line.match(JSX_TEXT);
       if (text)
         advisories.push(
@@ -99,7 +115,7 @@ function lint(filePath, content) {
     );
 
   // Imagery advisories (never block — imagery is a judgment call).
-  if (/<img[\s>]/.test(content))
+  if (!isExempt && /<img[\s>]/.test(content))
     advisories.push(
       `[raw-img] a raw <img> tag — use next/image (via <ProductShot> in marketing) for sizing/format/lazy-loading.`,
     );

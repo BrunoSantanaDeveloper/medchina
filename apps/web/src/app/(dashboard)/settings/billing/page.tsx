@@ -4,6 +4,7 @@ import SettingsMenu from "../components/settings-menu";
 import { checkoutAvailability } from "./actions";
 import CurrentSubscription from "./components/current-subscription";
 import InvoicesCard from "./components/invoices-card";
+import MinutePacksCard from "./components/minute-packs-card";
 import PlansGrid from "./components/plans-grid";
 import { useBilling } from "./components/use-billing";
 import Link from "next/link";
@@ -38,11 +39,12 @@ export default function BillingSettings() {
     canManage,
     subscription,
     plans,
+    packs,
     invoices,
     retry,
     refreshDetails,
   } = useBilling();
-  const { trialParams } = useAudioAllowance(currentOrg?.id ?? null);
+  const { allowance, trialParams, reload: reloadAllowance } = useAudioAllowance(currentOrg?.id ?? null);
 
   const loadCheckoutAvailability = useCallback(async () => {
     setCheckoutState(remoteLoading());
@@ -118,6 +120,15 @@ export default function BillingSettings() {
             <Alert severity="info">{t("billing-clinical-reasoning-context")}</Alert>
           </Grid>
         )}
+        {/* She arrived here from a payment problem, not from shopping. Say so,
+            so the plan grid below does not read as the answer to her question. */}
+        {feature === "payment" && (
+          <Grid size={12}>
+            <Alert severity="warning" className="neutral">
+              {t("billing-past-due-context")}
+            </Alert>
+          </Grid>
+        )}
         {checkoutState.status === "error" && (
           <Grid size={12}>
             <Alert
@@ -177,6 +188,17 @@ export default function BillingSettings() {
               canManage={canManage}
               checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
               trialParams={trialParams}
+            />
+            {/* After the tiers on purpose: for most people an upgrade is the
+                better deal, and a pack is the answer only once that has been
+                considered and the cycle still ran out. */}
+            <MinutePacksCard
+              orgId={currentOrg.id}
+              packs={packs}
+              allowance={allowance}
+              canManage={canManage}
+              checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
+              onPurchased={reloadAllowance}
             />
             <InvoicesCard invoices={invoices} />
           </>

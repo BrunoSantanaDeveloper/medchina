@@ -203,6 +203,145 @@ export async function startCheckout(input: {
   }
 }
 
+/**
+ * Buys a one-off pack of audio minutes (migration 0055).
+ *
+ * Deliberately NOT a variant of `startCheckout`: that flow writes a
+ * `subscriptions` row and demands a billing period, both of which are right
+ * for a plan and wrong for a single payment — an org may hold only one live
+ * subscription, so reusing it would fight the tier the customer is already on.
+ *
+ * The commercial rule (a pack tops up a paid plan, it does not replace one) is
+ * checked HERE as well as reported by `org_audio_allowance`. The allowance
+ * drives what the UI offers; this is what actually holds, because a server
+ * action is callable without the UI.
+ */
+export async function startPackCheckout(input: {
+  orgId: string;
+  planId: string;
+  idempotencyKey: string;
+}): Promise<StartCheckoutResult> {
+  let activeClaim: ActiveBillingClaim | null = null;
+  try {
+    const { supabase, user } = await requireOrgManager(input.orgId);
+    if (!UUID.test(input.idempotencyKey)) return { error: "unavailable" };
+
+    const [{ data: planRow }, { data: org }, { data: allowance }] = await Promise.all([
+      supabase.from("plans").select("*").eq("id", input.planId).eq("is_active", true).single(),
+      supabase.from("organizations").select("name").eq("id", input.orgId).single(),
+      supabase.rpc("org_audio_allowance", { target_org: input.orgId }),
+    ]);
+
+    const packMinutes = Number((planRow?.limits as { audio_minutes_pack?: unknown } | null)?.audio_minutes_pack);
+    if (!planRow || !planRow.is_addon || !Number.isFinite(packMinutes) || packMinutes <= 0) {
+      return { error: "unavailable" };
+    }
+    if ((allowance as { pack_purchasable?: boolean } | null)?.pack_purchasable !== true) {
+      return { error: "plan_required" };
+    }
+
+    const plan: CheckoutPlan = {
+      id: planRow.id,
+      slug: planRow.slug,
+      name: planRow.name,
+      kind: planRow.kind,
+      // No period is what makes the provider charge once instead of
+      // subscribing (Stripe: `mode: "payment"`).
+      period: null,
+      priceCents: planRow.price_cents,
+      currency: planRow.currency,
+      trialDays: 0,
+      creditAmount: planRow.credit_amount,
+      creditsExpire: planRow.credits_expire,
+    };
+    const provider = defaultProvider();
+    if (!provider) return { error: "unavailable" };
+    const service = createServiceClient();
+    const { data: claimData, error: claimError } = await service.rpc("claim_billing_operation", {
+      target_org: input.orgId,
+      target_actor: user.id,
+      target_kind: "checkout",
+      target_idempotency_key: input.idempotencyKey,
+      target_provider: provider,
+      target_plan: plan.id,
+      target_subscription: null,
+    });
+    const claim = claimData as {
+      ok?: boolean;
+      code?: string;
+      operationId?: string;
+      claimToken?: string;
+      result?: { url?: string };
+    } | null;
+    if (claim?.code === "completed" && claim.result?.url) return { url: claim.result.url };
+    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) return { error: "unavailable" };
+    activeClaim = { service, operationId: claim.operationId, claimToken: claim.claimToken };
+
+    const origin = await appOrigin();
+    const result = await getProvider(provider).createCheckout({
+      idempotencyKey: input.idempotencyKey,
+      orgId: input.orgId,
+      orgName: org?.name ?? "Organization",
+      customerEmail: user.email ?? "",
+      plan,
+      modules: [],
+      successUrl: `${origin}/settings/billing?checkout=success`,
+      cancelUrl: `${origin}/settings/billing?checkout=canceled`,
+    });
+
+    const { data: completedData, error: pendingError } = await service.rpc("complete_pack_checkout_billing_operation", {
+      target_operation: claim.operationId,
+      target_claim_token: claim.claimToken,
+      target_plan: plan.id,
+      target_checkout_url: result.url,
+    });
+    const completed = completedData as { ok?: boolean; result?: { url?: string } } | null;
+    if (pendingError || !completed?.ok) {
+      await failBillingClaim(activeClaim, "local_reconciliation_failed");
+      activeClaim = null;
+      return { error: "unavailable" };
+    }
+    activeClaim = null;
+
+    // The minutes themselves are granted by the webhook, on the paid invoice —
+    // never here. A checkout that is started is not a checkout that is paid,
+    // and PIX/boleto make that gap minutes or hours wide.
+    await recordAudit(supabase, "billing.audio_pack_checkout_started", {
+      orgId: input.orgId,
+      entityType: "plan",
+      entityId: plan.id,
+      metadata: { minutes: packMinutes },
+    });
+
+    try {
+      const metaContext = await getMetaClientContext(`${origin}/settings/billing`);
+      const gaClientId = await getGaClientId();
+      await sendMetaConversion({
+        eventName: "InitiateCheckout",
+        eventId: input.idempotencyKey,
+        email: user.email,
+        externalId: input.orgId,
+        value: plan.priceCents / 100,
+        currency: plan.currency,
+        ...metaContext,
+      });
+      await sendGa4Event({
+        clientId: gaClientId,
+        eventName: "begin_checkout",
+        eventId: input.idempotencyKey,
+        params: { currency: plan.currency, value: plan.priceCents / 100 },
+      });
+    } catch {
+      // Best-effort — the checkout URL returned below is what matters.
+    }
+
+    return { url: completed.result?.url ?? result.url };
+  } catch {
+    await failBillingClaim(activeClaim, "provider_unavailable");
+    return { error: "unavailable" };
+  }
+}
+
 function fallbackPeriodEnd(period: string | null): Date {
   const end = new Date();
   if (period === "weekly") end.setDate(end.getDate() + 7);

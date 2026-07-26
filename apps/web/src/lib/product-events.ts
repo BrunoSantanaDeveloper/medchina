@@ -33,7 +33,10 @@ export type ProductEventName =
   | "billing.contact_clicked";
 
 export type CommercialEventOrigin = "menu" | "consultation" | "home" | "usage" | "billing";
-export type CommercialEventFeature = "plans" | "audio" | "clinical_reasoning";
+// Kept in sync with the value allowlist inside `track_product_event`
+// (migration 0054): a feature the RPC does not know is dropped in silence, so
+// the click would be counted without ever saying what it was for.
+export type CommercialEventFeature = "plans" | "audio" | "clinical_reasoning" | "payment" | "audio_pack";
 
 export function trackCommercialEvent(
   event: Extract<ProductEventName, "upgrade.prompt_viewed" | "upgrade.prompt_clicked" | "billing.contact_clicked">,

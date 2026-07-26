@@ -4,19 +4,8 @@ import { useTranslations } from "next-intl";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Dialog, DialogContent, Typography } from "@mui/material";
 
-import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
 import InfoHint from "@/components/product/info-hint";
 import NiPhone from "@/icons/nexture/ni-phone";
@@ -30,6 +19,11 @@ import NiPhone from "@/icons/nexture/ni-phone";
  * scoped to THIS consultation and audio only, and expires in 15 minutes. The
  * raw token stays in the URL fragment of the QR — this component holds it only
  * long enough to render the code.
+ *
+ * Renders CHROME-LESS (no Card, no step badge) — it is an alternate METHOD
+ * for the recording step, not a step of its own, so it mounts inside
+ * ConsultationRecorder's own card via its `secondaryCapture` slot instead of
+ * standing next to it as a second, confusingly-numbered "step 1" card.
  */
 export default function MobileCaptureHandoff({ consultationId }: { consultationId: string }) {
   const t = useTranslations("product");
@@ -94,25 +88,29 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
     : null;
 
   return (
-    <Card component="section">
-      <CardContent className="flex flex-col gap-3">
-        <ConsultationStepHeader
-          step={1}
-          icon={<NiPhone size="medium" />}
-          title={t("capture-qr-title")}
-          hint={t("capture-qr-hint")}
-          trailing={<InfoHint label={t("capture-qr-note")} className="ml-auto" />}
-        />
+    <>
+      <Box className="border-grey-100 flex flex-col gap-1.5 border-t pt-3">
+        <Box className="flex flex-row items-center gap-1.5">
+          <NiPhone size="small" className="text-text-secondary" aria-hidden />
+          <Typography variant="body2" className="text-text-primary font-medium">
+            {t("capture-qr-title")}
+          </Typography>
+          <InfoHint label={t("capture-qr-note")} className="ml-auto" />
+        </Box>
+        <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+          {t("capture-qr-hint")}
+        </Typography>
         <Button
           variant="outlined"
           color="primary"
+          size="small"
           fullWidth
           startIcon={<NiPhone size="tiny" />}
           onClick={() => setOpen(true)}
         >
           {t("capture-qr-open")}
         </Button>
-      </CardContent>
+      </Box>
 
       <Dialog open={open} onClose={close} maxWidth="xs" fullWidth>
         <DialogHeader title={t("capture-qr-dialog-title")} closeLabel={t("close")} onClose={close} />
@@ -151,6 +149,6 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
           )}
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 }

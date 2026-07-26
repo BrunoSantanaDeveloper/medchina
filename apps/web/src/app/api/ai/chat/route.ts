@@ -70,8 +70,19 @@ export async function POST(request: Request) {
   });
   if (entitlementsError) return NextResponse.json({ error: entitlementsError.message }, { status: 403 });
   if (!entitlements?.active) {
+    // Naming the cause matters here for the same reason it does on the
+    // recorder: a failed card and an expired quota are resolved by different
+    // actions, and only one of them is a purchase (migration 0054).
+    const blockedCode = entitlements?.suspended
+      ? "suspended"
+      : entitlements?.status === "past_due"
+        ? "past_due_blocked"
+        : "no_subscription";
     return NextResponse.json(
-      { error: entitlements?.suspended ? "Subscription suspended — contact support." : "No active subscription." },
+      {
+        error: entitlements?.suspended ? "Subscription suspended — contact support." : "No active subscription.",
+        code: blockedCode,
+      },
       { status: 402 },
     );
   }

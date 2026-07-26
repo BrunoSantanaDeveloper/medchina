@@ -2,6 +2,8 @@
 
 **This file is the single source of the public site's visual direction.** The `marketing-page` skill READS it and builds within it. It is durable design memory: once committed, every new page, every edit, and every added section inherit these decisions so the whole site reads as one system.
 
+**Scope note (2026-07-26):** everything below governs `/como-funciona`, `/recursos`, `/planos`, `/seguranca`, `/migracao`, `/sobre`, `/contato` and any future public route. **The home (`/`) is a documented exception** — see "The home exception: ClinicalSourceHome" further down — it does not compose the library described here.
+
 ## STRICT MODE — how this governs work
 
 - **New page** → inherit everything below. Do NOT re-run the direction engine.
@@ -54,53 +56,26 @@
 <!-- marketing-page Pass 0.R writes here when the user drops reference screenshots in attachments/. Structural ingredients only (composition, depth, breakout, imagery, motion) mapped to library primitives — never copied hex/fonts. -->
 _None ingested — direction chosen from generated candidates (A · Cuidado Sereno; previews in the session artifact)._
 
-## Reference blueprint (committed 2026-07-19 from `attachments/medchina-clinical-source/` — HOME structure is FIXED)
+## The home exception: ClinicalSourceHome (decided 2026-07-26)
 
-The latest user-built source supersedes the 2026-07-15 composition. On 2026-07-19 the user explicitly made this source authoritative over the shared marketing-template conventions: the production home now ports its JSX, interactions, copy, styling, header and footer directly rather than approximating them with library primitives.
+`app/(marketing)/page.tsx` renders `<ClinicalSourceHome />` (`components/marketing/clinical-source-home.tsx`, ~1200 lines, `"use client"`) with its own route-owned stylesheet (`app/(marketing)/clinical-source-home.css`, ~3900 lines). It is a **self-contained, hand-tuned port** of an externally built reference (`attachments/medchina-clinica/` — since removed, the port having been judged approved), not a composition of the primitives above:
 
-| # | Reference section | Production mapping |
-|---|---|---|
-| 1 | Split hero with supervised-AI proposition and real web/mobile composite | `Hero layout="split"` + `ProductComposition` + supplied composite and localized floating readouts. |
-| 2 | Four-column clinical-value strip | `Section background="contrast"` with four numbered trust statements. |
-| 3 | Continuous three-step journey with real captures | `FeatureRows` + supplied consultation, anamnesis and plan images inside `ProductFrame`. |
-| 4 | Deep clinical-presence chapter with benefit rail and consultation image | `Section background="deep"`; all benefits stay visible in a responsive grid beside the supplied image. |
-| 5 | Mobile capture chapter | `Section background="paper" decor="mesh"` + supplied phone composition and four operational assurances. |
-| 6 | Supervised evidence demo | Existing `AnamnesisDemo`, with canonical clear/attention/empty field states. |
-| 7 | MTC specialization index | `IndexGrid` beside an editorial `SectionHeader`. |
-| 8 | Deep security chapter | `Section background="deep"` + `RuledGrid variant="deep"`. |
-| 9 | Pricing, FAQ and final CTA | `PricingSection` (live catalog) + `Faq layout="split"` + `Cta variant="deep"`. |
+- Its own header/footer (not `MarketingHeader`/`MarketingFooter`), own CSS custom properties (`--jade`, `--mint`, `--blue`, `--coral`, `--ink`…) instead of `hsl(var(--token))`, its own `@font-face` declarations instead of `next/font`.
+- Icons via direct `@phosphor-icons/react` imports, not the `@/icons/nexture/ni-*` alias.
+- Copy is hardcoded pt-BR, not routed through the `marketing` i18n namespace.
+- Real photography (`public/images/medchina-*.webp`) instead of token-driven mocks.
 
-The direct port lives in `components/marketing/clinical-source-home.tsx` with its route-owned stylesheet `app/(marketing)/clinical-source-home.css`. The only integration changes are internal sign-in/sign-up URLs, route-local suppression of the duplicate shared chrome, and public asset/font paths; these do not change the rendered page.
+**Why this exists:** the user had this file built as a literal, pixel-tuned port of an external reference and judged it materially better — "muito baixo nível" was their verdict on composing it from the generic shared primitives instead. On 2026-07-26 they made it explicit: keep this file's UI/UX intact; where a project rule would otherwise force a "drastic" rewrite, change the rule instead of the page. `.claude/hooks/marketing-lint.mjs` encodes the resulting exemption as `HAND_CRAFTED_EXCEPTIONS` (currently `clinical-source-home.tsx` + its CSS) — token/arbitrary-value/icon-import checks and the hardcoded-copy/raw-img advisories are skipped for exactly these two files; every other marketing file still enforces the full contract. **Do not extend the exception to a new file without the same explicit call** — it is a named exception, not a precedent.
 
-### Previous blueprint (superseded 2026-07-19)
+**What still applies to this file, unexempted:** exactly one `<h1>`, real `alt` text, no fabricated testimonials/metrics/logos (HOME-SPEC §33.5 — still blocking, see the audit below), the clinical-safety copy guardrails (never imply autonomous diagnosis, trial never automatic, mobile app always "complementar"), and ordinary performance hygiene (explicit image dimensions, `loading="lazy"` below the fold, WebP over PNG) — all verified/fixed 2026-07-26 during the ad-landing-page quality audit.
 
-The user rebuilt the home externally and asked for the current home to follow it 1:1. Structure comes from the blueprint; identity (Teal/Camel tokens, TT Chocolates, Phosphor icons, `<Logo>`) stays ours. The reference has NO photos/images — every visual is a token-driven mock we rebuild as library components.
+**Known gaps, accepted as-is (not "necessary" fixes — would touch UI/UX or scope creep beyond the audit):** no dark-mode CSS (`prefers-color-scheme`/`.dark` are unhandled — the page renders identically regardless of the site's theme mode; harmless now that light is the default, see `apps/web/src/config.ts`); no `SoftwareApplication`/`Organization` JSON-LD on this route (present via the root layout only); the manual scroll-linked flow-timeline animation isn't GSAP/`<Reveal>` (it already has its own `prefers-reduced-motion` branch, so it isn't unsafe — just off-pattern).
 
-| # | Reference section | Our section (primitive + content source) |
-|---|---|---|
-| 1 | Sticky blurred header, 5 links, Entrar + CTA | `MarketingHeader` (existing) + hairline border. |
-| 2 | Hero split (0.84/1.16): eyebrow, two-tone H1 (`t.rich` + `<em>` in primary), subtitle, 2 CTAs (secondary carries the play icon), microcopy, 4 highlight chips; visual = web record-panel + phone recording + orbit rings + dashed flow line + floating notes | `Hero layout="split"` + NEW `ConsultationDuo` — the reference canvas ported 1:1 (690×570, token colors, --duo-scale breakpoints, reduced-motion-safe pulse/wave/travel animations). Hero gained `highlights` + rich `title` + secondary `icon`. |
-| 3 | Trust strip: 4 numbered columns with dividers on cream band | NEW `NumberStrip` (contrast band, camel display ordinals). |
-| 4 | Interactive workflow demo: 4 tabs (Conversa/Anamnese/Análise/Plano), each a copy+evidence panel | NEW `WorkflowDemo` (client): tabbed panels — dialogue+audio strip, quote→field mapping, exception stack, plan review rows. |
-| 5 | Before/After: split intro, two comparison cards joined by a bridge arrow | NEW `Comparison` + `SectionHeader align="start"`. |
-| 6 | Benefits: ruled 3×2 grid, ordinal + abstract circle glyph per cell | NEW `RuledGrid`. Deviation: abstract CSS circles → meaningful Phosphor icons per family hue (premium bar #8); ordinals dropped (carry no information). |
-| 7 | Mobile: dark band, copy + feature list + connection note, 3 fanned phone screens over a ring (agenda/recording/status) | `Section background="deep"` (NEW deep teal band) + NEW `MobileSequence` (reference fan canvas, --seq-scale) with `AgendaMock`/`RecordingMock`/`StatusMock` in `PhoneFrame`. |
-| 8 | Anamnesis demo: fictional quote → arrow → prepared fields card with 3 states + investigation note | NEW `AnamnesisDemo` (quote block → connector → prepared-field rows + investigation footnote). |
-| 9 | Clinical reasoning: intro + CTA right, 3 cards, safety line | `SectionHeader align="start"` + card row (RuledGrid `variant="cards"`) + safety footnote. |
-| 10 | MTC specialization: copy left, 16-cell indexed 2-col ruled grid with accent cells | NEW `IndexGrid`. |
-| 11 | Traceability: field-provenance demo card left, copy + 4-source legend right | NEW `TraceabilityDemo` (card + legend), field-state hues preserved. |
-| 12 | Pricing: status line, 3 cards (middle highlighted), difference footnote | Existing `PricingSection` + NEW `tiers`/`footnote` props. Prices stay catalog-driven (`getDisplayPlans()`), per user decision. |
-| 13 | Security: dark band, copy left + 4 ruled pillars | `Section background="deep"` + `RuledGrid variant="deep"`. |
-| 14 | FAQ: two-column, sticky intro + accordion list | `Faq` + NEW `layout="split"` (subtitle + link). Deviation: ordinals dropped. |
-| 15 | Final CTA: deep band, orbit rings, headline, CTA + demo link, 4 reassurance points | `Cta` + NEW `variant="deep"` (orbit decor, `points`, `secondaryCta`). |
-| 16 | Footer: dark 4-column + clinical-responsibility legal note | `MarketingFooter` restyled to the deep band (disclaimer kept). |
+**Orphaned in place:** the previous library-composed home (`ConsultationDuo`, `MobileSequence`, `WorkflowDemo`, `Comparison`, `RuledGrid`, `IndexGrid`, `AnamnesisDemo`, `TraceabilityDemo`, `NumberStrip`, plus the `Hero`/`PricingSection`/`Faq`/`Cta`/`Section` prop additions and the 5-locale i18n keys they consume) remains on disk, unused by any route. Kept rather than deleted since the components are individually reusable (several are already good candidates for other pages) and the i18n keys are harmless; nothing currently imports them. Revisit if they go stale.
 
-Depth note: on the home, the blueprint's three deep moments (mobile band, security band, final CTA/footer) supersede the old "one contrast band" rule — expressed as the token `deep` background (`--primary-dark`), never a hardcoded ink.
-
-Width note: the blueprint's page width is committed site-wide — `--container-max: 77.5rem` (1240px) in `packages/design-tokens/css/marketing.css`.
+Width note: `--container-max: 77.5rem` (1240px) in `packages/design-tokens/css/marketing.css` is committed site-wide (both this page's own CSS and the shared `Container` respect it).
 
 ## Open items
 
-- The home page (`app/(marketing)/page.tsx`) is the reference implementation of this direction, built section-by-section from `docs/HOME-SPEC.md` (order §8 is contractual).
-- Supporting pages (`/como-funciona`, `/recursos`, `/planos`, `/seguranca`, `/migracao`, `/sobre`, `/contato`) are structurally compliant but quieter than the home.
-- Real product screenshots ship via `shots:marketing` once the dashboards have real MedChina screens; until then the layered composition + token mockups (Helena Martins data) stand in.
+- Supporting pages (`/como-funciona`, `/recursos`, `/planos`, `/seguranca`, `/migracao`, `/sobre`, `/contato`) compose the shared library per the direction above and are unaffected by the home exception.
+- **Social proof is still missing on the home** (HOME-SPEC §33.5 blocks fabricating it): needs real testimonials/case data/usage numbers from the legacy (pre-AI) product's existing user base — see the 2026-07-26 audit note for exactly what to gather.

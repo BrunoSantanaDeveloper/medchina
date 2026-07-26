@@ -12,18 +12,25 @@ export type UsageSegment = {
   value: number;
   /** Preformatted amount shown in the legend (already localized). */
   display: string;
-  /** Token-based fill for the bar segment and its legend ring. */
-  tone: "primary" | "attention" | "empty";
+  /**
+   * Token-based fill for the bar segment and its legend ring. `secondary`
+   * marks a pool that is real but of a different NATURE from the main one
+   * (purchased minutes next to cycle minutes) — same weight, different colour,
+   * so the bar reads as two things rather than more of the same.
+   */
+  tone: "primary" | "secondary" | "attention" | "empty";
 };
 
 const BAR_TONE: Record<UsageSegment["tone"], string> = {
   primary: "bg-primary",
+  secondary: "bg-secondary",
   attention: "bg-accent-3",
   empty: "bg-grey-100",
 };
 
 const RING_TONE: Record<UsageSegment["tone"], string> = {
   primary: "border-primary",
+  secondary: "border-secondary",
   attention: "border-accent-3",
   empty: "border-grey-200",
 };

@@ -39,6 +39,9 @@ export async function listPublicPlans(): Promise<PublicPlan[] | null> {
     .from("plans")
     .select("slug, name, description, kind, period, price_cents, currency, credit_amount, trial_days, is_free, limits, sort")
     .eq("is_active", true)
+    // Add-ons (à-la-carte packs) are not tiers: on a public pricing page they
+    // would read as another plan to choose between.
+    .eq("is_addon", false)
     .order("sort", { ascending: true });
 
   if (error || !data) return null;

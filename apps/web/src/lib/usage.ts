@@ -85,6 +85,7 @@ async function alertOnConsumption(supabase: SupabaseClient, orgId: string, allow
 
   // Stored text, so it is written in the default locale (pt-BR) at creation.
   const isTrial = allowance.source === "trial";
+  const hasPack = allowance.packMinutesRemaining > 0;
   const reached =
     crossed === 100
       ? isTrial
@@ -93,8 +94,12 @@ async function alertOnConsumption(supabase: SupabaseClient, orgId: string, allow
       : `Você já usou ${crossed}% dos seus minutos`;
   const body =
     crossed === 100
-      ? "Seus pacientes, prontuários e documentos continuam disponíveis. Para gravar e processar novas consultas, escolha um plano."
-      : `${allowance.minutesRemaining} de ${allowance.minutesLimit} minutos restantes.`;
+      ? // Telling someone to buy a plan while her purchased pack is still
+        // covering her would be both wrong and insulting.
+        hasPack
+        ? `Seus minutos avulsos assumiram a partir daqui: ${allowance.packMinutesRemaining} minutos restantes.`
+        : "Seus pacientes, prontuários e documentos continuam disponíveis. Para gravar e processar novas consultas, escolha um plano."
+      : `${allowance.cycleMinutesRemaining} de ${allowance.minutesLimit} minutos restantes.`;
 
   await notifyUsers(userIds, { type: "billing", title: reached, body, href: "/settings/billing" });
 }

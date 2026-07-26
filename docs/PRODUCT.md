@@ -354,9 +354,15 @@ A ausência de limite clínico não implica armazenamento infinito. O plano deve
 
 - Pacotes adicionais poderão ser oferecidos na web em volumes como 600, 1.500 e 3.000 minutos, após validação de custo.
 
+  **Implementado** (migração `0055_audio_minute_packs.sql`): compra única na web, disponível apenas para quem já assina um plano com minutos — o preço por minuto é maior que o do plano, de modo que o avulso é conveniência para quem estourou o ciclo e nunca um substituto mais barato da assinatura. Os minutos comprados formam um segundo poço, consumido só depois dos minutos do ciclo, sem validade, e sobrevivem a `past_due`, a um cancelamento e a um downgrade — não sobrevivem à suspensão administrativa.
+
 - Recarga automática será opcional e exigirá consentimento explícito na web.
 
 - Nenhuma cobrança excedente será realizada sem autorização prévia.
+
+  Continua literalmente verdadeiro com os pacotes: nada é cobrado como excedente. Estourar o limite interrompe apenas trabalho NOVO de IA e convida a uma compra que a profissional faz ativamente.
+
+- **Falha de pagamento não é cancelamento** (migração `0054_billing_grace_period.sql`): uma cobrança recusada mantém o plano utilizável por uma janela configurável (`platform_settings`, chave `dunning`, padrão 7 dias) contada a partir do momento da falha. Encerrada a janela, o comportamento anterior volta: cessa o trabalho novo de IA e o prontuário segue acessível. A causa do bloqueio é nomeada pela allowance (`reason`), de modo que uma falha de cartão nunca é apresentada como limite esgotado — as ações que resolvem cada caso são diferentes.
 
 # 6. Jornada de aquisição, cadastro e contratação
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -26,11 +26,12 @@ import { type PersistedWebRecording, useRecordingSession } from "@/components/pr
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiAi from "@/icons/nexture/ni-ai";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
+import NiClock from "@/icons/nexture/ni-clock";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiPause from "@/icons/nexture/ni-pause";
 import NiSoundOn from "@/icons/nexture/ni-sound-on";
 import NiSquare from "@/icons/nexture/ni-square";
-import { trialDaysLeft } from "@/lib/audio-allowance";
+import { graceDaysLeft, trialDaysLeft } from "@/lib/audio-allowance";
 import { recordAudit } from "@/lib/audit";
 import {
   clearTabAlert,
@@ -73,6 +74,10 @@ const sha256 = async (blob: Blob) => {
 const MAX_DURATION_SECONDS = 120 * 60;
 const MAX_SIZE_BYTES = 512 * 1024 * 1024;
 const BILLING_HREF = `${getProductAction("billing").href}?source=consultation&feature=audio`;
+// A recused card is not resolved by choosing a plan — it lands on the
+// subscription itself, where the payment method is.
+const PAYMENT_HREF = `${getProductAction("billing").href}?source=consultation&feature=payment`;
+const PACK_HREF = `${getProductAction("billing").href}?source=consultation&feature=audio_pack`;
 
 // Statuses from which `begin_clinical_recording` may resume the SAME capture.
 // A row OUTSIDE this set (cancelled / failed / ready) means the stored upload
@@ -88,6 +93,7 @@ export default function ConsultationRecorder({
   aiConsent,
   onRequestConsent,
   onChanged,
+  secondaryCapture,
 }: {
   orgId: string;
   patientId: string;
@@ -96,6 +102,9 @@ export default function ConsultationRecorder({
   aiConsent?: boolean;
   onRequestConsent?: () => void;
   onChanged?: () => void;
+  /** An alternate capture method (e.g. phone-via-QR), rendered inside this
+   * same card so the two never compete as separate "step 1" cards. */
+  secondaryCapture?: ReactNode;
 }) {
   const t = useTranslations("product");
   const {
@@ -814,6 +823,13 @@ export default function ConsultationRecorder({
   const needsTrial = mode === "ai" && !capturing && allowance?.trialAvailable === true && !allowance.canStart;
   const exhausted =
     mode === "ai" && !capturing && allowance !== null && !allowance.canStart && !allowance.trialAvailable;
+  // A failed card and an exhausted allowance both stop capture, but only one of
+  // them is solved by buying something. Sending someone with a recused card to
+  // a grid of plans is a dead end dressed as a next step, so the blocked state
+  // reads its cause from the allowance instead of guessing (migration 0054).
+  const paymentBlocked = exhausted && allowance?.reason === "past_due_blocked";
+  const inGracePeriod = mode === "ai" && allowance?.reason === "past_due_grace";
+  const graceLeft = allowance ? graceDaysLeft(allowance) : null;
   const overrunning =
     mode === "ai" &&
     phase === "recording" &&
@@ -916,6 +932,33 @@ export default function ConsultationRecorder({
             </Typography>
           </Box>
 
+          {/* Inside the dunning window everything still works — this says so,
+              and says by when, so the first sign of a payment problem is not
+              the recorder refusing to start. Hidden while capturing: there is
+              a patient in the room and this can wait for the gap between
+              appointments. Amber, never red — a billing matter is not clinical
+              risk (docs/DESIGN.md). */}
+          {inGracePeriod && !capturing && (
+            <Alert
+              severity="warning"
+              className="neutral bg-background-paper/60!"
+              action={
+                <Button
+                  size="small"
+                  color="inherit"
+                  href={PAYMENT_HREF}
+                  onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "payment")}
+                >
+                  {t("recorder-past-due-cta")}
+                </Button>
+              }
+            >
+              {graceLeft !== null
+                ? t("recorder-past-due-grace", { days: graceLeft })
+                : t("recorder-past-due-grace-generic")}
+            </Alert>
+          )}
+
           {allowanceError && mode === "ai" ? (
             <Alert
               severity="error"
@@ -948,18 +991,45 @@ export default function ConsultationRecorder({
           ) : exhausted ? (
             <>
               <Typography variant="body2" className="text-text-secondary leading-6">
-                {allowance?.suspended ? t("recorder-suspended-body") : t("recorder-limit-body")}
+                {allowance?.suspended
+                  ? t("recorder-suspended-body")
+                  : paymentBlocked
+                    ? t("recorder-past-due-body")
+                    : t("recorder-limit-body")}
               </Typography>
+              {/* A suspension is not hers to resolve, so it gets no action —
+                  every other cause gets the one that actually resolves it. */}
               {!allowance?.suspended && (
-                <Button
-                  variant="contained"
-                  color="primary"
-                  href={BILLING_HREF}
-                  className="self-start"
-                  onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "audio")}
-                >
-                  {t("recorder-limit-cta")}
-                </Button>
+                <Box className="flex flex-row flex-wrap gap-2">
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    href={paymentBlocked ? PAYMENT_HREF : BILLING_HREF}
+                    onClick={() =>
+                      trackCommercialEvent(
+                        "upgrade.prompt_clicked",
+                        "consultation",
+                        paymentBlocked ? "payment" : "audio",
+                      )
+                    }
+                  >
+                    {paymentBlocked ? t("recorder-past-due-cta") : t("recorder-limit-cta")}
+                  </Button>
+                  {/* Only for someone already on a paid plan whose cycle ran
+                      out: for her, waiting for the renewal and jumping a tier
+                      are both worse answers than buying the minutes she needs
+                      today (migration 0055). */}
+                  {!paymentBlocked && allowance?.packPurchasable && (
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      href={PACK_HREF}
+                      onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "audio_pack")}
+                    >
+                      {t("recorder-buy-pack-cta")}
+                    </Button>
+                  )}
+                </Box>
               )}
             </>
           ) : (
@@ -1192,17 +1262,37 @@ export default function ConsultationRecorder({
               </Box>
 
               {mode === "ai" && allowance && allowance.minutesLimit > 0 && (
-                <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                  {allowance.source === "trial"
-                    ? t("recorder-trial-remaining", {
-                        minutes: allowance.minutesRemaining,
-                        days: trialDaysLeft(allowance) ?? 0,
-                      })
-                    : t("recorder-remaining", { minutes: allowance.minutesRemaining })}
-                </Typography>
+                <Box className="flex flex-row items-center gap-1.5">
+                  <NiClock
+                    size="tiny"
+                    aria-hidden
+                    className={allowance.percent >= 80 ? "text-accent-3" : "text-text-secondary"}
+                  />
+                  <Typography
+                    variant="body2"
+                    className={cn(
+                      "text-xs leading-5",
+                      allowance.percent >= 80
+                        ? "text-accent-3-dark dark:text-accent-3-light font-medium"
+                        : "text-text-secondary",
+                    )}
+                  >
+                    {allowance.source === "trial"
+                      ? t("recorder-trial-remaining", {
+                          minutes: allowance.minutesRemaining,
+                          days: trialDaysLeft(allowance) ?? 0,
+                        })
+                      : t("recorder-remaining", { minutes: allowance.minutesRemaining })}
+                  </Typography>
+                </Box>
               )}
             </>
           )}
+
+          {/* An alternate capture METHOD for this same step, not a step of its
+              own — hidden mid-capture so it never reads as an invitation to
+              start a second, simultaneous recording of the same visit. */}
+          {!capturing && secondaryCapture}
         </CardContent>
 
         <Dialog open={trialDialog} onClose={() => setTrialDialog(false)} maxWidth="xs" fullWidth>

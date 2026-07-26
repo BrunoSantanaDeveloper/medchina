@@ -144,6 +144,8 @@ const flowSteps = [
     icon: ShieldCheck,
     image: "/images/medchina-flow-consulta-real.webp",
     alt: "Tela real do MedChina para preparar a gravação da consulta e registrar o consentimento",
+    width: 500,
+    height: 350,
   },
   {
     number: "02",
@@ -154,6 +156,8 @@ const flowSteps = [
     icon: FileText,
     image: "/images/medchina-flow-anamnese-real.webp",
     alt: "Tela real da anamnese estruturada no prontuário MedChina",
+    width: 960,
+    height: 540,
   },
   {
     number: "03",
@@ -164,6 +168,8 @@ const flowSteps = [
     icon: SealCheck,
     image: "/images/medchina-flow-plano-real.webp",
     alt: "Tela real do MedChina com gravação da consulta e validação do plano terapêutico",
+    width: 820,
+    height: 558,
   },
 ];
 
@@ -287,7 +293,7 @@ function PhoneRecorder({ focus }: { focus: (typeof mobileHighlights)[number] }) 
 
       <div className="phone-appbar">
         <span className="phone-brand">
-          <img src="/brand/medchina-mark.png" alt="" />
+          <img src="/brand/medchina-mark.png" alt="" width={18} height={18} />
           <strong>MedChina</strong>
         </span>
         <span className="phone-secure">
@@ -392,8 +398,12 @@ function MobileShowcase() {
         <div className="mobile-device">
           <img
             className="mobile-device-photo"
-            src="/images/medchina-mobile-device-matte.png"
+            src="/images/medchina-mobile-device-matte.webp"
             alt="Smartphone moderno com o aplicativo MedChina"
+            width={900}
+            height={1600}
+            loading="lazy"
+            decoding="async"
           />
           <div className="mobile-showcase-main">
             <PhoneRecorder focus={activeHighlight} />
@@ -626,7 +636,7 @@ function FlowTimeline() {
       <div className="flow-track" aria-hidden="true">
         <span />
       </div>
-      {flowSteps.map(({ number, label, title, body, proof, icon: Icon, image, alt }, index) => (
+      {flowSteps.map(({ number, label, title, body, proof, icon: Icon, image, alt, width, height }, index) => (
         <article className={`flow-step ${index % 2 === 1 ? "flow-step--reverse" : ""}`} key={number}>
           <div className="flow-step-copy">
             <span className="flow-step-label">{label}</span>
@@ -643,7 +653,7 @@ function FlowTimeline() {
           <div className="flow-visual">
             <span className="flow-visual-dots" aria-hidden="true" />
             <div className="flow-screen-shot">
-              <img src={image} alt={alt} />
+              <img src={image} alt={alt} width={width} height={height} loading="lazy" decoding="async" />
             </div>
           </div>
         </article>
@@ -706,6 +716,10 @@ function PresenceExperience() {
         <img
           src="/images/medchina-presence-consultation.webp"
           alt="Profissional de Medicina Tradicional Chinesa escutando uma paciente durante a consulta"
+          width={1200}
+          height={1500}
+          loading="lazy"
+          decoding="async"
         />
         <div className="presence-visual-tag">
           <Waveform size={18} weight="duotone" aria-hidden="true" />
@@ -845,6 +859,11 @@ export default function ClinicalSourceHome() {
               <img
                 src="/images/medchina-hero-product-composite.webp"
                 alt="Profissional de Medicina Tradicional Chinesa usando o MedChina no computador e no celular"
+                width={1024}
+                height={1536}
+                // Above the fold — eager + highest fetch priority (this is the page's LCP element).
+                fetchPriority="high"
+                decoding="async"
               />
             </div>
             <div className="platform-badges" aria-label="Aplicativo disponível para iOS e Android">

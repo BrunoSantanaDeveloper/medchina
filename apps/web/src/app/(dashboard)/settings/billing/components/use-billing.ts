@@ -37,6 +37,10 @@ export interface PlanRow {
   trialDays: number;
   isFree: boolean;
   audioMinutes: number;
+  /** Not a subscription tier: a one-off add-on (migration 0055). */
+  isAddon: boolean;
+  /** Minutes an à-la-carte pack grants; 0 for everything else. */
+  packMinutes: number;
   limits: Record<string, unknown>;
 }
 
@@ -70,7 +74,9 @@ export interface CreditRow {
 
 interface BillingDetails {
   subscription: SubscriptionInfo | null;
+  /** Subscription tiers only — add-ons are split out into `packs`. */
   plans: PlanRow[];
+  packs: PlanRow[];
   modules: ModuleRow[];
   invoices: InvoiceRow[];
   creditBalance: number;
@@ -80,6 +86,7 @@ interface BillingDetails {
 const EMPTY_DETAILS: BillingDetails = {
   subscription: null,
   plans: [],
+  packs: [],
   modules: [],
   invoices: [],
   creditBalance: 0,
@@ -225,23 +232,30 @@ export function useBilling() {
         };
       }
 
+      const catalog: PlanRow[] = (plansResult.data ?? []).map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        name: p.name,
+        description: p.description,
+        kind: p.kind,
+        period: p.period,
+        priceCents: p.price_cents,
+        currency: p.currency,
+        creditAmount: p.credit_amount,
+        trialDays: p.trial_days,
+        isFree: p.is_free,
+        audioMinutes: Number((p.limits as { audio_minutes?: number } | null)?.audio_minutes ?? 0),
+        isAddon: Boolean(p.is_addon),
+        packMinutes: Number((p.limits as { audio_minutes_pack?: number } | null)?.audio_minutes_pack ?? 0),
+        limits: (p.limits as Record<string, unknown> | null) ?? {},
+      }));
+
       const details: BillingDetails = {
         subscription,
-        plans: (plansResult.data ?? []).map((p) => ({
-          id: p.id,
-          slug: p.slug,
-          name: p.name,
-          description: p.description,
-          kind: p.kind,
-          period: p.period,
-          priceCents: p.price_cents,
-          currency: p.currency,
-          creditAmount: p.credit_amount,
-          trialDays: p.trial_days,
-          isFree: p.is_free,
-          audioMinutes: Number((p.limits as { audio_minutes?: number } | null)?.audio_minutes ?? 0),
-          limits: (p.limits as Record<string, unknown> | null) ?? {},
-        })),
+        // An add-on is not a tier: mixed into the plan grid, a minute pack
+        // would read as a fourth thing to subscribe to.
+        plans: catalog.filter((plan) => !plan.isAddon),
+        packs: catalog.filter((plan) => plan.isAddon && plan.packMinutes > 0),
         modules: (modulesResult.data ?? []).map((m) => ({
           id: m.id,
           name: m.name,
@@ -305,6 +319,7 @@ export function useBilling() {
     setCurrentOrgId,
     subscription: details.subscription,
     plans: details.plans,
+    packs: details.packs,
     modules: details.modules,
     invoices: details.invoices,
     creditBalance: details.creditBalance,
