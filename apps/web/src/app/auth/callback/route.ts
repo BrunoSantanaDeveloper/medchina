@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { DEFAULTS } from "@/config";
+import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
-import { getMetaClientContext } from "@/lib/meta-capi-context";
+import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { createClient } from "@flyee/auth/server";
 import { sanitizeInternalNext } from "@flyee/clinical";
@@ -39,6 +40,13 @@ export async function GET(request: Request) {
             email: data.user.email,
             externalId: data.user.id,
             ...metaContext,
+          });
+          // GA4 sign_up — stitched to the web session via the _ga client id.
+          await sendGa4Event({
+            clientId: await getGaClientId(),
+            eventName: "sign_up",
+            eventId: data.user.id,
+            params: { method: "email" },
           });
         }
         // OAuth is sign-in AND sign-up: a first-time Google/GitHub user is

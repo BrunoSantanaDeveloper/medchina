@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
-import { getMetaClientContext } from "@/lib/meta-capi-context";
+import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { createClient } from "@flyee/auth/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -43,6 +44,8 @@ export async function POST(request: Request) {
     externalId: orgId,
     ...metaContext,
   });
+  // GA4 start_trial — stitched to the web session via the _ga client id.
+  await sendGa4Event({ clientId: await getGaClientId(), eventName: "start_trial", eventId: `trial:${orgId}` });
 
   return NextResponse.json({ allowance: data });
 }

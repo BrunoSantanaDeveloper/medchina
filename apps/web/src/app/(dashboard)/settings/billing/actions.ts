@@ -3,8 +3,9 @@
 import { headers } from "next/headers";
 
 import { recordAudit } from "@/lib/audit";
+import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
-import { getMetaClientContext } from "@/lib/meta-capi-context";
+import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
 import { type CheckoutPlan, defaultProvider, getProvider } from "@flyee/billing";
@@ -151,19 +152,49 @@ export async function startCheckout(input: {
       entityId: plan.id,
     });
 
-    // Meta CAPI — InitiateCheckout. Server-side (no Pixel runs on the app);
-    // reuses the idempotency key as event_id and the request's _fbp/_fbc so it
-    // attributes to the ad click. No clinical data leaves the server.
-    const metaContext = await getMetaClientContext(`${origin}/settings/billing`);
-    await sendMetaConversion({
-      eventName: "InitiateCheckout",
-      eventId: input.idempotencyKey,
-      email: user.email,
-      externalId: input.orgId,
-      value: plan.priceCents / 100,
-      currency: plan.currency,
-      ...metaContext,
-    });
+    // Measurement is best-effort and MUST NOT turn a successful checkout into
+    // an error — hence its own try/catch, isolated from the outer handler.
+    try {
+      // Server-side (no Pixel runs on the app); reuses the request's _fbp/_fbc
+      // (set by the marketing-site Pixel, same origin) so it attributes to the
+      // ad click. No clinical data leaves the server.
+      const metaContext = await getMetaClientContext(`${origin}/settings/billing`);
+      const gaClientId = await getGaClientId();
+      // Stash the tracking signals so the browserless Purchase webhook can match
+      // on them later (PIX/boleto confirm out of band; renewals too). Only when
+      // a signal exists (the consent + ad-attribution moment) — so a plain
+      // checkout never wipes a previously stored row.
+      if (metaContext.fbp || metaContext.fbc || gaClientId) {
+        await service.from("meta_attribution").upsert({
+          org_id: input.orgId,
+          fbp: metaContext.fbp ?? null,
+          fbc: metaContext.fbc ?? null,
+          email: user.email ?? null,
+          client_ip: metaContext.clientIp ?? null,
+          client_user_agent: metaContext.clientUserAgent ?? null,
+          ga_client_id: gaClientId,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      await sendMetaConversion({
+        eventName: "InitiateCheckout",
+        eventId: input.idempotencyKey,
+        email: user.email,
+        externalId: input.orgId,
+        value: plan.priceCents / 100,
+        currency: plan.currency,
+        ...metaContext,
+      });
+      // GA4 begin_checkout — stitched to the web session via the _ga client id.
+      await sendGa4Event({
+        clientId: gaClientId,
+        eventName: "begin_checkout",
+        eventId: input.idempotencyKey,
+        params: { currency: plan.currency, value: plan.priceCents / 100 },
+      });
+    } catch {
+      // Best-effort — the checkout URL returned below is what matters.
+    }
 
     return { url: completed.result?.url ?? result.url };
   } catch {

@@ -35,6 +35,7 @@ import ClinicalContextBar from "@/components/product/clinical-context-bar";
 import ConsentCollectionDialog from "@/components/product/consent-collection-dialog";
 import ConsultationRecorder from "@/components/product/consultation-recorder";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
+import MobileCaptureHandoff from "@/components/product/mobile-capture-handoff";
 import PlanPanel from "@/components/product/plan-panel";
 import RecordingsPanel from "@/components/product/recordings-panel";
 import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule-dialog";
@@ -782,6 +783,12 @@ export default function ConsultaPage() {
                   </CardContent>
                 </Card>
               ))}
+
+            {/* Capture from her phone via QR — no login, no app, audio only.
+                Same editability gate as the web recorder. */}
+            {capabilities?.canEditClinicalRecord && isPrimary && (
+              <MobileCaptureHandoff consultationId={consultation.id} />
+            )}
 
             {canEdit && (
               <RecordingsPanel consultationId={consultation.id} onProcessed={load} refreshSignal={recordingsRefresh} />

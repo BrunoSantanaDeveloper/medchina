@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { createServiceClient } from "@flyee/auth/service";
 import { type BillingEvent, type BillingPeriod, getProvider } from "@flyee/billing";
@@ -220,17 +221,48 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
 
       // Meta CAPI — Purchase. Fired once per paid invoice (event_id is the
       // invoice id, so renewals count as distinct purchases and dedup safely).
-      // No browser context here (the provider called us): system_generated,
-      // matched only on the hashed org id. Never blocks reconciliation.
-      await sendMetaConversion({
-        eventName: "Purchase",
-        eventId: `${event.provider}:${event.providerInvoiceId}`,
-        externalId: orgId,
-        value: event.amountCents / 100,
-        currency: event.currency,
-        actionSource: "system_generated",
-        eventTime: Math.floor(event.paidAt.getTime() / 1000),
-      });
+      // The provider called us, so there is no browser here: we enrich the
+      // match with the ad-click signals captured at checkout (meta_attribution)
+      // — email + _fbp/_fbc + IP/UA — falling back to the hashed org id alone.
+      // Best-effort: it never blocks reconciliation.
+      try {
+        const { data: attribution } = await supabase
+          .from("meta_attribution")
+          .select("fbp, fbc, email, client_ip, client_user_agent, ga_client_id")
+          .eq("org_id", orgId)
+          .maybeSingle();
+        await sendMetaConversion({
+          eventName: "Purchase",
+          eventId: `${event.provider}:${event.providerInvoiceId}`,
+          externalId: orgId,
+          email: attribution?.email ?? null,
+          fbp: attribution?.fbp ?? null,
+          fbc: attribution?.fbc ?? null,
+          clientIp: attribution?.client_ip ?? null,
+          clientUserAgent: attribution?.client_user_agent ?? null,
+          value: event.amountCents / 100,
+          currency: event.currency,
+          // Honest source: the webhook fired this, no browser present. The
+          // match keys above still attribute it to the ad click.
+          actionSource: "system_generated",
+          eventTime: Math.floor(event.paidAt.getTime() / 1000),
+        });
+        // GA4 purchase — stitched to the web session via the _ga client id
+        // captured at checkout (no _ga cookie here). transaction_id = invoice.
+        await sendGa4Event({
+          clientId: attribution?.ga_client_id ?? null,
+          eventName: "purchase",
+          eventId: `${event.provider}:${event.providerInvoiceId}`,
+          eventTime: Math.floor(event.paidAt.getTime() / 1000),
+          params: {
+            currency: event.currency,
+            value: event.amountCents / 100,
+            transaction_id: `${event.provider}:${event.providerInvoiceId}`,
+          },
+        });
+      } catch {
+        // Measurement is best-effort — a paid invoice is already reconciled.
+      }
       break;
     }
 

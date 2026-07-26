@@ -12,6 +12,9 @@ const PUBLIC_PREFIXES = [
   "/auth",
   "/consentir",
   "/api/public/consent",
+  // QR "record from your phone" — token-authorized, no login (migration 0053).
+  "/gravar",
+  "/api/public/capture",
   "/verify",
   "/planos",
   "/como-funciona",

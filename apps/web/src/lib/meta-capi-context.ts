@@ -1,5 +1,6 @@
 import "server-only";
 
+import { gaClientIdFromCookie } from "./ga4-mp";
 import type { MetaClientContext } from "./meta-capi";
 import { cookies, headers } from "next/headers";
 
@@ -23,4 +24,14 @@ export async function getMetaClientContext(eventSourceUrl?: string | null): Prom
     clientUserAgent: headerStore.get("user-agent"),
     eventSourceUrl: eventSourceUrl ?? null,
   };
+}
+
+/**
+ * GA4 `client_id` from the CURRENT request's `_ga` cookie (set by gtag on the
+ * marketing site after consent). Null when absent — which is exactly when we
+ * must NOT send a GA4 Measurement Protocol event. Request-scoped, like above.
+ */
+export async function getGaClientId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return gaClientIdFromCookie(cookieStore.get("_ga")?.value);
 }
