@@ -28,12 +28,17 @@ export default function Header() {
     return (
       <Box
         component="header"
-        className="flex h-14 flex-none flex-row items-center sm:h-16"
+        // Matches the mounted header's h-20: it used to be shorter, which both
+        // shifted the layout on hydration and left no room for the logo.
+        className="flex h-20 flex-none flex-row items-center"
         style={{ padding: `0 var(--main-padding)` }}
       >
         <Box className="flex h-full flex-row items-center">
           <Link href="/inicio">
-            <Logo classNameFull="ml-2 hidden md:block" classNameMobile="ml-2 md:hidden" />
+            <Logo
+              classNameFull="ml-2 hidden h-[54px] w-auto md:block"
+              classNameMobile="ml-2 h-[54px] w-auto md:hidden"
+            />
           </Link>
         </Box>
       </Box>
@@ -67,9 +72,12 @@ export default function Header() {
           startIcon={<NiMenuSplit size={24} />}
         />
         <Box className="flex h-full flex-row items-center gap-6">
-          {/* Logo */}
+          {/* Logo — 2× the 27px default, sized against the 80px header. */}
           <Link href="/inicio">
-            <Logo classNameFull="ml-2 hidden md:block" classNameMobile="ml-2 md:hidden" />
+            <Logo
+              classNameFull="ml-2 hidden h-[54px] w-auto md:block"
+              classNameMobile="ml-2 h-[54px] w-auto md:hidden"
+            />
           </Link>
 
           {/* Version select */}

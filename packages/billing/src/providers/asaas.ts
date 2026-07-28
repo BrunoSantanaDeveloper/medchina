@@ -14,9 +14,22 @@ const PERIOD_TO_CYCLE: Record<BillingPeriod, string> = {
   yearly: "YEARLY",
 };
 
+/**
+ * Sandbox by default; set ASAAS_BASE_URL=https://api.asaas.com/v3 in production.
+ *
+ * `??` is deliberately NOT used to pick the default. A variable that is
+ * DEFINED but empty — `ASAAS_BASE_URL=` on its own line, which is exactly what
+ * `vercel env pull` writes for a variable with no value — is not null, so `??`
+ * keeps the empty string. Every request below then becomes a relative URL that
+ * `fetch` refuses to parse, and the throw happens BEFORE anything leaves the
+ * server: the customer sees "checkout unavailable" while the provider never
+ * saw a request at all. An unset variable and an empty one must mean the same
+ * thing here.
+ */
 function baseUrl() {
-  // Sandbox by default; set ASAAS_BASE_URL=https://api.asaas.com/v3 in production.
-  return process.env.ASAAS_BASE_URL ?? "https://api-sandbox.asaas.com/v3";
+  const configured = process.env.ASAAS_BASE_URL?.trim();
+  // A trailing slash would produce `//customers`, which Asaas 404s.
+  return configured ? configured.replace(/\/+$/u, "") : "https://api-sandbox.asaas.com/v3";
 }
 
 async function asaasFetch<T>(path: string, init?: RequestInit, idempotencyKey?: string): Promise<T> {

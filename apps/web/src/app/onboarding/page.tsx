@@ -86,7 +86,8 @@ export default function Onboarding() {
   return (
     <Box className="bg-waves flex min-h-screen w-full items-center justify-center bg-cover bg-center p-4">
       <Box className="flex w-full max-w-4xl flex-col items-center gap-8 py-10">
-        <Logo classNameMobile="hidden" />
+        {/* 2× the 27px default — this is a full-page welcome, not header chrome. */}
+        <Logo classNameFull="h-[54px] w-auto" classNameMobile="hidden" />
         <Box className="flex max-w-2xl flex-col items-center gap-2 text-center">
           <Typography variant="h1" component="h1">
             {t("start-title")}
@@ -96,7 +97,10 @@ export default function Onboarding() {
           </Typography>
         </Box>
 
-        <Box className="grid w-full gap-4 md:grid-cols-3">
+        {/* Two columns for the two tracks. It was grid-cols-3 from when a third
+            "demo" track existed (removed — see CHOICES): the cards kept filling
+            columns 1 and 2 and read as left-shifted against an empty third. */}
+        <Box className="grid w-full max-w-2xl gap-4 md:grid-cols-2">
           {CHOICES.map((choice) => {
             const active = selected === choice.key;
             return (

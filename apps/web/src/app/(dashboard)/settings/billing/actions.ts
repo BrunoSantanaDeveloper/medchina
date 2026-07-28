@@ -45,6 +45,24 @@ type ActiveBillingClaim = {
   claimToken: string;
 };
 
+/**
+ * Names the cause of a checkout failure in the server log.
+ *
+ * Every failure path below collapses to `{ error: "unavailable" }` on purpose
+ * — provider and configuration detail must not reach the browser. But without
+ * this the cause was not recorded ANYWHERE: diagnosing a customer who could
+ * not subscribe meant reading `billing_operations` in production and guessing
+ * between eight paths that share one code. The message is the operator's, not
+ * the customer's.
+ */
+function logBillingFailure(stage: string, context: Record<string, unknown>, error?: unknown) {
+  console.error("billing_checkout_failed", {
+    stage,
+    ...context,
+    ...(error instanceof Error ? { message: error.message, name: error.name } : error ? { error: String(error) } : {}),
+  });
+}
+
 async function failBillingClaim(claim: ActiveBillingClaim | null, errorCode: string) {
   if (!claim) return;
   try {
@@ -72,13 +90,19 @@ export async function startCheckout(input: {
   let activeClaim: ActiveBillingClaim | null = null;
   try {
     const { supabase, user } = await requireOrgManager(input.orgId);
-    if (!UUID.test(input.idempotencyKey)) return { error: "unavailable" };
+    if (!UUID.test(input.idempotencyKey)) {
+      logBillingFailure("invalid_idempotency_key", { orgId: input.orgId });
+      return { error: "unavailable" };
+    }
 
     const [{ data: planRow }, { data: org }] = await Promise.all([
       supabase.from("plans").select("*").eq("id", input.planId).eq("is_active", true).single(),
       supabase.from("organizations").select("name").eq("id", input.orgId).single(),
     ]);
-    if (!planRow || planRow.is_free) return { error: "unavailable" };
+    if (!planRow || planRow.is_free) {
+      logBillingFailure("plan_not_purchasable", { orgId: input.orgId, planId: input.planId, found: Boolean(planRow) });
+      return { error: "unavailable" };
+    }
 
     const plan: CheckoutPlan = {
       id: planRow.id,
@@ -95,7 +119,10 @@ export async function startCheckout(input: {
       creditsExpire: planRow.credits_expire,
     };
     const provider = defaultProvider();
-    if (!provider) return { error: "unavailable" };
+    if (!provider) {
+      logBillingFailure("no_provider_configured", { orgId: input.orgId });
+      return { error: "unavailable" };
+    }
     const service = createServiceClient();
     const { data: claimData, error: claimError } = await service.rpc("claim_billing_operation", {
       target_org: input.orgId,
@@ -114,7 +141,10 @@ export async function startCheckout(input: {
       result?: { url?: string };
     } | null;
     if (claim?.code === "completed" && claim.result?.url) return { url: claim.result.url };
-    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) return { error: "unavailable" };
+    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) {
+      logBillingFailure("claim_rejected", { orgId: input.orgId, provider, code: claim?.code }, claimError);
+      return { error: "unavailable" };
+    }
     activeClaim = { service, operationId: claim.operationId, claimToken: claim.claimToken };
 
     const origin = await appOrigin();
@@ -141,6 +171,10 @@ export async function startCheckout(input: {
     });
     const completed = completedData as { ok?: boolean; result?: { url?: string } } | null;
     if (pendingError || !completed?.ok) {
+      // The provider already has a checkout at this point; only the local
+      // bookkeeping failed. Worth shouting about — the customer may be looking
+      // at a payment page we have no record of.
+      logBillingFailure("local_reconciliation_failed", { orgId: input.orgId, planId: input.planId }, pendingError);
       await failBillingClaim(activeClaim, "local_reconciliation_failed");
       activeClaim = null;
       return { error: "unavailable" };
@@ -197,7 +231,12 @@ export async function startCheckout(input: {
     }
 
     return { url: completed.result?.url ?? result.url };
-  } catch {
+  } catch (error) {
+    // The provider call is the likeliest thing to land here, and its message
+    // is the only place the real cause exists — a bad key, a rejected payload,
+    // a base URL that is not a URL. Losing it is what turns "she cannot
+    // subscribe" into an archaeology exercise over billing_operations.
+    logBillingFailure("provider_call_threw", { orgId: input.orgId, planId: input.planId }, error);
     await failBillingClaim(activeClaim, "provider_unavailable");
     return { error: "unavailable" };
   }
@@ -255,7 +294,10 @@ export async function startPackCheckout(input: {
       creditsExpire: planRow.credits_expire,
     };
     const provider = defaultProvider();
-    if (!provider) return { error: "unavailable" };
+    if (!provider) {
+      logBillingFailure("no_provider_configured", { orgId: input.orgId });
+      return { error: "unavailable" };
+    }
     const service = createServiceClient();
     const { data: claimData, error: claimError } = await service.rpc("claim_billing_operation", {
       target_org: input.orgId,
@@ -274,7 +316,10 @@ export async function startPackCheckout(input: {
       result?: { url?: string };
     } | null;
     if (claim?.code === "completed" && claim.result?.url) return { url: claim.result.url };
-    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) return { error: "unavailable" };
+    if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) {
+      logBillingFailure("claim_rejected", { orgId: input.orgId, provider, code: claim?.code }, claimError);
+      return { error: "unavailable" };
+    }
     activeClaim = { service, operationId: claim.operationId, claimToken: claim.claimToken };
 
     const origin = await appOrigin();
@@ -297,6 +342,10 @@ export async function startPackCheckout(input: {
     });
     const completed = completedData as { ok?: boolean; result?: { url?: string } } | null;
     if (pendingError || !completed?.ok) {
+      // The provider already has a checkout at this point; only the local
+      // bookkeeping failed. Worth shouting about — the customer may be looking
+      // at a payment page we have no record of.
+      logBillingFailure("local_reconciliation_failed", { orgId: input.orgId, planId: input.planId }, pendingError);
       await failBillingClaim(activeClaim, "local_reconciliation_failed");
       activeClaim = null;
       return { error: "unavailable" };
@@ -336,7 +385,12 @@ export async function startPackCheckout(input: {
     }
 
     return { url: completed.result?.url ?? result.url };
-  } catch {
+  } catch (error) {
+    // The provider call is the likeliest thing to land here, and its message
+    // is the only place the real cause exists — a bad key, a rejected payload,
+    // a base URL that is not a URL. Losing it is what turns "she cannot
+    // subscribe" into an archaeology exercise over billing_operations.
+    logBillingFailure("provider_call_threw", { orgId: input.orgId, planId: input.planId }, error);
     await failBillingClaim(activeClaim, "provider_unavailable");
     return { error: "unavailable" };
   }

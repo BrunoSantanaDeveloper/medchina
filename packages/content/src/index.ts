@@ -11,8 +11,13 @@ export const BRAND = {
   name: "MedChina",
   tagline: "Atenda olhando para o paciente. O MedChina organiza o restante.",
   description: "Prontuário inteligente e assistente clínico para Medicina Tradicional Chinesa.",
-  /** Canonical site URL — set NEXT_PUBLIC_SITE_URL in production (no trailing slash). */
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  /**
+   * Canonical site URL — set NEXT_PUBLIC_SITE_URL in production (no trailing
+   * slash). Not `??`: a defined-but-empty variable is not null, and an empty
+   * canonical would silently poison every metadata URL, the sitemap and the
+   * JSON-LD rather than falling back to something visibly wrong in dev.
+   */
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/u, "") || "http://localhost:3000",
   favicon: {
     light: "/favicon/light.png",
     dark: "/favicon/dark.png",

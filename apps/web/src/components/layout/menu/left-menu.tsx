@@ -7,12 +7,11 @@ import { Box, Paper, Typography } from "@mui/material";
 
 import { AiChatMenuContent } from "@/app/(dashboard)/applications/ai-chat/components/menu-content";
 import { useLayoutContext } from "@/components/layout/layout-context";
+import PlanIndicator from "@/components/layout/menu/plan-indicator";
 import { PrimaryItem } from "@/components/layout/menu/primary-item";
 import { SecondaryItem } from "@/components/layout/menu/secondary-item";
 import { DEFAULTS } from "@/config";
 import { useIsSuperadmin } from "@/hooks/use-is-superadmin";
-import IllustrationLaunch from "@/icons/illustrations/illustration-launch";
-import { trackCommercialEvent } from "@/lib/product-events";
 import { cn, isPathMatch } from "@/lib/utils";
 import { leftMenuBottomItems, leftMenuItems } from "@/menu-items";
 import { MenuItem, MenuShowState, MenuType } from "@/types";
@@ -121,19 +120,6 @@ export default function LeftMenu() {
     if (pathname.startsWith("/applications/ai-chat")) return <AiChatMenuContent />;
     return null;
   }, [pathname]);
-  const upgradePromptTracked = useRef(false);
-  const secondaryVisible =
-    Boolean(activeItem?.children?.length) &&
-    leftSecondaryCurrent !== MenuShowState.Hide &&
-    leftMenuWidth.secondary > 0 &&
-    !customSecondaryContent;
-
-  useEffect(() => {
-    if (!secondaryVisible || upgradePromptTracked.current) return;
-    upgradePromptTracked.current = true;
-    trackCommercialEvent("upgrade.prompt_viewed", "menu", "plans");
-  }, [secondaryVisible]);
-
   return (
     <nav
       id="primary-navigation"
@@ -190,6 +176,10 @@ export default function LeftMenu() {
             )}
           </Box>
           <Box className={cn("mb-5 flex w-full flex-col items-center gap-0.5")}>
+            {/* Which plan this workspace is on. Hidden on the consultation
+                route: there is a patient in the room and the screen is the
+                capture surface — commercial chrome waits. */}
+            {!pathname.startsWith("/consultas/") && <PlanIndicator menuType={leftMenuType} />}
             {leftMenuBottomItems.map((item) =>
               leftMenuType !== MenuType.SingleLayer ? (
                 <PrimaryItem
@@ -250,35 +240,25 @@ export default function LeftMenu() {
                           {t(activeItem?.label)}
                         </Typography>
                       )}
-                      <Box className="flex h-full w-full flex-1 flex-col justify-between gap-2">
-                        <Box className="flex flex-1 flex-col gap-2">
-                          {activeItem?.children &&
-                            activeItem?.children?.length > 0 &&
-                            activeItem?.children?.map((item) => (
-                              <SecondaryItem
-                                item={item}
-                                key={`left-menu-secondary-item-${leftMenuType}-${activeItem.id}-${item.id}`}
-                                indent={0}
-                                openedAccordions={openedAccordions}
-                                setOpenedAccordions={setOpenedAccordions}
-                              />
-                            ))}
-                        </Box>
-
-                        <Box
-                          component="a"
-                          href="/settings/billing"
-                          onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "menu", "plans")}
-                          className="group flex w-full cursor-pointer flex-col items-center justify-center gap-2"
-                        >
-                          <IllustrationLaunch className="text-primary h-[180px] w-[180px] bg-cover bg-center" />
-                          <Typography variant="body1" className="px-4 text-center">
-                            {t("menu-cta-copy")}
-                          </Typography>
-                          <Box className="group-hover:bg-primary/10 text-primary dark:text-primary-light rounded-md px-5 py-2 font-medium transition-colors">
-                            {t("menu-cta-button")}
-                          </Box>
-                        </Box>
+                      {/* The "compare plans" CTA that used to sit here was
+                          unreachable by customers: this panel only renders for
+                          a menu item WITH children, and the only one is the
+                          superadmin group — so the pitch was shown to the
+                          platform operator and to nobody who could buy. The
+                          plan surface now lives in the primary rail
+                          (<PlanIndicator/>), which every workspace sees. */}
+                      <Box className="flex h-full w-full flex-1 flex-col gap-2">
+                        {activeItem?.children &&
+                          activeItem?.children?.length > 0 &&
+                          activeItem?.children?.map((item) => (
+                            <SecondaryItem
+                              item={item}
+                              key={`left-menu-secondary-item-${leftMenuType}-${activeItem.id}-${item.id}`}
+                              indent={0}
+                              openedAccordions={openedAccordions}
+                              setOpenedAccordions={setOpenedAccordions}
+                            />
+                          ))}
                       </Box>
                     </>
                   )}

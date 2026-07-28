@@ -7,7 +7,15 @@ import OrgInviteEmail, { OrgInviteEmailProps } from "./templates/org-invite";
 /** True when transactional email is configured (server-only env var). */
 export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY);
 
-const DEFAULT_FROM = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
+/**
+ * A defined-but-empty variable (`EMAIL_FROM=` on its own line — what
+ * `vercel env pull` writes for a variable with no value) is not null, so `??`
+ * would keep the empty string and every send would be rejected for an empty
+ * From. Treat unset and empty as the same thing.
+ */
+const env = (name: string): string | undefined => process.env[name]?.trim() || undefined;
+
+const DEFAULT_FROM = env("EMAIL_FROM") ?? "onboarding@resend.dev";
 
 export type SendResult = { sent: boolean; error?: string };
 
@@ -40,7 +48,7 @@ export async function sendOrgInviteEmail(to: string, props: OrgInviteEmailProps)
  * an alternative channel in that case.
  */
 export async function sendContactFormEmail(props: ContactFormEmailProps): Promise<SendResult> {
-  const to = process.env.CONTACT_FORM_TO ?? process.env.EMAIL_FROM;
+  const to = env("CONTACT_FORM_TO") ?? env("EMAIL_FROM");
   if (!isEmailConfigured || !to) {
     return { sent: false };
   }
