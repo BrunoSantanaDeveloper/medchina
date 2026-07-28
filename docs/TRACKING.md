@@ -9,10 +9,11 @@ site; the money-funnel events that happen inside the app are sent server-side.
 
 | Concern | File |
 |---|---|
-| Client provider (Meta Pixel + GA4), consent-gated | `apps/web/src/lib/analytics.ts` |
+| Pixel + GA4 base scripts, **SSR, opt-out** | `apps/web/src/components/consent/marketing-trackers.tsx` |
+| Browser event helpers (`track`, `trackPageView`, opt-out) | `apps/web/src/lib/analytics.ts` |
 | SPA PageView on marketing routes | `apps/web/src/components/consent/marketing-analytics.tsx` |
 | One-shot event from a server page (e.g. ViewContent) | `apps/web/src/components/consent/track-event.tsx` |
-| Consent banner (renders only when a provider is configured) | `apps/web/src/components/consent/cookie-consent.tsx` |
+| Cookie notice (opt-out; renders only when a tracker is configured) | `apps/web/src/components/consent/cookie-consent.tsx` |
 | Server-side Meta Conversions API | `apps/web/src/lib/meta-capi.ts` (+ `meta-capi-context.ts`) |
 | Server-side GA4 Measurement Protocol | `apps/web/src/lib/ga4-mp.ts` (+ `getGaClientId` in `meta-capi-context.ts`) |
 
@@ -20,12 +21,24 @@ The client Pixel/GA4 mount ONLY in the marketing layout. The dashboard layout
 mounts neither the banner nor any tracker (see the comment in
 `apps/web/src/app/(dashboard)/layout.tsx`).
 
-## Consent
+## Consent — opt-out model (marketing site)
 
-The Pixel/GA4 boot ONLY after the visitor accepts the cookie banner
-(`initAnalyticsIfConsented`). With no id configured there is nothing to consent
-to, so the banner never renders. Bump `CONSENT_VERSION` in `lib/analytics.ts`
-when the privacy policy changes materially — the banner re-asks.
+The Meta Pixel + GA4 base scripts are rendered **server-side** in the marketing
+layout (`marketing-trackers.tsx`) and load by **default** — so they are present
+in the initial HTML (detectable by audits) and fire for every visitor. A visitor
+opts out from the cookie notice (`cookie-consent.tsx` → "Recusar análises"),
+which sets the `analyticsOptOut` cookie: the SSR component then skips rendering
+the scripts on the next load, and `lib/analytics.ts` stops emitting events and
+sets GA4's `ga-disable-*` kill-switch immediately. With no id configured there is
+nothing to load and the notice never renders. Bump `CONSENT_VERSION` when the
+privacy policy changes materially — the notice re-appears.
+
+This posture applies to the **public marketing site only** (audience of
+professionals, not patients). The compliance boundary is unchanged: no tracker of
+any kind runs on the authenticated clinical app. Server-side conversions
+(CAPI/Measurement Protocol) currently fire regardless of the browser opt-out —
+they are first-party measurement of the account holder's own transactions
+(hashed); gate them on the opt-out cookie if a stricter posture is required.
 
 ## Event map
 

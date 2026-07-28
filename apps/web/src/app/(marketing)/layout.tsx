@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { BRAND } from "@/brand";
 import CookieConsent from "@/components/consent/cookie-consent";
 import MarketingAnalytics from "@/components/consent/marketing-analytics";
+import MarketingTrackers from "@/components/consent/marketing-trackers";
 import JsonLd from "@/components/marketing/json-ld";
 import MarketingFooter from "@/components/marketing/marketing-footer";
 import MarketingHeader from "@/components/marketing/marketing-header";
@@ -58,7 +59,9 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <MarketingFooter />
       <SupportWidget support={support} />
       <CookieConsent />
-      {/* Marketing-only: keeps the Pixel/GA4 off the authenticated clinical app. */}
+      {/* Marketing-only: SSR Pixel/GA4 (opt-out) + SPA pageviews. Never mounted
+          on the clinical app — the compliance boundary is the layout itself. */}
+      <MarketingTrackers />
       <MarketingAnalytics />
     </div>
   );

@@ -3,26 +3,20 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
-import { initAnalyticsIfConsented, trackPageView } from "@/lib/analytics";
+import { trackPageView } from "@/lib/analytics";
 
 /**
- * Fires a PageView on client-side navigation between marketing routes.
+ * Fires a PageView on client-side navigation between marketing routes. The
+ * Pixel/GA4 base scripts (and the initial PageView) come from the server-rendered
+ * `marketing-trackers.tsx`; this only reports genuine SPA transitions, so it
+ * skips the first render. No-op if the visitor opted out.
  *
- * Mounted ONLY in the marketing layout — this is the single reason the Meta
- * Pixel / GA4 stay off the authenticated clinical app (LGPD Art. 11: no ad
- * tracker over health data). The initial PageView is emitted by the Pixel/GA4
- * boot snippet itself, so this skips the first render and only reports genuine
- * SPA transitions. Everything is a no-op until the visitor grants consent.
+ * Mounted ONLY in the marketing layout — the trackers never run on the
+ * authenticated clinical app (LGPD Art. 11: no ad tracker over health data).
  */
 export default function MarketingAnalytics() {
   const pathname = usePathname();
   const firstRender = useRef(true);
-
-  // A returning visitor who already consented boots the provider immediately
-  // (the consent banner does the same, but this covers a mount without it).
-  useEffect(() => {
-    initAnalyticsIfConsented();
-  }, []);
 
   useEffect(() => {
     if (firstRender.current) {

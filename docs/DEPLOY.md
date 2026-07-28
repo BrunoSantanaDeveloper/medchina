@@ -141,6 +141,62 @@ barra final).
   para o domínio de produção e adicionar as redirect URLs de auth.
 - Smoke test: home pública, `/auth/sign-in`, criar workspace, `/inicio`.
 
+## Domínio — app no subdomínio `ai.medchinaprontuarios.com.br` (escolhido)
+
+O apex `medchinaprontuarios.com.br` já hospeda outros serviços na Hostinger
+(site atual, caixas de e-mail gratuitas via MX, outros subdomínios). Para não
+tocar em nada disso, o app roda num **subdomínio dedicado** apontado ao Vercel
+por CNAME — a forma recomendada de adicionar o app a um domínio com serviços
+existentes; risco zero ao apex.
+
+> **E-mail nunca corre risco**: registros **MX** (e-mail) e **A/CNAME** (web) são
+> independentes. Um CNAME em `ai` não afeta as caixas do apex. O código também
+> não tem URL hardcoded — canonical/OG/sitemap vêm de `NEXT_PUBLIC_SITE_URL`, e
+> auth/webhook são derivados do host da requisição, então tudo se adapta ao
+> subdomínio sozinho.
+
+### Configurar
+
+1. **Vercel → Settings → Domains** → adicionar `ai.medchinaprontuarios.com.br`.
+   O Vercel mostra o alvo do CNAME (`cname.vercel-dns.com`).
+2. **Hostinger → DNS** → criar **CNAME**: `ai` → `cname.vercel-dns.com`. SSL é
+   emitido automaticamente pelo Vercel. Não mexer em A, MX nem nos outros
+   subdomínios.
+3. **Vercel → `NEXT_PUBLIC_SITE_URL=https://ai.medchinaprontuarios.com.br`**
+   (Production) e **redeploy** — é build-time. Vira o domínio canônico
+   (sitemap/robots/OG/canonical) e corrige o `http://localhost:3000` atual.
+4. **Supabase → Authentication → URL Configuration**: Site URL + Redirect URLs
+   com `https://ai.medchinaprontuarios.com.br` (`/auth/callback`, `/**`).
+5. **OAuth Google/GitHub** (se usados): adicionar
+   `https://ai.medchinaprontuarios.com.br/auth/callback`.
+6. **Webhook Asaas + sync do Inngest**: apontar para o subdomínio
+   (`https://ai.medchinaprontuarios.com.br/api/webhooks/asaas`, `/api/inngest`)
+   — ou manter o alias estável `medchina-wheat.vercel.app`, que também vale.
+7. **Meta/GA4**: os IDs são independentes de domínio (funcionam no subdomínio).
+   Opcional: atualizar a URL do stream do GA4 para o subdomínio e verificar o
+   domínio no Meta Business (Domain Verification) para o Aggregated Event
+   Measurement.
+
+### Onde os anúncios apontam
+
+O **site público de marketing — com o Pixel e o funil de conversão — é o nosso
+app**, agora em `ai.medchinaprontuarios.com.br`. Anúncios e links de conversão
+apontam para lá (o WordPress do apex não tem nosso tracking). Um
+redirecionamento apex → subdomínio na Hostinger (opcional, quando quiser) leva o
+tráfego do domínio principal ao app **mantendo e-mail e demais serviços
+intactos**.
+
+> SEO: subdomínio é tratado como site à parte pelo Google. É adequado para o
+> lançamento; se depois quiser a autoridade no apex, mover é fácil (trocar
+> `NEXT_PUBLIC_SITE_URL` + DNS — nada no código muda).
+
+### Smoke test pós-configuração
+
+Home pública em `ai.…` → aviso de cookies + Pixel dispara (ver o ID no HTML) →
+`/auth/sign-up` (e-mail + OAuth) → criar workspace → `/inicio` → um checkout de
+teste → confirmar `InitiateCheckout`/`Purchase` no Gerenciador de Eventos (Meta)
+e no GA4.
+
 ## Troubleshooting
 
 - `Module not found: Can't resolve '@flyee/content'` (ou qualquer `@flyee/*`)

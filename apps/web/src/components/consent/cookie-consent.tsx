@@ -7,36 +7,37 @@ import { useTranslations } from "use-intl";
 import { Box, Button, Card, Slide, Typography } from "@mui/material";
 
 import NiShieldCheck from "@/icons/nexture/ni-shield-check";
-import { ANALYTICS_PROVIDER, getStoredConsent, initAnalyticsIfConsented, storeConsent } from "@/lib/analytics";
+import { ANALYTICS_ENABLED, getStoredConsent, optOutOfAnalytics, storeConsent } from "@/lib/analytics";
 
 /**
- * Cookie-consent banner (marketing site + dashboard). Renders ONLY when an
- * analytics provider is registered in lib/analytics.ts AND the user has not
- * answered for the current CONSENT_VERSION — with no analytics there is
- * nothing to consent to (essential cookies are exempt) and a banner would be
- * pure theater. Accepting boots the provider immediately; rejecting keeps
- * analytics off for good. Essential cookies (sign-in, locale) are never
- * blocked and the copy says so honestly.
+ * Cookie NOTICE (opt-out). Analytics loads by default on the marketing site
+ * (see `marketing-trackers.tsx`); this banner informs and lets the visitor opt
+ * out. Renders only when a tracker is configured AND the visitor has not yet
+ * answered for the current CONSENT_VERSION. "Entendi" acknowledges (tracking
+ * stays on); "Recusar análises" opts out (sets the cookie + disables the SDKs).
  *
- * Not a modal on purpose: it must not trap focus or block the page —
- * ignoring it is a valid answer (analytics stays off until granted).
+ * Not a modal on purpose: it must not trap focus or block the page.
  */
 export default function CookieConsent() {
   const t = useTranslations("marketing");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!ANALYTICS_PROVIDER) return;
-    const consent = getStoredConsent();
-    if (consent) initAnalyticsIfConsented(consent);
-    else setOpen(true);
+    if (!ANALYTICS_ENABLED) return;
+    // Show until the visitor has acknowledged/opted out for this version.
+    if (!getStoredConsent()) setOpen(true);
   }, []);
 
-  if (!ANALYTICS_PROVIDER || !open) return null;
+  if (!ANALYTICS_ENABLED || !open) return null;
 
-  const answer = (analytics: boolean) => {
-    const state = storeConsent(analytics);
-    initAnalyticsIfConsented(state);
+  const acknowledge = () => {
+    storeConsent(true);
+    setOpen(false);
+  };
+
+  const optOut = () => {
+    storeConsent(false);
+    optOutOfAnalytics();
     setOpen(false);
   };
 
@@ -64,10 +65,10 @@ export default function CookieConsent() {
           </Box>
         </Box>
         <Box className="flex gap-2 max-sm:flex-col">
-          <Button variant="contained" color="primary" className="flex-1" onClick={() => answer(true)}>
+          <Button variant="contained" color="primary" className="flex-1" onClick={acknowledge}>
             {t("cookie-consent-accept")}
           </Button>
-          <Button variant="outlined" color="grey" className="flex-1" onClick={() => answer(false)}>
+          <Button variant="outlined" color="grey" className="flex-1" onClick={optOut}>
             {t("cookie-consent-reject")}
           </Button>
         </Box>

@@ -16,7 +16,12 @@ export type ModeVariant = (typeof THEME_MODE_OPTIONS)[number];
 export const THEME_MODE_OPTIONS = ["light", "dark", "system"] as const;
 
 const storagePrefix = process.env.NEXT_PUBLIC_STORAGE_PREFIX || "";
-export const COOKIE_KEYS = { locale: `${storagePrefix}-locale` };
+export const COOKIE_KEYS = {
+  locale: `${storagePrefix}-locale`,
+  // Opt-out flag for marketing analytics (read server-side to SSR the trackers,
+  // and client-side by lib/analytics). Absent = tracking on (opt-out model).
+  analyticsOptOut: `${storagePrefix}-analytics-optout`,
+};
 
 export const LOCAL_STORAGE_KEYS = {
   themeColor: `${storagePrefix}-theme-color`,
