@@ -340,12 +340,27 @@ h2 em {
   gap: 12px;
 }
 
+.hero-guarantee {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  color: #52615e;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hero-guarantee svg {
+  color: var(--jade);
+  flex: none;
+}
+
 .hero-trust {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 18px;
-  margin: 30px 0 0;
+  margin: 22px 0 0;
   padding: 0;
   color: #52615e;
   font-size: 12px;

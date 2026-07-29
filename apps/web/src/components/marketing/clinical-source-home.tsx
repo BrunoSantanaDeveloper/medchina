@@ -833,6 +833,9 @@ export default function ClinicalSourceHome() {
                 <Play size={17} weight="fill" /> Conhecer a plataforma
               </a>
             </div>
+            <p className="hero-guarantee">
+              <CheckCircle size={16} weight="fill" /> 14 dias grátis, sem cartão · cancele quando quiser
+            </p>
             <ul className="hero-trust" aria-label="Garantias">
               <li>
                 <ShieldCheck size={19} weight="duotone" /> Consentimento

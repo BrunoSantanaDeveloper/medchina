@@ -44,31 +44,39 @@ they are first-party measurement of the account holder's own transactions
 
 Split by where the event physically happens:
 
-**Client (marketing site, consent-gated Pixel + GA4)**
+**Client (marketing site, Pixel + GA4 — opt-out)**
 | Event | Where it fires |
 |---|---|
-| `PageView` | every marketing route (Pixel/GA4 boot + `MarketingAnalytics`) |
+| `PageView` | every marketing route (SSR Pixel/GA4 + `MarketingAnalytics`) |
 | `ViewContent` | `/planos` (`TrackEvent`) |
 
 **Server (Meta Conversions API — no browser tracker in the app)**
 | Event | Where it fires | event_id | Match keys |
 |---|---|---|---|
 | `CompleteRegistration` | `auth/callback/route.ts` (new account only) | user id | email, user id, `_fbp`/`_fbc`, IP/UA |
+| `Activated` | `api/consultations/[id]/finalize` (first finalized consultation) | `activated:<org>` | email, org id, `_fbp`/`_fbc`, IP/UA |
 | `StartTrial` | `api/billing/start-trial` → `start_pro_trial` succeeds | `trial:<org>` | email, org id, `_fbp`/`_fbc`, IP/UA |
 | `InitiateCheckout` | `settings/billing/actions.ts` → `startCheckout` | idempotency key | email, org id, `_fbp`/`_fbc`, IP/UA |
 | `Purchase` | `api/webhooks/[provider]` → `payment_succeeded` (once per paid invoice) | `<provider>:<invoice>` | org id, value, + email/`_fbp`/`_fbc`/IP/UA from `meta_attribution` |
+| `Subscribe` | same webhook, only the subscription's FIRST paid invoice | `subscribe:<sub>` | org id, value, + `meta_attribution` keys |
 
 `event_id` is stable per event so a browser event of the same name deduplicates
-against the server one, and renewals count as distinct purchases.
+against the server one, and renewals count as distinct purchases. `Activated` is
+the product aha (first finalized consultation, `lib/onboarding.ts`) — server-side
+with NO clinical data. `Subscribe` fires once per subscription (its first payment)
+so Meta can optimize for new paying customers, while `Purchase` counts every paid
+invoice including renewals.
 
-**Server (GA4 Measurement Protocol — same call sites, mirrors the four above)**
+**Server (GA4 Measurement Protocol — same call sites, mirrors the events above)**
 
 | Meta event | GA4 event | params |
 |---|---|---|
 | `CompleteRegistration` | `sign_up` | `method` |
+| `Activated` | `activated` | — |
 | `StartTrial` | `start_trial` | — |
 | `InitiateCheckout` | `begin_checkout` | `currency`, `value` |
 | `Purchase` | `purchase` | `currency`, `value`, `transaction_id` |
+| `Subscribe` | `subscribe` | `currency`, `value` |
 
 Each GA4 event is stitched to the visitor's web session via the `_ga` cookie
 `client_id`. **No `client_id` → no GA4 event** — which is both required by the

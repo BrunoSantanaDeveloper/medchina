@@ -363,6 +363,40 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
               transaction_id: `${event.provider}:${event.providerInvoiceId}`,
             },
           });
+
+          // Meta CAPI + GA4 — Subscribe, ONCE per subscription: only on its
+          // FIRST paid invoice (renewals stay Purchase). Lets Meta optimize for
+          // NEW paying customers, not renewals. Packs (no subscription) skip it.
+          if (sub) {
+            const { count: paidInvoices } = await supabase
+              .from("invoices")
+              .select("id", { count: "exact", head: true })
+              .eq("subscription_id", sub.id)
+              .eq("status", "paid");
+            if (paidInvoices === 1) {
+              await sendMetaConversion({
+                eventName: "Subscribe",
+                eventId: `subscribe:${sub.id}`,
+                externalId: orgId,
+                email: attribution?.email ?? null,
+                fbp: attribution?.fbp ?? null,
+                fbc: attribution?.fbc ?? null,
+                clientIp: attribution?.client_ip ?? null,
+                clientUserAgent: attribution?.client_user_agent ?? null,
+                value: event.amountCents / 100,
+                currency: event.currency,
+                actionSource: "system_generated",
+                eventTime: Math.floor(event.paidAt.getTime() / 1000),
+              });
+              await sendGa4Event({
+                clientId: attribution?.ga_client_id ?? null,
+                eventName: "subscribe",
+                eventId: `subscribe:${sub.id}`,
+                eventTime: Math.floor(event.paidAt.getTime() / 1000),
+                params: { currency: event.currency, value: event.amountCents / 100 },
+              });
+            }
+          }
         } catch {
           // Measurement is best-effort — a paid invoice is already reconciled.
         }
