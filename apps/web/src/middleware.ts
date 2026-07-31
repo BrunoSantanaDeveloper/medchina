@@ -15,6 +15,12 @@ const PUBLIC_PREFIXES = [
   // QR "record from your phone" — token-authorized, no login (migration 0053).
   "/gravar",
   "/api/public/capture",
+  // One-click email unsubscribe (token in the query, no login) — trial drip.
+  "/api/public/unsubscribe",
+  // Provider callbacks that authenticate THEMSELVES (Asaas token / Stripe
+  // signature / Inngest signing key), so they must NOT hit the auth redirect.
+  "/api/webhooks",
+  "/api/inngest",
   "/verify",
   "/planos",
   "/como-funciona",

@@ -56,6 +56,7 @@ Split by where the event physically happens:
 | `CompleteRegistration` | `auth/callback/route.ts` (new account only) | user id | email, user id, `_fbp`/`_fbc`, IP/UA |
 | `Activated` | `api/consultations/[id]/finalize` (first finalized consultation) | `activated:<org>` | email, org id, `_fbp`/`_fbc`, IP/UA |
 | `StartTrial` | `api/billing/start-trial` → `start_pro_trial` succeeds | `trial:<org>` | email, org id, `_fbp`/`_fbc`, IP/UA |
+| `TrialExpiring` | `lib/trial-jobs.ts` drip, ~3 days before the trial ends | `trial-expiring:<org>` | org id, + `meta_attribution` keys (no request cookies) |
 | `InitiateCheckout` | `settings/billing/actions.ts` → `startCheckout` | idempotency key | email, org id, `_fbp`/`_fbc`, IP/UA |
 | `Purchase` | `api/webhooks/[provider]` → `payment_succeeded` (once per paid invoice) | `<provider>:<invoice>` | org id, value, + email/`_fbp`/`_fbc`/IP/UA from `meta_attribution` |
 | `Subscribe` | same webhook, only the subscription's FIRST paid invoice | `subscribe:<sub>` | org id, value, + `meta_attribution` keys |
@@ -74,6 +75,7 @@ invoice including renewals.
 | `CompleteRegistration` | `sign_up` | `method` |
 | `Activated` | `activated` | — |
 | `StartTrial` | `start_trial` | — |
+| `TrialExpiring` | `trial_expiring` | — |
 | `InitiateCheckout` | `begin_checkout` | `currency`, `value` |
 | `Purchase` | `purchase` | `currency`, `value`, `transaction_id` |
 | `Subscribe` | `subscribe` | `currency`, `value` |
@@ -106,6 +108,25 @@ tick Email/`_fbp`/`_fbc`/IP on the Purchase event in the CAPI setup wizard.
 ### Fast-follow (optional)
 - Add a predicted value to `StartTrial` (the Pro plan price) for value-based ad
   optimization.
+
+## Trial lifecycle drip + remarketing
+
+The trial-first funnel needs an email drip AND segmented ad audiences (a
+trial-first model converts on the TRIAL sequence, not generic nurture).
+
+- **Email drip** (`apps/web/src/lib/trial-jobs.ts`, Inngest `medchina/trial.started`
+  emitted from `api/billing/start-trial`): welcome (T+0) → activation nudge (T+2,
+  only if not activated) → expiring (end−3d, also fires `TrialExpiring`) → ended.
+  Each step re-checks state and skips a professional who converted or opted out.
+  One template with four moments (`@flyee/email` `trial-lifecycle`); one-click
+  unsubscribe (`/api/public/unsubscribe`, `profiles.email_unsubscribe_token`,
+  migration 0056). Needs Inngest + Resend to run/send (no inline fallback).
+- **Remarketing audiences** (built by hand in Meta Ads Manager from the events
+  above): *signed up not activated* = `CompleteRegistration` AND NOT `Activated`;
+  *activated not paying* = `Activated`/`StartTrial` AND NOT `Purchase`/`Subscribe`;
+  *trial expiring* = the `TrialExpiring` event; **exclude** `Purchase`/`Subscribe`
+  (payers) and recent `StartTrial` without `Purchase` (active trials) from
+  acquisition campaigns.
 
 ## Configuration — where to get each value
 

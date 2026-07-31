@@ -3,6 +3,7 @@ import "@/lib/connectors";
 import { agendaFunctions } from "@/lib/agenda-jobs";
 import { billingFunctions } from "@/lib/billing-jobs";
 import { clinicalFunctions } from "@/lib/clinical-jobs";
+import { trialFunctions } from "@/lib/trial-jobs";
 import { backupFunctions } from "@flyee/backup/jobs";
 import { connectorFunctions } from "@flyee/connectors/jobs";
 import { inngest } from "@flyee/jobs";
@@ -18,6 +19,7 @@ export const { GET, POST, PUT } = serve({
     ...agendaFunctions,
     ...billingFunctions,
     ...clinicalFunctions,
+    ...trialFunctions,
     ...knowledgeFunctions,
     ...connectorFunctions,
     ...transcribeFunctions,

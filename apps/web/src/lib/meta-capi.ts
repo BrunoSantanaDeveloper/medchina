@@ -45,9 +45,11 @@ export type MetaEventName =
   | "Lead"
   | "CompleteRegistration"
   | "AddPaymentInfo"
-  // Custom event: the professional reached the product's activation aha
-  // (first finalized consultation). CAPI treats unknown names as custom events.
-  | "Activated";
+  // Custom events (CAPI treats unknown names as custom): the professional
+  // reached the activation aha (first finalized consultation); and the trial is
+  // about to end (drives the "trial expiring" remarketing audience).
+  | "Activated"
+  | "TrialExpiring";
 
 export interface MetaConversionInput {
   eventName: MetaEventName;

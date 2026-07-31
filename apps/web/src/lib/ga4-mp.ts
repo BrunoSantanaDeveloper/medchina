@@ -33,7 +33,14 @@ export function gaClientIdFromCookie(raw: string | null | undefined): string | n
   return match ? match[1] : null;
 }
 
-export type Ga4EventName = "sign_up" | "start_trial" | "begin_checkout" | "purchase" | "subscribe" | "activated";
+export type Ga4EventName =
+  | "sign_up"
+  | "start_trial"
+  | "begin_checkout"
+  | "purchase"
+  | "subscribe"
+  | "activated"
+  | "trial_expiring";
 
 export interface Ga4EventInput {
   clientId: string | null;
