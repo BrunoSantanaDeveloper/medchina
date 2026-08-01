@@ -8,7 +8,7 @@ import { deliverMessage } from "./deliver";
  * sleep until send_at (deliverMessage skips rows canceled meanwhile).
  */
 export const whatsappSendFunction = inngest.createFunction(
-  { id: "whatsapp-message-send", retries: 3, concurrency: { limit: 10 } },
+  { id: "whatsapp-message-send", retries: 3, concurrency: { limit: 5 } },
   { event: "whatsapp/message.send" },
   async ({ event, step }) => {
     const sendAt = await step.run("load-schedule", async () => {
