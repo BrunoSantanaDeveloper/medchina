@@ -446,7 +446,12 @@
     "menu-agenda": "Schedule",
     "menu-agenda-description": "The day's scheduled consultations",
     "menu-biblioteca": "Library",
-    "menu-biblioteca-description": "Study with the clinical library's sources"
+    "menu-biblioteca-description": "Study with the clinical library's sources",
+    "impersonation-active": "Support session in {name}'s account",
+    "impersonation-scope": "Read-only on the clinical record",
+    "impersonation-reason": "Reason: {reason}",
+    "impersonation-remaining": "Ends in {time}",
+    "impersonation-exit": "Leave account"
   },
   "marketing": {
     "nav-home": "Home",
@@ -2323,7 +2328,8 @@
     "patient-deletion-success": "Request recorded and patient archived.",
     "getting-library-title": "See the AI working now",
     "getting-library-body": "The clinical library answers real TCM questions with cited sources — no patient, consent or recording needed. It is the platform AI actually working.",
-    "getting-library-cta": "Ask the library"
+    "getting-library-cta": "Ask the library",
+    "security-support-access": "Support access"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

@@ -446,7 +446,12 @@
     "menu-agenda": "Kalender",
     "menu-agenda-description": "Die geplanten Konsultationen des Tages",
     "menu-biblioteca": "Bibliothek",
-    "menu-biblioteca-description": "Lernen mit den Quellen der klinischen Bibliothek"
+    "menu-biblioteca-description": "Lernen mit den Quellen der klinischen Bibliothek",
+    "impersonation-active": "Support-Sitzung im Konto von {name}",
+    "impersonation-scope": "Nur Lesezugriff auf die Krankenakte",
+    "impersonation-reason": "Grund: {reason}",
+    "impersonation-remaining": "Endet in {time}",
+    "impersonation-exit": "Konto verlassen"
   },
   "marketing": {
     "nav-home": "Startseite",
@@ -2323,7 +2328,8 @@
     "patient-deletion-success": "Anfrage erfasst und Patient archiviert.",
     "getting-library-title": "Die KI jetzt in Aktion sehen",
     "getting-library-body": "Die klinische Bibliothek beantwortet echte TCM-Fragen mit zitierten Quellen — ohne Patient, Einwilligung oder Aufnahme. Das ist die KI der Plattform, die wirklich arbeitet.",
-    "getting-library-cta": "Bibliothek fragen"
+    "getting-library-cta": "Bibliothek fragen",
+    "security-support-access": "Support-Zugriff"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

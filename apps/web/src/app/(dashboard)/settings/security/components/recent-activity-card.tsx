@@ -14,6 +14,8 @@ type AccessRow = {
   userAgent: string | null;
   aal: string | null;
   createdAt: string;
+  /** Set when platform support opened this session on her account (0057). */
+  impersonatedBy: string | null;
 };
 
 export default function RecentActivityCard() {
@@ -26,7 +28,7 @@ export default function RecentActivityCard() {
     let active = true;
     createClient()
       .from("access_events")
-      .select("id, ip, user_agent, aal, created_at")
+      .select("id, ip, user_agent, aal, created_at, impersonated_by")
       .order("created_at", { ascending: false })
       .limit(20)
       .then(({ data }) => {
@@ -38,6 +40,7 @@ export default function RecentActivityCard() {
             userAgent: row.user_agent,
             aal: row.aal,
             createdAt: row.created_at,
+            impersonatedBy: row.impersonated_by ?? null,
           })),
         );
         setLoaded(true);
@@ -73,10 +76,21 @@ export default function RecentActivityCard() {
                   {new Date(row.createdAt).toLocaleString(locale)}
                 </Typography>
               </Box>
+              {/*
+                A support access is labelled as such. Without this it would
+                read as an unexplained sign-in from an unknown device — the
+                access is legitimate, so it must look legitimate.
+              */}
               <Chip
-                label={row.aal === "aal2" ? t("security-2fa") : t("security-password")}
+                label={
+                  row.impersonatedBy
+                    ? t("security-support-access")
+                    : row.aal === "aal2"
+                      ? t("security-2fa")
+                      : t("security-password")
+                }
                 size="small"
-                color={row.aal === "aal2" ? "success" : "default"}
+                color={row.impersonatedBy ? "secondary" : row.aal === "aal2" ? "success" : "default"}
                 variant="outlined"
               />
             </Box>

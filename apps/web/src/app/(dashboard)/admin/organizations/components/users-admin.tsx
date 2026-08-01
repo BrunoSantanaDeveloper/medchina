@@ -1,6 +1,7 @@
 "use client";
 
 import { listUserAdminInfo, resetUserMfa, setUserBanned, UserAdminInfo } from "../actions";
+import ImpersonateDialog from "./impersonate-dialog";
 import { useCallback, useEffect, useState } from "react";
 
 import { Alert, Box, Button, Chip, FormControl, Input, Tooltip, Typography } from "@mui/material";
@@ -34,6 +35,7 @@ export default function UsersAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [selfId, setSelfId] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState<UserRow | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -151,6 +153,13 @@ export default function UsersAdmin() {
             {row.isSuperadmin && <Chip label="superadmin" size="small" color="warning" variant="outlined" />}
             {info?.hasMfa && <Chip label="2FA" size="small" color="success" variant="outlined" />}
             {banned && <Chip label="banned" size="small" color="error" variant="outlined" />}
+            {serviceAvailable && row.id !== selfId && !row.isSuperadmin && !banned && (
+              <Tooltip title="Work inside this account to reproduce a reported problem — read-only on the clinical record, logged, and she is notified">
+                <Button size="small" variant="text" color="secondary" onClick={() => setImpersonating(row)}>
+                  Impersonate
+                </Button>
+              </Tooltip>
+            )}
             {serviceAvailable && info?.hasMfa && (
               <Tooltip title="Remove all authenticator factors — the recovery path when the user lost the device and is locked out">
                 <Button size="small" variant="text" color="grey" onClick={() => handleResetMfa(row)}>
@@ -173,6 +182,13 @@ export default function UsersAdmin() {
           No users match the filter.
         </Typography>
       )}
+
+      <ImpersonateDialog
+        open={Boolean(impersonating)}
+        userId={impersonating?.id ?? ""}
+        userName={impersonating?.displayName ?? ""}
+        onClose={() => setImpersonating(null)}
+      />
     </Box>
   );
 }

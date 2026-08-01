@@ -446,7 +446,12 @@
     "menu-agenda": "Agenda",
     "menu-agenda-description": "Consultas agendadas del día",
     "menu-biblioteca": "Biblioteca",
-    "menu-biblioteca-description": "Estudia con las fuentes de la biblioteca clínica"
+    "menu-biblioteca-description": "Estudia con las fuentes de la biblioteca clínica",
+    "impersonation-active": "Sesión de soporte en la cuenta de {name}",
+    "impersonation-scope": "Solo lectura en la historia clínica",
+    "impersonation-reason": "Motivo: {reason}",
+    "impersonation-remaining": "Termina en {time}",
+    "impersonation-exit": "Salir de la cuenta"
   },
   "marketing": {
     "nav-home": "Inicio",
@@ -2323,7 +2328,8 @@
     "patient-deletion-success": "Solicitud registrada y paciente archivado.",
     "getting-library-title": "Ver la IA funcionando ahora",
     "getting-library-body": "La biblioteca clínica responde preguntas reales de MTC con las fuentes citadas, sin necesidad de paciente, consentimiento ni grabación. Es la IA de la plataforma funcionando de verdad.",
-    "getting-library-cta": "Preguntar a la biblioteca"
+    "getting-library-cta": "Preguntar a la biblioteca",
+    "security-support-access": "Acceso de soporte"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

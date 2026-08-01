@@ -11,6 +11,7 @@ import AnnouncementBanner from "@/components/layout/announcements/announcement-b
 import ContentWrapper from "@/components/layout/containers/content-wrapper";
 import Header from "@/components/layout/containers/header";
 import Main from "@/components/layout/containers/main";
+import ImpersonationBanner from "@/components/layout/impersonation/impersonation-banner";
 import LeftMenu from "@/components/layout/menu/left-menu";
 import MenuBackdrop from "@/components/layout/menu/menu-backdrop";
 import RecordingSessionProvider from "@/components/product/recording-session-provider";
@@ -42,6 +43,12 @@ export default function DashboardLayout({
       </Main>
       <MenuBackdrop />
       <SupportWidget />
+      {/*
+        Renders only inside a support impersonation (migration 0057), and
+        stays fixed: the operator scrolls, and forgetting whose account you
+        are in is the failure mode worth designing against.
+      */}
+      <ImpersonationBanner />
       {/*
         No cookie-consent banner and no ad/analytics tracker on the clinical
         app: the Meta Pixel / GA4 live ONLY in the marketing layout (LGPD
