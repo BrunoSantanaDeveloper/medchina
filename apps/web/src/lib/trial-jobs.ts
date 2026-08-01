@@ -131,7 +131,9 @@ async function fireTrialExpiring(supabase: SupabaseClient, orgId: string, email:
 }
 
 export const trialDripFunction = inngest.createFunction(
-  { id: "trial-lifecycle-drip", retries: 2, concurrency: { limit: 10 } },
+  // Concurrency stays within the Inngest plan cap (5). The drip is mostly
+  // sleeping between touches, so a low ceiling is plenty even at launch volume.
+  { id: "trial-lifecycle-drip", retries: 2, concurrency: { limit: 5 } },
   { event: "medchina/trial.started" },
   async ({ event, step }) => {
     const { orgId, userId, email } = event.data;
