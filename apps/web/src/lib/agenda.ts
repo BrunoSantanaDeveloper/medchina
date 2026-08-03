@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import timezonePlugin from "dayjs/plugin/timezone";
 import utc from "dayjs/plugin/utc";
 
+import { whatsappDeepLink } from "@/lib/whatsapp-link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 dayjs.extend(utc);
@@ -270,15 +271,12 @@ export function calendarOverdueRange(
 
 /**
  * wa.me deep link with a prefilled confirmation message, or null when the
- * stored phone cannot be a reachable Brazilian WhatsApp number. Phones are
- * persisted as bare digits (packages/fields); local numbers get the country
- * code, numbers already carrying 55 pass through.
+ * stored phone cannot be a reachable Brazilian WhatsApp number.
+ *
+ * The link building now lives in `lib/whatsapp-link.ts`, shared with document
+ * delivery — every WhatsApp path in this product is a handoff the professional
+ * completes herself, so they must behave identically.
  */
 export function whatsappConfirmationLink(phone: string | null | undefined, message: string): string | null {
-  const digits = (phone ?? "").replace(/\D/g, "");
-  let full: string | null = null;
-  if (digits.length === 10 || digits.length === 11) full = `55${digits}`;
-  else if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) full = digits;
-  if (!full) return null;
-  return `https://wa.me/${full}?text=${encodeURIComponent(message)}`;
+  return whatsappDeepLink(phone, message);
 }

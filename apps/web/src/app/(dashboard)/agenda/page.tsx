@@ -30,6 +30,7 @@ import {
 import { LocalizationProvider, MobileDatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 
+import AppointmentRemindersDialog from "@/components/product/appointment-reminders-dialog";
 import ConsultationBriefingDialog from "@/components/product/consultation-briefing-dialog";
 import EmptyState from "@/components/product/empty-state";
 import { pickerLocaleText } from "@/components/product/picker-locale";
@@ -50,6 +51,7 @@ import {
   startAppointment,
   whatsappConfirmationLink,
 } from "@/lib/agenda";
+import { nextDay } from "@/lib/appointment-reminders";
 import { cn } from "@/lib/utils";
 import { createClient } from "@flyee/auth/client";
 import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
@@ -111,6 +113,8 @@ export default function Agenda() {
   const [cancelling, setCancelling] = useState(false);
   const [overdueState, setOverdueState] = useState<RemoteState<Appointment[], string>>(() => remoteLoading());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  /** Tomorrow's reminder run — the assisted WhatsApp handoff against no-show. */
+  const [remindersOpen, setRemindersOpen] = useState(false);
   const appliedInitialDay = useRef(false);
 
   // The initial day honours a `?dia=YYYY-MM-DD` deep link (from /inicio's
@@ -550,9 +554,22 @@ export default function Agenda() {
             <Typography variant="body2">{t("agenda-breadcrumb")}</Typography>
           </Breadcrumbs>
         </Box>
-        <Button variant="contained" color="primary" onClick={openNewSchedule} disabled={!orgId || orgLoading}>
-          {t("agenda-schedule")}
-        </Button>
+        <Box className="flex flex-row flex-wrap gap-2">
+          {/* The lever against no-show, which this screen has measured all
+              along (cancellation_category = 'no_show') without offering. It
+              lives next to the agenda because that is where she ends her day. */}
+          <Button
+            variant="outlined"
+            color="grey"
+            onClick={() => setRemindersOpen(true)}
+            disabled={!orgId || orgLoading}
+          >
+            {t("reminders-open-dialog")}
+          </Button>
+          <Button variant="contained" color="primary" onClick={openNewSchedule} disabled={!orgId || orgLoading}>
+            {t("agenda-schedule")}
+          </Button>
+        </Box>
       </Grid>
 
       <Grid size={12}>
@@ -862,6 +879,16 @@ export default function Agenda() {
           appointmentNote={briefingFor.appointmentNote}
         />
       )}
+
+      {/* Always about TOMORROW, whatever day the agenda is showing: a reminder
+          run is an end-of-day ritual, not a property of the day on screen. */}
+      <AppointmentRemindersDialog
+        open={remindersOpen}
+        onClose={() => setRemindersOpen(false)}
+        orgId={orgId}
+        day={nextDay(calendarDateInTimeZone(new Date(), timezone))}
+        timezone={timezone}
+      />
 
       <Dialog open={Boolean(cancelTarget)} onClose={() => !cancelling && setCancelTarget(null)} maxWidth="xs" fullWidth>
         <DialogTitle>{t("agenda-cancel-title")}</DialogTitle>

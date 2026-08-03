@@ -1,9 +1,10 @@
+import { getLocale, getTranslations } from "next-intl/server";
+
 import { recordAudit } from "@/lib/audit";
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 import { createShareLinkToken } from "@/lib/share-link";
-import { createServiceClient } from "@flyee/auth/service";
+import { whatsappDeepLink } from "@/lib/whatsapp-link";
 import { sendPatientDocumentEmail } from "@flyee/email";
-import { sendWhatsApp } from "@flyee/whatsapp";
 
 /** A week: long enough for the patient to find the message, short enough to expire. */
 const TTL_HOURS = 168;
@@ -13,13 +14,23 @@ type Channel = "link" | "whatsapp" | "email";
 /**
  * Give the patient her copy of an issued document (PRD §9.8).
  *
- * The professional chooses the channel; the message that leaves carries NO
- * clinical content — only a link that expires and can be revoked. What the
- * patient sees on the other side is `/documento`.
+ * Two channels, two very different mechanics — and the difference is
+ * deliberate, not incidental:
  *
- * The link is minted first and the delivery attempted second, deliberately: a
- * WhatsApp outage must still leave her with a copyable link rather than
- * nothing. The response says what actually happened on each leg.
+ *  - **WhatsApp is a HANDOFF.** There is no automated delivery: the Meta Cloud
+ *    API carries business verification, template approval and per-message cost
+ *    the practice is not taking on. So this returns a `wa.me` link with the
+ *    message already written, the app opens it, and the professional presses
+ *    send. It leaves from HER number, in a conversation the patient already
+ *    recognises — which is how a small practice actually communicates.
+ *  - **E-mail is sent** (Resend), because that channel costs nothing extra and
+ *    needs no approval.
+ *
+ * Either way the message carries NO clinical content — only a link that
+ * expires and can be revoked. What the patient sees is `/documento`.
+ *
+ * The link is minted BEFORE any delivery, so a failing channel still leaves
+ * her with something to hand over.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,22 +66,41 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const origin = new URL(request.url).origin;
   const url = `${origin}/documento#${token}`;
 
-  // "link" means she will share it herself (a copy button in the panel), so
-  // there is nothing to deliver and nothing that can fail.
-  let delivery: { attempted: boolean; sent: boolean; reason?: string } = { attempted: false, sent: false };
+  const patient = await loadPatientContact(supabase, document.subject_type, document.subject_id);
 
-  if (channel !== "link") {
-    const patient = await loadPatientContact(supabase, document.subject_type, document.subject_id);
-    if (!patient) {
-      delivery = { attempted: true, sent: false, reason: "contact_missing" };
-    } else if (channel === "whatsapp") {
-      delivery = patient.phone
-        ? await deliverWhatsApp({ orgId: document.org_id, phone: patient.phone, url, userId: user.id })
-        : { attempted: true, sent: false, reason: "contact_missing" };
+  let whatsappUrl: string | null = null;
+  let emailSent = false;
+  let reason: string | undefined;
+
+  if (channel === "whatsapp") {
+    // Locale resolved explicitly, as every other route handler here does — a
+    // bare getTranslations() in a route has no request locale to read.
+    const locale = await getLocale();
+    const t = await getTranslations({ locale, namespace: "product" });
+    // The message the professional will send, written for her to glance at and
+    // press send — no clinical content, just who it is from and the link.
+    const message = t("plan-share-whatsapp-message", {
+      name: patient?.firstName ?? "",
+      practice: patient?.practiceName ?? "",
+      url,
+    });
+    whatsappUrl = whatsappDeepLink(patient?.phone, message);
+    if (!whatsappUrl) reason = "contact_missing";
+  } else if (channel === "email") {
+    if (!patient?.email) {
+      reason = "contact_missing";
     } else {
-      delivery = patient.email
-        ? await deliverEmail({ to: patient.email, url, practice: patient.practiceName, name: patient.firstName })
-        : { attempted: true, sent: false, reason: "contact_missing" };
+      try {
+        const sent = await sendPatientDocumentEmail(patient.email, {
+          url,
+          practiceName: patient.practiceName,
+          patientFirstName: patient.firstName,
+        });
+        emailSent = sent.sent;
+        if (!sent.sent) reason = "channel_unavailable";
+      } catch {
+        reason = "channel_unavailable";
+      }
     }
   }
 
@@ -78,18 +108,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     orgId: document.org_id,
     entityType: "document",
     entityId: id,
-    metadata: { channel, delivered: delivery.sent, reason: delivery.reason },
+    // `delivered` is only ever true for e-mail: a WhatsApp handoff is not a
+    // delivery until she presses send, and the app cannot know that.
+    metadata: { channel, delivered: emailSent, reason },
   });
 
-  // The URL always comes back: even a failed send leaves her a link to hand
-  // over by another route, instead of a dead end with the patient in the room.
+  // The URL always comes back: even with no contact on file she has a link to
+  // hand over another way, instead of a dead end with the patient in the room.
   return Response.json({
     ok: true,
     url,
     channel,
     expiresAt: result.expiresAt,
-    delivered: delivery.sent,
-    deliveryReason: delivery.reason,
+    whatsappUrl,
+    delivered: emailSent,
+    deliveryReason: reason,
   });
 }
 
@@ -115,33 +148,4 @@ async function loadPatientContact(
         .split(" ")[0] ?? "",
     practiceName: org?.name ?? "",
   };
-}
-
-async function deliverWhatsApp(input: { orgId: string; phone: string; url: string; userId: string }) {
-  try {
-    // Service role: wa_messages is written by the platform, not the browser.
-    const result = await sendWhatsApp(createServiceClient(), {
-      orgId: input.orgId,
-      to: input.phone,
-      text: `Seu documento está disponível: ${input.url}`,
-      createdBy: input.userId,
-      metadata: { purpose: "document_share" },
-    });
-    return { attempted: true, sent: result.ok, reason: result.ok ? undefined : "channel_unavailable" };
-  } catch {
-    return { attempted: true, sent: false, reason: "channel_unavailable" };
-  }
-}
-
-async function deliverEmail(input: { to: string; url: string; practice: string; name: string }) {
-  try {
-    const result = await sendPatientDocumentEmail(input.to, {
-      url: input.url,
-      practiceName: input.practice,
-      patientFirstName: input.name,
-    });
-    return { attempted: true, sent: result.sent, reason: result.sent ? undefined : "channel_unavailable" };
-  } catch {
-    return { attempted: true, sent: false, reason: "channel_unavailable" };
-  }
 }

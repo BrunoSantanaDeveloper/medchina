@@ -2,6 +2,24 @@
 
 WhatsApp dispatcher behind a provider interface — manual, automatic and **scheduled** sends, delivery/read tracking and **inbound replies as events**.
 
+> ## ⚠️ NOT the path MedChina uses today
+>
+> This package is **inert in MedChina**: no product code calls `sendWhatsApp`.
+> The Meta Cloud API requires business verification and template approval, and
+> charges per message — burden and cost the practice is not taking on right
+> now. Evolution is out for a clinical product because it violates WhatsApp's
+> ToS and risks a ban on the professional's own number.
+>
+> **Everything that reaches a patient over WhatsApp is a HANDOFF**: the app
+> builds a `wa.me` deep link with the message already written
+> (`apps/web/src/lib/whatsapp-link.ts`), opens it, and the professional presses
+> send from her own number. See the agenda's confirmation link and the document
+> delivery dialog (`components/product/plan-panel.tsx`).
+>
+> The code below stays for the day that decision changes — and the webhook
+> signature check is live regardless, because the endpoint exists and must not
+> accept forged payloads.
+
 ## Providers
 
 | | `meta` (WhatsApp Cloud API, official) | `evolution` (Evolution API, unofficial) |

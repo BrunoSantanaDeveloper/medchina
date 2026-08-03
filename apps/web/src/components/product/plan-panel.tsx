@@ -104,7 +104,13 @@ export default function PlanPanel({
   /** The issued document she is handing to the patient (PRD §9.8). */
   const [sharingDoc, setSharingDoc] = useState<IssuedDocument | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
-  const [shareResult, setShareResult] = useState<{ url: string; delivered: boolean; reason?: string } | null>(null);
+  const [shareResult, setShareResult] = useState<{
+    url: string;
+    /** Set for the WhatsApp handoff: the wa.me link she presses send in. */
+    whatsappUrl?: string | null;
+    delivered: boolean;
+    reason?: string;
+  } | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const issueKey = useRef<string | null>(null);
 
@@ -431,6 +437,7 @@ export default function PlanPanel({
       const body = (await response.json().catch(() => ({}))) as {
         ok?: boolean;
         url?: string;
+        whatsappUrl?: string | null;
         delivered?: boolean;
         deliveryReason?: string;
       };
@@ -438,7 +445,12 @@ export default function PlanPanel({
         setActionError(t("plan-share-error"));
         return;
       }
-      setShareResult({ url: body.url, delivered: body.delivered === true, reason: body.deliveryReason });
+      setShareResult({
+        url: body.url,
+        whatsappUrl: body.whatsappUrl ?? null,
+        delivered: body.delivered === true,
+        reason: body.deliveryReason,
+      });
     } catch {
       setActionError(t("plan-share-error"));
     } finally {
@@ -892,12 +904,30 @@ export default function PlanPanel({
               <Alert severity={shareResult.delivered ? "success" : "info"}>
                 {shareResult.delivered
                   ? t("plan-share-sent")
-                  : shareResult.reason === "contact_missing"
-                    ? t("plan-share-contact-missing")
-                    : shareResult.reason === "channel_unavailable"
-                      ? t("plan-share-channel-unavailable")
-                      : t("plan-share-link-ready")}
+                  : shareResult.whatsappUrl
+                    ? t("plan-share-whatsapp-ready")
+                    : shareResult.reason === "contact_missing"
+                      ? t("plan-share-contact-missing")
+                      : shareResult.reason === "channel_unavailable"
+                        ? t("plan-share-channel-unavailable")
+                        : t("plan-share-link-ready")}
               </Alert>
+              {/* A real anchor, not a scripted window.open: the click that
+                  leaves for WhatsApp is HERS, so no popup blocker eats it and
+                  the browser can hand off to the installed app when there is
+                  one. Nothing is sent until she presses send there. */}
+              {shareResult.whatsappUrl && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  href={shareResult.whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t("plan-share-whatsapp-open")}
+                </Button>
+              )}
               {/* Always offered, delivered or not: the link is the deliverable,
                   the channel is only a convenience. */}
               <TextField
