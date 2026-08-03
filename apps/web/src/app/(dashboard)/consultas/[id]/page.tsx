@@ -64,6 +64,7 @@ import {
   type PreviousConsultation,
   summarizeChanges,
 } from "@/lib/previous-consultation";
+import { activeTerms, TCM_VOCABULARY, toggleTerm, type VocabularyGroup } from "@/lib/tcm-vocabulary";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -1115,6 +1116,21 @@ export default function ConsultaPage() {
                                 void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
                               }
                             />
+                            {/* Tongue and pulse are dictated with a patient on
+                                the table and their vocabulary is finite and
+                                consecrated — tapping beats typing, and the
+                                text stays free-form either way. */}
+                            {canEdit && TCM_VOCABULARY[composite] && (
+                              <VocabularyChips
+                                groups={TCM_VOCABULARY[composite]}
+                                value={meta?.value ?? ""}
+                                onToggle={(next) => {
+                                  queueAnswerSave(block.key, field.key, next);
+                                  void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
+                                }}
+                                t={t}
+                              />
+                            )}
                             <PreviousFieldValue
                               previousValue={previous?.answers[composite]?.value}
                               currentValue={meta?.value}
@@ -1470,6 +1486,62 @@ export default function ConsultaPage() {
  * map to the site motif — jade = clear evidence, terracotta = needs attention,
  * neutral = the professional's own edit. Never red (reserved for risk).
  */
+/**
+ * Quick-entry vocabulary for tongue, pulse and palpation (PRD §9.6).
+ *
+ * These fields are dictated during the appointment, and their terms are a
+ * closed, consecrated set — so tapping composes the same sentence she would
+ * have typed, in a fraction of the time. The chips ADD TO the free text and
+ * never replace it: anything she writes by hand survives, and a term typed
+ * inside a longer phrase is left alone rather than rewritten.
+ *
+ * Rendered only while the record is editable — on a finalized consultation
+ * they would offer an action the database would refuse (PRD §8.5).
+ */
+function VocabularyChips({
+  groups,
+  value,
+  onToggle,
+  t,
+}: {
+  groups: VocabularyGroup[];
+  value: string;
+  onToggle: (next: string) => void;
+  t: (key: string) => string;
+}) {
+  const active = activeTerms(value, groups);
+  return (
+    <Box className="mt-1.5 flex flex-col gap-1.5">
+      {groups.map((group) => (
+        <Box key={group.label} className="flex flex-row flex-wrap items-center gap-1">
+          <Typography variant="body2" className="text-text-secondary mr-1 text-xs leading-5">
+            {t(group.label)}
+          </Typography>
+          {group.terms.map((term) => {
+            const selected = active.has(term);
+            return (
+              <button
+                key={term}
+                type="button"
+                aria-pressed={selected}
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-xs transition-colors",
+                  selected
+                    ? "border-primary bg-primary/12 text-primary font-semibold"
+                    : "border-grey-100 text-text-secondary hover:border-primary/40",
+                )}
+                onClick={() => onToggle(toggleTerm(value, term))}
+              >
+                {term}
+              </button>
+            );
+          })}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
 /**
  * What she recorded for this same field last time (PRD §8.3).
  *

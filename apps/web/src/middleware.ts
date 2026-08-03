@@ -16,6 +16,10 @@ const PUBLIC_PREFIXES = [
   // QR "record from your phone" — token-authorized, no login (migration 0053).
   "/gravar",
   "/api/public/capture",
+  // The patient's own copy of a document her practitioner issued —
+  // token-authorized, no login (migration 0064).
+  "/documento",
+  "/api/public/document",
   // One-click email unsubscribe (token in the query, no login) — trial drip.
   "/api/public/unsubscribe",
   // Leaving a support impersonation only DELETES session cookies, so it must

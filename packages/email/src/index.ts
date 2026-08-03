@@ -3,9 +3,10 @@ import { Resend } from "resend";
 
 import ContactFormEmail, { ContactFormEmailProps } from "./templates/contact-form";
 import OrgInviteEmail, { OrgInviteEmailProps } from "./templates/org-invite";
+import PatientDocumentEmail, { type PatientDocumentEmailProps } from "./templates/patient-document";
 import TrialLifecycleEmail, { type TrialEmailKind, type TrialLifecycleEmailProps } from "./templates/trial-lifecycle";
 
-export type { TrialEmailKind, TrialLifecycleEmailProps };
+export type { PatientDocumentEmailProps, TrialEmailKind, TrialLifecycleEmailProps };
 
 /** True when transactional email is configured (server-only env var). */
 export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY);
@@ -66,6 +67,35 @@ export async function sendTrialEmail(to: string, props: TrialLifecycleEmailProps
     to,
     subject: TRIAL_SUBJECTS[props.kind],
     react: createElement(TrialLifecycleEmail, props),
+  });
+  if (error) {
+    return { sent: false, error: error.message };
+  }
+  return { sent: true };
+}
+
+/**
+ * Tells a PATIENT that a document her practitioner issued is waiting for her.
+ *
+ * Returns { sent: false } without failing when RESEND_API_KEY is absent: the
+ * caller always holds a copyable link, so a missing provider degrades to "hand
+ * it over another way" instead of losing the delivery entirely.
+ */
+export async function sendPatientDocumentEmail(
+  to: string,
+  props: PatientDocumentEmailProps,
+): Promise<SendResult> {
+  if (!isEmailConfigured) {
+    return { sent: false };
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: DEFAULT_FROM,
+    to,
+    // No clinical content in the subject line either — a notification bar is
+    // read by whoever is looking at the phone.
+    subject: "Seu documento está disponível",
+    react: createElement(PatientDocumentEmail, props),
   });
   if (error) {
     return { sent: false, error: error.message };

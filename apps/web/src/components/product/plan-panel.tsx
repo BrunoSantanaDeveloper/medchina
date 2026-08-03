@@ -98,6 +98,11 @@ export default function PlanPanel({
   const [retrievalFailed, setRetrievalFailed] = useState(false);
   /** Reissuing revokes the signed PDF that is already in the patient's hands. */
   const [confirmReissue, setConfirmReissue] = useState(false);
+  /** The issued document she is handing to the patient (PRD §9.8). */
+  const [sharingDoc, setSharingDoc] = useState<IssuedDocument | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareResult, setShareResult] = useState<{ url: string; delivered: boolean; reason?: string } | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   const issueKey = useRef<string | null>(null);
 
   useEffect(() => {
@@ -365,6 +370,45 @@ export default function PlanPanel({
     } catch {
       setActionError(t("plan-download-error"));
     }
+  };
+
+  /**
+   * Hand the document to the patient. The link is minted server-side and comes
+   * back even when the chosen channel fails, so a WhatsApp outage degrades to
+   * "copy the link" instead of leaving her with nothing to give.
+   */
+  const share = async (channel: "whatsapp" | "email" | "link") => {
+    if (!sharingDoc) return;
+    setShareBusy(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/documents/${sharingDoc.id}/share`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channel }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        url?: string;
+        delivered?: boolean;
+        deliveryReason?: string;
+      };
+      if (!response.ok || !body.ok || !body.url) {
+        setActionError(t("plan-share-error"));
+        return;
+      }
+      setShareResult({ url: body.url, delivered: body.delivered === true, reason: body.deliveryReason });
+    } catch {
+      setActionError(t("plan-share-error"));
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const closeShare = () => {
+    setSharingDoc(null);
+    setShareResult(null);
+    setShareCopied(false);
   };
 
   const resource =
@@ -706,6 +750,15 @@ export default function PlanPanel({
                     <Button size="small" variant="text" color="grey" onClick={() => download(doc)}>
                       {t("plan-doc-download")}
                     </Button>
+                    {/* The point of issuing it is that the PATIENT gets it. A
+                        download alone ends the cycle inside the practitioner's
+                        computer (PRD §9.8). Only for the CURRENT version — a
+                        superseded document must not be handed out again. */}
+                    {doc.status === "issued" && (
+                      <Button size="small" variant="text" color="primary" onClick={() => setSharingDoc(doc)}>
+                        {t("plan-doc-send")}
+                      </Button>
+                    )}
                     <Button size="small" variant="text" color="grey" href={`/verify/${doc.verifyCode}`} target="_blank">
                       {t("plan-doc-verify-link")}
                     </Button>
@@ -739,6 +792,84 @@ export default function PlanPanel({
             {t("plan-reissue")}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Handing the document to the patient (PRD §9.8). The message that
+          leaves carries no clinical content — only an expiring link. */}
+      <Dialog open={Boolean(sharingDoc)} onClose={closeShare} maxWidth="xs" fullWidth>
+        <DialogHeader title={t("plan-share-title")} closeLabel={t("close")} onClose={closeShare} />
+        <DialogContent className="flex flex-col gap-3 py-5!">
+          {!shareResult ? (
+            <>
+              <Typography variant="body2" className="text-text-secondary leading-6">
+                {t("plan-share-body")}
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                disabled={shareBusy}
+                onClick={() => void share("whatsapp")}
+              >
+                {t("plan-share-whatsapp")}
+              </Button>
+              <Button
+                variant="outlined"
+                color="grey"
+                fullWidth
+                disabled={shareBusy}
+                onClick={() => void share("email")}
+              >
+                {t("plan-share-email")}
+              </Button>
+              <Button variant="text" color="grey" fullWidth disabled={shareBusy} onClick={() => void share("link")}>
+                {t("plan-share-link")}
+              </Button>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t("plan-share-privacy")}
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Alert severity={shareResult.delivered ? "success" : "info"}>
+                {shareResult.delivered
+                  ? t("plan-share-sent")
+                  : shareResult.reason === "contact_missing"
+                    ? t("plan-share-contact-missing")
+                    : shareResult.reason === "channel_unavailable"
+                      ? t("plan-share-channel-unavailable")
+                      : t("plan-share-link-ready")}
+              </Alert>
+              {/* Always offered, delivered or not: the link is the deliverable,
+                  the channel is only a convenience. */}
+              <TextField
+                size="small"
+                fullWidth
+                value={shareResult.url}
+                slotProps={{ htmlInput: { readOnly: true, "aria-label": t("plan-share-copy") } }}
+              />
+              <Button
+                variant="outlined"
+                color="grey"
+                fullWidth
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(shareResult.url)
+                    .then(() => {
+                      setShareCopied(true);
+                      window.setTimeout(() => setShareCopied(false), 4000);
+                    })
+                    .catch(() => undefined);
+                }}
+              >
+                {shareCopied ? t("plan-share-copied") : t("plan-share-copy")}
+              </Button>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t("plan-share-expires")}
+              </Typography>
+            </>
+          )}
+        </DialogContent>
       </Dialog>
     </Card>
   );
