@@ -54,7 +54,16 @@ inngest.createFunction({ id: "confirm-appointment" }, { event: "whatsapp/message
 ```
 WHATSAPP_PROVIDER=meta | evolution
 WHATSAPP_META_TOKEN=  WHATSAPP_META_PHONE_ID=  WHATSAPP_META_VERIFY_TOKEN=  WHATSAPP_META_API_VERSION= (default v23.0)
+WHATSAPP_META_APP_SECRET=   # REQUIRED to receive webhooks (see below)
 EVOLUTION_BASE_URL=  EVOLUTION_API_KEY=  EVOLUTION_INSTANCE=  EVOLUTION_WEBHOOK_TOKEN=
 ```
+
+**`WHATSAPP_META_APP_SECRET` is not optional for inbound.** The webhook URL is
+public and guessable, so `POST /api/webhooks/whatsapp/meta` authenticates every
+payload against the `X-Hub-Signature-256` HMAC Meta signs it with (app secret,
+compared in constant time). Without the secret the route **refuses** the
+request rather than trusting it — "cannot verify" must never read as "verified"
+on an endpoint that writes to the database from an unauthenticated caller. Copy
+the value from the Meta app dashboard (App settings → Basic → App secret).
 
 Without keys, `sendWhatsApp` fails the message with a clear hint and nothing else breaks. Migration: `packages/db/migrations/0008_whatsapp.sql`.

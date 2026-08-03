@@ -8,6 +8,9 @@
     ".": "./src/index.ts",
     "./jobs": "./src/jobs.ts"
   },
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/providers/meta.test.ts"
+  },
   "dependencies": {
     "@flyee/auth": "*",
     "@flyee/jobs": "*",

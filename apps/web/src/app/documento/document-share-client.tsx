@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
@@ -7,6 +7,7 @@ import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material"
 
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
+import { documentKindLabelKey } from "@/lib/document-kinds";
 import { isShareLinkToken } from "@/lib/share-link-token";
 
 type Phase = "loading" | "ready" | "invalid" | "revoked" | "network";
@@ -22,7 +23,7 @@ type Doc = {
  * Where a patient receives the document her practitioner issued.
  *
  * She arrives from a WhatsApp message or an e-mail that carries no clinical
- * content â€” just this link. Her job here is exactly one thing: get the file.
+ * content — just this link. Her job here is exactly one thing: get the file.
  * So the page resolves the token on load and puts the download in front of
  * her, with the practice's name and the verification code that proves the
  * document is authentic.
@@ -57,7 +58,7 @@ export default function DocumentShareClient() {
       setDoc(body as Doc);
       setPhase("ready");
     } catch {
-      // No connection is not an invalid link â€” offer a retry instead of
+      // No connection is not an invalid link — offer a retry instead of
       // telling her to go ask for a new one.
       setPhase("network");
     }
@@ -107,7 +108,9 @@ export default function DocumentShareClient() {
   // `ready` is only ever set together with a document, but proving it here
   // keeps the download button's href non-optional.
   if (!doc) return null;
-  const kindLabel = doc.kind === "therapeutic_plan" ? t("verify-kind-therapeutic-plan") : (doc.kind ?? "");
+  // Never print the raw slug to a patient: an unknown kind reads as "documento".
+  const labelKey = documentKindLabelKey(doc.kind);
+  const kindLabel = labelKey ? t(labelKey) : t("document-share-generic-kind");
 
   return (
     <Box className="flex flex-col gap-4">

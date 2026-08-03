@@ -6,6 +6,7 @@ import { Alert, Box, Card, CardContent, Divider, Typography } from "@mui/materia
 import { BRAND } from "@/brand";
 import Logo from "@/components/logo/logo";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
+import { documentKindLabelKey } from "@/lib/document-kinds";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/server";
 
@@ -59,7 +60,10 @@ export default async function VerifyDocument({ params }: { params: Promise<{ cod
     else row = (data?.[0] as VerifyRow | undefined) ?? null;
   }
 
-  const kindLabel = row?.kind === "therapeutic_plan" ? t("verify-kind-therapeutic-plan") : (row?.kind ?? "");
+  // A raw slug means nothing to whoever scanned the QR — an unknown kind falls
+  // back to the neutral word rather than leaking an internal identifier.
+  const kindLabelKey = documentKindLabelKey(row?.kind);
+  const kindLabel = kindLabelKey ? t(kindLabelKey) : t("document-share-generic-kind");
   const issuedAt = row?.issued_at
     ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeStyle: "short" }).format(new Date(row.issued_at))
     : null;

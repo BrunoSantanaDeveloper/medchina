@@ -38,6 +38,14 @@ export interface WhatsAppProvider {
   sendTemplate(to: string, template: TemplateMessage): Promise<SendResult>;
   /** Handles the provider's GET verification handshake, when it has one. */
   verifyWebhook?(request: Request): Response | null;
+  /**
+   * Authenticates a webhook POST against the RAW body, for providers that sign
+   * their payloads. Returns `"ok"` when the signature matches, `"invalid"` when
+   * it does not, and `"unconfigured"` when the shared secret is absent — the
+   * caller decides what an unconfigured verifier means (it must not silently
+   * read as "verified"). Providers with no signature scheme omit this.
+   */
+  verifySignature?(rawBody: string, headers: Headers): "ok" | "invalid" | "unconfigured";
   /** Normalizes a webhook POST body into events (unknown shapes → []). */
   parseWebhook(body: unknown): WhatsAppWebhookEvent[];
 }

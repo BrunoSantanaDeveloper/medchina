@@ -613,6 +613,44 @@ export default function ConsultaPage() {
     }
   };
 
+  /**
+   * Issue the attendance certificate and put the PDF in her hands.
+   *
+   * The document is versioned and QR-verifiable like every other; opening it
+   * right away is the point — she is issuing it because someone is asking for
+   * it now, usually with the patient still there.
+   */
+  const issueAttendance = async () => {
+    if (!consultation || busy) return;
+    setBusy(true);
+    setErrorKey(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultation.id}/attendance/issue`, {
+        method: "POST",
+        headers: { "idempotency-key": crypto.randomUUID() },
+      });
+      const body = (await response.json().catch(() => ({}))) as { ok?: boolean; documentId?: string };
+      if (!response.ok || !body.ok || !body.documentId) {
+        setErrorKey("attendance-issue-error");
+        return;
+      }
+      const supabase = createClient();
+      const { data: document } = await supabase
+        .from("documents")
+        .select("storage_path")
+        .eq("id", body.documentId)
+        .maybeSingle();
+      if (document?.storage_path) {
+        const { data: signed } = await supabase.storage.from("documents").createSignedUrl(document.storage_path, 120);
+        if (signed?.signedUrl) window.open(signed.signedUrl, "_blank", "noopener");
+      }
+    } catch {
+      setErrorKey("attendance-issue-error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const addAddendum = async () => {
     if (!consultation || !addendumBody.trim() || busy) return;
     setBusy(true);
@@ -787,9 +825,18 @@ export default function ConsultaPage() {
           </Box>
 
           {isFinalized ? (
-            <Button variant="outlined" color="grey" onClick={() => setAddendumOpen(true)}>
-              {t("consultation-add-addendum")}
-            </Button>
+            <Box className="flex flex-row flex-wrap gap-2">
+              {/* The most frequently requested document in a real practice:
+                  the note the patient takes to work or school. Only on a
+                  FINALIZED record, because it certifies a period that has an
+                  end — and it carries no clinical content (PRD §9.8). */}
+              <Button variant="outlined" color="grey" onClick={() => void issueAttendance()} disabled={busy}>
+                {t("attendance-issue")}
+              </Button>
+              <Button variant="outlined" color="grey" onClick={() => setAddendumOpen(true)}>
+                {t("consultation-add-addendum")}
+              </Button>
+            </Box>
           ) : null}
         </Box>
       </Grid>

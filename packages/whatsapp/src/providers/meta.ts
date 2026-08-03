@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 import type { SendResult, TemplateMessage, WhatsAppProvider, WhatsAppWebhookEvent } from "../types";
 
 /**
@@ -84,6 +86,35 @@ export class MetaProvider implements WhatsAppProvider {
       return new Response("Verification failed", { status: 403 });
     }
     return new Response(challenge, { status: 200 });
+  }
+
+  /**
+   * Authenticates a webhook POST with the HMAC Meta signs every payload with
+   * (`X-Hub-Signature-256`, keyed by the app secret).
+   *
+   * Without this the endpoint accepted any POST that reached it, and the URL is
+   * guessable (/api/webhooks/whatsapp/meta, public by necessity): anyone could
+   * forge delivery statuses and INBOUND messages straight into the database.
+   * That is inert while nothing consumes inbound — and becomes injection of
+   * clinical-operational state the moment a patient's "SIM" confirms an
+   * appointment.
+   *
+   * Compared in constant time: a fast-exit comparison leaks the prefix and
+   * turns forgery into a guessing game.
+   */
+  verifySignature(rawBody: string, headers: Headers): "ok" | "invalid" | "unconfigured" {
+    const secret = process.env.WHATSAPP_META_APP_SECRET;
+    if (!secret) return "unconfigured";
+
+    const header = headers.get("x-hub-signature-256") ?? "";
+    const provided = header.startsWith("sha256=") ? header.slice(7) : "";
+    if (!/^[0-9a-f]{64}$/i.test(provided)) return "invalid";
+
+    const expected = createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+    const providedBuffer = Buffer.from(provided.toLowerCase(), "hex");
+    const expectedBuffer = Buffer.from(expected, "hex");
+    if (providedBuffer.length !== expectedBuffer.length) return "invalid";
+    return timingSafeEqual(providedBuffer, expectedBuffer) ? "ok" : "invalid";
   }
 
   parseWebhook(body: unknown): WhatsAppWebhookEvent[] {

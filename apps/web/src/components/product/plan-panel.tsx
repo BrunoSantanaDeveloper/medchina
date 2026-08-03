@@ -25,6 +25,7 @@ import ConsultationStepHeader from "@/components/product/consultation-step-heade
 import DialogHeader from "@/components/product/dialog-header";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiListCheck from "@/icons/nexture/ni-list-check";
+import { hasHomeGuidance } from "@/lib/home-guidance";
 import { type FieldDescriptor, type FieldKind, PLAN_MODALITIES, PLAN_STRATEGIES } from "@/lib/plan-modalities";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -35,6 +36,8 @@ type SafetyFlag = { category: string; matchedText: string; fieldKey?: string };
 type Source = { title: string; source: string | null; kind: string };
 type IssuedDocument = {
   id: string;
+  /** "therapeutic-plan" (clinical) or "home-guidance" (the patient's sheet). */
+  kind: string;
   version: number;
   verifyCode: string;
   status: string;
@@ -161,10 +164,12 @@ export default function PlanPanel({
       };
 
       // Documents already issued from this plan (PRD §9.8) — newest first.
+      // Both kinds: the clinical plan and the patient's home-guidance sheet,
+      // which share this source and this panel.
       const { data: docs, error: documentsError } = await supabase
         .from("documents")
-        .select("id, version, verify_code, status, issued_at, storage_path")
-        .eq("kind", "therapeutic-plan")
+        .select("id, kind, version, verify_code, status, issued_at, storage_path")
+        .in("kind", ["therapeutic-plan", "home-guidance"])
         .eq("source_type", "consultation_plan")
         .eq("source_id", data.id)
         .order("version", { ascending: false });
@@ -174,6 +179,7 @@ export default function PlanPanel({
           : []
         : (docs ?? []).map((doc) => ({
             id: doc.id,
+            kind: doc.kind as string,
             version: doc.version,
             verifyCode: doc.verify_code,
             status: doc.status,
@@ -309,11 +315,11 @@ export default function PlanPanel({
   };
 
   const issue = async () => {
-    const nextVersion = (documents[0]?.version ?? 0) + 1;
+    const nextVersion = (planDocuments[0]?.version ?? 0) + 1;
     // Reissuing REVOKES the version already handed to the patient — its QR
     // starts reporting "substituído". An act with that consequence gets a real
     // dialog that names it, like every other irreversible act on this screen.
-    if (documents.length > 0 && !confirmReissue) {
+    if (planDocuments.length > 0 && !confirmReissue) {
       setConfirmReissue(true);
       return;
     }
@@ -326,7 +332,7 @@ export default function PlanPanel({
         method: "POST",
         headers: {
           "idempotency-key": issueKey.current,
-          ...(documents.length > 0 ? { "confirm-version": String(nextVersion) } : {}),
+          ...(planDocuments.length > 0 ? { "confirm-version": String(nextVersion) } : {}),
         },
       });
       const body = await response.json().catch(() => ({}));
@@ -369,6 +375,41 @@ export default function PlanPanel({
       window.open(data.signedUrl, "_blank", "noopener");
     } catch {
       setActionError(t("plan-download-error"));
+    }
+  };
+
+  /**
+   * Issue the patient's home-guidance sheet — the plan's other half, in her
+   * language (PRD §9.8). Same pipeline as the clinical document (versioned,
+   * hashed, QR-verifiable); different audience.
+   */
+  const issueGuidance = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/guidance/issue`, {
+        method: "POST",
+        headers: { "idempotency-key": crypto.randomUUID() },
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const code = body?.error?.code ?? body?.error;
+        setActionError(
+          code === "nothing_recorded"
+            ? t("guidance-issue-empty")
+            : code === "plan_not_validated"
+              ? t("plan-issue-need-validate")
+              : code === "document_profile_incomplete"
+                ? t("plan-issue-profile-incomplete")
+                : t("guidance-issue-error"),
+        );
+        return;
+      }
+      await load(true);
+    } catch {
+      setActionError(t("guidance-issue-error"));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -419,6 +460,10 @@ export default function PlanPanel({
         : undefined;
   const plan = resource?.plan ?? null;
   const documents = resource?.documents ?? [];
+  // Versioning is per KIND: reissuing the clinical plan must not be confused
+  // by the guidance sheet's own version line, and vice versa.
+  const planDocuments = documents.filter((doc) => doc.kind === "therapeutic-plan");
+  const guidanceDocuments = documents.filter((doc) => doc.kind === "home-guidance");
   const initialLoading = planState.status === "loading" && !resource;
   const loadFailed = planState.status === "error";
   const refreshing = planState.status === "loading" && Boolean(resource);
@@ -714,11 +759,21 @@ export default function PlanPanel({
                       <Button variant="contained" color="primary" onClick={issue} disabled={busy}>
                         {busy ? (
                           <CircularProgress size={16} />
-                        ) : documents.some((doc) => doc.status === "issued") ? (
+                        ) : planDocuments.some((doc) => doc.status === "issued") ? (
                           t("plan-reissue")
                         ) : (
                           t("plan-issue")
                         )}
+                      </Button>
+                    )}
+                    {/* The patient's half of the same validated plan (PRD §9.8).
+                        Offered only when the plan actually contains homework -
+                        an empty handout wastes her attention. */}
+                    {!isFinalized && plan.status === "validated" && hasHomeGuidance(plan.modalities) && (
+                      <Button variant="outlined" color="primary" onClick={issueGuidance} disabled={busy}>
+                        {guidanceDocuments.some((doc) => doc.status === "issued")
+                          ? t("guidance-reissue")
+                          : t("guidance-issue")}
                       </Button>
                     )}
                   </>
@@ -740,7 +795,10 @@ export default function PlanPanel({
                   >
                     <Box className="min-w-0 flex-1">
                       <Typography variant="body2" className="text-text-primary text-xs font-medium">
-                        {t("plan-doc-version")} {doc.version}
+                        {/* Two kinds share this list now, so each names itself —
+                            "versão 2" alone would be ambiguous. */}
+                        {doc.kind === "home-guidance" ? t("guidance-title") : t("plan-title")} · {t("plan-doc-version")}{" "}
+                        {doc.version}
                         {doc.status === "revoked" ? ` · ${t("plan-doc-superseded")}` : ""}
                       </Typography>
                       <Typography variant="body2" className="text-text-secondary font-mono text-xs">
@@ -781,7 +839,7 @@ export default function PlanPanel({
         <DialogHeader title={t("plan-reissue")} closeLabel={t("close")} onClose={() => setConfirmReissue(false)} />
         <DialogContent className="py-5!">
           <Typography variant="body2" className="text-text-secondary leading-6">
-            {t("plan-reissue-confirm", { version: (documents[0]?.version ?? 0) + 1 })}
+            {t("plan-reissue-confirm", { version: (planDocuments[0]?.version ?? 0) + 1 })}
           </Typography>
         </DialogContent>
         <DialogActions>
