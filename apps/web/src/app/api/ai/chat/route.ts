@@ -6,6 +6,7 @@ import { describePatientCase, loadPatientCase } from "@/lib/patient-case";
 import { alertAfterLibraryMessage, getAudioAllowance } from "@/lib/usage";
 import { type ChatAttachment, type ChatMessage, getChatProvider } from "@flyee/ai";
 import { createClient } from "@flyee/auth/server";
+import { createServiceClient } from "@flyee/auth/service";
 import {
   type AssistantKnowledgeConfig,
   buildKnowledgeContext,
@@ -124,6 +125,7 @@ export async function POST(request: Request) {
     limit?: number;
     window_start?: string;
   } | null = null;
+  let meteredQuota = false;
   if (quotaKey) {
     const { data: allowance, error: allowanceError } = await supabase.rpc("org_message_allowance", {
       target_org: body.orgId,
@@ -131,6 +133,8 @@ export async function POST(request: Request) {
     });
     if (allowanceError) return NextResponse.json({ error: allowanceError.message }, { status: 403 });
     messageAllowance = allowance ?? null;
+    // Unlimited plans still stream; they simply have nothing to meter.
+    meteredQuota = messageAllowance?.unlimited === false;
     if (allowance && allowance.allowed === false) {
       return NextResponse.json(
         {
@@ -247,15 +251,9 @@ export async function POST(request: Request) {
     attachments,
   });
 
-  // 80/95/100% bell alert for the monthly quota, counting THIS message
-  // (PRD §5.8 pattern shared with audio minutes). Best-effort by design.
-  if (messageAllowance?.unlimited === false && messageAllowance.window_start) {
-    await alertAfterLibraryMessage(body.orgId, {
-      used: (messageAllowance.used ?? 0) + 1,
-      limit: messageAllowance.limit ?? 0,
-      windowStart: messageAllowance.window_start,
-    });
-  }
+  // The quota alert is deferred with the meter itself: warning "you have used
+  // 19 of 20" for a message the provider never answered would be the same lie
+  // the old counter told. Both happen below, once there is an answer.
 
   // Newest window, oldest-first for the model. Ascending+limit would return the
   // FIRST messages of a long conversation and drop the one just sent.
@@ -371,6 +369,34 @@ export async function POST(request: Request) {
             // still shows what grounded it.
             ...(sources.length > 0 ? { metadata: { knowledge_sources: sources } } : {}),
           });
+
+          // The message is METERED here and only here: after the provider
+          // produced text. A failed generation costs nothing, and the ledger
+          // (migration 0063) survives deleting the conversation, so the quota
+          // can no longer be reset by clearing chats. Service role because the
+          // meter must not be writable by the browser it meters.
+          if (meteredQuota) {
+            try {
+              const service = createServiceClient();
+              await service.rpc("record_library_usage", {
+                target_org: body.orgId,
+                target_assistant: body.assistantSlug,
+                target_conversation: conversationId,
+                target_user: user.id,
+              });
+              // 80/95/100% bell alert, now counting a message that was really
+              // answered (PRD §5.8 pattern shared with audio minutes).
+              await alertAfterLibraryMessage(body.orgId, {
+                used: (messageAllowance?.used ?? 0) + 1,
+                limit: messageAllowance?.limit ?? 0,
+                windowStart: messageAllowance?.window_start as string,
+              });
+            } catch (error) {
+              // The answer was already delivered; metering is not worth failing
+              // the response over, but it must not vanish silently either.
+              console.error("[ai/chat] library usage metering failed", error);
+            }
+          }
         }
       }
     },

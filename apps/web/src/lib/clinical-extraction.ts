@@ -96,11 +96,18 @@ const normalizeForMatch = (text: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Share of the quote's meaningful words present in a candidate segment. */
+/**
+ * Share of the quote's meaningful words present in a candidate segment.
+ *
+ * Matched on WORD boundaries, not substrings: "dor" occurs inside "dormir", and
+ * counting that as a hit inflates the score of unrelated segments — precisely
+ * the failure that would make a fabricated quote look verified.
+ */
 function containmentScore(quote: string, haystack: string): number {
+  const padded = ` ${haystack} `;
   const words = quote.split(" ").filter((word) => word.length > 2);
-  if (words.length === 0) return quote.length > 0 && haystack.includes(quote) ? 1 : 0;
-  const present = words.filter((word) => haystack.includes(word)).length;
+  if (words.length === 0) return quote.length > 0 && padded.includes(` ${quote} `) ? 1 : 0;
+  const present = words.filter((word) => padded.includes(` ${word} `)).length;
   return present / words.length;
 }
 
@@ -120,7 +127,7 @@ interface AnchoredQuote {
  * viewer — which links field to segment by exact string equality — stops
  * breaking on "2:05" versus "02:05".
  */
-function anchorQuote(
+export function anchorQuote(
   quote: string,
   claimedStart: string,
   segments: { speaker: string; start: string; text: string }[],
@@ -129,36 +136,50 @@ function anchorQuote(
   if (!needle) return null;
 
   const claimedSeconds = claimedStart ? transcriptTimestampSeconds(claimedStart) : 0;
-  const scored = segments.map((segment, index) => ({ segment, index }));
+  const all = segments.map((segment, index) => ({ segment, index }));
 
   // The claimed timestamp is a hint, not an authority: try its neighbourhood
-  // first (a quote may straddle a segment boundary), then fall back to the
-  // whole transcript rather than trusting the number.
+  // first, then fall back to the whole transcript rather than trusting a number
+  // the model may simply have guessed.
   const near = claimedStart
-    ? scored.filter(
+    ? all.filter(
         ({ segment }) =>
           Math.abs(transcriptTimestampSeconds(segment.start) - claimedSeconds) <= TIMESTAMP_TOLERANCE_SECONDS,
       )
     : [];
 
-  const evaluate = (candidates: typeof scored) => {
-    let best: { segment: (typeof segments)[number]; score: number } | null = null;
+  const own = (index: number) => containmentScore(needle, normalizeForMatch(segments[index].text));
+  /** A quote may straddle a boundary — but only as a FALLBACK (see below). */
+  const spanning = (index: number) =>
+    index + 1 < segments.length
+      ? containmentScore(
+          needle,
+          `${normalizeForMatch(segments[index].text)} ${normalizeForMatch(segments[index + 1].text)}`,
+        )
+      : 0;
+
+  const best = (candidates: typeof all, score: (index: number) => number) => {
+    let winner: { segment: (typeof segments)[number]; score: number } | null = null;
     for (const { segment, index } of candidates) {
-      const own = normalizeForMatch(segment.text);
-      const withNext = index + 1 < segments.length ? `${own} ${normalizeForMatch(segments[index + 1].text)}` : own;
-      const score = Math.max(containmentScore(needle, own), containmentScore(needle, withNext));
-      if (!best || score > best.score) best = { segment, score };
+      const value = score(index);
+      if (!winner || value > winner.score) winner = { segment, score: value };
     }
-    return best;
+    return winner;
   };
 
-  const bestNear = evaluate(near);
-  if (bestNear && bestNear.score >= QUOTE_MATCH_THRESHOLD) {
-    return { segment: bestNear.segment, verified: true };
-  }
-  const bestAny = evaluate(scored);
-  if (bestAny && bestAny.score >= QUOTE_MATCH_THRESHOLD) {
-    return { segment: bestAny.segment, verified: true };
+  // Order matters, and getting it wrong is worse than not verifying at all: a
+  // segment joined with its neighbour also "contains" everything the neighbour
+  // says, so scoring both together in one pass anchored quotes to the segment
+  // BEFORE the one they came from. Whole-segment matches are resolved first,
+  // and the spanning pass only runs for quotes no single segment satisfies.
+  for (const [candidates, score] of [
+    [near, own],
+    [all, own],
+    [near, spanning],
+    [all, spanning],
+  ] as const) {
+    const winner = best(candidates, score);
+    if (winner && winner.score >= QUOTE_MATCH_THRESHOLD) return { segment: winner.segment, verified: true };
   }
   return null;
 }

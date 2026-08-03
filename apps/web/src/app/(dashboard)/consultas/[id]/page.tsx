@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -58,6 +58,12 @@ import {
   NonRetryableSaveError,
   useConsultationTabGuard,
 } from "@/lib/consultation-save-coordinator";
+import {
+  compareAnswer,
+  loadPreviousConsultation,
+  type PreviousConsultation,
+  summarizeChanges,
+} from "@/lib/previous-consultation";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -132,8 +138,28 @@ export default function ConsultaPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const t = useTranslations("product");
+  const locale = useLocale();
   const { enqueueSnackbar } = useSnackbar();
   const { timezone } = useCurrentOrg();
+
+  // Dates in the clinical record follow the APP's locale and the PRACTICE's
+  // timezone — a bare toLocaleDateString() formats in the browser's, which
+  // shows the wrong day near midnight and the wrong language to anyone using
+  // the app in another locale.
+  const dateLabel = useCallback(
+    (iso: string) =>
+      new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short", year: "numeric", timeZone: timezone }).format(
+        new Date(iso),
+      ),
+    [locale, timezone],
+  );
+  const dateTimeLabel = useCallback(
+    (iso: string) =>
+      new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: timezone }).format(
+        new Date(iso),
+      ),
+    [locale, timezone],
+  );
 
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
@@ -644,6 +670,38 @@ export default function ConsultaPage() {
     return stats;
   }, [fields]);
 
+  // Most consultations in this practice are RETURNS, and a return used to start
+  // from an empty chart: to recall what she recorded about sleep or pulse she
+  // opened the previous consultation in another tab. The values are already in
+  // anamnesis_answers under the same stable keys, so showing them beside each
+  // field is a lookup — no AI, no consent, no minutes, every plan (PRD §8.3).
+  const [previous, setPrevious] = useState<PreviousConsultation | null>(null);
+  useEffect(() => {
+    if (!consultation || !isSupabaseConfigured) return;
+    let cancelled = false;
+    void loadPreviousConsultation(createClient(), {
+      patientId: consultation.patientId,
+      excludeConsultationId: consultation.id,
+    }).then((result) => {
+      // A failed lookup silently degrades to "no previous consultation": this
+      // is context beside the chart, never a reason to block writing it.
+      if (!cancelled && result.ok) setPrevious(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [consultation]);
+
+  const changeSummary = useMemo(() => {
+    const currentValues: Record<string, string | undefined> = {};
+    for (const [key, meta] of Object.entries(fields)) currentValues[key] = meta.value;
+    return summarizeChanges(
+      currentValues,
+      previous,
+      ANAMNESIS_BLOCKS.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`)),
+    );
+  }, [fields, previous]);
+
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({ complaint: true });
   const autoExpandedRef = useRef(false);
 
@@ -723,7 +781,7 @@ export default function ConsultaPage() {
               <Link color="inherit" href={`/pacientes/${consultation.patientId}`}>
                 {consultation.patientName}
               </Link>
-              <Typography variant="body2">{new Date(consultation.startedAt).toLocaleDateString()}</Typography>
+              <Typography variant="body2">{dateLabel(consultation.startedAt)}</Typography>
             </Breadcrumbs>
           </Box>
 
@@ -931,6 +989,39 @@ export default function ConsultaPage() {
                   </Typography>
                 </Box>
 
+                {/* A RETURN answers a different question than a first visit:
+                    "what changed?". Stated once here, and per field below, so
+                    continuity of care is visible instead of buried in the
+                    previous consultation (PRD §8.3). Purely derived from what
+                    she validated last time — no AI, every plan. */}
+                {previous && (
+                  <Box className="bg-grey-100/60 flex flex-col gap-1 rounded-2xl px-4 py-3">
+                    <Typography variant="body2" className="text-text-primary text-xs leading-5 font-semibold">
+                      {t("previous-consultation-title", { date: dateLabel(previous.when) })}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                      {changeSummary.changed + changeSummary.new + changeSummary.missing === 0
+                        ? t("previous-consultation-no-changes")
+                        : t("previous-consultation-changes", {
+                            changed: changeSummary.changed,
+                            added: changeSummary.new,
+                            pending: changeSummary.missing,
+                          })}
+                    </Typography>
+                    {previous.patterns.length > 0 && (
+                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                        {t("previous-consultation-patterns", { patterns: previous.patterns.join(" · ") })}
+                      </Typography>
+                    )}
+                    <Link
+                      href={`/consultas/${previous.id}`}
+                      className="text-secondary-dark dark:text-secondary-light text-xs font-semibold"
+                    >
+                      {t("previous-consultation-open")}
+                    </Link>
+                  </Box>
+                )}
+
                 <FormControl className="outlined" variant="standard" size="small">
                   <FormLabel component="label" htmlFor="consultation-chief-complaint">
                     {t("field-main-complaint")}
@@ -945,6 +1036,11 @@ export default function ConsultaPage() {
                     onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
                   />
                 </FormControl>
+                {previous?.chiefComplaint && previous.chiefComplaint.trim() !== headerDraft.chiefComplaint.trim() && (
+                  <Typography variant="body2" className="text-text-secondary -mt-2 text-xs leading-5">
+                    <span className="font-semibold">{t("previous-field-label")}</span> {previous.chiefComplaint}
+                  </Typography>
+                )}
 
                 {ANAMNESIS_BLOCKS.map((block) => (
                   <Accordion
@@ -1018,6 +1114,16 @@ export default function ConsultaPage() {
                               onBlur={() =>
                                 void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
                               }
+                            />
+                            <PreviousFieldValue
+                              previousValue={previous?.answers[composite]?.value}
+                              currentValue={meta?.value}
+                              canEdit={canEdit}
+                              onKeep={(value) => {
+                                queueAnswerSave(block.key, field.key, value);
+                                void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
+                              }}
+                              t={t}
                             />
                           </FormControl>
                         );
@@ -1148,7 +1254,7 @@ export default function ConsultaPage() {
                         {addendum.body}
                       </Typography>
                       <Typography variant="body2" className="text-text-secondary mt-1 text-xs">
-                        {new Date(addendum.createdAt).toLocaleString()}
+                        {dateTimeLabel(addendum.createdAt)}
                         {addendum.reason ? ` · ${addendum.reason}` : ""}
                       </Typography>
                     </Box>
@@ -1364,6 +1470,53 @@ export default function ConsultaPage() {
  * map to the site motif — jade = clear evidence, terracotta = needs attention,
  * neutral = the professional's own edit. Never red (reserved for risk).
  */
+/**
+ * What she recorded for this same field last time (PRD §8.3).
+ *
+ * Shown UNDER the input, muted, never pre-filling it: the previous
+ * consultation is context for this one, not an answer to it — copying it
+ * forward silently would put words in the patient's mouth. "Manter igual" is
+ * the one click that does copy it, and it flows through the normal save path
+ * so the value becomes hers (source professional), exactly as if she had typed
+ * it. Nothing renders when the field matches or there is nothing to compare,
+ * so a return consultation shows only what actually differs.
+ */
+function PreviousFieldValue({
+  previousValue,
+  currentValue,
+  canEdit,
+  onKeep,
+  t,
+}: {
+  previousValue?: string;
+  currentValue?: string;
+  canEdit: boolean;
+  onKeep: (value: string) => void;
+  t: (key: string) => string;
+}) {
+  const previous = (previousValue ?? "").trim();
+  if (!previous) return null;
+  const change = compareAnswer(currentValue, previous);
+  if (change === "same") return null;
+
+  return (
+    <Box className="mt-1 flex flex-row flex-wrap items-baseline gap-x-2 gap-y-0.5">
+      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+        <span className="font-semibold">{t("previous-field-label")}</span> {previous}
+      </Typography>
+      {canEdit && change === "missing" && (
+        <button
+          type="button"
+          className="text-secondary-dark dark:text-secondary-light text-xs font-semibold"
+          onClick={() => onKeep(previous)}
+        >
+          {t("previous-field-keep")}
+        </button>
+      )}
+    </Box>
+  );
+}
+
 function StateChip({ state, sourceLabel, t }: { state: string; sourceLabel: string; t: (key: string) => string }) {
   const style =
     state === "attention"
