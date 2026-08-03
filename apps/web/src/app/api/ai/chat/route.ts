@@ -34,6 +34,33 @@ type ChatRequest = {
 
 const HISTORY_LIMIT = 30;
 
+/** How many earlier user turns may be folded into the retrieval query. */
+const QUERY_CONTEXT_TURNS = 2;
+
+/**
+ * The text the library is actually searched with.
+ *
+ * Retrieval used to embed the raw last message, which is fine for an opening
+ * question and useless for the way a study chat really goes: "e as
+ * contraindicações?", "e na gestante?" carry no topic at all, so they embedded
+ * to nothing in particular and the answer quietly lost its citations exactly
+ * where the professional was going deeper. Folding in the previous user turns
+ * restores the subject without a second model call.
+ *
+ * Long messages are left alone — they already carry their own context, and
+ * padding them would dilute the vector instead of sharpening it.
+ */
+function buildRetrievalQuery(message: string, history: { role: string; content: string }[]): string {
+  const current = message.trim();
+  if (current.length > 160) return current;
+  const earlier = history
+    .filter((entry) => entry.role === "user")
+    .slice(-(QUERY_CONTEXT_TURNS + 1), -1)
+    .map((entry) => entry.content.trim())
+    .filter(Boolean);
+  return earlier.length > 0 ? `${earlier.join("\n")}\n${current}` : current;
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -230,12 +257,15 @@ export async function POST(request: Request) {
     });
   }
 
-  const { data: history } = await supabase
+  // Newest window, oldest-first for the model. Ascending+limit would return the
+  // FIRST messages of a long conversation and drop the one just sent.
+  const { data: newestFirst } = await supabase
     .from("messages")
     .select("role, content, attachments")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(HISTORY_LIMIT);
+  const history = (newestFirst ?? []).slice().reverse();
 
   // Only the newest message carries binary attachments to the model;
   // older ones stay as text (their files remain in storage).
@@ -251,10 +281,10 @@ export async function POST(request: Request) {
     }
   }
 
-  const chatMessages: ChatMessage[] = (history ?? []).map((message, index) => ({
+  const chatMessages: ChatMessage[] = history.map((message, index) => ({
     role: message.role as "user" | "assistant",
     content: message.content,
-    attachments: index === (history?.length ?? 0) - 1 ? downloaded : undefined,
+    attachments: index === history.length - 1 ? downloaded : undefined,
   }));
 
   // Ground the assistant in its configured knowledge collections (RAG).
@@ -262,11 +292,12 @@ export async function POST(request: Request) {
   // retrieved library excerpts.
   let systemPrompt: string = assistant.system_prompt + caseContext;
   let sources: KnowledgeSourceRef[] = [];
+  let retrievalFailed = false;
   const knowledgeConfig = (assistant.config as { knowledge?: AssistantKnowledgeConfig } | null)?.knowledge;
   if (knowledgeConfig?.collections?.length && body.message.trim() && isEmbeddingConfigured()) {
     try {
       const collectionIds = await resolveCollectionIds(supabase, knowledgeConfig.collections);
-      const results = await searchKnowledge(supabase, body.message, {
+      const results = await searchKnowledge(supabase, buildRetrievalQuery(body.message, history), {
         collectionIds,
         matchCount: knowledgeConfig.matchCount,
         maxTrust: knowledgeConfig.maxTrust,
@@ -289,8 +320,12 @@ export async function POST(request: Request) {
           documentId: result.document_id,
         }));
       }
-    } catch {
-      // Retrieval must never take the chat down — answer without extra context.
+    } catch (error) {
+      // Retrieval must never take the chat down — but an answer given WITHOUT
+      // the library must not look like one given WITH it. The client is told,
+      // and the failure is logged instead of vanishing into an empty catch.
+      console.error("[ai/chat] knowledge retrieval failed", error);
+      retrievalFailed = true;
     }
   }
 
@@ -303,7 +338,9 @@ export async function POST(request: Request) {
         // Sentinel-framed prelude: the client that asked for sources splits it
         // off before rendering text. Clients that did not ask see plain text.
         if (body.includeSources) {
-          controller.enqueue(encoder.encode(`${SOURCES_SENTINEL}${JSON.stringify({ sources })}${SOURCES_SENTINEL}`));
+          controller.enqueue(
+            encoder.encode(`${SOURCES_SENTINEL}${JSON.stringify({ sources, retrievalFailed })}${SOURCES_SENTINEL}`),
+          );
         }
         const generator = provider.streamChat(
           {

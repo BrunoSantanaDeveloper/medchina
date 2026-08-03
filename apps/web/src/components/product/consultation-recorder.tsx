@@ -674,7 +674,12 @@ export default function ConsultationRecorder({
       chunks.current = [];
       bytesRef.current = 0;
       const mime = bestMime();
-      const recorder = mime ? new MediaRecorder(media, { mimeType: mime }) : new MediaRecorder(media);
+      // Speech needs little: a fixed ~32 kbps mono keeps an hour of consultation
+      // near ~14 MB — protecting the upload on clinic wifi and the transcription
+      // provider's request limits (browser defaults can run 4× larger).
+      const recorderOptions: MediaRecorderOptions = { audioBitsPerSecond: 32_000 };
+      if (mime) recorderOptions.mimeType = mime;
+      const recorder = new MediaRecorder(media, recorderOptions);
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunks.current.push(event.data);

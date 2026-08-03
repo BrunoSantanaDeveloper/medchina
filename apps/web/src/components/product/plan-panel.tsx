@@ -94,6 +94,10 @@ export default function PlanPanel({
   // What she declared she treats with (activation step). `null` while unknown;
   // an empty array means she never declared one.
   const [practiceScope, setPracticeScope] = useState<string[] | null>(null);
+  /** Set when the last preparation ran WITHOUT the library, because it failed. */
+  const [retrievalFailed, setRetrievalFailed] = useState(false);
+  /** Reissuing revokes the signed PDF that is already in the patient's hands. */
+  const [confirmReissue, setConfirmReissue] = useState(false);
   const issueKey = useRef<string | null>(null);
 
   useEffect(() => {
@@ -209,6 +213,7 @@ export default function PlanPanel({
         );
         return;
       }
+      setRetrievalFailed(Boolean(body?.retrievalFailed));
       await load(true);
     } catch {
       setActionError(t("plan-error"));
@@ -300,7 +305,14 @@ export default function PlanPanel({
 
   const issue = async () => {
     const nextVersion = (documents[0]?.version ?? 0) + 1;
-    if (documents.length > 0 && !window.confirm(t("plan-reissue-confirm", { version: nextVersion }))) return;
+    // Reissuing REVOKES the version already handed to the patient — its QR
+    // starts reporting "substituído". An act with that consequence gets a real
+    // dialog that names it, like every other irreversible act on this screen.
+    if (documents.length > 0 && !confirmReissue) {
+      setConfirmReissue(true);
+      return;
+    }
+    setConfirmReissue(false);
     setBusy(true);
     setActionError(null);
     try {
@@ -420,6 +432,14 @@ export default function PlanPanel({
         {actionError && (
           <Alert severity="warning" className="neutral bg-background-paper/60!">
             {actionError}
+          </Alert>
+        )}
+
+        {/* A plan built without the library is not a plan built on sources
+            that happened to find nothing — say which one this is. */}
+        {retrievalFailed && (
+          <Alert severity="warning" className="neutral bg-background-paper/60!">
+            {t("hypotheses-library-unavailable")}
           </Alert>
         )}
 
@@ -701,6 +721,25 @@ export default function PlanPanel({
           {t("plan-disclaimer")}
         </Typography>
       </CardContent>
+
+      {/* Reissuing revokes the version already in the patient's hands — its own
+          dialog, naming the consequence, never a browser popup. */}
+      <Dialog open={confirmReissue} onClose={() => setConfirmReissue(false)} maxWidth="xs" fullWidth>
+        <DialogHeader title={t("plan-reissue")} closeLabel={t("close")} onClose={() => setConfirmReissue(false)} />
+        <DialogContent className="py-5!">
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {t("plan-reissue-confirm", { version: (documents[0]?.version ?? 0) + 1 })}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setConfirmReissue(false)}>
+            {t("cancel")}
+          </Button>
+          <Button variant="contained" color="primary" onClick={() => void issue()} disabled={busy}>
+            {t("plan-reissue")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Card>
   );
 }

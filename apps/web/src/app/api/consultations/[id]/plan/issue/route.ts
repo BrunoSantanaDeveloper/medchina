@@ -185,7 +185,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     {
       orgId: consultation.org_id,
       kind: DOCUMENT_KIND,
-      title: `${t("plan-title")} — ${patient?.full_name ?? "—"}`,
+      // No patient name in the title: it is a document-level label, and the
+      // public /verify page is reachable by anyone holding the code. The name
+      // belongs in the PDF, which is private (migration 0059 also stops the
+      // verification RPC from returning titles at all, covering documents
+      // issued before this change).
+      title: t("plan-title"),
       payload: ({ version, sourceSnapshot }) => ({
         planId: plan.id,
         consultationId: id,

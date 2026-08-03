@@ -119,6 +119,43 @@ async function reopenAudioAlerts(supabase: ServiceClient, orgId: string) {
   }
 }
 
+/**
+ * Stop charging a subscription the workspace no longer holds.
+ *
+ * Retiring the row locally only changes what MedChina believes; the provider
+ * keeps its own recurring charge alive. An upgrade (Assistente → Pro) creates
+ * a NEW subscription, so without this the customer is billed twice — the kind
+ * of incident that ends in a chargeback and a cancelled account.
+ *
+ * The free plan carries no provider id and is skipped. The subscription that
+ * just activated is skipped explicitly, so a provider that re-emits the same
+ * activation can never cancel the very thing it activated.
+ *
+ * Failures are logged, not thrown: the local state is already correct, and
+ * replaying the whole event to retry a provider call would re-run the coupon
+ * and module reconciliation above it.
+ */
+async function cancelSupersededAtProvider(
+  rows: { provider: string | null; provider_subscription_id: string | null }[],
+  keep: { keepProvider: string; keepProviderSubscriptionId: string },
+) {
+  for (const row of rows) {
+    if (!row.provider_subscription_id) continue;
+    if (row.provider !== "stripe" && row.provider !== "asaas") continue;
+    if (row.provider === keep.keepProvider && row.provider_subscription_id === keep.keepProviderSubscriptionId) {
+      continue;
+    }
+    try {
+      await getProvider(row.provider).cancelSubscription(row.provider_subscription_id);
+    } catch {
+      console.warn("superseded_subscription_cancel_failed", {
+        provider: row.provider,
+        providerSubscriptionId: row.provider_subscription_id,
+      });
+    }
+  }
+}
+
 /** How many days the dunning window lasts, as configured (migration 0054). */
 async function graceDays(supabase: ServiceClient): Promise<number> {
   const { data } = await supabase.from("platform_settings").select("value").eq("key", "dunning").maybeSingle();
@@ -134,7 +171,18 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
       // failure keeps the inbox entry reclaimable instead of dropping access.
       if (!sub) throw new Error("subscription_not_ready");
 
-      // Retire the previous live subscription (e.g. the free plan).
+      // Retire the previous live subscription (e.g. the free plan). When that
+      // one was PAID, marking it canceled locally is not enough — the provider
+      // keeps charging it, so an Assistente→Pro upgrade would bill both. Read
+      // the rows before the update so the provider ids survive it.
+      const { data: superseded, error: supersededError } = await supabase
+        .from("subscriptions")
+        .select("id, provider, provider_subscription_id")
+        .eq("org_id", sub.org_id)
+        .in("status", ["trialing", "active", "past_due"])
+        .neq("id", sub.id);
+      if (supersededError) throw new Error("subscription_reconciliation_failed");
+
       const { error: retireError } = await supabase
         .from("subscriptions")
         .update({ status: "canceled", canceled_at: new Date().toISOString() })
@@ -142,6 +190,11 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
         .in("status", ["trialing", "active", "past_due"])
         .neq("id", sub.id);
       if (retireError) throw new Error("subscription_reconciliation_failed");
+
+      await cancelSupersededAtProvider(superseded ?? [], {
+        keepProvider: event.provider,
+        keepProviderSubscriptionId: event.providerSubscriptionId,
+      });
 
       const { error: activationError } = await supabase
         .from("subscriptions")
@@ -416,6 +469,9 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
           amount_cents: event.amountCents,
           currency: event.currency,
           status: "failed",
+          // The recovery link. Persisting it is what turns "update your
+          // payment" from a dead end into an action she can actually take.
+          invoice_url: event.invoiceUrl,
         },
         { onConflict: "provider,provider_invoice_id" },
       );

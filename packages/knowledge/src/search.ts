@@ -10,7 +10,14 @@ export async function resolveCollectionIds(supabase: SupabaseClient, slugs: stri
   return (data ?? []).map((row) => row.id as string);
 }
 
-/** Embed the query and run the trust-weighted vector search (RLS applies). */
+/**
+ * Embed the query and run the HYBRID search (RLS applies).
+ *
+ * The raw query text travels alongside the embedding: the SQL side fuses a
+ * Portuguese full-text ranking with the vector ranking (RRF, migration 0060),
+ * which is what makes an exact identifier — a point code, a pinyin name, a
+ * formula — retrievable at all. A 768-dimension embedding treats those as noise.
+ */
 export async function searchKnowledge(
   supabase: SupabaseClient,
   query: string,
@@ -24,6 +31,7 @@ export async function searchKnowledge(
     match_count: options.matchCount ?? 8,
     max_trust: options.maxTrust ?? 5,
     min_similarity: options.minSimilarity ?? 0.25,
+    query_text: query,
   });
   if (error) throw new Error(`knowledge_search failed: ${error.message}`);
   return (data ?? []) as KnowledgeSearchResult[];

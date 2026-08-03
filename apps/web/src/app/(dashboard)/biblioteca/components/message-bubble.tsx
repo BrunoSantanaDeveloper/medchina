@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { Box, Card, CardContent, Chip, Link as MuiLink, Skeleton, Typography } from "@mui/material";
+import { Alert, Box, Card, CardContent, Chip, Link as MuiLink, Skeleton, Typography } from "@mui/material";
 
 import ProductMarkdown from "@/components/product/product-markdown";
 import type { KnowledgeSourceRef } from "@/lib/clinical-library";
@@ -15,6 +15,12 @@ export type ThreadMessage = {
   content: string;
   /** What grounded the answer — matches the [n] marks in the text. */
   sources?: KnowledgeSourceRef[];
+  /**
+   * The library could not be searched for this answer. An answer with no
+   * sources and an answer the library never saw look identical on screen and
+   * are not the same claim — this is the one that says so.
+   */
+  retrievalFailed?: boolean;
 };
 
 /**
@@ -54,6 +60,12 @@ export default function MessageBubble({ message }: { message: ThreadMessage }) {
     <Card className="w-full">
       <CardContent>
         <ProductMarkdown>{message.content}</ProductMarkdown>
+
+        {message.retrievalFailed && (
+          <Alert severity="warning" className="neutral bg-background-paper/60! mt-3">
+            {t("library-retrieval-unavailable")}
+          </Alert>
+        )}
 
         {message.sources && message.sources.length > 0 && (
           <Box className="border-grey-100 mt-4 flex flex-col gap-2 border-t pt-3">

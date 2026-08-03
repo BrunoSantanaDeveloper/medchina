@@ -396,6 +396,63 @@ export async function startPackCheckout(input: {
   }
 }
 
+export type PaymentRecoveryResult = { url?: string; error?: "unavailable" | "not_needed" };
+
+/**
+ * Where a workspace with a failed charge actually pays.
+ *
+ * Every dunning surface in the app points at "update your payment", and until
+ * now that led to a page with a plan grid and no way to fix a card — the grace
+ * window counted down on someone who had no action available. Two providers,
+ * two shapes: Stripe has a hosted Billing Portal for the card behind the
+ * subscription; Asaas bills per charge, so the failed invoice's own hosted URL
+ * IS the payment page. Prefer the portal, fall back to the invoice, and say
+ * "unavailable" only when neither exists.
+ */
+export async function startPaymentRecovery(orgId: string): Promise<PaymentRecoveryResult> {
+  try {
+    const { supabase } = await requireOrgManager(orgId);
+
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("id, status, provider, provider_customer_id, provider_subscription_id")
+      .eq("org_id", orgId)
+      .in("status", ["trialing", "active", "past_due"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (sub?.provider === "stripe" && sub.provider_customer_id) {
+      const provider = getProvider("stripe");
+      const url = await provider.billingPortalUrl?.({
+        providerCustomerId: sub.provider_customer_id,
+        providerSubscriptionId: sub.provider_subscription_id ?? undefined,
+        returnUrl: `${await appOrigin()}/settings/billing`,
+      });
+      if (url) return { url };
+    }
+
+    // The most recent unpaid invoice — for Asaas this is the payment page, and
+    // for Stripe it is the fallback when the portal has no configuration yet.
+    const { data: invoice } = await supabase
+      .from("invoices")
+      .select("invoice_url, status, created_at")
+      .eq("org_id", orgId)
+      .eq("status", "failed")
+      .not("invoice_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (invoice?.invoice_url) return { url: invoice.invoice_url };
+
+    // Nothing to recover: no failed charge on file and no portal.
+    if (sub?.status !== "past_due") return { error: "not_needed" };
+    return { error: "unavailable" };
+  } catch {
+    return { error: "unavailable" };
+  }
+}
+
 function fallbackPeriodEnd(period: string | null): Date {
   const end = new Date();
   if (period === "weekly") end.setDate(end.getDate() + 7);

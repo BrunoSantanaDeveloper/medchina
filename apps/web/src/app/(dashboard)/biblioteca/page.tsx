@@ -301,9 +301,11 @@ export default function Biblioteca() {
           setMessages((current) =>
             current.map((message) => (message.id === assistantMessageId ? { ...message, content: value } : message)),
           );
-        const applySources = (sources: KnowledgeSourceRef[]) =>
+        const applySources = (sources: KnowledgeSourceRef[], retrievalFailed: boolean) =>
           setMessages((current) =>
-            current.map((message) => (message.id === assistantMessageId ? { ...message, sources } : message)),
+            current.map((message) =>
+              message.id === assistantMessageId ? { ...message, sources, retrievalFailed } : message,
+            ),
           );
 
         for (;;) {
@@ -315,8 +317,13 @@ export default function Biblioteca() {
               const end = buffer.indexOf(SOURCES_SENTINEL, 1);
               if (end === -1) continue; // prelude still streaming in
               try {
-                const parsed = JSON.parse(buffer.slice(1, end)) as { sources?: KnowledgeSourceRef[] };
-                if (parsed.sources?.length) applySources(parsed.sources);
+                const parsed = JSON.parse(buffer.slice(1, end)) as {
+                  sources?: KnowledgeSourceRef[];
+                  retrievalFailed?: boolean;
+                };
+                if (parsed.sources?.length || parsed.retrievalFailed) {
+                  applySources(parsed.sources ?? [], Boolean(parsed.retrievalFailed));
+                }
               } catch {
                 // A malformed prelude only costs the source list, never the answer.
               }

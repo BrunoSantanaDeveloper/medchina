@@ -1,9 +1,20 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type Part } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { TranscriptResult } from "./types";
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
+
+/**
+ * Gemini rejects generateContent requests whose inline payload exceeds ~20MB.
+ * A real 50–60 min consultation easily passes that, and used to fail EVERY
+ * time as an opaque provider error — at exactly the first real AI moment.
+ * Above this threshold the audio goes through the Files API instead
+ * (2GB limit, referenced by URI).
+ */
+const INLINE_LIMIT_BYTES = 15 * 1024 * 1024;
+const FILE_POLL_INTERVAL_MS = 2_000;
+const FILE_POLL_TIMEOUT_MS = 5 * 60_000;
 
 const RESULT_SCHEMA = {
   type: "object",
@@ -32,24 +43,73 @@ const PROMPT = [
   "if a passage is inaudible, transcribe it as [inaudible].",
 ].join(" ");
 
-async function transcribeAudio(mime: string, dataBase64: string): Promise<TranscriptResult> {
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Upload to the Gemini Files API and wait until the file is ACTIVE. */
+async function uploadAudioFile(
+  client: GoogleGenAI,
+  mime: string,
+  bytes: Uint8Array,
+): Promise<{ part: Part; name: string }> {
+  const uploaded = await client.files.upload({
+    file: new Blob([bytes as BlobPart], { type: mime }),
+    config: { mimeType: mime },
+  });
+  if (!uploaded.name || !uploaded.uri) throw new Error("Gemini file upload returned no reference.");
+
+  const deadline = Date.now() + FILE_POLL_TIMEOUT_MS;
+  let state = uploaded.state as string | undefined;
+  while (state === "PROCESSING") {
+    if (Date.now() > deadline) throw new Error("Gemini file processing timed out.");
+    await sleep(FILE_POLL_INTERVAL_MS);
+    const current = await client.files.get({ name: uploaded.name });
+    state = current.state as string | undefined;
+  }
+  if (state === "FAILED") throw new Error("Gemini could not process the uploaded audio file.");
+
+  return { part: { fileData: { fileUri: uploaded.uri, mimeType: uploaded.mimeType ?? mime } }, name: uploaded.name };
+}
+
+async function transcribeAudio(mime: string, bytes: Uint8Array): Promise<TranscriptResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set — transcription uses Gemini.");
   const client = new GoogleGenAI({ apiKey: key });
 
-  const response = await client.models.generateContent({
-    model: process.env.TRANSCRIBE_MODEL || DEFAULT_MODEL,
-    contents: [{ role: "user", parts: [{ inlineData: { mimeType: mime, data: dataBase64 } }, { text: PROMPT }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseJsonSchema: RESULT_SCHEMA,
-      temperature: 0,
-    },
-  });
+  let audioPart: Part;
+  let uploadedName: string | undefined;
+  if (bytes.byteLength > INLINE_LIMIT_BYTES) {
+    const uploaded = await uploadAudioFile(client, mime, bytes);
+    audioPart = uploaded.part;
+    uploadedName = uploaded.name;
+  } else {
+    audioPart = { inlineData: { mimeType: mime, data: Buffer.from(bytes).toString("base64") } };
+  }
 
-  const text = response.text;
-  if (!text) throw new Error("Gemini returned no transcript.");
-  return JSON.parse(text) as TranscriptResult;
+  try {
+    const response = await client.models.generateContent({
+      model: process.env.TRANSCRIBE_MODEL || DEFAULT_MODEL,
+      contents: [{ role: "user", parts: [audioPart, { text: PROMPT }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: RESULT_SCHEMA,
+        temperature: 0,
+      },
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("Gemini returned no transcript.");
+    return JSON.parse(text) as TranscriptResult;
+  } finally {
+    // Uploaded files auto-expire in 48h; deleting sooner is hygiene, not
+    // correctness — never let cleanup mask the transcription result.
+    if (uploadedName) {
+      try {
+        await client.files.delete({ name: uploadedName });
+      } catch {
+        /* best effort */
+      }
+    }
+  }
 }
 
 export type TranscriptionRunResult = { ok: true; segments: number } | { ok: false; error: string };
@@ -80,8 +140,8 @@ export async function processTranscription(
     const { data: blob, error: downloadError } = await supabase.storage.from("transcriptions").download(row.audio_path);
     if (downloadError || !blob) throw new Error(downloadError?.message ?? "Audio download failed.");
 
-    const dataBase64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
-    const result = await transcribeAudio(row.mime, dataBase64);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const result = await transcribeAudio(row.mime, bytes);
 
     await supabase.from("transcriptions").update({ status: "ready", result }).eq("id", transcriptionId);
 

@@ -5,6 +5,7 @@ import { checkoutAvailability } from "./actions";
 import CurrentSubscription from "./components/current-subscription";
 import InvoicesCard from "./components/invoices-card";
 import MinutePacksCard from "./components/minute-packs-card";
+import PaymentRecoveryCard from "./components/payment-recovery-card";
 import PlansGrid from "./components/plans-grid";
 import { useBilling } from "./components/use-billing";
 import Link from "next/link";
@@ -169,6 +170,14 @@ export default function BillingSettings() {
 
         {currentOrg && detailsAvailable && (
           <>
+            {/* First, because she is here to FIX a charge, not to shop. The
+                plan grid below answers a different question and would read as
+                the wrong answer if it came first. */}
+            {canManage && (allowance?.reason === "past_due_grace" || allowance?.reason === "past_due_blocked") && (
+              <Grid size={12}>
+                <PaymentRecoveryCard orgId={currentOrg.id} graceEndsAt={allowance.graceEndsAt} />
+              </Grid>
+            )}
             <Grid size={{ xs: 12, md: 6 }}>
               <AudioUsageCard showWhenEmpty />
             </Grid>

@@ -97,6 +97,8 @@ export interface TherapeuticPlanResult {
   model: string;
   promptVersion: string;
   retrieved: number;
+  /** The library search FAILED — different from finding nothing (see the hypotheses). */
+  retrievalFailed: boolean;
   /** The modalities the plan was allowed to propose (PRD §10.9 scope). */
   scope: PracticeModality[];
 }
@@ -211,7 +213,14 @@ function buildResultSchema(scope: readonly PracticeModality[]) {
 function describeCase(input: PlanInput): string {
   const lines: string[] = [];
   if (input.chiefComplaint) lines.push(`Queixa principal: ${input.chiefComplaint}`);
-  for (const answer of input.answers) lines.push(`- ${answer.blockKey}.${answer.fieldKey}: ${answer.value}`);
+  for (const answer of input.answers) {
+    // Origin travels with the value here too: the hypotheses prompt has always
+    // distinguished the patient's report from the practitioner's observation,
+    // and the plan — which ends up in a signed document — read them as equals.
+    const origin =
+      answer.source === "professional_voice" || answer.source === "professional" ? "profissional" : "relato";
+    lines.push(`- ${answer.blockKey}.${answer.fieldKey} [${origin}]: ${answer.value}`);
+  }
   return lines.join("\n");
 }
 
@@ -243,6 +252,8 @@ function buildPrompt(
     "5. Frequencies and quantities are SUGGESTIONS, always the professional's to edit.",
     "6. Cite library excerpts by number in `citations` only when one genuinely informs the plan; never invent one.",
     "7. Write in the language of the recorded data (Brazilian Portuguese unless it clearly is not).",
+    "8. ABSENCE IS NOT A NEGATIVE FINDING. A field absent from the record below was not asked or not answered —",
+    "   never build a recommendation on the assumption that something unrecorded is normal or absent.",
     "",
     "ACCEPTED PATTERN HYPOTHESES:",
     input.acceptedPatterns.length > 0 ? input.acceptedPatterns.map((p) => `- ${p}`).join("\n") : "(none accepted yet)",
@@ -269,21 +280,54 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
   const inScope = new Set<PracticeModality>(scope);
 
   // Safety flags come from the RECORD, in code, before any model call — so they
-  // exist whether or not the model cooperates (PRD §10.10).
-  const safetyFlags = detectSafetyFlags(
-    input.answers.map((a) => ({ text: a.value, fieldKey: `${a.blockKey}.${a.fieldKey}` })),
-  );
+  // exist whether or not the model cooperates (PRD §10.10). The chief complaint
+  // is part of that record: "gestante de 12 semanas com lombalgia" lives there
+  // and nowhere else, and scanning only the anamnesis answers missed it.
+  const safetyFlags = detectSafetyFlags([
+    ...(input.chiefComplaint ? [{ text: input.chiefComplaint, fieldKey: "chiefComplaint" }] : []),
+    ...input.answers.map((a) => ({ text: a.value, fieldKey: `${a.blockKey}.${a.fieldKey}` })),
+  ]);
 
   // ---- Retrieve (RAG) ------------------------------------------------------
   let retrieved: KnowledgeSearchResult[] = [];
+  let retrievalFailed = false;
   try {
     const collectionIds = await resolveCollectionIds(supabase, [...LIBRARY_COLLECTIONS]);
     if (collectionIds.length > 0) {
-      const query = [input.acceptedPatterns.join(", "), describeCase(input)].filter(Boolean).join("\n");
-      retrieved = await searchKnowledge(supabase, query, { collectionIds, matchCount: 8, minSimilarity: 0.25 });
+      // One query per accepted pattern plus one for the case: a plan is built
+      // FROM the patterns she accepted, so those are the terms the library
+      // should be searched by — not the chart flattened into one vector.
+      const queries = [
+        ...input.acceptedPatterns,
+        [input.chiefComplaint, describeCase(input)].filter(Boolean).join("\n"),
+      ].filter((query) => query.trim());
+      const outcomes = await Promise.allSettled(
+        queries
+          .slice(0, 5)
+          .map((query) => searchKnowledge(supabase, query, { collectionIds, matchCount: 6, minSimilarity: 0.25 })),
+      );
+      const merged = new Map<string, KnowledgeSearchResult>();
+      let anySucceeded = false;
+      let anyFailed = false;
+      for (const outcome of outcomes) {
+        if (outcome.status === "rejected") {
+          anyFailed = true;
+          console.error("[therapeutic-plan] retrieval query failed", outcome.reason);
+          continue;
+        }
+        anySucceeded = true;
+        for (const hit of outcome.value) {
+          const existing = merged.get(hit.chunk_id);
+          if (!existing || hit.similarity > existing.similarity) merged.set(hit.chunk_id, hit);
+        }
+      }
+      retrieved = [...merged.values()].sort((a, b) => b.similarity - a.similarity).slice(0, 8);
+      retrievalFailed = anyFailed && !anySucceeded;
     }
-  } catch {
+  } catch (error) {
+    console.error("[therapeutic-plan] library retrieval failed", error);
     retrieved = [];
+    retrievalFailed = true;
   }
 
   const collectionSlug = new Map<string, string>();
@@ -295,11 +339,17 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
     for (const row of collections ?? []) collectionSlug.set(row.id as string, row.slug as string);
   }
 
+  const kindLabel: Record<string, string> = {
+    traditional: "fonte tradicional",
+    protocol: "protocolo interno",
+    evidence: "evidência científica",
+  };
   const context = retrieved
-    .map(
-      (result, index) =>
-        `[${index + 1}] ${result.title}${result.source ? ` — ${result.source}` : ""}\n${result.content}`,
-    )
+    .map((result, index) => {
+      const kind =
+        kindLabel[COLLECTION_KIND[collectionSlug.get(result.collection_id) ?? ""] ?? ""] ?? "origem não classificada";
+      return `[${index + 1}] (${kind}, confiança ${result.trust_level}) ${result.title}${result.source ? ` — ${result.source}` : ""}\n${result.content}`;
+    })
     .join("\n\n---\n\n");
 
   const raw = (await getChatProvider(provider).generateStructured(
@@ -420,6 +470,7 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
     model,
     promptVersion: PLAN_PROMPT_VERSION,
     retrieved: retrieved.length,
+    retrievalFailed,
     scope,
   };
 }

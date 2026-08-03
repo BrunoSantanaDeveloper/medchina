@@ -1,4 +1,5 @@
 import { extractAnamnesis } from "@/lib/clinical-extraction";
+import { parseTranscriptResult } from "@/lib/transcript";
 import { alertAfterAudioUsage, billableSeconds } from "@/lib/usage";
 import type { ClinicalErrorCode } from "@flyee/clinical";
 import { processTranscription, type TranscriptResult } from "@flyee/transcribe";
@@ -185,7 +186,12 @@ export async function processRecording(
     .select("result")
     .eq("id", transcriptionId)
     .maybeSingle();
-  const transcript = transcriptionRow?.result as TranscriptResult | null;
+  // Sanitize before the prompt sees it: a segment missing `text` used to be
+  // rendered into the transcript as the literal string "undefined", and the
+  // validator that exists for exactly this was only ever used by the viewer.
+  const transcript: TranscriptResult | null = transcriptionRow?.result
+    ? parseTranscriptResult(transcriptionRow.result)
+    : null;
   if (!transcript?.segments?.length) {
     return reject("provider_unavailable", "transcription");
   }
@@ -200,6 +206,24 @@ export async function processRecording(
     return reject("provider_unavailable", "extraction");
   }
 
+  // Who is who, resolved once and kept: the extraction computed it, used it to
+  // arbitrate observations, and then threw it away — leaving the transcript
+  // viewer to show opaque "Speaker 1 / Speaker 2" gutters forever.
+  if (extraction.practitionerSpeaker) {
+    await supabase
+      .from("transcriptions")
+      .update({
+        metadata: {
+          practitionerSpeaker: extraction.practitionerSpeaker,
+          extractionModel: extraction.model,
+          extractionPromptVersion: extraction.promptVersion,
+          unverifiedProvenance: extraction.unverified,
+          droppedAnswers: extraction.dropped,
+        },
+      })
+      .eq("id", transcriptionId);
+  }
+
   if (!(await heartbeat(supabase, recordingId, claimId))) {
     return { ok: false, code: "processing_already_claimed" };
   }
@@ -211,7 +235,14 @@ export async function processRecording(
     value: answer.value,
     source: answer.source,
     state: answer.state,
-    provenance: answer.provenance,
+    // Hypotheses and plans have recorded model + prompt_version since 0025
+    // (PRD §10.10); the drafts that feed them did not, so a quality regression
+    // could never be traced back to the prompt that caused it.
+    provenance: {
+      ...answer.provenance,
+      model: extraction.model,
+      promptVersion: extraction.promptVersion,
+    },
   }));
   const { data: appliedData, error: applyError } = await supabase.rpc("apply_recording_result", {
     target_recording: recording.id,

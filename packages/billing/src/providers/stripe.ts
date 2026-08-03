@@ -128,6 +128,24 @@ export class StripeProvider implements PaymentProvider {
     await getStripe().subscriptions.update(providerSubscriptionId, { cancel_at_period_end: false });
   }
 
+  /**
+   * Stripe's hosted Billing Portal — the only place the customer can replace a
+   * failed card. Returns null when the portal has no configuration in the
+   * Stripe account (a setup step, not a code bug), so the caller can fall back
+   * to the failed invoice's own hosted URL instead of showing an error.
+   */
+  async billingPortalUrl(input: { providerCustomerId: string; returnUrl: string }): Promise<string | null> {
+    try {
+      const session = await getStripe().billingPortal.sessions.create({
+        customer: input.providerCustomerId,
+        return_url: input.returnUrl,
+      });
+      return session.url ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async parseWebhook(rawBody: string, headers: Record<string, string | null>): Promise<BillingEvent[]> {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
@@ -214,6 +232,7 @@ export class StripeProvider implements PaymentProvider {
           providerInvoiceId: String(invoice.id),
           amountCents: invoice.amount_due,
           currency: invoice.currency.toUpperCase(),
+          invoiceUrl: invoice.hosted_invoice_url ?? undefined,
         });
         break;
       }

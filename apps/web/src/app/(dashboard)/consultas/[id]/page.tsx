@@ -68,7 +68,14 @@ import {
   type RecordingStatus,
 } from "@flyee/clinical";
 
-type Provenance = { quote?: string; start?: string; speaker?: string };
+type Provenance = {
+  quote?: string;
+  start?: string;
+  speaker?: string;
+  transcriptionId?: string;
+  /** False when the extraction could not find this quote in the transcript. */
+  verified?: boolean;
+};
 type FieldMeta = { value: string; state: string; source: string; provenance: Provenance };
 
 type Consultation = {
@@ -89,7 +96,13 @@ type Addendum = { id: string; body: string; reason: string | null; createdAt: st
 type ConsultationContext = {
   patient: { birthDate: string | null; alerts: { label: string }[] };
   consents: { audio: boolean; ai: boolean; images: boolean };
-  recording: { id: string; status: RecordingStatus; updatedAt: string } | null;
+  recording: {
+    id: string;
+    status: RecordingStatus;
+    updatedAt: string;
+    mode?: "ai" | "audio_only" | null;
+    capturedOn?: string | null;
+  } | null;
 };
 type FinalizeSummary = { draftHypotheses: number; draftPlans: number };
 type FinalizeResponse = {
@@ -156,6 +169,12 @@ export default function ConsultaPage() {
   const [busy, setBusy] = useState(false);
   const [provenanceAnchor, setProvenanceAnchor] = useState<{ el: HTMLElement; data: Provenance } | null>(null);
   const [recordingsRefresh, setRecordingsRefresh] = useState(0);
+  /** "Ouvir este trecho": the excerpt the recordings panel should open on. */
+  const [transcriptSeek, setTranscriptSeek] = useState<{
+    start: string;
+    transcriptionId?: string;
+    nonce: number;
+  } | null>(null);
   const revisionRef = useRef(0);
 
   const { isPrimary, takeOver } = useConsultationTabGuard(params.id);
@@ -303,6 +322,30 @@ export default function ConsultaPage() {
     };
   }, [consultation?.status, syncFromServer]);
 
+  // The phone (QR link, mode 'ai') delivers its audio as 'uploaded' — it has
+  // no authenticated session to kick the pipeline itself. The moment the sync
+  // above sees it, start processing from HERE, so "scan, record, walk back to
+  // the computer" ends with the anamnesis drafting itself, no click required.
+  // Guarded per recording id; the process route is idempotent anyway (claim
+  // returns processing_already_claimed / ready on replays).
+  const autoProcessedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const recording = context?.recording;
+    if (!recording || recording.status !== "uploaded") return;
+    if (recording.mode !== "ai" || recording.capturedOn !== "qr") return;
+    if (autoProcessedRef.current === recording.id) return;
+    autoProcessedRef.current = recording.id;
+    void fetch(`/api/recordings/${recording.id}/process`, { method: "POST" })
+      .then(() => {
+        syncFromServer();
+        setRecordingsRefresh((value) => value + 1);
+      })
+      .catch(() => {
+        // The recordings panel still offers a manual "process" for this row.
+        autoProcessedRef.current = null;
+      });
+  }, [context?.recording, syncFromServer]);
+
   const isFinalized = consultation?.status === "finalized";
   const recordingStatus = context?.recording?.status ?? null;
   /** A capture is in flight, so the AI will draft over this record shortly. */
@@ -335,7 +378,13 @@ export default function ConsultaPage() {
     const composite = `${blockKey}.${fieldKey}`;
     const previous = fields[composite];
     const trimmedValue = value.trim();
-    const wasAi = previous?.source === "ai_inference" || previous?.source === "patient_report";
+    // A dictated tongue/pulse finding is stored as `professional_voice` even
+    // when the MODEL wrote it, so source alone cannot tell drafts apart. The
+    // transcript stamp can — it only exists on rows the pipeline wrote.
+    const wasAi =
+      previous?.source === "ai_inference" ||
+      previous?.source === "patient_report" ||
+      Boolean(previous?.provenance?.transcriptionId);
     const source = PROFESSIONAL_OBSERVATION_FIELDS.has(composite) ? "professional_voice" : "professional";
     const state = wasAi ? "edited" : "clear";
     setErrorKey(null);
@@ -359,7 +408,7 @@ export default function ConsultaPage() {
         target_state: state,
       });
       if (error) throw new Error("save_failed");
-      const result = data as { ok?: boolean; code?: string; revision?: number } | null;
+      const result = data as { ok?: boolean; code?: string; revision?: number; state?: string | null } | null;
       if (!result?.ok || !Number.isInteger(result.revision)) {
         if (result?.code === "revision_conflict" && Number.isInteger(result.revision)) {
           const { data: persisted, error: persistedError } = await supabase
@@ -383,7 +432,13 @@ export default function ConsultaPage() {
       setFields((current) => {
         const currentValue = current[composite]?.value ?? "";
         if (currentValue.trim() !== trimmedValue) return current;
-        return { ...current, [composite]: { ...current[composite], value: currentValue, source, state } };
+        // The database is the authority on whether this was an edit of a draft:
+        // it can see the transcript stamp on the row we just replaced.
+        const persistedState = result.state ?? state;
+        return {
+          ...current,
+          [composite]: { ...current[composite], value: currentValue, source, state: persistedState },
+        };
       });
     });
   };
@@ -568,6 +623,57 @@ export default function ConsultaPage() {
     () => Object.values(fields).filter((meta) => meta.state === "attention").length,
     [fields],
   );
+
+  // What the AI wrote, per block. Without this the drafted anamnesis lands
+  // INSIDE collapsed accordions with nothing on their headers: the single
+  // moment the product proves its worth happened invisibly, and finding the
+  // fields that need her judgement meant opening every block and reading it.
+  const blockStats = useMemo(() => {
+    const stats: Record<string, { filled: number; attention: number }> = {};
+    for (const block of ANAMNESIS_BLOCKS) {
+      let filled = 0;
+      let attention = 0;
+      for (const field of block.fields) {
+        const meta = fields[`${block.key}.${field.key}`];
+        if (!meta?.value.trim()) continue;
+        filled += 1;
+        if (meta.state === "attention") attention += 1;
+      }
+      stats[block.key] = { filled, attention };
+    }
+    return stats;
+  }, [fields]);
+
+  const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({ complaint: true });
+  const autoExpandedRef = useRef(false);
+
+  // A record waiting for review opens the blocks that actually have something
+  // to review — once, so a deliberate collapse is never undone by a poll tick.
+  useEffect(() => {
+    if (autoExpandedRef.current) return;
+    if (consultation?.status !== "awaiting_review") return;
+    const withContent = ANAMNESIS_BLOCKS.filter((block) => (blockStats[block.key]?.filled ?? 0) > 0);
+    if (withContent.length === 0) return;
+    autoExpandedRef.current = true;
+    setExpandedBlocks((current) => ({
+      ...current,
+      ...Object.fromEntries(withContent.map((block) => [block.key, true])),
+    }));
+  }, [consultation?.status, blockStats]);
+
+  /** Jump to the first field the extraction flagged — the review, in one click. */
+  const focusFirstAttention = useCallback(() => {
+    const target = ANAMNESIS_BLOCKS.flatMap((block) =>
+      block.fields.map((field) => ({ block, field, meta: fields[`${block.key}.${field.key}`] })),
+    ).find((entry) => entry.meta?.state === "attention");
+    if (!target) return;
+    setExpandedBlocks((current) => ({ ...current, [target.block.key]: true }));
+    window.setTimeout(() => {
+      const element = document.getElementById(`consultation-field-${target.block.key}-${target.field.key}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      element?.focus({ preventScroll: true });
+    }, 0);
+  }, [fields]);
   const nextAction =
     saveSnapshot.state === "error"
       ? t("context-next-retry-save")
@@ -658,7 +764,18 @@ export default function ConsultaPage() {
       {/* An AI-drafted consultation says so, and points review at the exceptions. */}
       {consultation.status === "awaiting_review" && (
         <Grid size={12}>
-          <Alert severity="info" icon={<NiListCheck />} className="neutral bg-background-paper/60!">
+          <Alert
+            severity="info"
+            icon={<NiListCheck />}
+            className="neutral bg-background-paper/60!"
+            action={
+              attentionCount > 0 ? (
+                <Button color="inherit" size="small" onClick={focusFirstAttention}>
+                  {t("consultation-review-attention-goto")}
+                </Button>
+              ) : undefined
+            }
+          >
             {attentionCount > 0
               ? t("consultation-review-attention", { count: attentionCount })
               : t("consultation-review-ready")}
@@ -770,7 +887,9 @@ export default function ConsultaPage() {
                   // Phone-via-QR is an alternate METHOD for this same step, not
                   // a step of its own — it renders inside the recorder's own
                   // card instead of a second, confusingly-numbered "step 1".
-                  secondaryCapture={<MobileCaptureHandoff consultationId={consultation.id} />}
+                  secondaryCapture={
+                    <MobileCaptureHandoff consultationId={consultation.id} aiConsent={context?.consents.ai} />
+                  }
                 />
               ) : (
                 <Card component="section">
@@ -789,7 +908,12 @@ export default function ConsultaPage() {
               ))}
 
             {canEdit && (
-              <RecordingsPanel consultationId={consultation.id} onProcessed={load} refreshSignal={recordingsRefresh} />
+              <RecordingsPanel
+                consultationId={consultation.id}
+                onProcessed={load}
+                refreshSignal={recordingsRefresh}
+                seekTo={transcriptSeek ?? undefined}
+              />
             )}
           </Box>
 
@@ -827,13 +951,28 @@ export default function ConsultaPage() {
                     key={block.key}
                     elevation={0}
                     disableGutters
-                    defaultExpanded={block.key === "complaint"}
+                    expanded={expandedBlocks[block.key] ?? false}
+                    onChange={(_, isExpanded) =>
+                      setExpandedBlocks((current) => ({ ...current, [block.key]: isExpanded }))
+                    }
                     className="border-grey-100 bg-background-paper rounded-2xl! border"
                   >
                     <AccordionSummary expandIcon={<NiChevronDownSmall />} className="px-5! py-2!">
-                      <Typography component="h3" variant="subtitle1">
-                        {t(block.title)}
-                      </Typography>
+                      <Box className="flex flex-row flex-wrap items-center gap-2">
+                        <Typography component="h3" variant="subtitle1">
+                          {t(block.title)}
+                        </Typography>
+                        {(blockStats[block.key]?.filled ?? 0) > 0 && (
+                          <span className="bg-grey-100 text-text-secondary rounded-full px-2 py-0.5 text-xs font-semibold">
+                            {t("block-filled-count", { count: blockStats[block.key].filled })}
+                          </span>
+                        )}
+                        {(blockStats[block.key]?.attention ?? 0) > 0 && (
+                          <span className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light rounded-full px-2 py-0.5 text-xs font-semibold">
+                            {t("block-attention-count", { count: blockStats[block.key].attention })}
+                          </span>
+                        )}
+                      </Box>
                     </AccordionSummary>
                     <AccordionDetails className="flex flex-col gap-1 px-5! pt-0! pb-5!">
                       {block.fields.map((field) => {
@@ -1028,7 +1167,7 @@ export default function ConsultaPage() {
         onClose={() => setProvenanceAnchor(null)}
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
       >
-        <Box className="flex max-w-xs flex-col gap-1 p-4">
+        <Box className="flex max-w-xs flex-col gap-2 p-4">
           <Typography variant="body2" className="text-text-secondary font-mono text-xs">
             {provenanceAnchor?.data.speaker}
             {provenanceAnchor?.data.start ? ` · ${provenanceAnchor.data.start}` : ""}
@@ -1036,6 +1175,37 @@ export default function ConsultaPage() {
           <Typography variant="body2" className="text-text-primary leading-6 italic">
             “{provenanceAnchor?.data.quote}”
           </Typography>
+          {/* A quote the pipeline could not locate in the transcript is shown
+              WITH that fact. Evidence that cannot be checked is not evidence,
+              and hiding the doubt would be the dishonest half of the feature. */}
+          {provenanceAnchor?.data.verified === false && (
+            <Typography variant="body2" className="text-accent-3-dark dark:text-accent-3-light text-xs leading-5">
+              {t("field-provenance-unverified")}
+            </Typography>
+          )}
+          {/* Only offered while the recordings panel is on screen — it owns the
+              transcript dialog, so without it this button would go nowhere. */}
+          {canEdit && provenanceAnchor?.data.start && (
+            <Button
+              variant="text"
+              size="small"
+              className="self-start"
+              startIcon={<NiPlay size="tiny" />}
+              onClick={() => {
+                const data = provenanceAnchor?.data;
+                setProvenanceAnchor(null);
+                if (data?.start) {
+                  setTranscriptSeek({
+                    start: data.start,
+                    transcriptionId: data.transcriptionId,
+                    nonce: Date.now(),
+                  });
+                }
+              }}
+            >
+              {t("field-provenance-listen")}
+            </Button>
+          )}
         </Box>
       </Popover>
 
@@ -1204,8 +1374,13 @@ function StateChip({ state, sourceLabel, t }: { state: string; sourceLabel: stri
   const label =
     state === "attention" ? t("state-attention") : state === "edited" ? t("state-edited") : t("state-clear");
   return (
-    <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", style)} title={sourceLabel}>
-      {label}
-    </span>
+    <>
+      <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", style)}>{label}</span>
+      {/* PRD §10.3 asks for patient report, practitioner observation and AI
+          inference to stay VISUALLY distinct. It used to live in a `title`
+          attribute: invisible on touch, undiscoverable on desktop, and not read
+          as content by a screen reader. */}
+      <span className="text-text-secondary border-grey-100 rounded-full border px-2 py-0.5 text-xs">{sourceLabel}</span>
+    </>
   );
 }

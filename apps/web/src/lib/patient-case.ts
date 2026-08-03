@@ -29,10 +29,13 @@ export interface PatientCase {
     scheduledFor: string | null;
     createdAt: string;
     chiefComplaint: string | null;
-    answers: { blockKey: string; fieldKey: string; value: string; source: string }[];
+    answers: { blockKey: string; fieldKey: string; value: string; source: string; state: string }[];
     acceptedHypotheses: { pattern: string; correspondence: string; status: string }[];
     validatedPlanModalities: string[];
+    summary: string | null;
   }[];
+  /** Consultations that exist but did not fit the prompt budget. */
+  omittedConsultations: number;
 }
 
 export async function loadPatientCase(supabase: SupabaseClient, patientId: string): Promise<PatientCase | null> {
@@ -43,9 +46,15 @@ export async function loadPatientCase(supabase: SupabaseClient, patientId: strin
     .maybeSingle();
   if (!patient) return null;
 
+  const { count: totalConsultations } = await supabase
+    .from("consultations")
+    .select("id", { count: "exact", head: true })
+    .eq("patient_id", patientId)
+    .neq("status", "cancelled");
+
   const { data: consultations } = await supabase
     .from("consultations")
-    .select("id, status, scheduled_for, created_at, chief_complaint")
+    .select("id, status, scheduled_for, created_at, chief_complaint, summary")
     .eq("patient_id", patientId)
     .neq("status", "cancelled")
     .order("created_at", { ascending: false })
@@ -56,7 +65,11 @@ export async function loadPatientCase(supabase: SupabaseClient, patientId: strin
     ? await Promise.all([
         supabase
           .from("anamnesis_answers")
-          .select("consultation_id, block_key, field_key, value, source")
+          .select("consultation_id, block_key, field_key, value, source, state")
+          // A draft the professional REJECTED is not a record of this patient.
+          // Feeding it back to the model as chart data would let the AI reason
+          // from exactly the material she threw away.
+          .neq("state", "rejected")
           .in("consultation_id", consultationIds),
         supabase
           .from("consultation_hypotheses")
@@ -82,6 +95,7 @@ export async function loadPatientCase(supabase: SupabaseClient, patientId: strin
       scheduledFor: (row.scheduled_for as string | null) ?? null,
       createdAt: row.created_at as string,
       chiefComplaint: (row.chief_complaint as string | null) ?? null,
+      summary: (row.summary as string | null) ?? null,
       answers: (answers.data ?? [])
         .filter((answer) => answer.consultation_id === row.id)
         .map((answer) => ({
@@ -89,6 +103,7 @@ export async function loadPatientCase(supabase: SupabaseClient, patientId: strin
           fieldKey: answer.field_key as string,
           value: answer.value as string,
           source: answer.source as string,
+          state: (answer.state as string) ?? "clear",
         })),
       acceptedHypotheses: (hypotheses.data ?? [])
         .filter((hypothesis) => hypothesis.consultation_id === row.id)
@@ -99,8 +114,13 @@ export async function loadPatientCase(supabase: SupabaseClient, patientId: strin
         })),
       validatedPlanModalities: (plans.data ?? [])
         .filter((plan) => plan.consultation_id === row.id)
-        .flatMap((plan) => Object.keys((plan.modalities as Record<string, unknown>) ?? {})),
+        .flatMap((plan) =>
+          Object.entries((plan.modalities as Record<string, { enabled?: boolean }>) ?? {})
+            .filter(([, modality]) => modality?.enabled)
+            .map(([slug]) => slug),
+        ),
     })),
+    omittedConsultations: Math.max(0, (totalConsultations ?? 0) - consultationIds.length),
   };
 }
 
@@ -120,8 +140,13 @@ function describeConsultation(consultation: PatientCase["consultations"][number]
   const when = consultation.scheduledFor ?? consultation.createdAt;
   lines.push(`Consulta de ${when.slice(0, 10)} (${STATUS_LABEL[consultation.status] ?? consultation.status}):`);
   if (consultation.chiefComplaint) lines.push(`  Queixa principal: ${consultation.chiefComplaint}`);
+  if (consultation.summary) lines.push(`  Resumo da profissional: ${consultation.summary}`);
   for (const answer of consultation.answers) {
-    lines.push(`  - ${answer.blockKey}.${answer.fieldKey} [${originLabel(answer.source)}]: ${answer.value}`);
+    // A value the extraction itself flagged as ambiguous, contradictory or
+    // sensitive must not reach the model wearing the same clothes as a reviewed
+    // one — that is how a doubt becomes a premise.
+    const pending = answer.state === "attention" ? " [requer atenção — não revisado]" : "";
+    lines.push(`  - ${answer.blockKey}.${answer.fieldKey} [${originLabel(answer.source)}]${pending}: ${answer.value}`);
   }
   for (const hypothesis of consultation.acceptedHypotheses) {
     const decided = hypothesis.status === "edited" ? "editada pela profissional" : "aceita pela profissional";
@@ -160,9 +185,19 @@ export function describePatientCase(patientCase: PatientCase): string {
     blocks.push(describeConsultation(patientCase.consultations[0]).slice(0, CASE_CHAR_BUDGET));
   }
 
+  // The budget used to cut silently, and a model given five of eleven
+  // consultations reads them as the whole history — then answers "não há
+  // registro de..." about something that is simply outside the window.
+  const omitted = patientCase.omittedConsultations + Math.max(0, patientCase.consultations.length - blocks.length);
+  const truncationNotice =
+    omitted > 0
+      ? `\n(Existem mais ${omitted} consulta(s) anterior(es) NÃO incluídas neste recorte. Nunca conclua ausência de algo a partir deste bloco.)`
+      : "";
+
   return [
     header.join("\n"),
     "",
     blocks.length > 0 ? blocks.join("\n\n") : "(nenhuma consulta registrada além do cadastro)",
+    truncationNotice,
   ].join("\n");
 }

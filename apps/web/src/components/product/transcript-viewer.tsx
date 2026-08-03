@@ -98,11 +98,17 @@ export default function TranscriptViewer({
   transcriptionId,
   consultationId,
   onClose,
+  seekTo,
 }: {
   recordingId: string;
   transcriptionId: string;
   consultationId: string;
   onClose: () => void;
+  /**
+   * Arriving from a field's provenance: the excerpt to jump to and play. The
+   * `nonce` is what makes a second request for the SAME timestamp still fire.
+   */
+  seekTo?: { start: string; nonce: number };
 }) {
   const t = useTranslations("product");
   const locale = useLocale();
@@ -115,6 +121,8 @@ export default function TranscriptViewer({
   const [validatedNow, setValidatedNow] = useState(false);
   const [audioDeletedNow, setAudioDeletedNow] = useState(false);
   const [confirmDeleteAudio, setConfirmDeleteAudio] = useState(false);
+  const [highlightedStart, setHighlightedStart] = useState<string | null>(null);
+  const seekHandled = useRef<number | null>(null);
 
   /** Jump from a segment to the chart field it fed — the reason to open this
    *  at all. Closing first puts the field in view instead of behind the modal. */
@@ -197,6 +205,26 @@ export default function TranscriptViewer({
       setActionError(true);
     }
   };
+
+  // The provenance popover promised "ouvir este trecho". Deliver it: scroll the
+  // segment into view, mark it, and play. Waits for the first load, because the
+  // audio element does not exist until the transcript is on screen.
+  useEffect(() => {
+    if (!seekTo || seekHandled.current === seekTo.nonce) return;
+    const loaded = dataRef.current;
+    if (!loaded) return;
+    seekHandled.current = seekTo.nonce;
+    setHighlightedStart(seekTo.start);
+    const index = loaded.segments.findIndex((segment) => segment.start === seekTo.start);
+    if (index >= 0) {
+      window.setTimeout(() => {
+        document.getElementById(`transcript-segment-${index}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+    }
+    void playSegment(seekTo.start);
+    // `state` is in the deps so a seek requested before the load completes is
+    // honored the moment the transcript arrives.
+  }, [seekTo, state]);
 
   const validate = async () => {
     if (validating) return;
@@ -333,10 +361,12 @@ export default function TranscriptViewer({
                   return (
                     <Box
                       component="li"
+                      id={`transcript-segment-${index}`}
                       key={`${segment.start}-${index}`}
                       className={cn(
                         "hover:bg-grey-25 flex flex-row gap-3 rounded-2xl px-2 py-1.5 transition-colors",
                         startsTurn && index > 0 && "mt-3",
+                        segment.start === highlightedStart && "bg-primary/8 ring-primary/30 ring-1",
                       )}
                     >
                       <Box className="flex w-9 flex-none flex-col items-center gap-1">

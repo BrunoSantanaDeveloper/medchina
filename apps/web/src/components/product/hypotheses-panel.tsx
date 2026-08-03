@@ -99,6 +99,8 @@ export default function HypothesesPanel({
   const [note, setNote] = useState("");
   const [pattern, setPattern] = useState("");
   const [showPrior, setShowPrior] = useState(false);
+  /** Set when the last preparation ran WITHOUT the library, because it failed. */
+  const [retrievalFailed, setRetrievalFailed] = useState(false);
   // Reviewing patterns is deliberate work over long content — it happens in a
   // dialog so this column stays a summary instead of a scroll.
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -194,6 +196,7 @@ export default function HypothesesPanel({
         );
         return;
       }
+      setRetrievalFailed(Boolean(body?.retrievalFailed));
       await load(true);
     } catch {
       setActionError(t("hypotheses-error"));
@@ -319,6 +322,14 @@ export default function HypothesesPanel({
         {actionError && (
           <Alert severity="warning" className="neutral bg-background-paper/60!">
             {actionError}
+          </Alert>
+        )}
+
+        {/* "Nenhuma fonte sustenta esta leitura" and "a biblioteca não foi
+            consultada" look the same on the card and mean opposite things. */}
+        {retrievalFailed && (
+          <Alert severity="warning" className="neutral bg-background-paper/60!">
+            {t("hypotheses-library-unavailable")}
           </Alert>
         )}
 

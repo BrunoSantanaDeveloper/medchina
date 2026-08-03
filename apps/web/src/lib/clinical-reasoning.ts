@@ -67,12 +67,30 @@ export interface ReasoningResult {
   promptVersion: string;
   /** Retrieved chunks, for transparency about what the model could see. */
   retrieved: number;
+  /**
+   * The library search FAILED, as opposed to finding nothing. Both used to look
+   * identical to the professional ("sem fontes"), which is the difference
+   * between "the library does not cover this case" and "the library was not
+   * consulted at all" — she would be reading an ungrounded answer believing it
+   * was checked.
+   */
+  retrievalFailed: boolean;
 }
 
 /** The recorded consultation, as the reasoning sees it. */
 export interface RecordedCase {
   chiefComplaint: string | null;
   answers: { blockKey: string; fieldKey: string; value: string; source: string; state: string }[];
+  /** Age in years, when the birth date is recorded — several patterns read differently by age. */
+  ageYears?: number | null;
+  /**
+   * Patterns this professional already accepted for THIS patient in earlier
+   * consultations. Shown to her in the panel since 0025 and never shown to the
+   * model, which therefore re-derived the case from zero every time.
+   */
+  priorPatterns?: string[];
+  /** Patterns she rejected in THIS consultation — never propose them again. */
+  rejectedPatterns?: string[];
 }
 
 /**
@@ -140,12 +158,17 @@ const fieldLabel = (blockKey: string, fieldKey: string) => `${blockKey}.${fieldK
 
 function describeCase(recorded: RecordedCase): string {
   const lines: string[] = [];
+  if (recorded.ageYears != null) lines.push(`Paciente: ${recorded.ageYears} anos`);
   if (recorded.chiefComplaint) lines.push(`Queixa principal: ${recorded.chiefComplaint}`);
   for (const answer of recorded.answers) {
     const key = fieldLabel(answer.blockKey, answer.fieldKey);
     const origin =
       answer.source === "professional_voice" || answer.source === "professional" ? "profissional" : "relato";
-    lines.push(`- ${key} [${origin}]: ${answer.value}`);
+    // The extraction already judged this value ambiguous, contradictory or
+    // sensitive. Passing it in unmarked let the reasoning build on a doubt as
+    // if it were settled.
+    const pending = answer.state === "attention" ? ", requer atenção — não revisado" : "";
+    lines.push(`- ${key} [${origin}${pending}]: ${answer.value}`);
   }
   return lines.join("\n");
 }
@@ -179,6 +202,11 @@ function buildPrompt(recorded: RecordedCase, context: string, absent: string[]):
     "7. Cite library excerpts by number in `citations` ONLY when an excerpt genuinely supports the pattern.",
     "   Never cite an excerpt you did not use. If nothing in the library applies, omit citations.",
     "8. Write in the language of the recorded data (Brazilian Portuguese unless it clearly is not).",
+    "9. Reason through the classical frameworks — Ba Gang (eight principles), zang-fu, and the state of the",
+    "   substances (Qi, Xue, Jin-Ye) — and make each hypothesis DISCRIMINABLE: `rationale` must name the",
+    "   recorded finding that distinguishes this pattern from the neighbouring ones you considered.",
+    '10. A value marked "requer atenção — não revisado" was flagged as ambiguous by the extraction and the',
+    "    professional has not reviewed it yet. You may use it, but never let it carry a hypothesis alone.",
     "",
     "RECORDED DATA:",
     describeCase(recorded) || "(nothing recorded)",
@@ -186,20 +214,107 @@ function buildPrompt(recorded: RecordedCase, context: string, absent: string[]):
     absent.length > 0
       ? `NOT RECORDED (absent — never read as negative): ${absent.join(", ")}`
       : "Every anamnesis field has a recorded value.",
+    // Her own past decisions about THIS patient. Context, never a conclusion:
+    // a pattern accepted three months ago is not evidence about today.
+    (recorded.priorPatterns?.length ?? 0) > 0
+      ? `\nPADRÕES QUE A PROFISSIONAL JÁ VALIDOU PARA ESTA PACIENTE (contexto, não verdade atual — o quadro pode ter mudado): ${recorded.priorPatterns!.join("; ")}`
+      : "",
+    (recorded.rejectedPatterns?.length ?? 0) > 0
+      ? `\nPADRÕES QUE ELA JÁ REJEITOU NESTA CONSULTA — não os proponha de novo, nem reescritos com outras palavras: ${recorded.rejectedPatterns!.join("; ")}`
+      : "",
     context
       ? `\nCLINICAL LIBRARY EXCERPTS (cite by number):\n${context}`
       : "\n(The clinical library returned nothing relevant. Do not cite anything.)",
-  ].join("\n");
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
 }
 
-/** Excerpts as a numbered block the model can cite — and we can verify. */
-function buildLibraryContext(results: KnowledgeSearchResult[]): string {
+/**
+ * Excerpts as a numbered block the model can cite — and we can verify.
+ *
+ * Labelled by KIND and trust level, which the library chat has always done and
+ * this one did not: without them the model cannot tell a classical source from
+ * the professional's own unreviewed protocol while weighing a pattern, and PRD
+ * §9.9 keeps those separate precisely because they are different kinds of claim.
+ */
+function buildLibraryContext(results: KnowledgeSearchResult[], kindBySlug: Map<string, string>): string {
+  const kindLabel: Record<string, string> = {
+    traditional: "fonte tradicional",
+    protocol: "protocolo interno",
+    evidence: "evidência científica",
+  };
   return results
     .map((result, index) => {
       const source = result.source ? ` — ${result.source}` : "";
-      return `[${index + 1}] ${result.title}${source}\n${result.content}`;
+      const kind = kindLabel[kindBySlug.get(result.collection_id) ?? ""] ?? "origem não classificada";
+      return `[${index + 1}] (${kind}, confiança ${result.trust_level}) ${result.title}${source}\n${result.content}`;
     })
     .join("\n\n---\n\n");
+}
+
+/**
+ * Retrieval, decomposed.
+ *
+ * The whole chart used to be flattened into ONE embedding: a long, many-topic
+ * vector whose nearest neighbours are the library's most average passages, not
+ * the ones about this tongue or this complaint. Several short queries — the
+ * complaint, the examination, the systemic review, each previously validated
+ * pattern — each retrieve for what they are about, and the union is deduplicated
+ * by chunk. No extra model call; only cheap embeddings.
+ */
+function retrievalQueries(recorded: RecordedCase): string[] {
+  const byKey = new Map(recorded.answers.map((answer) => [fieldLabel(answer.blockKey, answer.fieldKey), answer.value]));
+  const pick = (keys: string[]) =>
+    keys
+      .map((key) => (byKey.get(key) ? `${key.split(".")[1]}: ${byKey.get(key)}` : null))
+      .filter(Boolean)
+      .join(". ");
+
+  const queries = [
+    [recorded.chiefComplaint, pick(["complaint.onset", "complaint.factors", "complaint.intensity"])]
+      .filter(Boolean)
+      .join(". "),
+    pick(["tcm.tongue", "tcm.pulse", "tcm.palpation"]),
+    pick(["routine.sleep", "routine.digestion", "routine.bowel", "routine.urine", "routine.thirst"]),
+    pick(["emotional.state", "routine.energy"]),
+    ...(recorded.priorPatterns ?? []),
+  ].filter((query): query is string => Boolean(query && query.trim()));
+
+  return queries.length > 0 ? queries.slice(0, 6) : [describeCase(recorded)];
+}
+
+async function retrieveForCase(
+  supabase: SupabaseClient,
+  recorded: RecordedCase,
+): Promise<{ results: KnowledgeSearchResult[]; failed: boolean }> {
+  const collectionIds = await resolveCollectionIds(supabase, [...LIBRARY_COLLECTIONS]);
+  if (collectionIds.length === 0) return { results: [], failed: false };
+
+  const outcomes = await Promise.allSettled(
+    retrievalQueries(recorded).map((query) =>
+      searchKnowledge(supabase, query, { collectionIds, matchCount: 6, minSimilarity: 0.25 }),
+    ),
+  );
+
+  const merged = new Map<string, KnowledgeSearchResult>();
+  let anySucceeded = false;
+  let anyFailed = false;
+  for (const outcome of outcomes) {
+    if (outcome.status === "rejected") {
+      anyFailed = true;
+      console.error("[clinical-reasoning] retrieval query failed", outcome.reason);
+      continue;
+    }
+    anySucceeded = true;
+    for (const hit of outcome.value) {
+      const existing = merged.get(hit.chunk_id);
+      if (!existing || hit.similarity > existing.similarity) merged.set(hit.chunk_id, hit);
+    }
+  }
+
+  const results = [...merged.values()].sort((a, b) => b.similarity - a.similarity).slice(0, 8);
+  return { results, failed: anyFailed && !anySucceeded };
 }
 
 /**
@@ -211,26 +326,22 @@ export async function buildHypotheses(supabase: SupabaseClient, recorded: Record
   const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
 
   if (recorded.answers.length === 0 && !recorded.chiefComplaint) {
-    return { hypotheses: [], model, promptVersion: REASONING_PROMPT_VERSION, retrieved: 0 };
+    return { hypotheses: [], model, promptVersion: REASONING_PROMPT_VERSION, retrieved: 0, retrievalFailed: false };
   }
 
   // ---- Retrieve (RAG) ------------------------------------------------------
-  // The query is the recorded case itself: the library is searched for what
-  // this consultation actually contains.
   let retrieved: KnowledgeSearchResult[] = [];
+  let retrievalFailed = false;
   try {
-    const collectionIds = await resolveCollectionIds(supabase, [...LIBRARY_COLLECTIONS]);
-    if (collectionIds.length > 0) {
-      retrieved = await searchKnowledge(supabase, describeCase(recorded), {
-        collectionIds,
-        matchCount: 8,
-        minSimilarity: 0.25,
-      });
-    }
-  } catch {
-    // An empty or unavailable library must not block the reasoning — it only
-    // means the hypotheses carry no citations, which the UI shows honestly.
+    const outcome = await retrieveForCase(supabase, recorded);
+    retrieved = outcome.results;
+    retrievalFailed = outcome.failed;
+  } catch (error) {
+    // An unavailable library must not block the reasoning — but it must not
+    // masquerade as an empty one either. The caller reports the difference.
+    console.error("[clinical-reasoning] library retrieval failed", error);
     retrieved = [];
+    retrievalFailed = true;
   }
 
   const collectionSlug = new Map<string, string>();
@@ -241,10 +352,13 @@ export async function buildHypotheses(supabase: SupabaseClient, recorded: Record
       .in("id", [...new Set(retrieved.map((r) => r.collection_id))]);
     for (const row of collections ?? []) collectionSlug.set(row.id as string, row.slug as string);
   }
+  const kindByCollection = new Map(
+    [...collectionSlug.entries()].map(([id, slug]) => [id, COLLECTION_KIND[slug] ?? "unknown"]),
+  );
 
   // ---- Reason --------------------------------------------------------------
   const absent = absentFields(recorded);
-  const prompt = buildPrompt(recorded, buildLibraryContext(retrieved), absent);
+  const prompt = buildPrompt(recorded, buildLibraryContext(retrieved, kindByCollection), absent);
 
   const raw = (await getChatProvider(provider).generateStructured(
     {
@@ -341,5 +455,5 @@ export async function buildHypotheses(supabase: SupabaseClient, recorded: Record
   const rank: Record<Correspondence, number> = { strong: 0, moderate: 1, weak: 2 };
   hypotheses.sort((a, b) => rank[a.correspondence] - rank[b.correspondence]);
 
-  return { hypotheses, model, promptVersion: REASONING_PROMPT_VERSION, retrieved: retrieved.length };
+  return { hypotheses, model, promptVersion: REASONING_PROMPT_VERSION, retrieved: retrieved.length, retrievalFailed };
 }

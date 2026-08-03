@@ -14,7 +14,7 @@ export type IngestResult = { ok: true; chunks: number } | { ok: false; error: st
 export async function processDocument(supabase: SupabaseClient, documentId: string): Promise<IngestResult> {
   const { data: document, error: loadError } = await supabase
     .from("knowledge_documents")
-    .select("id, content")
+    .select("id, title, source, content")
     .eq("id", documentId)
     .maybeSingle();
   if (loadError || !document) return { ok: false, error: loadError?.message ?? "Document not found." };
@@ -24,7 +24,15 @@ export async function processDocument(supabase: SupabaseClient, documentId: stri
   try {
     const chunks = chunkText(document.content);
     if (chunks.length === 0) throw new Error("Document has no content to index.");
-    const embeddings = await embedDocuments(chunks);
+
+    // What gets EMBEDDED carries the document's title; what gets STORED does
+    // not. A chunk reading "Indicações: cefaleia, tontura…" is meaningless as a
+    // vector without knowing which point it belongs to — every chunk after the
+    // first lost that context at the paragraph split — but repeating the title
+    // inside the stored text would put it in front of the professional in every
+    // citation and inside every prompt.
+    const heading = [document.title, document.source].filter(Boolean).join(" — ");
+    const embeddings = await embedDocuments(chunks.map((content) => (heading ? `${heading}\n\n${content}` : content)));
 
     await supabase.from("knowledge_chunks").delete().eq("document_id", documentId);
     const { error: insertError } = await supabase.from("knowledge_chunks").insert(

@@ -248,6 +248,7 @@ export const CLINICAL_ERROR_CODES = [
   "finalization_confirmation_required",
   "recording_pending",
   "recording_already_open",
+  "capture_in_progress",
   "recording_invalid_state",
   "stale_upload_id",
   "recording_not_uploaded",

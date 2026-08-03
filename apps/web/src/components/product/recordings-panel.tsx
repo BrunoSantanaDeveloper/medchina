@@ -62,6 +62,7 @@ export default function RecordingsPanel({
   consultationId,
   onProcessed,
   refreshSignal,
+  seekTo,
 }: {
   consultationId: string;
   onProcessed: () => void;
@@ -69,6 +70,13 @@ export default function RecordingsPanel({
    * capture that started on the phone) so this list reflects it without a
    * manual refresh. A no-flicker reload that keeps the current rows visible. */
   refreshSignal?: number;
+  /**
+   * A field's provenance asked to be HEARD. The audio lives behind the
+   * transcript dialog this panel owns, so opening it at the right recording is
+   * this panel's job — the chart has no business knowing which recording a
+   * transcription belongs to.
+   */
+  seekTo?: { start: string; transcriptionId?: string; nonce: number };
 }) {
   const t = useTranslations("product");
   const [recordingsState, setRecordingsState] = useState<RemoteState<Recording[], "load_failed">>(() =>
@@ -143,6 +151,22 @@ export default function RecordingsPanel({
     }
     void load(true);
   }, [refreshSignal, load]);
+
+  // Open the transcript at the recording the provenance actually came from —
+  // the answer carries its transcription id, so this never guesses. A request
+  // that arrives before the list has loaded is honored once it does.
+  const seekHandled = useRef<number | null>(null);
+  useEffect(() => {
+    if (!seekTo || seekHandled.current === seekTo.nonce) return;
+    const recordings = recordingsRef.current ?? [];
+    const match =
+      recordings.find(
+        (recording) => recording.transcriptionId && recording.transcriptionId === seekTo.transcriptionId,
+      ) ?? recordings.find((recording) => recording.status === "ready" && recording.transcriptionId);
+    if (!match?.transcriptionId) return;
+    seekHandled.current = seekTo.nonce;
+    setTranscriptFor({ recordingId: match.id, transcriptionId: match.transcriptionId });
+  }, [seekTo, recordingsState]);
 
   const process = async (recordingId: string) => {
     setBusyId(recordingId);
@@ -383,6 +407,9 @@ export default function RecordingsPanel({
           transcriptionId={transcriptFor.transcriptionId}
           consultationId={consultationId}
           onClose={() => setTranscriptFor(null)}
+          seekTo={
+            seekTo && seekTo.nonce === seekHandled.current ? { start: seekTo.start, nonce: seekTo.nonce } : undefined
+          }
         />
       )}
 

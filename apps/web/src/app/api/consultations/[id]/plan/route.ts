@@ -52,7 +52,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (existing?.origin === "manual" && body.replaceManual !== true) return clinicalError("manual_plan_exists");
 
   const [{ data: answers }, { data: hypotheses }, { data: profile }] = await Promise.all([
-    supabase.from("anamnesis_answers").select("block_key, field_key, value, source").eq("consultation_id", id),
+    supabase
+      .from("anamnesis_answers")
+      .select("block_key, field_key, value, source")
+      // A draft she rejected is not part of the record the plan is built on.
+      .neq("state", "rejected")
+      .eq("consultation_id", id),
     supabase
       .from("consultation_hypotheses")
       .select("id, pattern, status, updated_at")
@@ -81,7 +86,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let result;
   try {
     result = await buildTherapeuticPlan(supabase, input);
-  } catch {
+  } catch (error) {
+    // Real provider error stays SERVER-side (never to a clinical client), but
+    // is logged so a failure is diagnosable instead of an opaque 503.
+    console.error("[plan] provider call failed", error);
     return clinicalError("provider_unavailable");
   }
 
@@ -130,6 +138,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     modalities: Object.keys(result.modalities).length,
     safetyFlags: result.safetyFlags.length,
     retrieved: result.retrieved,
+    // "No sources" and "the library could not be reached" are different facts.
+    retrievalFailed: result.retrievalFailed,
   });
 }
 

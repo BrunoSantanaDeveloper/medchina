@@ -247,6 +247,9 @@ export class AsaasProvider implements PaymentProvider {
           providerInvoiceId: payment.id,
           amountCents: Math.round(payment.value * 100),
           currency: "BRL",
+          // Asaas bills per charge: this hosted invoice IS the recovery path
+          // (Pix/boleto/card), so it replaces a billing portal here.
+          invoiceUrl: payment.invoiceUrl,
         });
         break;
       }

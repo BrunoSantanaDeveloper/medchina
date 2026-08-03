@@ -17,26 +17,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } = await supabase.auth.getUser();
   if (!user) return clinicalError("not_authenticated");
 
+  const body = (await request.json().catch(() => ({}))) as { mode?: unknown; force?: unknown };
+  const mode = body.mode === "ai" ? "ai" : "audio_only";
+
   const { token, tokenHash } = createCaptureLinkToken();
   const { data, error } = await supabase.rpc("create_capture_link", {
     target_consultation: id,
     target_token_hash: tokenHash,
     target_ttl_seconds: TTL_SECONDS,
+    target_mode: mode,
+    target_force: body.force === true,
   });
   if (error) return clinicalError("internal_error");
-  const result = data as { ok?: boolean; code?: string; sessionId?: string; expiresAt?: string } | null;
+  const result = data as {
+    ok?: boolean;
+    code?: string;
+    sessionId?: string;
+    mode?: string;
+    expiresAt?: string;
+  } | null;
   if (!result?.ok) return clinicalRpcResponse(result);
 
   await recordAudit(supabase, "recording.capture_link.created", {
     entityType: "consultation",
     entityId: id,
-    metadata: { sessionId: result.sessionId },
+    metadata: { sessionId: result.sessionId, mode },
   });
 
   const origin = new URL(request.url).origin;
   return Response.json({
     ok: true,
     url: `${origin}/gravar#${token}`,
+    mode: result.mode ?? mode,
     expiresAt: result.expiresAt,
   });
 }

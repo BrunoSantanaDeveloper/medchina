@@ -98,6 +98,12 @@ export type BillingEvent = { providerEventId: string } & (
       providerInvoiceId: string;
       amountCents: number;
       currency: string;
+      /**
+       * Where the customer can actually pay this invoice. Without it, every
+       * "update your payment" prompt in the app is a dead end and the dunning
+       * window expires on someone who had no way to act.
+       */
+      invoiceUrl?: string;
     }
 );
 
@@ -109,6 +115,17 @@ export interface PaymentProvider {
   /** Undo a previously scheduled cancellation while the subscription is still active. */
   resumeSubscription(providerSubscriptionId: string): Promise<void>;
   cancelSubscription(providerSubscriptionId: string): Promise<void>;
+  /**
+   * A hosted page where the customer updates the card behind a live
+   * subscription. Returns null when the provider has no such surface (Asaas
+   * bills per charge, so recovery goes through the failed invoice's own
+   * payment link instead) — callers must handle null and fall back.
+   */
+  billingPortalUrl?(input: {
+    providerCustomerId: string;
+    providerSubscriptionId?: string;
+    returnUrl: string;
+  }): Promise<string | null>;
   /**
    * Verifies and parses a webhook request into normalized events.
    * Throws on signature/token mismatch.
