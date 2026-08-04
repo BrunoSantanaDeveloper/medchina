@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(26);
 
 -- ---------- Contract and privilege boundary ----------
 
@@ -62,7 +62,13 @@ select set_config(
   true
 );
 
--- ---------- Consent is the floor ----------
+-- ---------- Consent is the floor, but the floor MOVED (0069) ----------
+-- `create_capture_link` used to refuse without consent. 0069 deliberately
+-- relaxed that: a photo is not audio, and a workspace with no audio consent and
+-- no minutes must still be able to put a QR on screen to receive exam images.
+-- The guarantee did not disappear, it moved to the moment of capture — so these
+-- cases now assert BOTH halves: the link is minted, and the recording is still
+-- refused. Asserting only the first half would delete a safety property.
 
 set local role authenticated;
 insert into capture_results values (
@@ -72,8 +78,8 @@ insert into capture_results values (
 reset role;
 select is(
   (select payload ->> 'code' from capture_results where name = 'no-consent'),
-  'audio_consent_required',
-  'no audio consent, no link'
+  'created',
+  'a link is minted without audio consent — the QR also carries photos and documents'
 );
 
 set local role authenticated;
@@ -85,8 +91,29 @@ insert into capture_results values (
 reset role;
 select is(
   (select payload ->> 'code' from capture_results where name = 'ai-without-consent'),
+  'created',
+  'an AI link is minted too — what it may actually do is decided when the phone scans it'
+);
+
+-- The floor itself: scanning that AI link without ai-processing consent must
+-- still refuse. This is the assertion the two above used to carry.
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+set local role service_role;
+insert into capture_results values (
+  'begin-ai-without-consent',
+  public.begin_capture_via_link(repeat('2', 64), 'a5000000-0000-4000-8000-00000000000f')
+);
+reset role;
+select is(
+  (select payload ->> 'code' from capture_results where name = 'begin-ai-without-consent'),
   'ai_consent_required',
-  'an AI link needs the separate ai-processing consent, not just audio'
+  'and AI capture is still refused at the phone without the separate ai-processing consent'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}',
+  true
 );
 
 -- ---------- audio_only happy path ----------

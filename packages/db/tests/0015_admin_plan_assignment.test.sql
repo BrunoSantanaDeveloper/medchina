@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(19);
 
 -- ============================================================
 -- Migration 0067 — assigning a plan without a checkout.
@@ -154,11 +154,38 @@ select is(
   '6000',
   'and consumption against it is counted — the comped plan is metered, not unlimited'
 );
+-- 0069 deliberately untied reasoning from the audio meter: it consumes no
+-- minutes, so exhausting them was charging a Pro customer twice for the same
+-- exhaustion (no audio AND no reasoning, then a prompt to buy the plan she
+-- already had). The entitlement now follows the PLAN — and a comped plan is a
+-- real plan. What still removes it is the plan becoming unusable, asserted next.
 select is(
   (select payload ->> 'clinical_reasoning' from plan_results where name = 'allowance'),
-  'false',
-  'an exhausted comped Pro stops granting the reasoning layer, like any other plan'
+  'true',
+  'an exhausted comped Pro keeps the reasoning layer — it costs no minutes (0069)'
 );
+
+-- The property that DID survive the change: reasoning follows the plan's
+-- USABILITY, and suspension is the sharpest form of unusable. Without this the
+-- assertion above would just be recording that a gate was removed.
+update public.subscriptions set admin_suspended = true
+where org_id = 'e2000000-0000-4000-8000-000000000001';
+
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+set local role service_role;
+insert into plan_results values
+  ('allowance-suspended', public.org_audio_allowance('e2000000-0000-4000-8000-000000000001'));
+reset role;
+
+select is(
+  (select payload ->> 'clinical_reasoning' from plan_results where name = 'allowance-suspended'),
+  'false',
+  'but a SUSPENDED comped plan loses it — the entitlement follows plan usability'
+);
+
+-- Restore: this workspace is asserted against again further down.
+update public.subscriptions set admin_suspended = false
+where org_id = 'e2000000-0000-4000-8000-000000000001';
 
 -- ---------- Self-assignment is allowed, and named in the trail ----------
 
