@@ -41,12 +41,20 @@ export default function MinutePacksCard({
 }) {
   const t = useTranslations("product");
   const locale = useLocale();
-  const [error, setError] = useState<"checkout" | "plan_required" | null>(null);
+  const [error, setError] = useState<"checkout" | "plan_required" | "billing_profile_required" | "suspended" | null>(
+    null,
+  );
   const [workingPack, setWorkingPack] = useState<string | null>(null);
   const operationKeys = useRef(new Map<string, string>());
   const promptViewed = useRef(false);
   const purchasable = allowance?.packPurchasable === true;
-  const visible = canManage && purchasable && packs.length > 0;
+  const balance = allowance?.packMinutesRemaining ?? 0;
+  // Seeing what you own and being allowed to buy more are different questions,
+  // and tying them together hid the first behind the second: after a downgrade
+  // (or once a dunning window closed) `packPurchasable` goes false and this
+  // card — the ONLY place the pack balance is rendered — disappeared with it,
+  // taking minutes she had already paid for off the screen entirely.
+  const visible = canManage && packs.length > 0 && (purchasable || balance > 0);
 
   useEffect(() => {
     if (!visible || promptViewed.current) return;
@@ -66,7 +74,11 @@ export default function MinutePacksCard({
     const result = await startPackCheckout({ orgId, planId: pack.id, idempotencyKey });
     setWorkingPack(null);
     if (!result.url) {
-      setError(result.error === "plan_required" ? "plan_required" : "checkout");
+      setError(
+        result.error === "plan_required" || result.error === "billing_profile_required" || result.error === "suspended"
+          ? result.error
+          : "checkout",
+      );
       // The gate may have changed under her (an expired subscription); let the
       // page re-read the truth rather than keep offering a dead button.
       onPurchased?.();
@@ -90,16 +102,21 @@ export default function MinutePacksCard({
             <Typography variant="body2" className="text-text-secondary mt-1 leading-6">
               {t("packs-body")}
             </Typography>
-            {allowance && allowance.packMinutesRemaining > 0 && (
+            {balance > 0 && (
               <Typography variant="body2" className="text-text-primary mt-2 leading-6">
-                {t("packs-current-balance", { minutes: allowance.packMinutesRemaining })}
+                {t("packs-current-balance", { minutes: balance })}
               </Typography>
             )}
           </Box>
 
           {error === "plan_required" && <Alert severity="info">{t("packs-plan-required")}</Alert>}
+          {error === "billing_profile_required" && <Alert severity="warning">{t("billing-profile-required")}</Alert>}
+          {error === "suspended" && <Alert severity="error">{t("billing-suspended-blocked")}</Alert>}
           {error === "checkout" && <Alert severity="error">{t("billing-checkout-error")}</Alert>}
-          {!checkoutAvailable && <Alert severity="info">{t("billing-provider-unavailable")}</Alert>}
+          {/* Balance visible, purchase closed: say why instead of leaving a
+              row of buttons that answer with an error when pressed. */}
+          {!purchasable && <Alert severity="info">{t("packs-plan-required")}</Alert>}
+          {purchasable && !checkoutAvailable && <Alert severity="info">{t("billing-provider-unavailable")}</Alert>}
 
           <Grid container spacing={2.5}>
             {packs.map((pack) => (
@@ -127,7 +144,7 @@ export default function MinutePacksCard({
                       color="primary"
                       fullWidth
                       className="mt-auto"
-                      disabled={!checkoutAvailable || workingPack !== null}
+                      disabled={!purchasable || !checkoutAvailable || workingPack !== null}
                       onClick={() => {
                         trackCommercialEvent("upgrade.prompt_clicked", "billing", "audio_pack");
                         void buy(pack);

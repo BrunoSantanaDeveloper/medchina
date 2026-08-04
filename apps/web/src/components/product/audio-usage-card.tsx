@@ -37,7 +37,15 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
   const { orgId } = useCurrentOrg();
   const { allowance, loading } = useAudioAllowance(orgId);
   const promptViewed = useRef(false);
-  const hasAllowance = Boolean(allowance && allowance.minutesLimit > 0);
+  // Purchased minutes are an allowance too. Keying this on the CYCLE limit
+  // alone meant a workspace that had bought a pack and then cancelled its plan
+  // read "this practice has no AI minutes" while the recorder happily recorded
+  // — money already paid, made invisible by the screen that exists to report
+  // it. Same for a past_due workspace past its grace window.
+  const packBalance = allowance?.packMinutesRemaining ?? 0;
+  const hasAllowance = Boolean(allowance && (allowance.minutesLimit > 0 || packBalance > 0));
+  /** Minutes she owns outright, with no cycle behind them. */
+  const packOnly = Boolean(allowance && allowance.minutesLimit === 0 && packBalance > 0);
   // A failed renewal is not an exhausted allowance and is not an upgrade
   // opportunity: it is answered by fixing the payment method, so it gets its
   // own branch instead of borrowing the "buy more minutes" copy.
@@ -47,7 +55,7 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
     allowance &&
       !allowance.suspended &&
       !paymentBlocked &&
-      ((hasAllowance && allowance.percent >= 80) || (!hasAllowance && showWhenEmpty)),
+      ((hasAllowance && (allowance.percent >= 80 || !allowance.canStart)) || (!hasAllowance && showWhenEmpty)),
   );
 
   useEffect(() => {
@@ -65,6 +73,11 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
   const graceLeft = graceDaysLeft(allowance);
   const hasPack = allowance.packMinutesRemaining > 0;
   const nearLimit = allowance.percent >= 80;
+  // The one question this card exists to answer. It is NOT "did she use it
+  // all": the Pro trial also closes on elapsed days, so a workspace can be
+  // refused at 1% consumption.
+  const blocked = !allowance.canStart;
+  const trialOver = allowance.reason === "trial_over" || (isTrial && blocked);
 
   return (
     <Card component="section">
@@ -81,7 +94,48 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
           </Typography>
         </Box>
 
-        {!hasAllowance ? (
+        {packOnly ? (
+          <>
+            <Box className="flex flex-row items-baseline gap-2">
+              <Typography variant="h3" component="p" className="text-text-primary mb-0 tabular-nums">
+                {allowance.packMinutesRemaining}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary">
+                {t("usage-pack-only-remaining")}
+              </Typography>
+            </Box>
+            <Typography variant="body2" className="text-text-secondary leading-6">
+              {t("usage-pack-only-body")}
+            </Typography>
+            {allowance.dunning && (
+              <Alert
+                severity="warning"
+                className="neutral bg-background-paper/60!"
+                action={
+                  <Button
+                    size="small"
+                    color="inherit"
+                    href={PAYMENT_HREF}
+                    onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "usage", "payment")}
+                  >
+                    {t("usage-fix-payment")}
+                  </Button>
+                }
+              >
+                {t("usage-past-due-pack")}
+              </Alert>
+            )}
+            <Button
+              variant="outlined"
+              color="primary"
+              href={BILLING_HREF}
+              className="self-start"
+              onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "usage", "audio")}
+            >
+              {t("usage-see-plans")}
+            </Button>
+          </>
+        ) : !hasAllowance ? (
           <>
             <Typography variant="body2" className="text-text-secondary leading-6">
               {allowance.suspended ? t("usage-suspended") : paymentBlocked ? t("usage-past-due") : t("usage-none")}
@@ -110,12 +164,16 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
                 {/* With a pack in play the total exceeds the cycle limit, so
                     "X of {limit}" would be arithmetically wrong. Name both
                     pools instead — they behave differently at renewal. */}
-                {hasPack
-                  ? t("usage-remaining-with-pack", {
-                      cycle: allowance.cycleMinutesRemaining,
-                      pack: allowance.packMinutesRemaining,
-                    })
-                  : t("usage-remaining-of", { limit: allowance.minutesLimit })}
+                {blocked
+                  ? // "297 restantes" promises minutes she can no longer
+                    // reach. They were not used — that is the true statement.
+                    t("usage-unused-of", { limit: allowance.minutesLimit })
+                  : hasPack
+                    ? t("usage-remaining-with-pack", {
+                        cycle: allowance.cycleMinutesRemaining,
+                        pack: allowance.packMinutesRemaining,
+                      })
+                    : t("usage-remaining-of", { limit: allowance.minutesLimit })}
               </Typography>
             </Box>
 
@@ -129,9 +187,13 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
                 limit: allowance.minutesLimit,
               })}
               caption={
-                isTrial
-                  ? t("usage-trial-caption", { used: allowance.minutesUsed, days: daysLeft ?? 0 })
-                  : t("usage-plan-caption", { used: allowance.minutesUsed, plan: allowance.planName ?? "" })
+                // "0 dias restantes" is true but reads as a countdown still
+                // running. Once the trial has actually closed, say that.
+                trialOver
+                  ? t("usage-trial-caption-over", { used: allowance.minutesUsed })
+                  : isTrial
+                    ? t("usage-trial-caption", { used: allowance.minutesUsed, days: daysLeft ?? 0 })
+                    : t("usage-plan-caption", { used: allowance.minutesUsed, plan: allowance.planName ?? "" })
               }
               segments={[
                 {
@@ -143,7 +205,10 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
                 },
                 {
                   key: "available",
-                  label: t("usage-segment-available"),
+                  // Calling this share "available" while the recorder refuses
+                  // to start is the same false promise as the headline, only
+                  // in smaller type.
+                  label: blocked ? t("usage-segment-unused") : t("usage-segment-available"),
                   value: Math.max(0, allowance.cycleMinutesRemaining),
                   display: t("usage-minutes", { minutes: Math.max(0, allowance.cycleMinutesRemaining) }),
                   tone: "empty",
@@ -189,16 +254,25 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
               </Alert>
             )}
 
-            {/* PRD §5.8: alert at 80/95/100 — here as state, not just a bell. */}
-            {allowance.percent >= 100 ? (
+            {/* PRD §5.8: alert at 80/95/100 — here as state, not just a bell.
+                But consumption is NOT the only way to end up unable to record:
+                the Pro trial closes on days OR minutes, whichever comes first,
+                so an expired trial can sit at 1% used. Keying this block on
+                `percent` alone showed a healthy meter and no warning at all to
+                someone the recorder was already refusing — the two screens
+                told the same person opposite things. `canStart` is the
+                authority; percent only picks the wording. */}
+            {blocked ? (
+              <Alert severity="warning" className="neutral bg-background-paper/60!">
+                {trialOver ? t("usage-trial-over") : t("usage-limit-over")}
+              </Alert>
+            ) : allowance.percent >= 100 ? (
               <Alert severity="warning" className="neutral bg-background-paper/60!">
                 {/* "New recordings are unavailable" would simply be false while
                     a purchased pack is still covering her. */}
                 {hasPack
                   ? t("usage-limit-over-pack", { minutes: allowance.packMinutesRemaining })
-                  : isTrial
-                    ? t("usage-trial-over")
-                    : t("usage-limit-over")}
+                  : t("usage-limit-over")}
               </Alert>
             ) : nearLimit ? (
               <Alert severity="warning" className="neutral bg-background-paper/60!">
@@ -206,7 +280,10 @@ export default function AudioUsageCard({ showWhenEmpty = false }: { showWhenEmpt
               </Alert>
             ) : null}
 
-            {allowance.percent >= 80 && (
+            {/* Being unable to record is the state that most needs a way out,
+                and it was the one state with no button: the CTA hung off
+                `percent >= 80`, which an expired trial never reaches. */}
+            {(blocked || allowance.percent >= 80) && (
               <Button
                 variant="contained"
                 color="primary"

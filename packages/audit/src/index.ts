@@ -3,7 +3,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export interface AuditEventInput {
   /** Null for platform-level events (superadmin actions outside any tenant). */
   orgId: string | null;
-  actorId: string;
+  /**
+   * Null when no human acted: provider webhooks and cron jobs also produce
+   * events worth keeping (a superseded subscription that could not be
+   * cancelled at the provider is a double charge waiting to happen). The
+   * column has always been nullable — only this type disagreed.
+   */
+  actorId: string | null;
   /** Project-defined verb, e.g. "patient.viewed", "document.issued". */
   action: string;
   entityType?: string;

@@ -2,30 +2,16 @@ import { createServiceClient } from "@flyee/auth/service";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
+/**
+ * The same single statement the webhook uses (migration 0067).
+ *
+ * This job and the webhook settle the same cancellations, so they raced: the
+ * read-then-insert this replaced lost against `subscriptions_org_live_unique`
+ * and raised, which in the webhook's case became a 500 and a provider retry.
+ */
 async function ensureFreeSubscription(supabase: ServiceClient, orgId: string) {
-  const { data: live } = await supabase
-    .from("subscriptions")
-    .select("id")
-    .eq("org_id", orgId)
-    .in("status", ["trialing", "active", "past_due"])
-    .limit(1);
-  if (live?.length) return;
-  const { data: freePlan } = await supabase
-    .from("plans")
-    .select("id, period")
-    .eq("is_free", true)
-    .eq("is_active", true)
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
-  if (freePlan) {
-    await supabase.from("subscriptions").insert({
-      org_id: orgId,
-      plan_id: freePlan.id,
-      status: "active",
-      period: freePlan.period,
-    });
-  }
+  const { error } = await supabase.rpc("ensure_free_subscription", { target_org: orgId });
+  if (error) throw error;
 }
 
 /** Finalizes due cancellations; safe to retry because only live scheduled rows are selected. */

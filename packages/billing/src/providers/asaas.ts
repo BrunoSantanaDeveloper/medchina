@@ -53,15 +53,67 @@ async function asaasFetch<T>(path: string, init?: RequestInit, idempotencyKey?: 
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 
-async function ensureCustomer(email: string, name: string, idempotencyKey: string): Promise<string> {
-  const existing = await asaasFetch<{ data: { id: string }[] }>(
-    `/customers?email=${encodeURIComponent(email)}&limit=1`,
+const digits = (value: string | null | undefined) => (value ?? "").replace(/\D/gu, "");
+
+/**
+ * Resolves the Asaas customer for THIS workspace.
+ *
+ * Two things here are load-bearing and were both wrong before:
+ *
+ * 1. `cpfCnpj` is REQUIRED by `POST /v3/customers`. Sending name+email only
+ *    made Asaas reject the request, `asaasFetch` throw, and the customer see
+ *    "checkout unavailable" with the real cause buried in a server log.
+ * 2. The lookup is by `externalReference` (our org id), not by e-mail. E-mail
+ *    is global to the Asaas account, so two workspaces created by the same
+ *    person — or a professional who changed her address — resolved to each
+ *    other's customer, and the charges followed.
+ */
+async function ensureCustomer(input: {
+  orgId: string;
+  name: string;
+  email: string;
+  document: string;
+  postalCode?: string | null;
+  addressNumber?: string | null;
+  phone?: string | null;
+  idempotencyKey: string;
+}): Promise<string> {
+  const byReference = await asaasFetch<{ data: { id: string }[] }>(
+    `/customers?externalReference=${encodeURIComponent(input.orgId)}&limit=1`,
   );
-  if (existing.data.length > 0) return existing.data[0].id;
-  const created = await asaasFetch<{ id: string }>("/customers", {
-    method: "POST",
-    body: JSON.stringify({ name, email }),
-  }, `${idempotencyKey}:customer`);
+  if (byReference.data.length > 0) return byReference.data[0].id;
+
+  // A customer created before this workspace had an externalReference. Adopt
+  // it (and stamp the reference) instead of creating a duplicate that would
+  // split the payment history of the same person across two records.
+  const byDocument = await asaasFetch<{ data: { id: string }[] }>(
+    `/customers?cpfCnpj=${encodeURIComponent(input.document)}&limit=1`,
+  );
+  if (byDocument.data.length > 0) {
+    const id = byDocument.data[0].id;
+    await asaasFetch(`/customers/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ externalReference: input.orgId }),
+    });
+    return id;
+  }
+
+  const created = await asaasFetch<{ id: string }>(
+    "/customers",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        email: input.email,
+        cpfCnpj: input.document,
+        externalReference: input.orgId,
+        ...(input.postalCode ? { postalCode: input.postalCode } : {}),
+        ...(input.addressNumber ? { addressNumber: input.addressNumber } : {}),
+        ...(input.phone ? { mobilePhone: input.phone } : {}),
+      }),
+    },
+    `${input.idempotencyKey}:customer`,
+  );
   return created.id;
 }
 
@@ -70,7 +122,23 @@ export class AsaasProvider implements PaymentProvider {
 
   async createCheckout(input: CheckoutInput): Promise<CheckoutResult> {
     const { plan, modules, coupon } = input;
-    const customerId = await ensureCustomer(input.customerEmail, input.orgName, input.idempotencyKey);
+    const document = digits(input.payer?.document);
+    // Named, not generic: this is the one failure the professional can fix
+    // herself, and the caller turns it into "complete your fiscal data" rather
+    // than "checkout unavailable".
+    if (document.length !== 11 && document.length !== 14) {
+      throw new Error("asaas_missing_document");
+    }
+    const customerId = await ensureCustomer({
+      orgId: input.orgId,
+      name: input.orgName,
+      email: input.customerEmail,
+      document,
+      postalCode: digits(input.payer?.postalCode) || null,
+      addressNumber: input.payer?.addressNumber ?? null,
+      phone: digits(input.payer?.phone) || null,
+      idempotencyKey: input.idempotencyKey,
+    });
 
     const metadata: CheckoutMetadata = {
       org_id: input.orgId,
@@ -181,35 +249,64 @@ export class AsaasProvider implements PaymentProvider {
       throw new Error("Invalid asaas-access-token header");
     }
 
-    const event = JSON.parse(rawBody) as {
+    const body = JSON.parse(rawBody) as {
       id?: string;
       event: string;
       payment?: {
         id: string;
         customer: string;
         subscription?: string;
-        value: number;
+        value?: number;
         invoiceUrl?: string;
         externalReference?: string;
         paymentDate?: string;
+        clientPaymentDate?: string;
+        confirmedDate?: string;
       };
+      // The Subscription event group carries THIS, never `payment`. Reading
+      // `payment.subscription` for SUBSCRIPTION_DELETED meant the cancellation
+      // never arrived: an org kept a paid plan alive with no charge behind it.
+      subscription?: { id: string; customer?: string; externalReference?: string };
     };
 
     const events: BillingEvent[] = [];
-    const payment = event.payment;
-    if (!payment) return events;
-    const providerEventId = event.id ?? `${event.event}:${payment.id}`;
+    const payment = body.payment;
+    const subscription = body.subscription;
+    if (!payment && !subscription) return events;
+
+    const providerEventId = body.id ?? `${body.event}:${payment?.id ?? subscription?.id}`;
 
     let metadata: Partial<CheckoutMetadata> = {};
     try {
-      metadata = payment.externalReference ? JSON.parse(payment.externalReference) : {};
+      const reference = payment?.externalReference ?? subscription?.externalReference;
+      const parsed: unknown = reference ? JSON.parse(reference) : {};
+      // A charge created in the Asaas panel can carry any string here. Only an
+      // object is our metadata; a number or an array would otherwise be spread
+      // into `metadata` and read as a malformed org id downstream.
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        metadata = parsed as Partial<CheckoutMetadata>;
+      }
     } catch {
       // externalReference set by someone else — ignore.
     }
 
-    switch (event.event) {
+    /** Asaas sends "yyyy-MM-dd"; anything unparseable must not become an Invalid Date. */
+    const paidAt = (): Date => {
+      const raw = payment?.paymentDate ?? payment?.confirmedDate ?? payment?.clientPaymentDate;
+      if (!raw) return new Date();
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    };
+    /** `amount_cents` is NOT NULL: a missing value must be 0, never NaN. */
+    const amountCents = (): number => {
+      const value = Number(payment?.value);
+      return Number.isFinite(value) ? Math.round(value * 100) : 0;
+    };
+
+    switch (body.event) {
       case "PAYMENT_CONFIRMED":
       case "PAYMENT_RECEIVED": {
+        if (!payment) break;
         events.push({
           providerEventId,
           type: "payment_succeeded",
@@ -217,10 +314,10 @@ export class AsaasProvider implements PaymentProvider {
           metadata,
           providerSubscriptionId: payment.subscription,
           providerInvoiceId: payment.id,
-          amountCents: Math.round(payment.value * 100),
+          amountCents: amountCents(),
           currency: "BRL",
           invoiceUrl: payment.invoiceUrl,
-          paidAt: payment.paymentDate ? new Date(payment.paymentDate) : new Date(),
+          paidAt: paidAt(),
         });
         // A confirmed payment on a subscription also (re)activates it —
         // Asaas has no separate "subscription active" webhook.
@@ -237,7 +334,13 @@ export class AsaasProvider implements PaymentProvider {
         }
         break;
       }
-      case "PAYMENT_OVERDUE": {
+      case "PAYMENT_OVERDUE":
+      // Recurring card capture was refused. This used to be dropped with a
+      // 200, so `past_due` was never set, the dunning window never opened and
+      // the workspace kept consuming AI minutes on a subscription nobody was
+      // paying. PAYMENT_OVERDUE only ever covered the boleto/Pix world.
+      case "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED": {
+        if (!payment) break;
         events.push({
           providerEventId,
           type: "payment_failed",
@@ -245,7 +348,7 @@ export class AsaasProvider implements PaymentProvider {
           metadata,
           providerSubscriptionId: payment.subscription,
           providerInvoiceId: payment.id,
-          amountCents: Math.round(payment.value * 100),
+          amountCents: amountCents(),
           currency: "BRL",
           // Asaas bills per charge: this hosted invoice IS the recovery path
           // (Pix/boleto/card), so it replaces a billing portal here.
@@ -253,17 +356,37 @@ export class AsaasProvider implements PaymentProvider {
         });
         break;
       }
+      case "PAYMENT_REFUNDED":
+      case "PAYMENT_PARTIALLY_REFUNDED":
+      case "PAYMENT_CHARGEBACK_REQUESTED":
+      case "PAYMENT_CHARGEBACK_DISPUTE": {
+        if (!payment) break;
+        events.push({
+          providerEventId,
+          type: "payment_reverted",
+          provider: "asaas",
+          metadata,
+          providerInvoiceId: payment.id,
+          kind: body.event.startsWith("PAYMENT_CHARGEBACK") ? "chargeback" : "refund",
+        });
+        break;
+      }
       case "SUBSCRIPTION_DELETED": {
-        if (payment.subscription) {
+        const subscriptionId = subscription?.id ?? payment?.subscription;
+        if (subscriptionId) {
           events.push({
             providerEventId,
             type: "subscription_canceled",
             provider: "asaas",
-            providerSubscriptionId: payment.subscription,
+            providerSubscriptionId: subscriptionId,
           });
         }
         break;
       }
+      default:
+        // No derived event: the route answers 200. But it now leaves a trace,
+        // instead of vanishing (PAYMENT_CREATED, INVOICE_*, TRANSFER_*…).
+        console.info("asaas_webhook_ignored", { event: body.event, providerEventId });
     }
 
     return events;

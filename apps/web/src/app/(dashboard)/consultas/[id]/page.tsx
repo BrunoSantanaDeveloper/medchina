@@ -31,8 +31,10 @@ import {
   Typography,
 } from "@mui/material";
 
+import AttachmentsPanel from "@/components/product/attachments-panel";
 import ClinicalContextBar from "@/components/product/clinical-context-bar";
 import ConsentCollectionDialog from "@/components/product/consent-collection-dialog";
+import ConsultationAiSummary from "@/components/product/consultation-ai-summary";
 import ConsultationRecorder from "@/components/product/consultation-recorder";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
 import MobileCaptureHandoff from "@/components/product/mobile-capture-handoff";
@@ -97,6 +99,7 @@ type Consultation = {
   scheduledFor: string | null;
   clinicalRevision: number;
   aiGaps: string[];
+  aiSummary: string | null;
 };
 
 type Addendum = { id: string; body: string; reason: string | null; createdAt: string };
@@ -238,7 +241,7 @@ export default function ConsultaPage() {
       supabase
         .from("consultations")
         .select(
-          "id, org_id, patient_id, status, chief_complaint, summary, started_at, scheduled_for, clinical_revision, ai_gaps, patients(full_name)",
+          "id, org_id, patient_id, status, chief_complaint, summary, started_at, scheduled_for, clinical_revision, ai_gaps, ai_summary, patients(full_name)",
         )
         .eq("id", params.id)
         .maybeSingle(),
@@ -277,6 +280,7 @@ export default function ConsultaPage() {
       scheduledFor: row.scheduled_for,
       clinicalRevision: Number(row.clinical_revision ?? 0),
       aiGaps: (row.ai_gaps as string[] | null) ?? [],
+      aiSummary: (row.ai_summary as string | null) ?? null,
     };
     revisionRef.current = loadedConsultation.clinicalRevision;
     setConsultation(loadedConsultation);
@@ -993,9 +997,7 @@ export default function ConsultaPage() {
                   // Phone-via-QR is an alternate METHOD for this same step, not
                   // a step of its own — it renders inside the recorder's own
                   // card instead of a second, confusingly-numbered "step 1".
-                  secondaryCapture={
-                    <MobileCaptureHandoff consultationId={consultation.id} aiConsent={context?.consents.ai} />
-                  }
+                  secondaryCapture={<MobileCaptureHandoff consultationId={consultation.id} />}
                 />
               ) : (
                 <Card component="section">
@@ -1019,6 +1021,16 @@ export default function ConsultaPage() {
                 onProcessed={load}
                 refreshSignal={recordingsRefresh}
                 seekTo={transcriptSeek ?? undefined}
+              />
+            )}
+
+            {/* Documents and photos attached to the record (exam PDFs, clinical
+                photos) — uploaded here or captured on the phone via the QR. */}
+            {capabilities?.canEditClinicalRecord && isPrimary && (
+              <AttachmentsPanel
+                consultationId={consultation.id}
+                patientId={consultation.patientId}
+                canAnalyze={Boolean(allowance?.clinicalReasoning)}
               />
             )}
           </Box>
@@ -1209,6 +1221,18 @@ export default function ConsultaPage() {
                     onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
                   />
                 </FormControl>
+
+                {/* AI-suggested summary (PRD §10 draft discipline): a separate
+                    draft she reviews and APPLIES — it never writes her summary
+                    on its own. Generated once at finalization over all
+                    recordings, and refreshable on demand while editable. */}
+                <ConsultationAiSummary
+                  consultationId={consultation.id}
+                  canGenerate={Boolean(allowance?.clinicalReasoning)}
+                  initialSummary={consultation.aiSummary}
+                  onApply={(text) => queueHeaderSave("summary", text)}
+                  readOnly={isReadOnly}
+                />
               </CardContent>
             </Card>
           </Box>

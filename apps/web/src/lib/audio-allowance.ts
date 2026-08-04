@@ -66,8 +66,19 @@ export type AudioAllowance = {
   clinicalReasoning: boolean;
   /** Named cause of the state above — never inferred from the flags. */
   reason: AllowanceReason;
+  /** The trial's own window closed by TIME; its unused minutes are gone. */
+  cycleExpired: boolean;
   /** The provider reported a failed renewal for the live subscription. */
   pastDue: boolean;
+  /**
+   * There is an unpaid charge on a PAID plan — independent of whether she can
+   * still record.
+   *
+   * Deliberately separate from `reason`: a past_due workspace with purchased
+   * minutes still records, so `reason` reads 'pack_only' and the recovery
+   * surface disappeared for exactly the person holding an unpaid invoice.
+   */
+  dunning: boolean;
   /** While inside the dunning window: when it closes. Null once it has. */
   graceEndsAt: string | null;
   /** May this workspace buy a minute pack right now? (Paid plans only.) */
@@ -93,7 +104,9 @@ export type AllowanceRow = {
   can_start: boolean;
   clinical_reasoning: boolean;
   reason: string | null;
+  cycle_expired?: boolean | null;
   past_due: boolean | null;
+  dunning?: boolean | null;
   grace_ends_at: string | null;
   pack_purchasable: boolean | null;
 };
@@ -125,7 +138,11 @@ export const toAllowance = (row: AllowanceRow): AudioAllowance => ({
     : row.can_start
       ? "ok"
       : "no_plan",
+  cycleExpired: Boolean(row.cycle_expired),
   pastDue: Boolean(row.past_due),
+  // A database predating migration 0067 does not report it; falling back to
+  // `past_due` is what that database actually meant.
+  dunning: row.dunning === undefined || row.dunning === null ? Boolean(row.past_due) : Boolean(row.dunning),
   graceEndsAt: row.grace_ends_at,
   packPurchasable: Boolean(row.pack_purchasable),
 });

@@ -37,6 +37,56 @@ async function appOrigin() {
 
 export type StartCheckoutResult = { url?: string; error?: string };
 
+/**
+ * Refuses a purchase the workspace must not be able to make.
+ *
+ * `admin_suspended` is the superadmin kill-switch — fraud, chronic default, a
+ * legal hold. `org_audio_allowance` already treats it as absolute, but no
+ * screen or action checked it before starting a checkout: a suspended
+ * workspace could pay for a plan and stay suspended. That is a charge with no
+ * delivery, and a guaranteed refund.
+ *
+ * Returns the error code to answer with, or null when the purchase may go on.
+ */
+async function purchaseBlockedReason(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("subscriptions")
+    .select("admin_suspended")
+    .eq("org_id", orgId)
+    .in("status", ["trialing", "active", "past_due"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.admin_suspended ? "suspended" : null;
+}
+
+/**
+ * The fiscal identity Asaas requires to create a customer.
+ *
+ * Returned as a typed error rather than the generic "unavailable" because this
+ * is the ONE checkout failure the professional can fix herself — the UI sends
+ * her to the form instead of telling her to try again later.
+ */
+async function loadPayer(supabase: Awaited<ReturnType<typeof createClient>>, orgId: string) {
+  const { data } = await supabase
+    .from("organizations")
+    .select("name, billing_cpf_cnpj, billing_postal_code, billing_address_number, billing_phone")
+    .eq("id", orgId)
+    .single();
+  return {
+    orgName: data?.name ?? "Organization",
+    payer: {
+      document: data?.billing_cpf_cnpj ?? null,
+      postalCode: data?.billing_postal_code ?? null,
+      addressNumber: data?.billing_address_number ?? null,
+      phone: data?.billing_phone ?? null,
+    },
+  };
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type ActiveBillingClaim = {
@@ -95,13 +145,26 @@ export async function startCheckout(input: {
       return { error: "unavailable" };
     }
 
-    const [{ data: planRow }, { data: org }] = await Promise.all([
+    const blocked = await purchaseBlockedReason(supabase, input.orgId);
+    if (blocked) {
+      logBillingFailure("purchase_blocked", { orgId: input.orgId, reason: blocked });
+      return { error: blocked };
+    }
+
+    const [{ data: planRow }, { orgName, payer }] = await Promise.all([
       supabase.from("plans").select("*").eq("id", input.planId).eq("is_active", true).single(),
-      supabase.from("organizations").select("name").eq("id", input.orgId).single(),
+      loadPayer(supabase, input.orgId),
     ]);
     if (!planRow || planRow.is_free) {
       logBillingFailure("plan_not_purchasable", { orgId: input.orgId, planId: input.planId, found: Boolean(planRow) });
       return { error: "unavailable" };
+    }
+    // Asaas rejects a customer without cpfCnpj, so this would fail deep inside
+    // the provider call with a generic message. Named here, the UI can send
+    // her to the form that fixes it instead of "try again later".
+    if (!payer.document) {
+      logBillingFailure("missing_billing_document", { orgId: input.orgId });
+      return { error: "billing_profile_required" };
     }
 
     const plan: CheckoutPlan = {
@@ -152,10 +215,11 @@ export async function startCheckout(input: {
     const result = await providerClient.createCheckout({
       idempotencyKey: input.idempotencyKey,
       orgId: input.orgId,
-      orgName: org?.name ?? "Organization",
+      orgName,
       customerEmail: user.email ?? "",
       plan,
       modules: [],
+      payer,
       successUrl: `${origin}/settings/billing?checkout=success`,
       cancelUrl: `${origin}/settings/billing?checkout=canceled`,
     });
@@ -265,9 +329,15 @@ export async function startPackCheckout(input: {
     const { supabase, user } = await requireOrgManager(input.orgId);
     if (!UUID.test(input.idempotencyKey)) return { error: "unavailable" };
 
-    const [{ data: planRow }, { data: org }, { data: allowance }] = await Promise.all([
+    const blocked = await purchaseBlockedReason(supabase, input.orgId);
+    if (blocked) {
+      logBillingFailure("purchase_blocked", { orgId: input.orgId, reason: blocked });
+      return { error: blocked };
+    }
+
+    const [{ data: planRow }, { orgName, payer }, { data: allowance }] = await Promise.all([
       supabase.from("plans").select("*").eq("id", input.planId).eq("is_active", true).single(),
-      supabase.from("organizations").select("name").eq("id", input.orgId).single(),
+      loadPayer(supabase, input.orgId),
       supabase.rpc("org_audio_allowance", { target_org: input.orgId }),
     ]);
 
@@ -277,6 +347,10 @@ export async function startPackCheckout(input: {
     }
     if ((allowance as { pack_purchasable?: boolean } | null)?.pack_purchasable !== true) {
       return { error: "plan_required" };
+    }
+    if (!payer.document) {
+      logBillingFailure("missing_billing_document", { orgId: input.orgId });
+      return { error: "billing_profile_required" };
     }
 
     const plan: CheckoutPlan = {
@@ -326,10 +400,11 @@ export async function startPackCheckout(input: {
     const result = await getProvider(provider).createCheckout({
       idempotencyKey: input.idempotencyKey,
       orgId: input.orgId,
-      orgName: org?.name ?? "Organization",
+      orgName,
       customerEmail: user.email ?? "",
       plan,
       modules: [],
+      payer,
       successUrl: `${origin}/settings/billing?checkout=success`,
       cancelUrl: `${origin}/settings/billing?checkout=canceled`,
     });
@@ -365,6 +440,21 @@ export async function startPackCheckout(input: {
     try {
       const metaContext = await getMetaClientContext(`${origin}/settings/billing`);
       const gaClientId = await getGaClientId();
+      // Same stash as the subscription checkout. A pack paid by Pix or boleto
+      // confirms out of band, so the webhook has no browser to read signals
+      // from — without this the purchase reached Meta/GA4 unattributed.
+      if (metaContext.fbp || metaContext.fbc || gaClientId) {
+        await service.from("meta_attribution").upsert({
+          org_id: input.orgId,
+          fbp: metaContext.fbp ?? null,
+          fbc: metaContext.fbc ?? null,
+          email: user.email ?? null,
+          client_ip: metaContext.clientIp ?? null,
+          client_user_agent: metaContext.clientUserAgent ?? null,
+          ga_client_id: gaClientId,
+          updated_at: new Date().toISOString(),
+        });
+      }
       await sendMetaConversion({
         eventName: "InitiateCheckout",
         eventId: input.idempotencyKey,
@@ -392,6 +482,51 @@ export async function startPackCheckout(input: {
     // subscribe" into an archaeology exercise over billing_operations.
     logBillingFailure("provider_call_threw", { orgId: input.orgId, planId: input.planId }, error);
     await failBillingClaim(activeClaim, "provider_unavailable");
+    if (error instanceof Error && error.message === "asaas_missing_document") {
+      return { error: "billing_profile_required" };
+    }
+    return { error: "unavailable" };
+  }
+}
+
+/**
+ * Retires a checkout the customer walked away from.
+ *
+ * On Asaas the subscription is created at the START of checkout, before any
+ * payment: closing the tab leaves a live monthly charge that nothing in the
+ * product could see or stop, and the local row sat `incomplete` forever. When
+ * that charge came due, the workspace received a failed invoice for something
+ * it never contracted — with no button anywhere to end it.
+ */
+export async function abandonPendingCheckout(orgId: string, subscriptionId: string): Promise<{ error?: string }> {
+  try {
+    const { supabase } = await requireOrgManager(orgId);
+    const { data, error } = await supabase.rpc("abandon_incomplete_subscription", {
+      target_org: orgId,
+      target_subscription: subscriptionId,
+    });
+    if (error) return { error: "unavailable" };
+    const result = data as { ok?: boolean; provider?: string | null; providerSubscriptionId?: string | null } | null;
+    if (result?.ok !== true) return { error: "unavailable" };
+
+    // Local state is already correct. Stopping the provider is what actually
+    // prevents the charge, but a failure here must not undo the cancellation
+    // the customer just asked for — it is logged and swept by the reaper.
+    if (result.providerSubscriptionId && (result.provider === "stripe" || result.provider === "asaas")) {
+      try {
+        await getProvider(result.provider).cancelSubscription(result.providerSubscriptionId);
+      } catch (providerError) {
+        logBillingFailure("abandon_provider_cancel_failed", { orgId, subscriptionId }, providerError);
+      }
+    }
+    await recordAudit(supabase, "subscription.checkout_abandoned", {
+      orgId,
+      entityType: "subscription",
+      entityId: subscriptionId,
+    });
+    return {};
+  } catch (error) {
+    logBillingFailure("abandon_checkout_threw", { orgId, subscriptionId }, error);
     return { error: "unavailable" };
   }
 }
@@ -432,17 +567,24 @@ export async function startPaymentRecovery(orgId: string): Promise<PaymentRecove
       if (url) return { url };
     }
 
-    // The most recent unpaid invoice — for Asaas this is the payment page, and
-    // for Stripe it is the fallback when the portal has no configuration yet.
-    const { data: invoice } = await supabase
+    // The most recent unpaid invoice OF THIS SUBSCRIPTION — for Asaas this is
+    // the payment page, and for Stripe the fallback when the portal has no
+    // configuration yet.
+    //
+    // Scoping to the subscription is what keeps the button honest: a
+    // PAYMENT_OVERDUE from an abandoned MINUTE PACK also writes a failed
+    // invoice on the same org, and the unscoped query happily returned it. She
+    // clicked "update payment" to fix her plan and was handed the boleto of a
+    // pack she gave up on — paying it leaves the subscription past_due with
+    // the grace window still running.
+    let invoiceQuery = supabase
       .from("invoices")
       .select("invoice_url, status, created_at")
       .eq("org_id", orgId)
       .eq("status", "failed")
-      .not("invoice_url", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .not("invoice_url", "is", null);
+    if (sub?.id) invoiceQuery = invoiceQuery.eq("subscription_id", sub.id);
+    const { data: invoice } = await invoiceQuery.order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (invoice?.invoice_url) return { url: invoice.invoice_url };
 
     // Nothing to recover: no failed charge on file and no portal.

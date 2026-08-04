@@ -24,6 +24,23 @@ export interface SubscriptionInfo {
   modules: { id: string; name: string }[];
 }
 
+/**
+ * A checkout that was started and has not been confirmed yet.
+ *
+ * `incomplete` was excluded from every query, so between paying a boleto/Pix
+ * and the provider's confirmation — hours, sometimes days — the screen said
+ * "no active plan". People reasonably concluded the payment had failed and
+ * started a SECOND checkout, which on Asaas means a second recurring charge.
+ */
+export interface PendingCheckout {
+  id: string;
+  planId: string;
+  planName: string;
+  createdAt: string;
+  /** The provider's hosted page: where an unpaid boleto/Pix is still payable. */
+  checkoutUrl: string | null;
+}
+
 export interface PlanRow {
   id: string;
   slug: string;
@@ -74,6 +91,7 @@ export interface CreditRow {
 
 interface BillingDetails {
   subscription: SubscriptionInfo | null;
+  pendingCheckout: PendingCheckout | null;
   /** Subscription tiers only — add-ons are split out into `packs`. */
   plans: PlanRow[];
   packs: PlanRow[];
@@ -81,16 +99,29 @@ interface BillingDetails {
   invoices: InvoiceRow[];
   creditBalance: number;
   credits: CreditRow[];
+  billingProfile: BillingProfile;
 }
+
+/** Fiscal identity of the workspace — Asaas refuses a customer without it. */
+export interface BillingProfile {
+  document: string | null;
+  postalCode: string | null;
+  addressNumber: string | null;
+  phone: string | null;
+}
+
+const EMPTY_PROFILE: BillingProfile = { document: null, postalCode: null, addressNumber: null, phone: null };
 
 const EMPTY_DETAILS: BillingDetails = {
   subscription: null,
+  pendingCheckout: null,
   plans: [],
   packs: [],
   modules: [],
   invoices: [],
   creditBalance: 0,
   credits: [],
+  billingProfile: EMPTY_PROFILE,
 };
 
 const remoteData = <T>(state: RemoteState<T, "load_failed">): T | undefined =>
@@ -164,7 +195,16 @@ export function useBilling() {
       setDetailsState(remoteLoading(previous));
       const supabase = createClient();
 
-      const [subResult, plansResult, modulesResult, invoicesResult, balanceResult, creditsResult] = await Promise.all([
+      const [
+        subResult,
+        plansResult,
+        modulesResult,
+        invoicesResult,
+        balanceResult,
+        creditsResult,
+        pendingResult,
+        orgResult,
+      ] = await Promise.all([
         supabase
           .from("subscriptions")
           .select(
@@ -190,6 +230,22 @@ export function useBilling() {
           .eq("org_id", currentOrgId)
           .order("created_at", { ascending: false })
           .limit(10),
+        // The checkout she started and has not paid yet. `billing_operations`
+        // carries the provider's hosted URL, and its RLS already limits the
+        // read to the manager who started it.
+        supabase
+          .from("subscriptions")
+          .select("id, plan_id, created_at, plans(name), billing_operations(result)")
+          .eq("org_id", currentOrgId)
+          .eq("status", "incomplete")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("organizations")
+          .select("billing_cpf_cnpj, billing_postal_code, billing_address_number, billing_phone")
+          .eq("id", currentOrgId)
+          .maybeSingle(),
       ]);
 
       if (requestId !== detailsRequestRef.current) return;
@@ -250,8 +306,27 @@ export function useBilling() {
         limits: (p.limits as Record<string, unknown> | null) ?? {},
       }));
 
+      const pendingRow = pendingResult.data;
+      const pendingOperation = pendingRow?.billing_operations as unknown as { result: { url?: string } | null } | null;
+      const pendingCheckout: PendingCheckout | null = pendingRow
+        ? {
+            id: pendingRow.id,
+            planId: pendingRow.plan_id,
+            planName: (pendingRow.plans as unknown as { name: string } | null)?.name ?? "",
+            createdAt: pendingRow.created_at,
+            checkoutUrl: pendingOperation?.result?.url ?? null,
+          }
+        : null;
+
       const details: BillingDetails = {
         subscription,
+        pendingCheckout,
+        billingProfile: {
+          document: orgResult.data?.billing_cpf_cnpj ?? null,
+          postalCode: orgResult.data?.billing_postal_code ?? null,
+          addressNumber: orgResult.data?.billing_address_number ?? null,
+          phone: orgResult.data?.billing_phone ?? null,
+        },
         // An add-on is not a tier: mixed into the plan grid, a minute pack
         // would read as a fourth thing to subscribe to.
         plans: catalog.filter((plan) => !plan.isAddon),
@@ -318,6 +393,8 @@ export function useBilling() {
     canManage,
     setCurrentOrgId,
     subscription: details.subscription,
+    pendingCheckout: details.pendingCheckout,
+    billingProfile: details.billingProfile,
     plans: details.plans,
     packs: details.packs,
     modules: details.modules,

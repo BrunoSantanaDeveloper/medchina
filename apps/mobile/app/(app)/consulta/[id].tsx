@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, ScrollView, View } from "react-native";
-import { ActivityIndicator, Button, Card, Chip, SegmentedButtons, Text, useTheme } from "react-native-paper";
+import { ActivityIndicator, Button, Card, Chip, Text, useTheme } from "react-native-paper";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { File } from "expo-file-system";
 import * as Linking from "expo-linking";
@@ -44,7 +44,9 @@ export default function ConsultationCapture() {
   const [aiConsent, setAiConsent] = useState<boolean | null>(null);
   const [allowance, setAllowance] = useState<AudioAllowance | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [mode, setMode] = useState<RecordingMode>("ai");
+  // Every capture feeds the AI (audio exists only to be transcribed); there is
+  // no "record just to store audio" mode to choose.
+  const mode: RecordingMode = "ai";
   const [authorization, setAuthorization] = useState<CaptureAuthorization | null>(null);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -270,23 +272,6 @@ export default function ConsultationCapture() {
           </Card.Content>
         </Card>
       )}
-
-      <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>
-        <Card.Content style={{ gap: GRID }}>
-          <Text variant="titleSmall">{t("capture-mode-title")}</Text>
-          <SegmentedButtons
-            value={mode}
-            onValueChange={(value) => setMode(value as RecordingMode)}
-            buttons={[
-              { value: "ai", label: t("capture-mode-ai"), disabled: recording },
-              { value: "audio_only", label: t("capture-mode-audio"), disabled: recording },
-            ]}
-          />
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            {mode === "ai" ? t("capture-mode-ai-hint") : t("capture-mode-audio-hint")}
-          </Text>
-        </Card.Content>
-      </Card>
 
       {audioConsent === false && (
         <Card mode="outlined" style={{ borderRadius: RADIUS["2xl"], borderCurve: "continuous" }}>

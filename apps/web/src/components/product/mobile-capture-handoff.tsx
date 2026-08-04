@@ -4,25 +4,23 @@ import { useTranslations } from "next-intl";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Dialog, DialogContent, Typography } from "@mui/material";
 
 import DialogHeader from "@/components/product/dialog-header";
 import InfoHint from "@/components/product/info-hint";
+import NiAi from "@/icons/nexture/ni-ai";
 import NiPhone from "@/icons/nexture/ni-phone";
+import { getProductAction } from "@/lib/product-actions";
+import { trackCommercialEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { createClient } from "@flyee/auth/client";
 
 type CaptureMode = "ai" | "audio_only";
+
+// A capture the workspace cannot afford is answered by a plan, not a retry.
+type CommercialBlock = "trial" | "exhausted";
+
+const BILLING_HREF = `${getProductAction("billing").href}?source=capture_qr&feature=audio`;
 
 type LiveStatus =
   | { kind: "none" }
@@ -53,18 +51,16 @@ type LiveStatus =
  * for the recording step, so it mounts inside ConsultationRecorder's card via
  * its `secondaryCapture` slot.
  */
-export default function MobileCaptureHandoff({
-  consultationId,
-  aiConsent,
-}: {
-  consultationId: string;
-  aiConsent?: boolean;
-}) {
+export default function MobileCaptureHandoff({ consultationId }: { consultationId: string }) {
   const t = useTranslations("product");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
-  const [mode, setMode] = useState<CaptureMode>(aiConsent ? "ai" : "audio_only");
+  // Every QR capture feeds the AI (there is no "record just to store audio"
+  // outcome — the manual anamnesis is the non-AI path), so there is no mode to
+  // choose. `commercialBlock` is set when the block is a plan/minutes one,
+  // which is answered by upgrading, not by retrying.
+  const [commercialBlock, setCommercialBlock] = useState<CommercialBlock | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -74,69 +70,73 @@ export default function MobileCaptureHandoff({
   const [elapsed, setElapsed] = useState<string | null>(null);
   const watchSession = useRef(false);
 
-  const generate = useCallback(
-    async (selected: CaptureMode) => {
-      setLoading(true);
-      setErrorKey(null);
-      setQrDataUrl(null);
-      setLinkUrl(null);
-      setCopied(false);
-      setInProgress(false);
-      try {
-        const response = await fetch(`/api/consultations/${consultationId}/capture-link`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ mode: selected }),
-        });
-        const body = (await response.json().catch(() => ({}))) as {
-          ok?: boolean;
-          code?: string;
-          url?: string;
-          expiresAt?: string;
-        };
-        if (!response.ok || !body.ok || !body.url) {
-          if (body.code === "capture_in_progress") {
-            // The phone is mid-capture on an earlier link — show its progress
-            // instead of killing it with a new credential.
-            setInProgress(true);
-            watchSession.current = true;
-            return;
-          }
-          setErrorKey(
-            body.code === "audio_consent_required"
-              ? "capture-qr-consent-error"
-              : body.code === "ai_consent_required"
-                ? "capture-qr-ai-consent-error"
-                : body.code === "trial_not_started"
-                  ? "capture-qr-trial-error"
-                  : body.code === "audio_allowance_exhausted"
-                    ? "capture-qr-allowance-error"
-                    : body.code === "consultation_finalized"
-                      ? "capture-qr-finalized-error"
-                      : "capture-qr-error",
-          );
+  const generate = useCallback(async () => {
+    setLoading(true);
+    setErrorKey(null);
+    setCommercialBlock(null);
+    setQrDataUrl(null);
+    setLinkUrl(null);
+    setCopied(false);
+    setInProgress(false);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/capture-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode: "ai" }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        code?: string;
+        url?: string;
+        expiresAt?: string;
+      };
+      if (!response.ok || !body.ok || !body.url) {
+        if (body.code === "capture_in_progress") {
+          // The phone is mid-capture on an earlier link — show its progress
+          // instead of killing it with a new credential.
+          setInProgress(true);
+          watchSession.current = true;
           return;
         }
-        // The raw token lives only inside this data URL (and the copy action),
-        // never in app state beyond this dialog or in logs.
-        const dataUrl = await QRCode.toDataURL(body.url, { margin: 1, width: 320, errorCorrectionLevel: "M" });
-        setQrDataUrl(dataUrl);
-        setLinkUrl(body.url);
-        setExpiresAt(body.expiresAt ?? null);
-        watchSession.current = true;
-      } catch {
-        setErrorKey("capture-qr-error");
-      } finally {
-        setLoading(false);
+        // A plan/minutes block is a commercial moment, not an error: it gets
+        // a CTA, not a "try again".
+        if (body.code === "trial_not_started") {
+          setCommercialBlock("trial");
+          trackCommercialEvent("upgrade.prompt_viewed", "consultation", "audio");
+          return;
+        }
+        if (body.code === "audio_allowance_exhausted") {
+          setCommercialBlock("exhausted");
+          trackCommercialEvent("upgrade.prompt_viewed", "consultation", "audio");
+          return;
+        }
+        setErrorKey(
+          body.code === "audio_consent_required"
+            ? "capture-qr-consent-error"
+            : body.code === "ai_consent_required"
+              ? "capture-qr-ai-consent-error"
+              : body.code === "consultation_finalized"
+                ? "capture-qr-finalized-error"
+                : "capture-qr-error",
+        );
+        return;
       }
-    },
-    [consultationId],
-  );
+      // The raw token lives only inside this data URL (and the copy action),
+      // never in app state beyond this dialog or in logs.
+      const dataUrl = await QRCode.toDataURL(body.url, { margin: 1, width: 320, errorCorrectionLevel: "M" });
+      setQrDataUrl(dataUrl);
+      setLinkUrl(body.url);
+      setExpiresAt(body.expiresAt ?? null);
+      watchSession.current = true;
+    } catch {
+      setErrorKey("capture-qr-error");
+    } finally {
+      setLoading(false);
+    }
+  }, [consultationId]);
 
   useEffect(() => {
-    if (open) void generate(mode);
-    // `mode` is applied through the toggle handler; regenerating on open only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (open) void generate();
   }, [open, generate]);
 
   // Live status of the phone's session: the professional generated a bearer
@@ -296,24 +296,6 @@ export default function MobileCaptureHandoff({
             {t("capture-qr-dialog-body")}
           </Typography>
 
-          {aiConsent && !inProgress && (
-            <ToggleButtonGroup
-              exclusive
-              fullWidth
-              size="small"
-              value={mode}
-              onChange={(_event, value: CaptureMode | null) => {
-                if (!value || value === mode || loading) return;
-                setMode(value);
-                void generate(value);
-              }}
-              aria-label={t("capture-qr-mode-label")}
-            >
-              <ToggleButton value="ai">{t("capture-qr-mode-ai-option")}</ToggleButton>
-              <ToggleButton value="audio_only">{t("capture-qr-mode-audio-option")}</ToggleButton>
-            </ToggleButtonGroup>
-          )}
-
           {loading && <CircularProgress aria-label={t("loading")} className="my-6" />}
 
           {inProgress && (
@@ -322,11 +304,41 @@ export default function MobileCaptureHandoff({
             </Alert>
           )}
 
+          {/* A plan/minutes block is a moment to SELL the outcome, not an error
+              to retry: name what she gets, then the one action that unlocks it.
+              Never red — a commercial limit is not a clinical failure. */}
+          {commercialBlock && (
+            <Box className="border-primary/20 bg-primary/5 flex flex-col items-center gap-2 self-stretch rounded-2xl border p-4 text-center">
+              <span
+                aria-hidden
+                className="bg-primary/12 text-primary flex h-11 w-11 items-center justify-center rounded-2xl [&_svg]:h-6 [&_svg]:w-6"
+              >
+                <NiAi size="medium" />
+              </span>
+              <Typography variant="subtitle1" className="text-text-primary">
+                {t("capture-qr-upgrade-title")}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {commercialBlock === "trial" ? t("capture-qr-upgrade-trial") : t("capture-qr-upgrade-exhausted")}
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                href={BILLING_HREF}
+                className="mt-1"
+                onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "audio")}
+              >
+                {commercialBlock === "trial" ? t("capture-qr-upgrade-trial-cta") : t("capture-qr-upgrade-cta")}
+              </Button>
+            </Box>
+          )}
+
           {errorKey && (
             <Alert
               severity="error"
               className="self-stretch"
-              action={<Button onClick={() => void generate(mode)}>{t("retry")}</Button>}
+              action={<Button onClick={() => void generate()}>{t("retry")}</Button>}
             >
               {t(errorKey)}
             </Alert>
@@ -345,7 +357,7 @@ export default function MobileCaptureHandoff({
                 <img src={qrDataUrl} alt={t("capture-qr-alt")} width={240} height={240} className="block h-60 w-60" />
               </Box>
               <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                {mode === "ai" ? t("capture-qr-mode-ai") : t("capture-qr-mode-audio")}
+                {t("capture-qr-mode-ai")}
               </Typography>
               <Button variant="outlined" color="grey" size="small" fullWidth onClick={() => void copyLink()}>
                 {copied ? t("capture-qr-copied") : t("capture-qr-copy")}

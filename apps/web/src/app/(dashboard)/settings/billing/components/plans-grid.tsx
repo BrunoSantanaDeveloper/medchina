@@ -6,7 +6,21 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
-import { Alert, Box, Button, Card, CardContent, Chip, Grid, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Grid,
+  Typography,
+} from "@mui/material";
 
 import { derivePlanFeatures } from "@/lib/billing-plan-features";
 import { trackCommercialEvent } from "@/lib/product-events";
@@ -18,6 +32,7 @@ export default function PlansGrid({
   canManage,
   checkoutAvailable,
   trialParams,
+  onBillingProfileRequired,
 }: {
   orgId: string;
   subscription: SubscriptionInfo | null;
@@ -25,14 +40,18 @@ export default function PlansGrid({
   canManage: boolean;
   checkoutAvailable: boolean;
   trialParams: { days: number; minutes: number } | null;
+  /** Surfaces the fiscal-data form when the provider needs it to proceed. */
+  onBillingProfileRequired?: () => void;
 }) {
   const t = useTranslations("product");
   const locale = useLocale();
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [workingPlan, setWorkingPlan] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<PlanRow | null>(null);
   const operationKeys = useRef(new Map<string, string>());
   const promptViewed = useRef(false);
   const paidPlans = plans.filter((plan) => !plan.isFree && plan.kind === "recurring" && plan.period);
+  const currentPlan = paidPlans.find((plan) => plan.id === subscription?.planId) ?? null;
 
   useEffect(() => {
     if (!canManage || paidPlans.length === 0 || promptViewed.current) return;
@@ -44,18 +63,39 @@ export default function PlansGrid({
   if (!paidPlans.length) return null;
 
   const subscribe = async (plan: PlanRow) => {
-    setError(false);
+    setError(null);
+    setConfirming(null);
     setWorkingPlan(plan.id);
     const idempotencyKey = operationKeys.current.get(plan.id) ?? crypto.randomUUID();
     operationKeys.current.set(plan.id, idempotencyKey);
     const result = await startCheckout({ orgId, planId: plan.id, idempotencyKey });
     setWorkingPlan(null);
     if (!result.url) {
-      setError(true);
+      // Named causes, not one generic failure: a missing CPF/CNPJ is fixed by
+      // the form right above, a suspension is not fixed by her at all, and
+      // telling her to "try again" in either case wastes her time.
+      setError(result.error ?? "unavailable");
+      if (result.error === "billing_profile_required") onBillingProfileRequired?.();
       return;
     }
     operationKeys.current.delete(plan.id);
     window.location.assign(result.url);
+  };
+
+  /**
+   * Switching plans starts a NEW subscription and retires the current one
+   * immediately — no proration, at either provider. Whoever is mid-cycle is
+   * throwing away days she already paid for, and until now nothing said so.
+   * The confirmation is the honest minimum while scheduled plan changes do
+   * not exist (see docs/BILLING-AUDIT.md A1).
+   */
+  const requestChange = (plan: PlanRow) => {
+    trackCommercialEvent("upgrade.prompt_clicked", "billing", "plans");
+    if (currentPlan && currentPlan.id !== plan.id) {
+      setConfirming(plan);
+      return;
+    }
+    void subscribe(plan);
   };
 
   return (
@@ -73,7 +113,12 @@ export default function PlansGrid({
               {trialParams ? t("billing-trial-explanation", trialParams) : t("billing-trial-explanation-generic")}
             </Typography>
           </Box>
-          {error && <Alert severity="error">{t("billing-checkout-error")}</Alert>}
+          {error === "billing_profile_required" && <Alert severity="warning">{t("billing-profile-required")}</Alert>}
+          {error === "suspended" && <Alert severity="error">{t("billing-suspended-blocked")}</Alert>}
+          {error === "plan_required" && <Alert severity="info">{t("packs-plan-required")}</Alert>}
+          {error && !["billing_profile_required", "suspended", "plan_required"].includes(error) && (
+            <Alert severity="error">{t("billing-checkout-error")}</Alert>
+          )}
           <Grid container spacing={2.5}>
             {paidPlans.map((plan) => {
               const current = subscription?.planId === plan.id;
@@ -142,17 +187,16 @@ export default function PlansGrid({
                       {current || checkoutAvailable ? (
                         <Button
                           variant={current ? "outlined" : "contained"}
-                          onClick={() => {
-                            trackCommercialEvent("upgrade.prompt_clicked", "billing", "plans");
-                            void subscribe(plan);
-                          }}
+                          onClick={() => requestChange(plan)}
                           disabled={current || workingPlan !== null}
                         >
                           {current
                             ? t("billing-current-chip")
                             : workingPlan === plan.id
                               ? t("billing-redirecting")
-                              : t("billing-choose-plan")}
+                              : currentPlan
+                                ? t("billing-switch-plan")
+                                : t("billing-choose-plan")}
                         </Button>
                       ) : (
                         <Button
@@ -172,6 +216,35 @@ export default function PlansGrid({
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Switching is not an edit to the current subscription: it opens a new
+          one and retires the old one on the spot. Neither provider credits the
+          days already paid, so she has to be told before she pays, not after. */}
+      <Dialog open={Boolean(confirming)} onClose={() => setConfirming(null)}>
+        <DialogTitle>{t("billing-switch-title", { plan: confirming?.name ?? "" })}</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {t("billing-switch-warning", { current: currentPlan?.name ?? "", next: confirming?.name ?? "" })}
+          </DialogContentText>
+          {subscription?.currentPeriodEnd && (
+            <DialogContentText className="mt-3">
+              {t("billing-switch-period-note", {
+                date: new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(
+                  new Date(subscription.currentPeriodEnd),
+                ),
+              })}
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setConfirming(null)}>
+            {t("cancel")}
+          </Button>
+          <Button variant="contained" onClick={() => confirming && void subscribe(confirming)}>
+            {t("billing-switch-confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 }

@@ -33,6 +33,8 @@ export type CaptureLinkCode =
   | "recording_integrity_failed"
   | "recording_too_long"
   | "recording_too_large"
+  | "images_consent_required"
+  | "attachment_not_uploaded"
   | "upload_unavailable"
   | "internal_error";
 
@@ -49,6 +51,8 @@ const STATUS_BY_CODE: Record<CaptureLinkCode, number> = {
   recording_integrity_failed: 409,
   recording_too_long: 413,
   recording_too_large: 413,
+  images_consent_required: 422,
+  attachment_not_uploaded: 409,
   upload_unavailable: 503,
   internal_error: 500,
 };

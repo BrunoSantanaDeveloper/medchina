@@ -287,6 +287,10 @@ export async function processRecording(
 
   await alertAfterAudioUsage(supabase, recording.org_id);
 
+  // The AI summary is NOT regenerated per recording — it is generated ONCE at
+  // finalization, over ALL recordings joined into the anamnesis (see the
+  // finalize route). Per-recording churn would spend an AI call on every audio.
+
   return {
     ok: true,
     transcriptionId,

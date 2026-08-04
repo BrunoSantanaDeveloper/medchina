@@ -58,13 +58,26 @@ const EMPTY: AssistantForm = {
 const MODEL_HINT: Record<string, string> = {
   anthropic: "e.g. claude-sonnet-5, claude-haiku-4-5",
   gemini: "e.g. gemini-2.5-flash, gemini-2.5-pro",
+  // Native ids here (no vendor prefix) — that prefix is what tells the two
+  // OpenAI-dialect providers apart when reading an assistant row.
+  openai: "native id, e.g. gpt-4o, gpt-4o-mini, o4-mini",
   openrouter: "REQUIRED full id, e.g. openai/gpt-4o, anthropic/claude-sonnet-5",
+};
+
+/** Env var backing each provider, named so a missing key is diagnosable. */
+const PROVIDER_KEY_ENV: Record<string, string> = {
+  anthropic: "ANTHROPIC_API_KEY",
+  gemini: "GEMINI_API_KEY",
+  openai: "OPENAI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
 };
 
 export default function AssistantsAdmin() {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [form, setForm] = useState<AssistantForm | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Which providers hold a key here; null until the check answers. */
+  const [configured, setConfigured] = useState<Record<string, boolean> | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -75,6 +88,15 @@ export default function AssistantsAdmin() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    // Best-effort: an unanswered check simply shows no warning, never a false
+    // "missing key" that would send the operator chasing a non-problem.
+    void fetch("/api/admin/ai/providers")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { providers?: Record<string, boolean> } | null) => setConfigured(body?.providers ?? null))
+      .catch(() => setConfigured(null));
+  }, []);
 
   const openEdit = (row?: Record<string, unknown>) => {
     setError(null);
@@ -182,10 +204,20 @@ export default function AssistantsAdmin() {
               options={[
                 { value: "anthropic", label: "Anthropic" },
                 { value: "gemini", label: "Gemini (audio + image)" },
+                { value: "openai", label: "OpenAI (direct account)" },
                 { value: "openrouter", label: "OpenRouter (multi-model)" },
               ]}
               onChange={(v) => setForm({ ...form, provider: v })}
             />
+            {/* Saying so HERE is the whole point: without it the missing key
+                surfaces later, to a professional mid-appointment, as a provider
+                error she cannot act on. */}
+            {configured && configured[form.provider] === false && (
+              <Alert severity="warning" className="neutral bg-background-paper/60! mb-2">
+                {PROVIDER_KEY_ENV[form.provider] ?? "The API key"} is not set in this deployment — assistants on this
+                provider will fail when used.
+              </Alert>
+            )}
             <Field
               label={`Model — ${MODEL_HINT[form.provider] ?? ""}`}
               value={form.model}

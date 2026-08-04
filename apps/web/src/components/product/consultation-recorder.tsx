@@ -14,8 +14,6 @@ import {
   DialogContent,
   LinearProgress,
   Skeleton,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 
@@ -24,12 +22,10 @@ import DialogHeader from "@/components/product/dialog-header";
 import InfoHint from "@/components/product/info-hint";
 import { type PersistedWebRecording, useRecordingSession } from "@/components/product/recording-session-provider";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
-import NiAi from "@/icons/nexture/ni-ai";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiClock from "@/icons/nexture/ni-clock";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiPause from "@/icons/nexture/ni-pause";
-import NiSoundOn from "@/icons/nexture/ni-sound-on";
 import NiSquare from "@/icons/nexture/ni-square";
 import { graceDaysLeft, trialDaysLeft } from "@/lib/audio-allowance";
 import { recordAudit } from "@/lib/audit";
@@ -121,7 +117,10 @@ export default function ConsultationRecorder({
   const [captureLimit, setCaptureLimit] = useState<"duration" | "size" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [mode, setMode] = useState<RecordingMode>("ai");
+  // Every capture exists to be transcribed and feed the AI — there is no
+  // "record just to store audio" outcome (the manual anamnesis is the non-AI
+  // path). So the mode is fixed, not a choice the professional has to make.
+  const mode: RecordingMode = "ai";
   const {
     allowance,
     trialParams,
@@ -234,9 +233,11 @@ export default function ConsultationRecorder({
         .eq("id", recovered.recordingId)
         .maybeSingle();
       if (!current) return;
+      // The ref still tracks the RECOVERED recording's real mode (a legacy
+      // audio_only capture in flight must finish as audio_only); only the new
+      // capture default is fixed to AI.
       const recoveredMode = data?.mode === "audio_only" || recovered.mode === "audio_only" ? "audio_only" : "ai";
       recordingMode.current = recoveredMode;
-      setMode(recoveredMode);
       recordingId.current = recovered.recordingId;
       if (data?.status === "ready") {
         await removeSession(recovered.recordingId);
@@ -842,8 +843,8 @@ export default function ConsultationRecorder({
     allowance.minutesLimit > 0 &&
     seconds > allowance.minutesRemaining * 60;
   const nearingCaptureLimit = phase === "recording" && (seconds >= MAX_DURATION_SECONDS - 10 * 60 || nearSizeLimit);
-  const hasRequiredConsent = consents?.audio === true && (mode === "audio_only" || consents.ai);
-  const modeLocked = capturing || Boolean(pendingBlob.current) || Boolean(clientUploadId.current);
+  // Capture always feeds the AI, so both consents are required.
+  const hasRequiredConsent = consents?.audio === true && consents.ai;
 
   useEffect(() => {
     if (!exhausted || upgradePromptViewed.current) return;
@@ -901,41 +902,6 @@ export default function ConsultationRecorder({
               </Button>
             </Alert>
           )}
-
-          <Box className="flex flex-col gap-1.5">
-            <Typography variant="body2" className="text-text-secondary font-medium">
-              {t("capture-mode-title")}
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              fullWidth
-              size="small"
-              value={mode}
-              onChange={(_, value: RecordingMode | null) => {
-                if (!value || modeLocked) return;
-                setMode(value);
-                setError(null);
-              }}
-              disabled={modeLocked}
-              aria-label={t("capture-mode-title")}
-            >
-              {/* `outlined` (the template's own toggle variant) keeps the
-                  selected mode as an outline + tint. Solid-filled it was the
-                  same shape and colour as the "start recording" CTA below, so a
-                  CHOICE read as a COMMAND. Icons reinforce the distinction. */}
-              <ToggleButton value="ai" className="outlined gap-1.5">
-                <NiAi size="tiny" />
-                {t("capture-mode-ai")}
-              </ToggleButton>
-              <ToggleButton value="audio_only" className="outlined gap-1.5">
-                <NiSoundOn size="tiny" />
-                {t("capture-mode-audio")}
-              </ToggleButton>
-            </ToggleButtonGroup>
-            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-              {mode === "ai" ? t("capture-mode-ai-hint") : t("capture-mode-audio-hint")}
-            </Typography>
-          </Box>
 
           {/* Inside the dunning window everything still works — this says so,
               and says by when, so the first sign of a payment problem is not
@@ -996,11 +962,17 @@ export default function ConsultationRecorder({
           ) : exhausted ? (
             <>
               <Typography variant="body2" className="text-text-secondary leading-6">
+                {/* The Pro trial ends on 14 days OR 300 minutes, whichever
+                    comes first, so "your minutes ran out" was being shown to
+                    someone with 297 of them left — the billing page said as
+                    much on the same account. Each cause states itself. */}
                 {allowance?.suspended
                   ? t("recorder-suspended-body")
                   : paymentBlocked
                     ? t("recorder-past-due-body")
-                    : t("recorder-limit-body")}
+                    : allowance?.reason === "trial_over"
+                      ? t("recorder-trial-over-body")
+                      : t("recorder-limit-body")}
               </Typography>
               {/* A suspension is not hers to resolve, so it gets no action —
                   every other cause gets the one that actually resolves it. */}
@@ -1125,7 +1097,7 @@ export default function ConsultationRecorder({
               )}
               {phase === "ready" && (
                 <Alert severity="success" icon={<NiCheckSquare />}>
-                  {mode === "ai" ? t("recorder-ready") : t("recorder-audio-ready")}
+                  {t("recorder-ready")}
                 </Alert>
               )}
               {/* The capture succeeded; only the AI prep failed. A warning, not an

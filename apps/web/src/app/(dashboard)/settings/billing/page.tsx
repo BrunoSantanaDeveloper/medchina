@@ -2,10 +2,12 @@
 
 import SettingsMenu from "../components/settings-menu";
 import { checkoutAvailability } from "./actions";
+import BillingProfileCard from "./components/billing-profile-card";
 import CurrentSubscription from "./components/current-subscription";
 import InvoicesCard from "./components/invoices-card";
 import MinutePacksCard from "./components/minute-packs-card";
 import PaymentRecoveryCard from "./components/payment-recovery-card";
+import PendingCheckoutCard from "./components/pending-checkout-card";
 import PlansGrid from "./components/plans-grid";
 import { useBilling } from "./components/use-billing";
 import Link from "next/link";
@@ -29,6 +31,9 @@ export default function BillingSettings() {
   const feature = searchParams.get("feature");
   const [openDrawer, setOpenDrawer] = useState(false);
   const [checkoutState, setCheckoutState] = useState<RemoteState<boolean, "check_failed">>(() => remoteLoading());
+  // Set when the provider refused the checkout for a missing CPF/CNPJ, so the
+  // form leads with WHY it is suddenly being asked for.
+  const [needsBillingProfile, setNeedsBillingProfile] = useState(false);
   const {
     configured,
     loading,
@@ -39,6 +44,8 @@ export default function BillingSettings() {
     currentOrg,
     canManage,
     subscription,
+    pendingCheckout,
+    billingProfile,
     plans,
     packs,
     invoices,
@@ -173,10 +180,31 @@ export default function BillingSettings() {
             {/* First, because she is here to FIX a charge, not to shop. The
                 plan grid below answers a different question and would read as
                 the wrong answer if it came first. */}
-            {canManage && (allowance?.reason === "past_due_grace" || allowance?.reason === "past_due_blocked") && (
+            {/* Keyed on `dunning`, not on `reason`: a workspace with purchased
+                minutes keeps recording while past_due, so `reason` reads
+                'pack_only' and this card — her only way to pay — used to
+                vanish for exactly the person holding an unpaid invoice. */}
+            {canManage && allowance?.dunning && (
               <Grid size={12}>
                 <PaymentRecoveryCard orgId={currentOrg.id} graceEndsAt={allowance.graceEndsAt} />
               </Grid>
+            )}
+            {/* Before the plan grid: she is waiting on a payment she already
+                made, and a row of "choose a plan" buttons reads as proof it
+                failed — which is what produced duplicate checkouts. */}
+            {canManage && pendingCheckout && (
+              <PendingCheckoutCard orgId={currentOrg.id} pending={pendingCheckout} onChanged={refreshDetails} />
+            )}
+            {canManage && (needsBillingProfile || !billingProfile.document) && (
+              <BillingProfileCard
+                orgId={currentOrg.id}
+                profile={billingProfile}
+                required={needsBillingProfile}
+                onSaved={() => {
+                  setNeedsBillingProfile(false);
+                  void refreshDetails();
+                }}
+              />
             )}
             <Grid size={{ xs: 12, md: 6 }}>
               <AudioUsageCard showWhenEmpty />
@@ -197,6 +225,7 @@ export default function BillingSettings() {
               canManage={canManage}
               checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
               trialParams={trialParams}
+              onBillingProfileRequired={() => setNeedsBillingProfile(true)}
             />
             {/* After the tiers on purpose: for most people an upgrade is the
                 better deal, and a pack is the answer only once that has been

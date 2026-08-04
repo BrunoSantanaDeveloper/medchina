@@ -4,9 +4,10 @@ import { Resend } from "resend";
 import ContactFormEmail, { ContactFormEmailProps } from "./templates/contact-form";
 import OrgInviteEmail, { OrgInviteEmailProps } from "./templates/org-invite";
 import PatientDocumentEmail, { type PatientDocumentEmailProps } from "./templates/patient-document";
+import SubscriptionActiveEmail, { type SubscriptionActiveEmailProps } from "./templates/subscription-active";
 import TrialLifecycleEmail, { type TrialEmailKind, type TrialLifecycleEmailProps } from "./templates/trial-lifecycle";
 
-export type { PatientDocumentEmailProps, TrialEmailKind, TrialLifecycleEmailProps };
+export type { PatientDocumentEmailProps, SubscriptionActiveEmailProps, TrialEmailKind, TrialLifecycleEmailProps };
 
 /** True when transactional email is configured (server-only env var). */
 export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY);
@@ -67,6 +68,35 @@ export async function sendTrialEmail(to: string, props: TrialLifecycleEmailProps
     to,
     subject: TRIAL_SUBJECTS[props.kind],
     react: createElement(TrialLifecycleEmail, props),
+  });
+  if (error) {
+    return { sent: false, error: error.message };
+  }
+  return { sent: true };
+}
+
+/**
+ * Confirms that a paid plan is live.
+ *
+ * Transactional (it confirms a purchase she made), so it carries no
+ * unsubscribe and ignores the lifecycle opt-out that governs the trial drip.
+ * Returns { sent: false } without failing when RESEND_API_KEY is absent — the
+ * in-app notification is written either way, so a missing provider degrades to
+ * "she sees it in the bell" instead of taking the webhook down.
+ */
+export async function sendSubscriptionActiveEmail(
+  to: string,
+  props: SubscriptionActiveEmailProps,
+): Promise<SendResult> {
+  if (!isEmailConfigured) {
+    return { sent: false };
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: DEFAULT_FROM,
+    to,
+    subject: `Pagamento confirmado — ${props.planName} está ativo`,
+    react: createElement(SubscriptionActiveEmail, props),
   });
   if (error) {
     return { sent: false, error: error.message };

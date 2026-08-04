@@ -187,11 +187,36 @@ export class StripeProvider implements PaymentProvider {
             providerCustomerId: String(sub.customer),
             providerSubscriptionId: sub.id,
             status: sub.status,
+            // The provider's own cycle start, not "now". The handler uses this
+            // to tell a real renewal from a cosmetic update (toggling
+            // cancel_at_period_end emits this same event), and resetting the
+            // consumption window on a cosmetic one handed out free minutes.
+            currentPeriodStart: sub.items.data[0]?.current_period_start
+              ? new Date(sub.items.data[0].current_period_start * 1000)
+              : undefined,
             currentPeriodEnd: sub.items.data[0]?.current_period_end
               ? new Date(sub.items.data[0].current_period_end * 1000)
               : undefined,
           });
+          break;
         }
+        // A subscription Stripe has given up on. Only `deleted` used to cancel
+        // locally, so an `incomplete_expired` (checkout never paid) or a
+        // terminal `unpaid` left the workspace entitled with nothing behind it.
+        if (sub.status === "incomplete_expired" || sub.status === "unpaid" || sub.status === "canceled") {
+          events.push({
+            providerEventId: event.id,
+            type: "subscription_canceled",
+            provider: "stripe",
+            providerSubscriptionId: sub.id,
+          });
+          break;
+        }
+        // `past_due` deliberately emits nothing: `invoice.payment_failed`
+        // below is Stripe's canonical dunning trigger and is the only one that
+        // carries the invoice and its hosted recovery URL. Deriving a second
+        // payment_failed from here would mint an invoice row with no id.
+        console.info("stripe_subscription_status_ignored", { status: sub.status, subscriptionId: sub.id });
         break;
       }
       case "customer.subscription.deleted": {
@@ -200,6 +225,29 @@ export class StripeProvider implements PaymentProvider {
           type: "subscription_canceled",
           provider: "stripe",
           providerSubscriptionId: event.data.object.id,
+        });
+        break;
+      }
+      case "charge.refunded":
+      case "charge.dispute.created": {
+        const charge =
+          event.type === "charge.refunded"
+            ? event.data.object
+            : ((await getStripe().charges.retrieve(String(event.data.object.charge))) as Stripe.Charge);
+        // One-off purchases (minute packs) are mirrored under the payment
+        // intent — see `checkout.session.completed` above — and those are the
+        // ones where an un-reverted refund leaves a spendable balance behind.
+        // Subscription invoices are keyed by invoice id, which the Charge no
+        // longer carries in this API version; `revert_paid_invoice` answers
+        // `unknown_invoice` for those and the handler skips them.
+        const invoiceId = String(charge.payment_intent ?? charge.id);
+        events.push({
+          providerEventId: event.id,
+          type: "payment_reverted",
+          provider: "stripe",
+          metadata: (charge.metadata ?? {}) as Partial<CheckoutMetadata>,
+          providerInvoiceId: invoiceId,
+          kind: event.type === "charge.refunded" ? "refund" : "chargeback",
         });
         break;
       }

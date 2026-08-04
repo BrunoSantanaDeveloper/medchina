@@ -34,6 +34,24 @@ export interface CheckoutCoupon {
   discountValue: number;
 }
 
+/**
+ * Who is paying, in the terms a Brazilian gateway needs.
+ *
+ * Asaas refuses `POST /customers` without `cpfCnpj`, so this is not optional
+ * decoration: without it the checkout throws before the customer ever reaches
+ * a payment page, and the only trace is a server log. Everything is stored and
+ * passed as DIGITS — the mask belongs to the form, never to the wire.
+ */
+export interface CheckoutPayer {
+  /** CPF (11) or CNPJ (14), digits only. */
+  document?: string | null;
+  /** CEP, 8 digits. */
+  postalCode?: string | null;
+  addressNumber?: string | null;
+  /** DDD + number, 10 or 11 digits. */
+  phone?: string | null;
+}
+
 export interface CheckoutInput {
   /** Stable caller key reused across retries and provider requests. */
   idempotencyKey: string;
@@ -46,6 +64,8 @@ export interface CheckoutInput {
   coupon?: CheckoutCoupon;
   successUrl: string;
   cancelUrl: string;
+  /** Fiscal identity of the workspace; required by Asaas, ignored by Stripe. */
+  payer?: CheckoutPayer;
 }
 
 export interface CheckoutResult {
@@ -72,6 +92,16 @@ export type BillingEvent = { providerEventId: string } & (
       providerCustomerId?: string;
       providerSubscriptionId: string;
       status: "trialing" | "active";
+      /**
+       * The provider's own cycle start, when it reports one.
+       *
+       * The handler needs it to tell a RENEWAL from a cosmetic update: Stripe
+       * re-emits `customer.subscription.updated` for every change, including
+       * the two the product itself makes (scheduling and undoing a
+       * cancellation). Stamping "now" on those restarted the audio consumption
+       * window, so cancel + undo handed out a fresh cycle of minutes.
+       */
+      currentPeriodStart?: Date;
       currentPeriodEnd?: Date;
     }
   | {
@@ -104,6 +134,20 @@ export type BillingEvent = { providerEventId: string } & (
        * window expires on someone who had no way to act.
        */
       invoiceUrl?: string;
+    }
+  | {
+      /**
+       * The money went back — refunded by us or pulled by the card issuer.
+       *
+       * Until this existed the invoice stayed `paid` forever and, worse, the
+       * minute pack it had granted stayed spendable. A pack does not expire by
+       * design, so an un-reverted chargeback is an unlimited free balance.
+       */
+      type: "payment_reverted";
+      provider: BillingProviderName;
+      metadata: Partial<CheckoutMetadata>;
+      providerInvoiceId: string;
+      kind: "refund" | "chargeback";
     }
 );
 

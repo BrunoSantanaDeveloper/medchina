@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Alert, Box, Button, Card, CardContent, CircularProgress, LinearProgress, Typography } from "@mui/material";
 
+import NiCamera from "@/icons/nexture/ni-camera";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiPause from "@/icons/nexture/ni-pause";
@@ -35,6 +36,10 @@ type Resolved = {
   patientFirstName: string | null;
   consultationEditable: boolean;
   audioConsent: boolean;
+  /** Audio can actually be captured now (consent + minutes). Photos do not
+   *  depend on this — a free workspace attaches photos without AI. */
+  audioAvailable: boolean;
+  imagesConsent: boolean;
   mode: "ai" | "audio_only";
   recordingStatus: string | null;
 };
@@ -59,8 +64,10 @@ const uploadIdKey = (token: string) => `medchina-capture-upload:${token.slice(0,
  * own public Supabase URL — the phone must reach the storage host it knows,
  * not whatever origin the server resolved.
  */
-const signedUploadUrl = (path: string, uploadToken: string) =>
-  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/upload/sign/${BUCKET}/${path}?token=${encodeURIComponent(uploadToken)}`;
+const signedUploadUrl = (path: string, uploadToken: string, bucket: string = BUCKET) =>
+  `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/upload/sign/${bucket}/${path}?token=${encodeURIComponent(uploadToken)}`;
+
+const ATTACHMENTS_BUCKET = "clinical-attachments";
 
 /**
  * Upload to the signed URL with REAL progress events — fetch reports none, and
@@ -112,8 +119,15 @@ export default function MobileCaptureClient() {
   const [seconds, setSeconds] = useState(0);
   const [level, setLevel] = useState(0);
   const [uploadProgress, setUploadProgress] = useState(0);
+  // Photos/documents share the SAME QR session as the audio — the phone is
+  // camera and microphone in one flow.
+  const [attaching, setAttaching] = useState(false);
+  const [attachCount, setAttachCount] = useState(0);
+  const [attachError, setAttachError] = useState<string | null>(null);
 
   const token = useRef<string | null>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const clientUploadId = useRef<string | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -142,6 +156,46 @@ export default function MobileCaptureClient() {
     return { ok: response.ok && body.ok === true, status: response.status, body };
   }, []);
 
+  // Reserve → upload to a signed URL → confirm, once per file. Gated server-side
+  // (a photo needs clinical-images consent); a refusal is stated, never a crash.
+  const sendAttachments = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      setAttaching(true);
+      setAttachError(null);
+      for (const file of Array.from(files)) {
+        try {
+          const reserve = await call("attachment", { mime: file.type });
+          if (!reserve.ok || typeof reserve.body.path !== "string" || typeof reserve.body.token !== "string") {
+            setAttachError(
+              reserve.body.code === "images_consent_required" ? "capture-photo-consent" : "capture-photo-error",
+            );
+            continue;
+          }
+          const path = reserve.body.path as string;
+          await putWithProgress(
+            signedUploadUrl(path, reserve.body.token as string, ATTACHMENTS_BUCKET),
+            file,
+            () => undefined,
+          );
+          const confirmed = await call("attachment/confirm", {
+            attachmentId: reserve.body.attachmentId,
+            path,
+            size: file.size,
+          });
+          if (confirmed.ok) setAttachCount((count) => count + 1);
+          else setAttachError("capture-photo-error");
+        } catch {
+          setAttachError("capture-photo-error");
+        }
+      }
+      if (photoInput.current) photoInput.current.value = "";
+      if (fileInput.current) fileInput.current.value = "";
+      setAttaching(false);
+    },
+    [call],
+  );
+
   const resolve = useCallback(async () => {
     const raw = window.location.hash.replace(/^#/, "");
     if (!isCaptureLinkToken(raw)) {
@@ -167,11 +221,16 @@ export default function MobileCaptureClient() {
       patientFirstName: (body.patientFirstName as string | null) ?? null,
       consultationEditable: body.consultationEditable === true,
       audioConsent: body.audioConsent === true,
+      audioAvailable: body.audioAvailable === true,
+      imagesConsent: body.imagesConsent === true,
       mode: body.mode === "ai" ? "ai" : "audio_only",
       recordingStatus: (body.recordingStatus as string | null) ?? null,
     };
     setResolved(context);
-    if (!context.consultationEditable || !context.audioConsent) {
+    // Only a closed consultation blocks the whole page. Missing audio consent
+    // no longer does — photos and documents remain available (that is the free
+    // workspace's path). Audio simply hides itself below.
+    if (!context.consultationEditable) {
       setPhase("blocked");
       return;
     }
@@ -553,7 +612,8 @@ export default function MobileCaptureClient() {
             {t("capture-mobile-blocked-title")}
           </Typography>
           <Typography variant="body2" className="text-text-secondary leading-6">
-            {resolved && !resolved.audioConsent ? t("capture-mobile-no-consent") : t("capture-mobile-not-editable")}
+            {/* The only remaining hard block is a closed consultation. */}
+            {t("capture-mobile-not-editable")}
           </Typography>
         </CardContent>
       </Card>
@@ -699,18 +759,23 @@ export default function MobileCaptureClient() {
             )}
 
             <Box className="flex flex-col gap-2">
-              {phase === "idle" && (
-                <Button
-                  variant="contained"
-                  size="large"
-                  fullWidth
-                  color="primary"
-                  startIcon={<NiMicrophone size="tiny" />}
-                  onClick={() => void start()}
-                >
-                  {t("recorder-start")}
-                </Button>
-              )}
+              {phase === "idle" &&
+                (resolved?.audioAvailable ? (
+                  <Button
+                    variant="contained"
+                    size="large"
+                    fullWidth
+                    color="primary"
+                    startIcon={<NiMicrophone size="tiny" />}
+                    onClick={() => void start()}
+                  >
+                    {t("recorder-start")}
+                  </Button>
+                ) : (
+                  // Audio needs consent + minutes; a free workspace has neither,
+                  // but photos below still work. State it, do not block.
+                  <Alert severity="info">{t("capture-audio-unavailable")}</Alert>
+                ))}
               {phase === "error" && (
                 <Button
                   variant="contained"
@@ -773,10 +838,71 @@ export default function MobileCaptureClient() {
               )}
             </Box>
 
-            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-              {t("capture-mobile-note")}
-            </Typography>
+            {resolved?.audioAvailable && (
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t("capture-mobile-note")}
+              </Typography>
+            )}
           </>
+        )}
+
+        {/* Photo / document — the SAME QR session. Hidden while audio records,
+            so opening the camera never fights the microphone for the device. */}
+        {(phase === "idle" || phase === "done" || phase === "recovered") && (
+          <Box className="border-grey-100 flex flex-col gap-2 border-t pt-4">
+            <Typography variant="body2" className="text-text-primary font-medium">
+              {t("capture-photo-title")}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+              {t("capture-photo-hint")}
+            </Typography>
+            <input
+              ref={photoInput}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(event) => void sendAttachments(event.target.files)}
+            />
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              className="hidden"
+              onChange={(event) => void sendAttachments(event.target.files)}
+            />
+            {attachError && (
+              <Alert severity={attachError === "capture-photo-consent" ? "info" : "error"}>{t(attachError)}</Alert>
+            )}
+            {attachCount > 0 && (
+              <Alert severity="success" icon={<NiCheckSquare />}>
+                {t("capture-photo-sent", { count: attachCount })}
+              </Alert>
+            )}
+            <Box className="flex flex-row gap-2">
+              <Button
+                variant="outlined"
+                color="primary"
+                className="flex-1"
+                startIcon={<NiCamera size="tiny" />}
+                disabled={attaching}
+                onClick={() => photoInput.current?.click()}
+              >
+                {t("capture-photo-take")}
+              </Button>
+              <Button
+                variant="outlined"
+                color="grey"
+                className="flex-1"
+                disabled={attaching}
+                onClick={() => fileInput.current?.click()}
+              >
+                {t("capture-photo-upload")}
+              </Button>
+            </Box>
+            {attaching && <LinearProgress />}
+          </Box>
         )}
       </CardContent>
     </Card>

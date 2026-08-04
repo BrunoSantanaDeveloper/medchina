@@ -1,4 +1,11 @@
-export type AiProviderName = "anthropic" | "gemini" | "openrouter";
+export type AiProviderName = "anthropic" | "gemini" | "openai" | "openrouter";
+
+/**
+ * The provider list, in one place, so the admin console and any validation
+ * cannot drift from the type. Mirrors the `ai_provider` enum in the database
+ * (migration 0002, extended by 0067).
+ */
+export const AI_PROVIDERS: readonly AiProviderName[] = ["anthropic", "gemini", "openai", "openrouter"] as const;
 
 export interface ChatAttachment {
   kind: "image" | "audio";
