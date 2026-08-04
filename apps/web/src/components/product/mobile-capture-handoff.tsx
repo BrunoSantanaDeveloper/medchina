@@ -28,6 +28,7 @@ type LiveStatus =
   | { kind: "recording"; startedAt: string | null }
   | { kind: "uploading" }
   | { kind: "delivered"; mode: CaptureMode }
+  | { kind: "processing_failed" }
   | { kind: "failed" };
 
 /**
@@ -162,7 +163,7 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
     }
     const { data: recording } = await supabase
       .from("recordings")
-      .select("status, capture_started_at")
+      .select("status, capture_started_at, audio_path")
       .eq("id", session.recording_id)
       .maybeSingle();
     const recordingStatus = recording?.status ?? null;
@@ -173,7 +174,10 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
     } else if (recordingStatus === "uploaded" || recordingStatus === "processing" || recordingStatus === "ready") {
       setStatus({ kind: "delivered", mode: (session.mode as CaptureMode) ?? "audio_only" });
     } else if (recordingStatus === "failed") {
-      setStatus({ kind: "failed" });
+      // The SEND only failed if nothing reached storage. With an audio_path the
+      // audio arrived and the failure is in PROCESSING — reprocessed from the
+      // computer (Gravações), not "send again on the phone".
+      setStatus(recording?.audio_path ? { kind: "processing_failed" } : { kind: "failed" });
     } else {
       setStatus({ kind: "waiting", expiresAt: session.expires_at });
     }
@@ -240,9 +244,11 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
             ? status.mode === "ai"
               ? t("capture-qr-status-delivered-ai")
               : t("capture-qr-status-delivered")
-            : status.kind === "failed"
-              ? t("capture-qr-status-failed")
-              : null;
+            : status.kind === "processing_failed"
+              ? t("capture-qr-status-processing-failed")
+              : status.kind === "failed"
+                ? t("capture-qr-status-failed")
+                : null;
 
   return (
     <>
@@ -267,9 +273,11 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
                   ? "bg-accent-3 animate-pulse"
                   : status.kind === "failed"
                     ? "bg-error"
-                    : status.kind === "delivered"
-                      ? "bg-success"
-                      : "bg-grey-500",
+                    : status.kind === "processing_failed"
+                      ? "bg-accent-3"
+                      : status.kind === "delivered"
+                        ? "bg-success"
+                        : "bg-grey-500",
               )}
             />
             <Typography variant="body2" className="text-text-secondary text-xs leading-5">

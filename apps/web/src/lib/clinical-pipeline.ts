@@ -174,7 +174,13 @@ export async function processRecording(
 
   if (beforeTranscription?.status !== "ready") {
     const transcribed = await processTranscription(supabase, transcriptionId);
-    if (!transcribed.ok) return reject("provider_unavailable", "transcription");
+    if (!transcribed.ok) {
+      // The real provider error (model unavailable, quota, bad key) is also
+      // persisted to transcriptions.error, but log it here so a failure is
+      // diagnosable from the server logs instead of an opaque 503.
+      console.error("[pipeline] transcription failed", transcribed.error);
+      return reject("provider_unavailable", "transcription");
+    }
   }
 
   if (!(await heartbeat(supabase, recordingId, claimId))) {

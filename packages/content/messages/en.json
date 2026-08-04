@@ -1803,6 +1803,7 @@
     "capture-qr-status-delivered": "Audio received in the record.",
     "capture-qr-status-delivered-ai": "Audio received — the anamnesis is being drafted.",
     "capture-qr-status-failed": "The phone upload failed. Ask to retry on the phone.",
+    "capture-qr-status-processing-failed": "Audio received. Processing failed — reprocess it under Recordings on the computer.",
     "capture-public-meta-title": "Record consultation — MedChina",
     "capture-public-meta-description": "Secure page to record the consultation's audio.",
     "capture-mobile-title": "Record consultation",

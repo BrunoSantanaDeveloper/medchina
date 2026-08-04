@@ -17,7 +17,7 @@ export const maxDuration = 60;
 /** First configured provider wins; the model is the provider's fast reasoning tier. */
 const PROVIDERS: { name: AiProviderName; model: string; enabled: boolean }[] = [
   { name: "anthropic", model: "claude-sonnet-4-5", enabled: isAnthropicConfigured },
-  { name: "gemini", model: "gemini-2.5-flash", enabled: isGeminiConfigured },
+  { name: "gemini", model: "gemini-flash-latest", enabled: isGeminiConfigured },
   { name: "openrouter", model: "anthropic/claude-sonnet-4.5", enabled: isOpenRouterConfigured },
 ];
 

@@ -282,10 +282,15 @@ export default function RecordingsPanel({
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
-        <Typography variant="h6" component="h2">
-          {t("recordings-title")}
-        </Typography>
-        <InfoHint label={t("recordings-note")} />
+        {/* The hint belongs at the END of the title row, as in every other card
+            in this column — as a sibling of the title it dropped onto a line of
+            its own, reading as a stray icon with nothing to explain. */}
+        <Box className="flex flex-row items-center gap-2">
+          <Typography variant="h6" component="h2" className="mb-0">
+            {t("recordings-title")}
+          </Typography>
+          <InfoHint label={t("recordings-note")} className="ml-auto" />
+        </Box>
         {loadFailed && (
           <Alert
             severity="error"

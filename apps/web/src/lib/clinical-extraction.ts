@@ -21,7 +21,7 @@ import { GoogleGenAI } from "@google/genai";
  *     invented is worse than no quote: it manufactures proof.
  */
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-flash-latest";
 
 /** Bump when the prompt or the verification changes — recorded per answer. */
 export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-08-02";

@@ -975,7 +975,14 @@ export default function ConsultaPage() {
               its tools (hypotheses, plan) can grow far taller than the chart,
               and letting them stretch the page forced scrolling past everything
               to reach what is below. On mobile it stays a normal stacked block. */}
-          <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
+          {/* [&>*]:shrink-0 is load-bearing, not cosmetic: a MUI Card sets
+              overflow:hidden, and per the flexbox spec an item whose overflow
+              is not visible has an automatic minimum size of ZERO. So once
+              this column hits its max-height, flexbox SHRANK the cards instead
+              of scrolling and each one silently clipped its own footer (the
+              recorder lost its last button). Refusing to shrink is what makes
+              overflow-y-auto actually scroll. */}
+          <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[&>*]:shrink-0">
             {/* This is the only capture surface and remains first in DOM order
                 so mobile visual order and keyboard focus order stay aligned.
                 Mount on canEditClinicalRecord, NOT canRecord: canRecord means
@@ -1031,6 +1038,7 @@ export default function ConsultaPage() {
                 consultationId={consultation.id}
                 patientId={consultation.patientId}
                 canAnalyze={Boolean(allowance?.clinicalReasoning)}
+                refreshSignal={recordingsRefresh}
               />
             )}
           </Box>

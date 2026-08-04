@@ -11,7 +11,7 @@ import { type AiProviderName, getChatProvider } from "@flyee/ai";
 export const SUMMARY_PROMPT_VERSION = "clinical-summary-2026-08-01";
 
 const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-flash-latest";
 
 export interface SummaryInput {
   chiefComplaint: string | null;

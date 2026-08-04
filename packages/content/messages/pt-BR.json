@@ -1803,6 +1803,7 @@
     "capture-qr-status-delivered": "Áudio recebido no prontuário.",
     "capture-qr-status-delivered-ai": "Áudio recebido — a anamnese está sendo preparada.",
     "capture-qr-status-failed": "O envio pelo celular falhou. Peça para tentar novamente no celular.",
+    "capture-qr-status-processing-failed": "Áudio recebido. O processamento falhou — reprocesse em Gravações no computador.",
     "capture-public-meta-title": "Gravar consulta — MedChina",
     "capture-public-meta-description": "Página segura para gravar o áudio da consulta.",
     "capture-mobile-title": "Gravar consulta",

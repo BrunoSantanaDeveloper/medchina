@@ -1803,6 +1803,7 @@
     "capture-qr-status-delivered": "Audio recibido en la historia clínica.",
     "capture-qr-status-delivered-ai": "Audio recibido: la anamnesis se está preparando.",
     "capture-qr-status-failed": "El envío desde el móvil falló. Pide reintentar en el móvil.",
+    "capture-qr-status-processing-failed": "Audio recibido. El procesamiento falló — reprocésalo en Grabaciones en el ordenador.",
     "capture-public-meta-title": "Grabar consulta — MedChina",
     "capture-public-meta-description": "Página segura para grabar el audio de la consulta.",
     "capture-mobile-title": "Grabar consulta",

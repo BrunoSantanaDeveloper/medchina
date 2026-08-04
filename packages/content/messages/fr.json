@@ -1803,6 +1803,7 @@
     "capture-qr-status-delivered": "Audio reçu dans le dossier.",
     "capture-qr-status-delivered-ai": "Audio reçu — l'anamnèse est en préparation.",
     "capture-qr-status-failed": "L'envoi depuis le téléphone a échoué. Demandez de réessayer sur le téléphone.",
+    "capture-qr-status-processing-failed": "Audio reçu. Le traitement a échoué — relancez-le dans Enregistrements sur l'ordinateur.",
     "capture-public-meta-title": "Enregistrer la consultation — MedChina",
     "capture-public-meta-description": "Page sécurisée pour enregistrer l'audio de la consultation.",
     "capture-mobile-title": "Enregistrer la consultation",

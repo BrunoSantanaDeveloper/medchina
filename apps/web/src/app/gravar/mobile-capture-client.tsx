@@ -7,6 +7,7 @@ import { Alert, Box, Button, Card, CardContent, CircularProgress, LinearProgress
 
 import NiCamera from "@/icons/nexture/ni-camera";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
+import NiDocumentFull from "@/icons/nexture/ni-document-full";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiPause from "@/icons/nexture/ni-pause";
 import NiSquare from "@/icons/nexture/ni-square";
@@ -43,6 +44,15 @@ type Resolved = {
   mode: "ai" | "audio_only";
   recordingStatus: string | null;
 };
+
+/**
+ * A file this phone has already delivered. `previewUrl` is an object URL over
+ * the LOCAL File — the upload target is a private bucket and this page is
+ * token-authorized with no login, so reading the image back would mean opening
+ * a download path that does not need to exist. The blob never leaves the
+ * device; it is revoked on unmount.
+ */
+type SentAttachment = { id: string; name: string; isImage: boolean; previewUrl: string | null };
 
 const MAX_DURATION_SECONDS = 120 * 60;
 const BUCKET = "transcriptions";
@@ -122,10 +132,11 @@ export default function MobileCaptureClient() {
   // Photos/documents share the SAME QR session as the audio — the phone is
   // camera and microphone in one flow.
   const [attaching, setAttaching] = useState(false);
-  const [attachCount, setAttachCount] = useState(0);
+  const [attachments, setAttachments] = useState<SentAttachment[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
 
   const token = useRef<string | null>(null);
+  const attachmentsRef = useRef<SentAttachment[]>([]);
   const photoInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const clientUploadId = useRef<string | null>(null);
@@ -145,6 +156,18 @@ export default function MobileCaptureClient() {
   const pendingBlob = useRef<{ blob: Blob; duration: number; mime: string } | null>(null);
   const phaseRef = useRef<Phase>("loading");
   phaseRef.current = phase;
+  attachmentsRef.current = attachments;
+
+  // Object URLs are a manual allocation: without this the previews would hold
+  // every full-resolution photo of the session alive on a phone.
+  useEffect(
+    () => () => {
+      for (const attachment of attachmentsRef.current) {
+        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+      }
+    },
+    [],
+  );
 
   const call = useCallback(async (path: string, payload: Record<string, unknown>) => {
     const response = await fetch(`/api/public/capture/${path}`, {
@@ -183,8 +206,18 @@ export default function MobileCaptureClient() {
             path,
             size: file.size,
           });
-          if (confirmed.ok) setAttachCount((count) => count + 1);
-          else setAttachError("capture-photo-error");
+          if (confirmed.ok) {
+            const isImage = file.type.startsWith("image/");
+            setAttachments((current) => [
+              ...current,
+              {
+                id: `${Date.now()}-${current.length}-${file.name}`,
+                name: file.name,
+                isImage,
+                previewUrl: isImage ? URL.createObjectURL(file) : null,
+              },
+            ]);
+          } else setAttachError("capture-photo-error");
         } catch {
           setAttachError("capture-photo-error");
         }
@@ -875,10 +908,46 @@ export default function MobileCaptureClient() {
             {attachError && (
               <Alert severity={attachError === "capture-photo-consent" ? "info" : "error"}>{t(attachError)}</Alert>
             )}
-            {attachCount > 0 && (
-              <Alert severity="success" icon={<NiCheckSquare />}>
-                {t("capture-photo-sent", { count: attachCount })}
-              </Alert>
+            {attachments.length > 0 && (
+              <>
+                <Alert severity="success" icon={<NiCheckSquare />}>
+                  {t("capture-photo-sent", { count: attachments.length })}
+                </Alert>
+                {/* What was sent, shown rather than counted: on a phone, "1
+                    anexo enviado" cannot tell her she photographed the tongue
+                    and not the ceiling. A document has no useful preview, so it
+                    is identified by its name instead. */}
+                <Box component="ul" className="m-0 flex list-none flex-row flex-wrap gap-2 p-0">
+                  {attachments.map((attachment) => (
+                    <Box component="li" key={attachment.id} className="flex w-16 flex-col items-center gap-1">
+                      {attachment.previewUrl ? (
+                        // A local blob URL — next/image cannot optimize it and
+                        // would only add a proxy hop for bytes already here.
+                        <img
+                          src={attachment.previewUrl}
+                          alt={attachment.name}
+                          className="border-grey-100 h-16 w-16 rounded-xl border object-cover"
+                        />
+                      ) : (
+                        <Box
+                          aria-hidden
+                          className="border-grey-100 bg-grey-25 text-text-secondary flex h-16 w-16 items-center justify-center rounded-xl border"
+                        >
+                          <NiDocumentFull size="medium" />
+                        </Box>
+                      )}
+                      {!attachment.isImage && (
+                        <Typography
+                          variant="body2"
+                          className="text-text-secondary w-full truncate text-center text-[0.625rem] leading-4"
+                        >
+                          {attachment.name}
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              </>
             )}
             <Box className="flex flex-row gap-2">
               <Button

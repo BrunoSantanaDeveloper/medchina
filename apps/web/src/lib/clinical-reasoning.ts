@@ -32,7 +32,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const REASONING_PROMPT_VERSION = "hypotheses-2026-07-15";
 
 const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-flash-latest";
 
 export type Correspondence = "weak" | "moderate" | "strong";
 

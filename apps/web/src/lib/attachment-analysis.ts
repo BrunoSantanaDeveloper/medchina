@@ -14,7 +14,7 @@ import { type AiProviderName, getChatProvider } from "@flyee/ai";
 export const ANALYSIS_PROMPT_VERSION = "attachment-analysis-2026-08-01";
 
 const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-flash-latest";
 
 export interface AttachmentAnalysis {
   /** One neutral sentence: what this attachment IS. */

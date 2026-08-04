@@ -1803,6 +1803,7 @@
     "capture-qr-status-delivered": "Audio in der Akte eingegangen.",
     "capture-qr-status-delivered-ai": "Audio eingegangen — die Anamnese wird vorbereitet.",
     "capture-qr-status-failed": "Der Upload vom Handy ist fehlgeschlagen. Bitten Sie, es am Handy erneut zu versuchen.",
+    "capture-qr-status-processing-failed": "Audio empfangen. Verarbeitung fehlgeschlagen — unter Aufnahmen am Computer erneut verarbeiten.",
     "capture-public-meta-title": "Konsultation aufnehmen — MedChina",
     "capture-public-meta-description": "Sichere Seite zum Aufnehmen des Konsultations-Audios.",
     "capture-mobile-title": "Konsultation aufnehmen",

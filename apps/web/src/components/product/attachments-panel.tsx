@@ -58,11 +58,15 @@ export default function AttachmentsPanel({
   consultationId,
   patientId,
   canAnalyze = false,
+  refreshSignal,
 }: {
   consultationId: string;
   patientId: string;
   /** Pro entitlement: the AI may read an attachment for review (Fase B). */
   canAnalyze?: boolean;
+  /** Bumped by the parent's sync tick so a photo captured on the PHONE appears
+   *  here without a manual reload — the same mechanism the recordings use. */
+  refreshSignal?: number;
 }) {
   const t = useTranslations("product");
   const [items, setItems] = useState<Attachment[] | null>(null);
@@ -94,6 +98,17 @@ export default function AttachmentsPanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Re-sync on the parent's tick (a photo/document arrived from the phone)
+  // without clearing the grid first — the mount load owns the initial spinner.
+  const firstRefresh = useRef(true);
+  useEffect(() => {
+    if (firstRefresh.current) {
+      firstRefresh.current = false;
+      return;
+    }
+    void load();
+  }, [refreshSignal, load]);
 
   const uploadOne = async (file: File): Promise<boolean> => {
     const kind = attachmentKindForMime(file.type);

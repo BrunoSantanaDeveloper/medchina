@@ -23,7 +23,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const PLAN_PROMPT_VERSION = "therapeutic-plan-2026-07-15";
 
 const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-flash-latest";
 
 export type AcupunctureStrategy = "tonify" | "disperse" | "harmonize" | "warm" | "regulate";
 
