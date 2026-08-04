@@ -1,0 +1,396 @@
+{
+  "$comment": [
+    "Retrieval golden set for the MTC clinical library. Run it with:",
+    "  node_modules/.bin/tsx scripts/eval-retrieval.mts",
+    "",
+    "WHY IT EXISTS: every retrieval knob in this product — embedding model,",
+    "output dimensions, chunk size, similarity floor, the trust bonus, the RRF",
+    "constant — used to be tunable with no way of telling whether a change helped.",
+    "A regression in retrieval raises no error and shows no stack trace: the",
+    "hypotheses simply come back with fewer sources and nobody notices.",
+    "",
+    "EXPECTATIONS ARE BY `metadata.key`, NEVER BY DOCUMENT UUID. Ids differ",
+    "between local, staging and production; the key ('ponto:IG4') is stable and",
+    "was assigned at import.",
+    "",
+    "TWO TIERS, and the difference is honesty about who verified them:",
+    "  * identifier — a code or pinyin name resolves to exactly one card. This is",
+    "    objectively checkable, needs no clinical judgement, and is precisely what",
+    "    a 768-dim embedding handles worst. These gate CI.",
+    "  * clinical — a practitioner's question paraphrased from what the document",
+    "    itself records. Grounded in the corpus (never copied verbatim, which",
+    "    would let lexical search win for free and measure nothing), but the",
+    "    EXPECTATION still needs a TCM professional to confirm. They are marked",
+    "    verified:false and are reported separately until that review happens.",
+    "",
+    "Adding a case: keep the query in the words a practitioner would actually",
+    "type, and make `expect` the smallest set that is genuinely correct."
+  ],
+  "version": 1,
+  "matchCount": 8,
+  "cases": [
+    {
+      "id": "code-ig4",
+      "tier": "identifier",
+      "verified": true,
+      "query": "IG4",
+      "expect": ["ponto:IG4"]
+    },
+    {
+      "id": "code-e36",
+      "tier": "identifier",
+      "verified": true,
+      "query": "E36",
+      "expect": ["ponto:E36"]
+    },
+    {
+      "id": "code-vg20",
+      "tier": "identifier",
+      "verified": true,
+      "query": "VG20",
+      "expect": ["ponto:VG20"]
+    },
+    {
+      "id": "code-b23",
+      "tier": "identifier",
+      "verified": true,
+      "query": "B23",
+      "expect": ["ponto:B23"]
+    },
+    {
+      "id": "code-pc6",
+      "tier": "identifier",
+      "verified": true,
+      "query": "PC6",
+      "expect": ["ponto:PC6"]
+    },
+    {
+      "id": "code-r3",
+      "tier": "identifier",
+      "verified": true,
+      "query": "R3",
+      "expect": ["ponto:R3"]
+    },
+    {
+      "id": "code-f3",
+      "tier": "identifier",
+      "verified": true,
+      "query": "F3",
+      "expect": ["ponto:F3"]
+    },
+    {
+      "id": "code-vb20",
+      "tier": "identifier",
+      "verified": true,
+      "query": "VB20",
+      "expect": ["ponto:VB20"]
+    },
+    {
+      "id": "code-c7",
+      "tier": "identifier",
+      "verified": true,
+      "query": "C7",
+      "expect": ["ponto:C7"]
+    },
+    {
+      "id": "code-bp6",
+      "tier": "identifier",
+      "verified": true,
+      "query": "BP6",
+      "expect": ["ponto:BP6"]
+    },
+    {
+      "id": "code-ig11",
+      "tier": "identifier",
+      "verified": true,
+      "query": "IG11",
+      "expect": ["ponto:IG11"]
+    },
+    {
+      "id": "code-id3",
+      "tier": "identifier",
+      "verified": true,
+      "query": "ID3",
+      "expect": ["ponto:ID3"]
+    },
+    {
+      "id": "code-ta5",
+      "tier": "identifier",
+      "verified": true,
+      "query": "TA5",
+      "expect": ["ponto:TA5"]
+    },
+    {
+      "id": "code-vc6",
+      "tier": "identifier",
+      "verified": true,
+      "query": "VC6",
+      "expect": ["ponto:VC6"]
+    },
+    {
+      "id": "pinyin-hegu",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Hegu",
+      "expect": ["ponto:IG4"]
+    },
+    {
+      "id": "pinyin-zusanli",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Zusanli",
+      "expect": ["ponto:E36"]
+    },
+    {
+      "id": "pinyin-baihui",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Baihui",
+      "expect": ["ponto:VG20"]
+    },
+    {
+      "id": "pinyin-shenshu",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Shenshu",
+      "expect": ["ponto:B23"]
+    },
+    {
+      "id": "pinyin-neiguan",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Neiguan",
+      "expect": ["ponto:PC6"]
+    },
+    {
+      "id": "pinyin-taixi",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Taixi",
+      "expect": ["ponto:R3"]
+    },
+    {
+      "id": "pinyin-taichong",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Taichong",
+      "expect": ["ponto:F3"]
+    },
+    {
+      "id": "pinyin-fengchi",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Fengchi",
+      "expect": ["ponto:VB20"]
+    },
+    {
+      "id": "pinyin-shenmen",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Shenmen",
+      "expect": ["ponto:C7"]
+    },
+    {
+      "id": "pinyin-sanyinjiao",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Sanyinjiao",
+      "expect": ["ponto:BP6"]
+    },
+    {
+      "id": "pinyin-quchi",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Quchi",
+      "expect": ["ponto:IG11"]
+    },
+    {
+      "id": "pinyin-houxi",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Houxi",
+      "expect": ["ponto:ID3"]
+    },
+    {
+      "id": "pinyin-waiguan",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Waiguan",
+      "expect": ["ponto:TA5"]
+    },
+    {
+      "id": "pinyin-qihai",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Qihai",
+      "expect": ["ponto:VC6"]
+    },
+    {
+      "id": "code-and-pinyin-e36",
+      "tier": "identifier",
+      "verified": true,
+      "query": "ponto E36 Zusanli",
+      "expect": ["ponto:E36"]
+    },
+    {
+      "id": "code-with-intent-vg20",
+      "tier": "identifier",
+      "verified": true,
+      "query": "localização do VG20 Baihui",
+      "expect": ["ponto:VG20"]
+    },
+    {
+      "id": "code-with-intent-bp6",
+      "tier": "identifier",
+      "verified": true,
+      "query": "puntura do BP6 e cuidados",
+      "expect": ["ponto:BP6"]
+    },
+    {
+      "id": "tung-11-01",
+      "tier": "identifier",
+      "verified": true,
+      "query": "11.01",
+      "expect": ["tung:11.01"]
+    },
+    {
+      "id": "tung-11-02",
+      "tier": "identifier",
+      "verified": true,
+      "query": "ponto de Tung 11.02",
+      "expect": ["tung:11.02"]
+    },
+    {
+      "id": "formula-gui-pi-wan",
+      "tier": "identifier",
+      "verified": true,
+      "query": "GUI PI WAN",
+      "expect": ["formula:GUIPIWAN"]
+    },
+    {
+      "id": "formula-xiang-lian-wan",
+      "tier": "identifier",
+      "verified": true,
+      "query": "XIANG LIAN WAN",
+      "expect": ["formula:XIANGLIANWAN"]
+    },
+    {
+      "id": "formula-er-chen-wan",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Er Chen Wan",
+      "expect": ["formula:ERCHENWAN"]
+    },
+    {
+      "id": "formula-bu-zhong-yi-qi",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Bu Zhong Yi Qi Wan",
+      "expect": ["formula:BUZHONGYIQIWAN"]
+    },
+    {
+      "id": "formula-gui-zhi-fu-ling",
+      "tier": "identifier",
+      "verified": true,
+      "query": "Gui Zhi Fu Ling Wan",
+      "expect": ["formula:GUIZHIFULINGWAN"]
+    },
+
+    {
+      "id": "clinical-pregnancy-contraindicated-headache",
+      "tier": "clinical",
+      "verified": false,
+      "query": "ponto contraindicado na gravidez que trata cefaleia e paralisia facial",
+      "expect": ["ponto:IG4"],
+      "note": "IG4 records the pregnancy contraindication alongside cefaleia and paralisia facial."
+    },
+    {
+      "id": "clinical-lumbar-kidney",
+      "tier": "clinical",
+      "verified": false,
+      "query": "ponto para lombalgia com fraqueza nos joelhos que fortalece o Rim",
+      "expect": ["ponto:B23", "ponto:R3"],
+      "note": "B23 lists lombalgia + fraqueza nos joelhos; R3 fortalece a região lombar e os joelhos."
+    },
+    {
+      "id": "clinical-vertex-withdrawal",
+      "tier": "clinical",
+      "verified": false,
+      "query": "ponto no alto da cabeça usado em síndrome de abstinência",
+      "expect": ["ponto:VG20"],
+      "note": "VG20 is the only card recording abstinência/vício."
+    },
+    {
+      "id": "clinical-acute-torticollis",
+      "tier": "clinical",
+      "verified": false,
+      "query": "torcicolo agudo com dor na nuca, ponto que regula o Vaso Governador",
+      "expect": ["ponto:ID3"],
+      "note": "ID3 records torcicolo agudo, dor na nuca and 'Regula o Vaso Governador'."
+    },
+    {
+      "id": "clinical-nausea-anxiety-wrist",
+      "tier": "clinical",
+      "verified": false,
+      "query": "ponto entre os tendões do punho para náusea e ansiedade",
+      "expect": ["ponto:PC6"],
+      "note": "PC6 is located between palmar longus and flexor carpi radialis tendons."
+    },
+    {
+      "id": "clinical-epicondylitis",
+      "tier": "clinical",
+      "verified": false,
+      "query": "epicondilite com hipertensão, ponto no cotovelo",
+      "expect": ["ponto:IG11"],
+      "note": "IG11 records epicondilite and hipertensão."
+    },
+    {
+      "id": "clinical-liver-yang-headache",
+      "tier": "clinical",
+      "verified": false,
+      "query": "cefaleia com irritabilidade e distensão nos hipocôndrios, pacificar Yang do Fígado",
+      "expect": ["ponto:F3", "ponto:VB20"],
+      "note": "Both record 'Pacifica Yang do Fígado'; F3 also lists hipocôndrios and irritação."
+    },
+    {
+      "id": "clinical-occipital-headache-wind",
+      "tier": "clinical",
+      "verified": false,
+      "query": "dor de cabeça occipital com resfriado, extinguir vento",
+      "expect": ["ponto:VB20"],
+      "note": "VB20 records dor de cabeça occipital, resfriado comum and expelling Vento."
+    },
+    {
+      "id": "clinical-insomnia-palpitation",
+      "tier": "clinical",
+      "verified": false,
+      "query": "insônia com palpitação e pesadelos, acalmar o Shen",
+      "expect": ["ponto:C7"],
+      "note": "C7 records palpitação, insônia and pesadelos together."
+    },
+    {
+      "id": "clinical-dysentery-blood-pus",
+      "tier": "clinical",
+      "verified": false,
+      "query": "fórmula para disenteria com fezes com sangue e pus e tenesmo",
+      "expect": ["formula:XIANGLIANWAN"],
+      "note": "Verbatim indications of XIANG LIAN WAN, asked as a question."
+    },
+    {
+      "id": "clinical-tung-inguinal-hernia",
+      "tier": "clinical",
+      "verified": false,
+      "query": "ponto de Tung no dedo indicador para hérnia inguinal",
+      "expect": ["tung:11.01", "tung:11.02"],
+      "note": "Both Tung cards sit on the palmar index finger and record hérnia inguinal."
+    },
+    {
+      "id": "clinical-spleen-qi-sinking",
+      "tier": "clinical",
+      "verified": false,
+      "query": "esgotamento com prolapso, tonificar e erguer o Qi afundado",
+      "expect": ["ponto:VC6", "ponto:E36", "ponto:BP6"],
+      "note": "All three record 'Move, Tonifica e Ergue o Qi' / 'Ergue o Qi e Yang Afundados'."
+    }
+  ]
+}

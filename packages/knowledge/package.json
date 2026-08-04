@@ -13,5 +13,8 @@
     "@flyee/auth": "*",
     "@flyee/jobs": "*",
     "@supabase/supabase-js": "^2.50.0"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/chunking.test.ts"
   }
 }

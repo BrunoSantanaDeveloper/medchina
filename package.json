@@ -21,7 +21,7 @@
     "test:clinical": "npm test -w @flyee/clinical",
     "test:whatsapp": "npm test -w @flyee/whatsapp",
     "test:ai": "npm test -w @flyee/ai",
-    "test": "npm run test:clinical && npm run test:whatsapp && npm run test:ai && npm run test:web && npm run test:mobile",
+    "test": "npm run test:clinical && npm run test:knowledge && npm run test:web && npm run test:mobile",
     "test:web": "npm run test -w @flyee/web",
     "test:mobile": "npm run test -w @flyee/mobile",
     "test:browser": "npm run test:browser -w @flyee/web",
@@ -42,7 +42,10 @@
     "tokens:generate": "npm run generate -w @flyee/design-tokens",
     "prepare": "husky || true",
     "pre-commit": "lint-staged",
-    "typecheck": "npm run typecheck -w @flyee/clinical && npm run typecheck -w @flyee/web && npm run typecheck -w @flyee/mobile"
+    "typecheck": "npm run typecheck -w @flyee/clinical && npm run typecheck -w @flyee/web && npm run typecheck -w @flyee/mobile",
+    "test:knowledge": "npm test -w @flyee/knowledge",
+    "eval:retrieval": "tsx scripts/eval-retrieval.mts",
+    "knowledge:reindex": "tsx scripts/reindex-knowledge.mts"
   },
   "devDependencies": {
     "husky": "9.1.7",
