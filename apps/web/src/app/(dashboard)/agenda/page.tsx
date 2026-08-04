@@ -42,8 +42,9 @@ import NiChevronRight from "@/icons/nexture/ni-chevron-right";
 import {
   calendarDateInTimeZone,
   calendarDayRange,
+  calendarMonthRange,
   calendarOverdueRange,
-  calendarUpcomingRange,
+  calendarWeekRange,
   cancelAppointment,
   type CancellationCategory,
   defaultAppointmentStart,
@@ -69,16 +70,15 @@ type Appointment = {
   patientPhone: string | null;
 };
 
-/** How far the "upcoming" list looks ahead. */
-const UPCOMING_DAYS = 30;
-
 /** How far back the "left behind" check scans for never-started appointments. */
 const OVERDUE_LOOKBACK_DAYS = 60;
 
 const APPOINTMENT_FIELDS =
   "id, status, scheduled_for, duration_minutes, appointment_note, cancellation_reason, cancellation_category, patient_id, patients(full_name, phone)";
 
-type AgendaView = "day" | "upcoming";
+/** The three periods the agenda lists over. Day is a flat list; week and month
+ *  group by day. The `day` state is the shared anchor for all three. */
+type AgendaView = "day" | "week" | "month";
 
 const startOfDay = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
 const isSameDay = (a: Date, b: Date) =>
@@ -88,6 +88,8 @@ const moveDay = (day: Date, amount: number) => {
   next.setDate(next.getDate() + amount);
   return startOfDay(next);
 };
+/** Monday of the local calendar week containing `day` (ISO week start). */
+const mondayOf = (day: Date) => moveDay(day, -((day.getDay() + 6) % 7));
 
 export default function Agenda() {
   const t = useTranslations("product");
@@ -167,9 +169,11 @@ export default function Agenda() {
     setAppointmentsState(remoteLoading());
     const supabase = createClient();
     const { start, end } =
-      view === "upcoming"
-        ? calendarUpcomingRange(new Date(), UPCOMING_DAYS, timezone)
-        : calendarDayRange(day, timezone);
+      view === "week"
+        ? calendarWeekRange(day, timezone)
+        : view === "month"
+          ? calendarMonthRange(day, timezone)
+          : calendarDayRange(day, timezone);
     let query = supabase
       .from("consultations")
       .select(APPOINTMENT_FIELDS)
@@ -309,8 +313,29 @@ export default function Agenda() {
   };
 
   const officeToday = calendarDateInTimeZone(new Date(), timezone);
-  const today = isSameDay(day, officeToday);
-  const dayLabel = day.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
+
+  // The chevrons and the "today" affordance act on the CURRENT period, so day /
+  // week / month all navigate coherently from the shared `day` anchor.
+  const movePeriod = (anchor: Date, direction: 1 | -1) => {
+    if (view === "week") return moveDay(anchor, direction * 7);
+    if (view === "month") return startOfDay(dayjs(anchor).add(direction, "month").toDate());
+    return moveDay(anchor, direction);
+  };
+  const periodHasToday =
+    view === "day"
+      ? isSameDay(day, officeToday)
+      : view === "week"
+        ? officeToday >= mondayOf(day) && officeToday < moveDay(mondayOf(day), 7)
+        : day.getFullYear() === officeToday.getFullYear() && day.getMonth() === officeToday.getMonth();
+  const shortDate = (value: Date) => value.toLocaleDateString(locale, { day: "numeric", month: "short" });
+  const periodLabel =
+    view === "day"
+      ? day.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })
+      : view === "week"
+        ? `${shortDate(mondayOf(day))} – ${shortDate(moveDay(mondayOf(day), 6))}`
+        : day.toLocaleDateString(locale, { month: "long", year: "numeric" });
+  const prevAria = view === "week" ? "agenda-prev-week" : view === "month" ? "agenda-prev-month" : "agenda-prev-day";
+  const nextAria = view === "week" ? "agenda-next-week" : view === "month" ? "agenda-next-month" : "agenda-next-day";
 
   // Appointments are grouped by the day they fall on IN THE OFFICE timezone, so a
   // late consultation never drifts into the neighbouring day of the viewer's clock.
@@ -332,7 +357,8 @@ export default function Agenda() {
         )
       : [];
 
-  const upcomingGroups = () => {
+  /** Week and month lists are grouped by the day each appointment falls on. */
+  const dayGroups = () => {
     const groups = new Map<string, Appointment[]>();
     for (const appointment of visibleAppointments) {
       const key = officeDayKey(new Date(appointment.scheduledFor));
@@ -585,63 +611,62 @@ export default function Agenda() {
           }}
         >
           <ToggleButton value="day">{t("agenda-view-day")}</ToggleButton>
-          <ToggleButton value="upcoming">{t("agenda-view-upcoming")}</ToggleButton>
+          <ToggleButton value="week">{t("agenda-view-week")}</ToggleButton>
+          <ToggleButton value="month">{t("agenda-view-month")}</ToggleButton>
         </ToggleButtonGroup>
       </Grid>
 
-      {view === "day" && (
-        <Grid size={12}>
-          <Card component="section" aria-label={t("agenda-day-navigation")}>
-            <CardContent className="flex flex-row items-center justify-between gap-2 py-3!">
-              <IconButton aria-label={t("agenda-prev-day")} onClick={() => setDay((current) => moveDay(current, -1))}>
-                <NiChevronLeft size="medium" />
-              </IconButton>
-              <Box className="flex flex-col items-center" aria-live="polite">
-                <Button
-                  variant="text"
-                  color="grey"
-                  onClick={() => setDatePickerOpen(true)}
-                  aria-label={t("agenda-pick-date", { date: dayLabel })}
-                  className="normal-case"
-                >
-                  <Typography variant="h6" component="span" className="mb-0 capitalize">
-                    {dayLabel}
-                  </Typography>
+      <Grid size={12}>
+        <Card component="section" aria-label={t("agenda-period-navigation")}>
+          <CardContent className="flex flex-row items-center justify-between gap-2 py-3!">
+            <IconButton aria-label={t(prevAria)} onClick={() => setDay((current) => movePeriod(current, -1))}>
+              <NiChevronLeft size="medium" />
+            </IconButton>
+            <Box className="flex flex-col items-center" aria-live="polite">
+              <Button
+                variant="text"
+                color="grey"
+                onClick={() => setDatePickerOpen(true)}
+                aria-label={t("agenda-pick-date", { date: periodLabel })}
+                className="normal-case"
+              >
+                <Typography variant="h6" component="span" className="mb-0 capitalize">
+                  {periodLabel}
+                </Typography>
+              </Button>
+              <LocalizationProvider
+                dateAdapter={AdapterDayjs}
+                adapterLocale={locale.toLowerCase()}
+                localeText={pickerLocaleText(locale)}
+              >
+                <MobileDatePicker
+                  open={datePickerOpen}
+                  onClose={() => setDatePickerOpen(false)}
+                  value={dayjs(day)}
+                  onAccept={(value) => {
+                    if (value?.isValid()) setDay(startOfDay(value.toDate()));
+                  }}
+                  slotProps={{ textField: { className: "hidden", tabIndex: -1, "aria-hidden": true } }}
+                />
+              </LocalizationProvider>
+              {!periodHasToday ? (
+                <Button variant="text" color="grey" size="small" onClick={() => setDay(officeToday)}>
+                  {t("agenda-today")}
                 </Button>
-                <LocalizationProvider
-                  dateAdapter={AdapterDayjs}
-                  adapterLocale={locale.toLowerCase()}
-                  localeText={pickerLocaleText(locale)}
-                >
-                  <MobileDatePicker
-                    open={datePickerOpen}
-                    onClose={() => setDatePickerOpen(false)}
-                    value={dayjs(day)}
-                    onAccept={(value) => {
-                      if (value?.isValid()) setDay(startOfDay(value.toDate()));
-                    }}
-                    slotProps={{ textField: { className: "hidden", tabIndex: -1, "aria-hidden": true } }}
-                  />
-                </LocalizationProvider>
-                {!today ? (
-                  <Button variant="text" color="grey" size="small" onClick={() => setDay(officeToday)}>
-                    {t("agenda-today")}
-                  </Button>
-                ) : (
-                  <Typography variant="body2" className="text-primary text-xs font-semibold">
-                    {t("agenda-today")}
-                  </Typography>
-                )}
-              </Box>
-              <IconButton aria-label={t("agenda-next-day")} onClick={() => setDay((current) => moveDay(current, 1))}>
-                <NiChevronRight size="medium" />
-              </IconButton>
-            </CardContent>
-          </Card>
-        </Grid>
-      )}
+              ) : (
+                <Typography variant="body2" className="text-primary text-xs font-semibold">
+                  {t("agenda-today")}
+                </Typography>
+              )}
+            </Box>
+            <IconButton aria-label={t(nextAria)} onClick={() => setDay((current) => movePeriod(current, 1))}>
+              <NiChevronRight size="medium" />
+            </IconButton>
+          </CardContent>
+        </Card>
+      </Grid>
 
-      {view === "upcoming" && (
+      {(view === "week" || view === "month") && (
         <Grid size={12}>
           <TextField
             fullWidth
@@ -777,18 +802,18 @@ export default function Agenda() {
             <CardContent>
               {/* A search that matches nothing is a different answer from an empty agenda:
                   it must offer a way back, never the "schedule one" nudge. */}
-              {view === "upcoming" && query ? (
+              {(view === "week" || view === "month") && query ? (
                 <EmptyState
                   icon={<NiCalendarClock />}
                   title={t("agenda-upcoming-no-match-title")}
                   description={t("agenda-upcoming-no-match-body", { patient: patientFilter.trim() })}
                   action={{ label: t("agenda-upcoming-clear-filter"), onClick: () => setPatientFilter("") }}
                 />
-              ) : view === "upcoming" ? (
+              ) : view === "week" || view === "month" ? (
                 <EmptyState
                   icon={<NiCalendarClock />}
-                  title={t("agenda-upcoming-empty-title")}
-                  description={t("agenda-upcoming-empty-body", { days: UPCOMING_DAYS })}
+                  title={t(view === "week" ? "agenda-week-empty-title" : "agenda-month-empty-title")}
+                  description={t(view === "week" ? "agenda-week-empty-body" : "agenda-month-empty-body")}
                   action={{ label: t("agenda-schedule"), onClick: openNewSchedule }}
                 />
               ) : (
@@ -798,7 +823,7 @@ export default function Agenda() {
                   description={
                     showCancelled
                       ? t("agenda-no-cancelled-body")
-                      : today
+                      : periodHasToday
                         ? t("agenda-empty-today")
                         : t("agenda-empty-day")
                   }
@@ -811,9 +836,9 @@ export default function Agenda() {
               )}
             </CardContent>
           </Card>
-        ) : view === "upcoming" ? (
+        ) : view === "week" || view === "month" ? (
           <Box className="flex flex-col gap-6" aria-live="polite">
-            {upcomingGroups().map(([key, appointments]) => (
+            {dayGroups().map(([key, appointments]) => (
               <Box key={key} className="flex flex-col gap-3">
                 <Typography
                   variant="body2"

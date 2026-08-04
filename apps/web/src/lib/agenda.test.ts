@@ -1,8 +1,10 @@
 import {
   calendarDateInTimeZone,
   calendarDayRange,
+  calendarMonthRange,
   calendarOverdueRange,
   calendarUpcomingRange,
+  calendarWeekRange,
   defaultAppointmentStart,
   weeklyOccurrences,
   whatsappConfirmationLink,
@@ -63,6 +65,40 @@ describe("agenda calendar helpers", () => {
     const { start, end } = calendarUpcomingRange(new Date("2026-07-17T12:00:00.000Z"), 30, "America/Sao_Paulo");
 
     expect(Math.round((end.getTime() - start.getTime()) / 86_400_000)).toBe(30);
+  });
+});
+
+describe("calendarWeekRange", () => {
+  it("spans Monday to the next Monday around a mid-week anchor", () => {
+    // 2026-08-05 is a Wednesday; its ISO week runs Mon 2026-08-03 → Mon 08-10.
+    const { start, end } = calendarWeekRange(new Date(2026, 7, 5), "America/Sao_Paulo");
+
+    expect(start.toISOString()).toBe("2026-08-03T03:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-08-10T03:00:00.000Z");
+  });
+
+  it("treats Monday itself as the first day of its week", () => {
+    // 2026-08-03 is a Monday — the week starts on it, not the previous Monday.
+    const { start } = calendarWeekRange(new Date(2026, 7, 3), "America/Sao_Paulo");
+
+    expect(start.toISOString()).toBe("2026-08-03T03:00:00.000Z");
+  });
+
+  it("treats Sunday as the last day of the week that began the prior Monday", () => {
+    // 2026-08-09 is a Sunday — its week still starts Mon 2026-08-03.
+    const { start, end } = calendarWeekRange(new Date(2026, 7, 9), "America/Sao_Paulo");
+
+    expect(start.toISOString()).toBe("2026-08-03T03:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-08-10T03:00:00.000Z");
+  });
+});
+
+describe("calendarMonthRange", () => {
+  it("spans the whole calendar month of the anchor", () => {
+    const { start, end } = calendarMonthRange(new Date(2026, 7, 15), "America/Sao_Paulo");
+
+    expect(start.toISOString()).toBe("2026-08-01T03:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-09-01T03:00:00.000Z");
   });
 });
 

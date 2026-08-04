@@ -211,6 +211,31 @@ export function calendarUpcomingRange(
   return { start: start.toDate(), end: start.add(days, "day").startOf("day").toDate() };
 }
 
+/**
+ * The calendar week that CONTAINS `anchor`, in the office timezone. Weeks start
+ * on Monday (ISO), matching how a clinic reads its week. `anchor` is a local
+ * calendar Date (from the day-navigation state), so only its Y/M/D matter.
+ */
+export function calendarWeekRange(
+  anchor: Date,
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): { start: Date; end: Date } {
+  const day = dayjs.tz(calendarKey(anchor), timeZone).startOf("day");
+  // dayjs day(): 0=Sunday..6=Saturday. Shift so Monday is the first day.
+  const mondayOffset = (day.day() + 6) % 7;
+  const start = day.subtract(mondayOffset, "day");
+  return { start: start.toDate(), end: start.add(7, "day").toDate() };
+}
+
+/** The calendar month that CONTAINS `anchor`, in the office timezone. */
+export function calendarMonthRange(
+  anchor: Date,
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+): { start: Date; end: Date } {
+  const start = dayjs.tz(calendarKey(anchor), timeZone).startOf("month");
+  return { start: start.toDate(), end: start.add(1, "month").startOf("day").toDate() };
+}
+
 export function calendarDateInTimeZone(instant: Date, timeZone: string): Date {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
