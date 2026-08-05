@@ -20,7 +20,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const [t, locale] = await Promise.all([getTranslations("marketing"), getLocale()]);
   const article = await getHelpArticle(locale, slug);
   if (!article) return { title: t("help-meta-title"), description: t("help-meta-description") };
-  return { title: article.title, description: article.excerpt ?? t("help-meta-description") };
+  return {
+    title: article.title,
+    description: article.excerpt ?? t("help-meta-description"),
+    alternates: { canonical: `/ajuda/${slug}` },
+  };
 }
 
 /** One help article: Markdown body, freshness date and sibling articles. */

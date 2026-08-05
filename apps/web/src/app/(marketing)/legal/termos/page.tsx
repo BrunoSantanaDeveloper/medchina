@@ -7,7 +7,7 @@ import SectionHeader from "@/components/marketing/section-header";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("terms-meta-title") };
+  return { title: t("terms-meta-title"), alternates: { canonical: "/legal/termos" } };
 }
 
 /**

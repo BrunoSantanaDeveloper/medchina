@@ -8,7 +8,11 @@ import SectionHeader from "@/components/marketing/section-header";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("contact-meta-title"), description: t("contact-meta-description") };
+  return {
+    title: t("contact-meta-title"),
+    description: t("contact-meta-description"),
+    alternates: { canonical: "/contato" },
+  };
 }
 
 export default async function ContactPage() {

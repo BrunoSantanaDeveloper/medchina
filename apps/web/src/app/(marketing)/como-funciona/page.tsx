@@ -17,7 +17,11 @@ import NiSearch from "@/icons/nexture/ni-search";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("hiw-meta-title"), description: t("hiw-meta-description") };
+  return {
+    title: t("hiw-meta-title"),
+    description: t("hiw-meta-description"),
+    alternates: { canonical: "/como-funciona" },
+  };
 }
 
 /**

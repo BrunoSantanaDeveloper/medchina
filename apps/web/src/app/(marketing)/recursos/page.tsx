@@ -19,7 +19,11 @@ import NiUsers from "@/icons/nexture/ni-users";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("features-meta-title"), description: t("features-meta-description") };
+  return {
+    title: t("features-meta-title"),
+    description: t("features-meta-description"),
+    alternates: { canonical: "/recursos" },
+  };
 }
 
 /**

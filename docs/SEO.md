@@ -24,6 +24,14 @@ These ship in the base and rebrand from `@flyee/content` — a new page inherits
 See the `marketing-page` skill's "SEO & discoverability" section — enforced by review:
 exactly one `<h1>` (the page title), a localized title tag (target term + value, ~60 chars) and a distinct 150–160-char description via `generateMetadata`, answer-first copy, the target term in `<h1>`/title/slug/first sentence, internal links to the money page, and structured data via `<JsonLd>` for any new schema-eligible block.
 
+**Canonical URL (per page — Next does NOT auto-emit it).** Every page returns
+`alternates: { canonical: "<its own path>" }` from `metadata`/`generateMetadata`
+(resolved against `metadataBase` = `NEXT_PUBLIC_SITE_URL`). This declares the
+preferred URL and prevents duplicate-content splits (query strings, trailing
+slash, the `.vercel.app` alias vs. the custom domain). Dynamic routes build it
+from the slug (`` `/blog/${slug}` ``). A new marketing page without a canonical
+is incomplete.
+
 ## Per-page target terms (MedChina — pt-BR is the indexed language)
 
 Source: `docs/PRODUCT.md` §26/§29 of `docs/HOME-SPEC.md`. Money pages first. Terms are used naturally — never stuffed (HOME-SPEC §29.4).

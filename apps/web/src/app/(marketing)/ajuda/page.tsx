@@ -14,7 +14,7 @@ import { listHelpContent } from "@/lib/public-content";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("help-meta-title"), description: t("help-meta-description") };
+  return { title: t("help-meta-title"), description: t("help-meta-description"), alternates: { canonical: "/ajuda" } };
 }
 
 /**

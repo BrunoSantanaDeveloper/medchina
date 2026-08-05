@@ -13,7 +13,11 @@ import NiUsers from "@/icons/nexture/ni-users";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("about-meta-title"), description: t("about-meta-description") };
+  return {
+    title: t("about-meta-title"),
+    description: t("about-meta-description"),
+    alternates: { canonical: "/sobre" },
+  };
 }
 
 const VALUE_ICONS = [<NiUsers key="users" />, <NiShieldCheck key="shield" />, <NiHearts key="hearts" />];

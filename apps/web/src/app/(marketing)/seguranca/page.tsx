@@ -15,7 +15,11 @@ import NiMicrophone from "@/icons/nexture/ni-microphone";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("sec-meta-title"), description: t("sec-meta-description") };
+  return {
+    title: t("sec-meta-title"),
+    description: t("sec-meta-description"),
+    alternates: { canonical: "/seguranca" },
+  };
 }
 
 /**

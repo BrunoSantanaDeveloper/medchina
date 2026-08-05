@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("blog-meta-title"), description: t("blog-meta-description") };
+  return { title: t("blog-meta-title"), description: t("blog-meta-description"), alternates: { canonical: "/blog" } };
 }
 
 /**

@@ -19,7 +19,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const [t, locale] = await Promise.all([getTranslations("marketing"), getLocale()]);
   const post = await getBlogPost(locale, slug);
   if (!post) return { title: t("blog-meta-title"), description: t("blog-meta-description") };
-  return { title: post.title, description: post.excerpt ?? t("blog-meta-description") };
+  return {
+    title: post.title,
+    description: post.excerpt ?? t("blog-meta-description"),
+    alternates: { canonical: `/blog/${slug}` },
+  };
 }
 
 /** One blog post: Markdown body, byline and the moderated comment thread. */

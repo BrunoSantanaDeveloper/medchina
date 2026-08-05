@@ -11,7 +11,11 @@ import NiShieldCheck from "@/icons/nexture/ni-shield-check";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
-  return { title: t("pricing-meta-title"), description: t("pricing-meta-description") };
+  return {
+    title: t("pricing-meta-title"),
+    description: t("pricing-meta-description"),
+    alternates: { canonical: "/planos" },
+  };
 }
 
 export default async function PricingPage() {
