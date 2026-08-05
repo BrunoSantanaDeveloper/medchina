@@ -1926,6 +1926,8 @@
     "consultation-review-ready": "AI-prepared draft. Review, adjust and finalize when you agree.",
     "consultation-gaps-title": "Investigate",
     "consultation-gaps-subtitle": "Relevant topics that didn't come up in the consultation. Suggestions — never answers.",
+    "consultation-gaps-dismiss": "Dismiss suggestion",
+    "consultation-gap-dismiss-error": "Couldn't dismiss the suggestion. Please try again.",
     "recordings-title": "Recordings",
     "recordings-process": "Process with AI",
     "recordings-process-error": "Could not process the recording.",

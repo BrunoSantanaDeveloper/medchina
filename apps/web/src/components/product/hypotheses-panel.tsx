@@ -77,6 +77,7 @@ export default function HypothesesPanel({
   entitlementLoading,
   entitlementError,
   onRetryEntitlement,
+  onDecisionChanged,
   isFinalized,
 }: {
   consultationId: string;
@@ -86,6 +87,12 @@ export default function HypothesesPanel({
   entitlementLoading: boolean;
   entitlementError: boolean;
   onRetryEntitlement: () => void;
+  /**
+   * Fired when a decision lands (accept/edit/reject). The sibling plan panel
+   * gates its AI button on whether a hypothesis is accepted, so it re-checks
+   * the moment that changes instead of waiting for the next poll.
+   */
+  onDecisionChanged?: () => void;
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
@@ -243,6 +250,7 @@ export default function HypothesesPanel({
       setNote("");
       setPattern("");
       await load(true);
+      onDecisionChanged?.();
     } catch {
       setActionError(t("hypotheses-error"));
     } finally {

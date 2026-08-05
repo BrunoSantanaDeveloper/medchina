@@ -77,10 +77,18 @@ type PlanData = { plan: Plan; documents: IssuedDocument[] };
 export default function PlanPanel({
   consultationId,
   canReason,
+  hasAcceptedHypotheses,
   isFinalized,
 }: {
   consultationId: string;
   canReason: boolean;
+  /**
+   * Whether at least one hypothesis is accepted/edited. The AI plan is BUILT on
+   * those (PRD §10.9), so preparing without one is refused server-side
+   * (`accepted_hypothesis_required`). We gate the button on it instead of
+   * letting the click surface a warning after the fact.
+   */
+  hasAcceptedHypotheses: boolean;
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
@@ -552,7 +560,7 @@ export default function PlanPanel({
               {t("plan-empty")}
             </Typography>
             {!isFinalized && (
-              <Box className="flex flex-row flex-wrap gap-2">
+              <Box className="flex flex-col gap-2">
                 <Button
                   variant="contained"
                   color="primary"
@@ -564,16 +572,26 @@ export default function PlanPanel({
                   {busy ? <CircularProgress size={18} /> : t("plan-create-manual")}
                 </Button>
                 {canReason && (
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    fullWidth
-                    startIcon={<NiListCheck size="tiny" />}
-                    onClick={() => prepare()}
-                    disabled={busy}
-                  >
-                    {t("plan-prepare")}
-                  </Button>
+                  <>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      fullWidth
+                      startIcon={<NiListCheck size="tiny" />}
+                      onClick={() => prepare()}
+                      // The AI plan is built ON the accepted hypotheses — until
+                      // there is one it cannot run, so it stays disabled with the
+                      // reason stated below rather than erroring after a click.
+                      disabled={busy || !hasAcceptedHypotheses}
+                    >
+                      {t("plan-prepare")}
+                    </Button>
+                    {!hasAcceptedHypotheses && (
+                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                        {t("plan-accepted-hypothesis-required")}
+                      </Typography>
+                    )}
+                  </>
                 )}
               </Box>
             )}
@@ -746,7 +764,13 @@ export default function PlanPanel({
                       {t("close")}
                     </Button>
                     {!isFinalized && canReason && plan.status === "draft" && plan.origin === "ai" && (
-                      <Button variant="text" color="grey" onClick={() => prepare()} disabled={busy}>
+                      <Button
+                        variant="text"
+                        color="grey"
+                        onClick={() => prepare()}
+                        // Rebuilding still needs a settled hypothesis to build on.
+                        disabled={busy || !hasAcceptedHypotheses}
+                      >
                         {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
                       </Button>
                     )}

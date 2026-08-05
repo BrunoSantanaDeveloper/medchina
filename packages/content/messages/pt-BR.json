@@ -1926,6 +1926,8 @@
     "consultation-review-ready": "Rascunho preparado pela IA. Revise, ajuste e finalize quando estiver de acordo.",
     "consultation-gaps-title": "Investigar",
     "consultation-gaps-subtitle": "Temas relevantes que não apareceram na consulta. São sugestões — nunca respostas.",
+    "consultation-gaps-dismiss": "Dispensar sugestão",
+    "consultation-gap-dismiss-error": "Não foi possível dispensar a sugestão. Tente novamente.",
     "recordings-title": "Gravações",
     "recordings-process": "Processar com IA",
     "recordings-process-error": "Não foi possível processar a gravação.",

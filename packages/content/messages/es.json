@@ -1926,6 +1926,8 @@
     "consultation-review-ready": "Borrador preparado por la IA. Revisa, ajusta y finaliza cuando estés de acuerdo.",
     "consultation-gaps-title": "Investigar",
     "consultation-gaps-subtitle": "Temas relevantes que no aparecieron en la consulta. Son sugerencias, nunca respuestas.",
+    "consultation-gaps-dismiss": "Descartar sugerencia",
+    "consultation-gap-dismiss-error": "No se pudo descartar la sugerencia. Inténtalo de nuevo.",
     "recordings-title": "Grabaciones",
     "recordings-process": "Procesar con IA",
     "recordings-process-error": "No se pudo procesar la grabación.",

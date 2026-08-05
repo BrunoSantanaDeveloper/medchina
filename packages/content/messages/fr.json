@@ -1926,6 +1926,8 @@
     "consultation-review-ready": "Brouillon préparé par l'IA. Relisez, ajustez et clôturez quand vous êtes d'accord.",
     "consultation-gaps-title": "À explorer",
     "consultation-gaps-subtitle": "Sujets pertinents non abordés en consultation. Des suggestions, jamais des réponses.",
+    "consultation-gaps-dismiss": "Écarter la suggestion",
+    "consultation-gap-dismiss-error": "Impossible d'écarter la suggestion. Réessayez.",
     "recordings-title": "Enregistrements",
     "recordings-process": "Traiter avec l'IA",
     "recordings-process-error": "Impossible de traiter l'enregistrement.",

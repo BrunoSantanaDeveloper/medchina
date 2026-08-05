@@ -1926,6 +1926,8 @@
     "consultation-review-ready": "Von der KI vorbereiteter Entwurf. Prüfen, anpassen und abschließen, wenn Sie einverstanden sind.",
     "consultation-gaps-title": "Nachfragen",
     "consultation-gaps-subtitle": "Relevante Themen, die in der Behandlung nicht vorkamen. Vorschläge — nie Antworten.",
+    "consultation-gaps-dismiss": "Vorschlag verwerfen",
+    "consultation-gap-dismiss-error": "Der Vorschlag konnte nicht verworfen werden. Bitte erneut versuchen.",
     "recordings-title": "Aufnahmen",
     "recordings-process": "Mit KI verarbeiten",
     "recordings-process-error": "Die Aufnahme konnte nicht verarbeitet werden.",

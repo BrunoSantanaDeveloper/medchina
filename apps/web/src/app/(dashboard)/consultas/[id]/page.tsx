@@ -25,9 +25,11 @@ import {
   FormControlLabel,
   FormLabel,
   Grid,
+  IconButton,
   Input,
   Popover,
   Skeleton,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
@@ -46,6 +48,7 @@ import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
+import NiCross from "@/icons/nexture/ni-cross";
 import NiListCheck from "@/icons/nexture/ni-list-check";
 import NiLock from "@/icons/nexture/ni-lock";
 import NiPlay from "@/icons/nexture/ni-play";
@@ -199,6 +202,9 @@ export default function ConsultaPage() {
   const [busy, setBusy] = useState(false);
   const [provenanceAnchor, setProvenanceAnchor] = useState<{ el: HTMLElement; data: Provenance } | null>(null);
   const [recordingsRefresh, setRecordingsRefresh] = useState(0);
+  // Does a hypothesis stand accepted/edited? The plan panel (step 3) builds ON
+  // those, so its AI button is gated on this instead of erroring after a click.
+  const [hasAcceptedHypotheses, setHasAcceptedHypotheses] = useState(false);
   /** "Ouvir este trecho": the excerpt the recordings panel should open on. */
   const [transcriptSeek, setTranscriptSeek] = useState<{
     start: string;
@@ -325,6 +331,25 @@ export default function ConsultaPage() {
     void load();
   }, [load]);
 
+  // The plan panel's AI button gates on an accepted/edited hypothesis. Recheck
+  // it whenever a decision could have changed it: on load, on the poll below,
+  // and the instant she decides in the hypotheses panel (its onDecisionChanged).
+  const refreshHypothesisAcceptance = useCallback(async () => {
+    const consultationId = consultation?.id;
+    if (!consultationId || !isSupabaseConfigured) return;
+    const supabase = createClient();
+    const { count, error } = await supabase
+      .from("consultation_hypotheses")
+      .select("id", { count: "exact", head: true })
+      .eq("consultation_id", consultationId)
+      .in("status", ["accepted", "edited"]);
+    if (!error) setHasAcceptedHypotheses((count ?? 0) > 0);
+  }, [consultation?.id]);
+
+  useEffect(() => {
+    void refreshHypothesisAcceptance();
+  }, [refreshHypothesisAcceptance]);
+
   // A capture finishes OUT OF BAND with this open tab, in two ways the page
   // cannot otherwise see: the AI pipeline drafts the anamnesis in a background
   // job, and a recording can be captured on the PHONE while she has the record
@@ -338,8 +363,9 @@ export default function ConsultaPage() {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     if (saveCoordinator.hasUnsavedChanges()) return;
     void load();
+    void refreshHypothesisAcceptance();
     setRecordingsRefresh((value) => value + 1);
-  }, [load, saveCoordinator]);
+  }, [load, refreshHypothesisAcceptance, saveCoordinator]);
 
   useEffect(() => {
     const status = consultation?.status;
@@ -682,6 +708,37 @@ export default function ConsultaPage() {
       await load();
     }
     setBusy(false);
+  };
+
+  /**
+   * Clear an investigated "Investigar" suggestion (PRD §10.7). Gaps are AI
+   * suggestions, never answers, so removing one changes no clinical value — it
+   * turns the list into a checklist she works through, and the card is done
+   * once it empties. The RPC returns the new clinical_revision (touching
+   * ai_gaps bumps it) so the open editor's autosave stays in sync instead of
+   * hitting a phantom conflict on her next keystroke.
+   */
+  const dismissGap = async (gap: string) => {
+    if (!consultation || !canEdit) return;
+    // Optimistic: the item leaves the list on click; a failure restores it.
+    setConsultation((current) =>
+      current ? { ...current, aiGaps: current.aiGaps.filter((existing) => existing !== gap) } : current,
+    );
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("dismiss_consultation_gap", {
+      target_consultation: consultation.id,
+      target_gap: gap,
+    });
+    const result = data as { ok?: boolean; revision?: number; gaps?: string[] } | null;
+    if (error || !result?.ok) {
+      setErrorKey("consultation-gap-dismiss-error");
+      await load();
+      return;
+    }
+    if (Number.isInteger(result.revision)) revisionRef.current = Number(result.revision);
+    setConsultation((current) =>
+      current ? { ...current, aiGaps: Array.isArray(result.gaps) ? result.gaps : current.aiGaps } : current,
+    );
   };
 
   const filledCount = useMemo(() => Object.values(fields).filter((meta) => meta.value.trim()).length, [fields]);
@@ -1257,6 +1314,7 @@ export default function ConsultaPage() {
               entitlementLoading={allowanceLoading}
               entitlementError={allowanceError}
               onRetryEntitlement={() => void reloadAllowance()}
+              onDecisionChanged={() => void refreshHypothesisAcceptance()}
               isFinalized={isReadOnly}
             />
 
@@ -1265,6 +1323,7 @@ export default function ConsultaPage() {
             <PlanPanel
               consultationId={consultation.id}
               canReason={Boolean(canEdit && allowance?.clinicalReasoning)}
+              hasAcceptedHypotheses={hasAcceptedHypotheses}
               isFinalized={isReadOnly}
             />
 
@@ -1286,12 +1345,35 @@ export default function ConsultaPage() {
                   <Typography variant="body2" className="text-text-secondary text-xs">
                     {t("consultation-gaps-subtitle")}
                   </Typography>
+                  {/* Actionable, not just informative: each suggestion is an open
+                      loop she can close. Dismissing one (she investigated it, or
+                      it does not apply) removes it — the list shrinks and the
+                      card is done once empty. The control DISMISSES the question;
+                      it never affirms the finding (a gap is a question, never an
+                      answer — PRD §10.7), which is why it is a "remove", not a
+                      checkmark. */}
                   <Box component="ul" className="flex flex-col gap-1.5">
                     {consultation.aiGaps.map((gap) => (
-                      <li key={gap} className="text-text-primary flex items-start gap-2 text-sm leading-5">
-                        <span aria-hidden className="bg-accent-3 mt-1.5 h-1.5 w-1.5 flex-none rounded-full" />
-                        {gap}
-                      </li>
+                      <Box
+                        component="li"
+                        key={gap}
+                        className="border-grey-100 flex flex-row items-start gap-2 rounded-2xl border px-3 py-2"
+                      >
+                        <span aria-hidden className="bg-accent-3 mt-2 h-1.5 w-1.5 flex-none rounded-full" />
+                        <Typography variant="body2" className="text-text-primary flex-1 text-sm leading-5">
+                          {gap}
+                        </Typography>
+                        <Tooltip title={t("consultation-gaps-dismiss")}>
+                          <IconButton
+                            size="small"
+                            aria-label={t("consultation-gaps-dismiss")}
+                            onClick={() => void dismissGap(gap)}
+                            className="text-text-secondary hover:text-primary -my-0.5 -mr-1 flex-none"
+                          >
+                            <NiCross size="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     ))}
                   </Box>
                 </CardContent>
