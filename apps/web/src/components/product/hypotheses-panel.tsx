@@ -78,6 +78,7 @@ export default function HypothesesPanel({
   entitlementError,
   onRetryEntitlement,
   onDecisionChanged,
+  onBeforePrepare,
   isFinalized,
 }: {
   consultationId: string;
@@ -93,6 +94,13 @@ export default function HypothesesPanel({
    * the moment that changes instead of waiting for the next poll.
    */
   onDecisionChanged?: () => void;
+  /**
+   * Flush the anamnesis autosave and resolve once it has committed. Preparing
+   * reads the recorded answers from the DB, so without this a value she typed
+   * (e.g. the tongue/pulse she just entered) and then immediately clicked
+   * "reprepare" over would be read stale — the hypotheses would not reflect it.
+   */
+  onBeforePrepare?: () => Promise<void>;
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
@@ -190,6 +198,11 @@ export default function HypothesesPanel({
     setBusy(true);
     setActionError(null);
     try {
+      // Commit any pending anamnesis edit first, so the reasoning reads exactly
+      // what is on screen (e.g. the tongue/pulse she just typed), never a stale
+      // revision. A failed flush must not block preparing — worst case is the
+      // same race we had before.
+      await onBeforePrepare?.().catch(() => undefined);
       const response = await fetch(`/api/consultations/${consultationId}/hypotheses`, { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {

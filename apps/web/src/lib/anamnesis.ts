@@ -133,37 +133,12 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
       },
     ],
   },
-  {
-    key: "plan",
-    title: "block-plan",
-    fields: [
-      {
-        key: "goal",
-        label: "field-goal",
-        multiline: true,
-        hint: "Objetivo terapêutico declarado pela profissional para este atendimento.",
-      },
-      {
-        key: "points",
-        label: "field-points",
-        multiline: true,
-        hint: "Pontos que a profissional disse que vai usar (nomenclatura como ela falou).",
-      },
-      {
-        key: "techniques",
-        label: "field-techniques",
-        multiline: true,
-        hint: "Técnicas ditas pela profissional: agulhamento, moxa, ventosa, auriculo, sangria.",
-      },
-      {
-        key: "guidance",
-        label: "field-guidance",
-        multiline: true,
-        hint: "Orientações dadas à paciente para casa: alimentação, repouso, exercícios, cuidados.",
-      },
-      { key: "frequency", label: "field-frequency", hint: "Frequência/intervalo de retorno combinado." },
-    ],
-  },
+  // The old free-form "plan" block (Conduta e anotações) was retired: conduct is
+  // the therapeutic plan (PlanPanel step 3 — manual for everyone, AI-drafted for
+  // Pro), so keeping a parallel plan block here only duplicated it. Migration
+  // 0031 already copied any legacy plan.* answers into consultation_plans; the
+  // extraction iterates THIS list, so dropping the block also stops the pipeline
+  // from writing plan.* again.
 ];
 
 /**

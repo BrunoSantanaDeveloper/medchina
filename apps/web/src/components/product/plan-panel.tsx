@@ -1106,25 +1106,7 @@ function FieldEditor({
   }
   if (kind === "list") {
     // One item per line — the honest, low-friction way to edit a short list.
-    const text = Array.isArray(value) ? (value as string[]).join("\n") : "";
-    return (
-      <TextField
-        multiline
-        minRows={2}
-        size="small"
-        fullWidth
-        value={text}
-        placeholder={t("plan-list-hint")}
-        onChange={(event) =>
-          onChange(
-            event.target.value
-              .split("\n")
-              .map((line) => line.trim())
-              .filter(Boolean),
-          )
-        }
-      />
-    );
+    return <ListEditor value={value} placeholder={t("plan-list-hint")} onChange={onChange} />;
   }
   return (
     <TextField
@@ -1134,6 +1116,63 @@ function FieldEditor({
       fullWidth
       value={(value as string) ?? ""}
       onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
+
+/**
+ * A short list edited one item per line. The array is normalised (trim + drop
+ * blank lines) only on BLUR — never on every keystroke. Doing it per keystroke
+ * was the bug: it stripped a trailing space the instant you typed it and
+ * deleted a blank line the instant you pressed Enter, so spaces and line breaks
+ * were impossible. Local text holds exactly what she types; the parent gets the
+ * clean array when she leaves the field.
+ */
+function ListEditor({
+  value,
+  placeholder,
+  onChange,
+}: {
+  value: unknown;
+  placeholder: string;
+  onChange: (value: string[]) => void;
+}) {
+  const arrayToText = (input: unknown) => (Array.isArray(input) ? (input as string[]).join("\n") : "");
+  const [text, setText] = useState(() => arrayToText(value));
+  const focusedRef = useRef(false);
+
+  // Re-seed from upstream only while she is NOT editing (a reload / external
+  // change), so a poll or parent re-render never yanks the caret mid-word.
+  useEffect(() => {
+    if (!focusedRef.current) setText(arrayToText(value));
+  }, [value]);
+
+  const commit = (raw: string) => {
+    const cleaned = raw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    onChange(cleaned);
+    // Reflect the normalised form once editing ends.
+    setText(cleaned.join("\n"));
+  };
+
+  return (
+    <TextField
+      multiline
+      minRows={2}
+      size="small"
+      fullWidth
+      value={text}
+      placeholder={placeholder}
+      onFocus={() => {
+        focusedRef.current = true;
+      }}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={(event) => {
+        focusedRef.current = false;
+        commit(event.target.value);
+      }}
     />
   );
 }

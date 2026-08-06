@@ -7,9 +7,6 @@ import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Breadcrumbs,
@@ -117,7 +114,6 @@ type ConsultationContext = {
     capturedOn?: string | null;
   } | null;
 };
-type FinalizeSummary = { draftHypotheses: number; draftPlans: number };
 type FinalizeResponse = {
   ok?: boolean;
   error?: { code?: string; details?: { warnings?: string[]; revision?: number } };
@@ -191,9 +187,6 @@ export default function ConsultaPage() {
     failed: 0,
   });
   const [finalizeOpen, setFinalizeOpen] = useState(false);
-  const [finalizeSummary, setFinalizeSummary] = useState<FinalizeSummary>({ draftHypotheses: 0, draftPlans: 0 });
-  const [finalizeWarnings, setFinalizeWarnings] = useState<string[]>([]);
-  const [acknowledgedWarnings, setAcknowledgedWarnings] = useState<string[]>([]);
   const [emptyConfirmed, setEmptyConfirmed] = useState(false);
   const [addendumOpen, setAddendumOpen] = useState(false);
   const [consentCollectionOpen, setConsentCollectionOpen] = useState(false);
@@ -544,36 +537,14 @@ export default function ConsultaPage() {
     !headerDraft.chiefComplaint.trim() &&
     !headerDraft.summary.trim();
 
-  const prepareFinalize = async () => {
+  const prepareFinalize = () => {
     if (!consultation || !capabilities?.canFinalize) return;
+    // The dialog no longer makes her tick off "review these" warnings (drafts
+    // and attention fields freeze WITH the record, they are not blockers). The
+    // server still surfaces them; finalize() acknowledges whatever comes back.
+    // Only the empty-record guard remains a real confirmation.
     setErrorKey(null);
-    setFinalizeWarnings([]);
-    setAcknowledgedWarnings([]);
     setEmptyConfirmed(false);
-    const supabase = createClient();
-    const [hypothesesResult, plansResult] = await Promise.all([
-      supabase
-        .from("consultation_hypotheses")
-        .select("id", { count: "exact", head: true })
-        .eq("consultation_id", consultation.id)
-        .eq("status", "draft"),
-      supabase
-        .from("consultation_plans")
-        .select("id", { count: "exact", head: true })
-        .eq("consultation_id", consultation.id)
-        .eq("status", "draft"),
-    ]);
-    if (hypothesesResult.error || plansResult.error) {
-      setErrorKey("consultation-finalize-summary-error");
-      return;
-    }
-    const summary = { draftHypotheses: hypothesesResult.count ?? 0, draftPlans: plansResult.count ?? 0 };
-    setFinalizeSummary(summary);
-    setFinalizeWarnings([
-      ...(Object.values(fields).some((meta) => meta.state === "attention") ? ["attention_fields"] : []),
-      ...(summary.draftHypotheses ? ["draft_hypotheses"] : []),
-      ...(summary.draftPlans ? ["draft_plan"] : []),
-    ]);
     setFinalizeOpen(true);
   };
 
@@ -602,26 +573,35 @@ export default function ConsultaPage() {
         return;
       }
 
-      const confirmedWarnings = [
-        ...acknowledgedWarnings,
-        ...(consultationIsEmpty && emptyConfirmed ? ["empty_consultation"] : []),
-      ];
-      const response = await fetch(`/api/consultations/${consultation.id}/finalize`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ expectedRevision: revision, acknowledgedWarnings: confirmedWarnings }),
-      });
-      const body = (await response.json().catch(() => ({}))) as FinalizeResponse;
+      const attemptFinalize = async (acknowledged: string[]) => {
+        const attempt = await fetch(`/api/consultations/${consultation.id}/finalize`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ expectedRevision: revision, acknowledgedWarnings: acknowledged }),
+        });
+        return { attempt, payload: (await attempt.json().catch(() => ({}))) as FinalizeResponse };
+      };
+
+      // The empty-record guard is the only confirmation the professional still
+      // makes by hand. The soft warnings (attention fields, draft hypotheses/
+      // plan) are acknowledged automatically — they freeze with the record and
+      // are not blockers — so if the server surfaces them, tick them and retry.
+      let acknowledged = consultationIsEmpty && emptyConfirmed ? ["empty_consultation"] : [];
+      let { attempt: response, payload: body } = await attemptFinalize(acknowledged);
+      if (!response.ok && body.error?.code === "finalization_confirmation_required") {
+        const returned = Array.isArray(body.error?.details?.warnings)
+          ? body.error.details.warnings.filter((warning: unknown): warning is string => typeof warning === "string")
+          : [];
+        const soft = returned.filter((warning) => warning !== "empty_consultation");
+        if (soft.length > 0) {
+          acknowledged = [...new Set([...acknowledged, ...soft])];
+          ({ attempt: response, payload: body } = await attemptFinalize(acknowledged));
+        }
+      }
+
       if (!response.ok) {
         const code = body.error?.code;
-        const warnings = body?.error?.details?.warnings;
-        if (code === "finalization_confirmation_required" && Array.isArray(warnings)) {
-          const safeWarnings = warnings.filter((warning: unknown): warning is string => typeof warning === "string");
-          setFinalizeWarnings(safeWarnings.filter((warning) => warning !== "empty_consultation"));
-          if (safeWarnings.includes("empty_consultation")) setEmptyConfirmed(false);
-          setAcknowledgedWarnings([]);
-          setErrorKey("consultation-finalize-review-warnings");
-        } else if (code === "clinical_revision_conflict") {
+        if (code === "clinical_revision_conflict") {
           await load();
           setErrorKey("consultation-revision-conflict");
         } else {
@@ -632,8 +612,6 @@ export default function ConsultaPage() {
       }
 
       setFinalizeOpen(false);
-      setFinalizeWarnings([]);
-      setAcknowledgedWarnings([]);
       setBusy(false);
       await load();
       router.refresh();
@@ -741,13 +719,23 @@ export default function ConsultaPage() {
     );
   };
 
-  const filledCount = useMemo(() => Object.values(fields).filter((meta) => meta.value.trim()).length, [fields]);
-  // Chief complaint lives on the consultation row, not among ANAMNESIS_BLOCKS
-  // fields, so it stays out of this count too (see the block comment above).
+  // Only fields that belong to a CURRENT block count — a chart from before the
+  // "plan" block was retired still carries orphan plan.* answers (migration 0031
+  // kept the source rows), and counting those would report more filled fields
+  // than the total. Chief complaint lives on the consultation row, not among
+  // these fields, so it is out of the count too.
+  const blockFieldKeys = useMemo(
+    () => new Set(ANAMNESIS_BLOCKS.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`))),
+    [],
+  );
+  const filledCount = useMemo(
+    () => Object.entries(fields).filter(([key, meta]) => blockFieldKeys.has(key) && meta.value.trim()).length,
+    [fields, blockFieldKeys],
+  );
   const totalFieldCount = useMemo(() => ANAMNESIS_BLOCKS.reduce((sum, block) => sum + block.fields.length, 0), []);
   const attentionCount = useMemo(
-    () => Object.values(fields).filter((meta) => meta.state === "attention").length,
-    [fields],
+    () => Object.entries(fields).filter(([key, meta]) => blockFieldKeys.has(key) && meta.state === "attention").length,
+    [fields, blockFieldKeys],
   );
 
   // What the AI wrote, per block. Without this the drafted anamnesis lands
@@ -848,7 +836,6 @@ export default function ConsultaPage() {
                 : experience === "cancelled"
                   ? t("context-next-cancelled")
                   : t("context-next-continue");
-  const allWarningsAcknowledged = finalizeWarnings.every((warning) => acknowledgedWarnings.includes(warning));
 
   if (!consultation && loadFailed) {
     return (
@@ -1039,8 +1026,13 @@ export default function ConsultaPage() {
               of scrolling and each one silently clipped its own footer (the
               recorder lost its last button). Refusing to shrink is what makes
               overflow-y-auto actually scroll. */}
-          <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[&>*]:shrink-0">
-            {/* This is the only capture surface and remains first in DOM order
+          {/* When the record is read-only (finalized/cancelled/scheduled) there
+              is no capture surface here — render NOTHING rather than an empty
+              column, which left a large blank at the top of the tools column.
+              The tools column then moves up to row 1 (see order-3 below). */}
+          {capabilities?.canEditClinicalRecord && (
+            <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[&>*]:shrink-0">
+              {/* This is the only capture surface and remains first in DOM order
                 so mobile visual order and keyboard focus order stay aligned.
                 Mount on canEditClinicalRecord, NOT canRecord: canRecord means
                 "may START a new recording" and flips false the instant a
@@ -1048,59 +1040,63 @@ export default function ConsultaPage() {
                 mount on it would UNMOUNT the recorder mid-capture — its cleanup
                 stops the mic and the take drops to ~1s. Editability is stable
                 across the whole record → upload → process lifecycle. */}
-            {capabilities?.canEditClinicalRecord &&
-              (isPrimary ? (
-                <ConsultationRecorder
-                  orgId={consultation.orgId}
-                  patientId={consultation.patientId}
+              {capabilities?.canEditClinicalRecord &&
+                (isPrimary ? (
+                  <ConsultationRecorder
+                    orgId={consultation.orgId}
+                    patientId={consultation.patientId}
+                    consultationId={consultation.id}
+                    audioConsent={context?.consents.audio}
+                    aiConsent={context?.consents.ai}
+                    onRequestConsent={() => setConsentCollectionOpen(true)}
+                    onChanged={syncFromServer}
+                    // Phone-via-QR is an alternate METHOD for this same step, not
+                    // a step of its own — it renders inside the recorder's own
+                    // card instead of a second, confusingly-numbered "step 1".
+                    secondaryCapture={<MobileCaptureHandoff consultationId={consultation.id} />}
+                  />
+                ) : (
+                  <Card component="section">
+                    <CardContent className="flex flex-col gap-2">
+                      <Typography variant="h6" component="h2">
+                        {t("recorder-title")}
+                      </Typography>
+                      <Typography variant="body2" className="text-text-secondary leading-6">
+                        {t("recorder-other-tab")}
+                      </Typography>
+                      <Button variant="contained" color="primary" onClick={takeOver} className="self-start">
+                        {t("recorder-take-over")}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+
+              {canEdit && (
+                <RecordingsPanel
                   consultationId={consultation.id}
-                  audioConsent={context?.consents.audio}
-                  aiConsent={context?.consents.ai}
-                  onRequestConsent={() => setConsentCollectionOpen(true)}
-                  onChanged={syncFromServer}
-                  // Phone-via-QR is an alternate METHOD for this same step, not
-                  // a step of its own — it renders inside the recorder's own
-                  // card instead of a second, confusingly-numbered "step 1".
-                  secondaryCapture={<MobileCaptureHandoff consultationId={consultation.id} />}
+                  onProcessed={load}
+                  refreshSignal={recordingsRefresh}
+                  seekTo={transcriptSeek ?? undefined}
                 />
-              ) : (
-                <Card component="section">
-                  <CardContent className="flex flex-col gap-2">
-                    <Typography variant="h6" component="h2">
-                      {t("recorder-title")}
-                    </Typography>
-                    <Typography variant="body2" className="text-text-secondary leading-6">
-                      {t("recorder-other-tab")}
-                    </Typography>
-                    <Button variant="contained" color="primary" onClick={takeOver} className="self-start">
-                      {t("recorder-take-over")}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+              )}
 
-            {canEdit && (
-              <RecordingsPanel
-                consultationId={consultation.id}
-                onProcessed={load}
-                refreshSignal={recordingsRefresh}
-                seekTo={transcriptSeek ?? undefined}
-              />
-            )}
-
-            {/* Documents and photos attached to the record (exam PDFs, clinical
+              {/* Documents and photos attached to the record (exam PDFs, clinical
                 photos) — uploaded here or captured on the phone via the QR. */}
-            {capabilities?.canEditClinicalRecord && isPrimary && (
-              <AttachmentsPanel
-                consultationId={consultation.id}
-                patientId={consultation.patientId}
-                canAnalyze={Boolean(allowance?.clinicalReasoning)}
-                refreshSignal={recordingsRefresh}
-              />
-            )}
-          </Box>
+              {capabilities?.canEditClinicalRecord && isPrimary && (
+                <AttachmentsPanel
+                  consultationId={consultation.id}
+                  patientId={consultation.patientId}
+                  canAnalyze={Boolean(allowance?.clinicalReasoning)}
+                  refreshSignal={recordingsRefresh}
+                />
+              )}
+            </Box>
+          )}
 
-          <Box className="order-2 min-w-0 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <Box className="order-2 flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+            {/* Intro card: what the anamnesis is, plus the return-visit context.
+                Each anamnesis block below is its OWN card so the sections read as
+                distinct areas of the chart instead of blurring together. */}
             <Card component="section">
               <CardContent className="flex flex-col gap-4">
                 <Box>
@@ -1146,132 +1142,128 @@ export default function ConsultaPage() {
                     </Link>
                   </Box>
                 )}
+              </CardContent>
+            </Card>
 
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" htmlFor="consultation-chief-complaint">
-                    {t("field-main-complaint")}
-                  </FormLabel>
-                  <Input
-                    id="consultation-chief-complaint"
-                    multiline
-                    minRows={2}
-                    readOnly={isReadOnly}
-                    value={headerDraft.chiefComplaint}
-                    onChange={(event) => queueHeaderSave("chiefComplaint", event.target.value)}
-                    onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
-                  />
-                </FormControl>
-                {previous?.chiefComplaint && previous.chiefComplaint.trim() !== headerDraft.chiefComplaint.trim() && (
-                  <Typography variant="body2" className="text-text-secondary -mt-2 text-xs leading-5">
-                    <span className="font-semibold">{t("previous-field-label")}</span> {previous.chiefComplaint}
-                  </Typography>
-                )}
-
-                {ANAMNESIS_BLOCKS.map((block) => (
-                  <Accordion
-                    key={block.key}
-                    elevation={0}
-                    disableGutters
-                    expanded={expandedBlocks[block.key] ?? false}
-                    onChange={(_, isExpanded) =>
-                      setExpandedBlocks((current) => ({ ...current, [block.key]: isExpanded }))
-                    }
-                    className="border-grey-100 bg-background-paper rounded-2xl! border"
-                  >
-                    <AccordionSummary expandIcon={<NiChevronDownSmall />} className="px-5! py-2!">
-                      <Box className="flex flex-row flex-wrap items-center gap-2">
-                        <Typography component="h3" variant="subtitle1">
-                          {t(block.title)}
-                        </Typography>
-                        {(blockStats[block.key]?.filled ?? 0) > 0 && (
-                          <span className="bg-grey-100 text-text-secondary rounded-full px-2 py-0.5 text-xs font-semibold">
-                            {t("block-filled-count", { count: blockStats[block.key].filled })}
-                          </span>
-                        )}
-                        {(blockStats[block.key]?.attention ?? 0) > 0 && (
-                          <span className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light rounded-full px-2 py-0.5 text-xs font-semibold">
-                            {t("block-attention-count", { count: blockStats[block.key].attention })}
-                          </span>
-                        )}
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails className="flex flex-col gap-1 px-5! pt-0! pb-5!">
-                      {block.fields.map((field) => {
-                        const composite = `${block.key}.${field.key}`;
-                        const meta = fields[composite];
-                        const isObservation = PROFESSIONAL_OBSERVATION_FIELDS.has(composite);
-                        return (
-                          <FormControl key={field.key} className="outlined" variant="standard" size="small">
-                            <FormLabel
-                              component="label"
-                              htmlFor={`consultation-field-${block.key}-${field.key}`}
-                              className="flex flex-row flex-wrap items-center gap-2"
-                            >
-                              {t(field.label)}
-                              {isObservation && (
-                                <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
-                                  {t("field-observation-badge")}
-                                </span>
-                              )}
-                              {meta?.value && (
-                                <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
-                              )}
-                              {meta?.provenance?.quote && (
-                                <button
-                                  type="button"
-                                  className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
-                                  onClick={(event) =>
-                                    setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
-                                  }
-                                >
-                                  <NiPlay size="tiny" />
-                                  {t("field-provenance")}
-                                </button>
-                              )}
-                            </FormLabel>
-                            <Input
-                              id={`consultation-field-${block.key}-${field.key}`}
-                              multiline={field.multiline}
-                              minRows={field.multiline ? 2 : undefined}
-                              readOnly={isReadOnly}
-                              value={meta?.value ?? ""}
-                              onChange={(event) => queueAnswerSave(block.key, field.key, event.target.value)}
-                              onBlur={() =>
-                                void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
-                              }
-                            />
-                            {/* Tongue and pulse are dictated with a patient on
-                                the table and their vocabulary is finite and
-                                consecrated — tapping beats typing, and the
-                                text stays free-form either way. */}
-                            {canEdit && TCM_VOCABULARY[composite] && (
-                              <VocabularyChips
-                                groups={TCM_VOCABULARY[composite]}
+            {/* Queixa principal was a separate header field that duplicated the
+                "Queixa principal e história atual" block — removed. Its column
+                (chief_complaint) still exists for the timeline, which falls back
+                to the appointment note when it is empty. */}
+            {ANAMNESIS_BLOCKS.map((block) => {
+              const expanded = expandedBlocks[block.key] ?? false;
+              return (
+                <Card key={block.key} component="section">
+                  <CardContent className="flex flex-col gap-1">
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      className="flex w-full flex-row flex-wrap items-center gap-2 text-left"
+                      onClick={() => setExpandedBlocks((current) => ({ ...current, [block.key]: !expanded }))}
+                    >
+                      <Typography component="h3" variant="subtitle1" className="mb-0">
+                        {t(block.title)}
+                      </Typography>
+                      {(blockStats[block.key]?.filled ?? 0) > 0 && (
+                        <span className="bg-grey-100 text-text-secondary rounded-full px-2 py-0.5 text-xs font-semibold">
+                          {t("block-filled-count", { count: blockStats[block.key].filled })}
+                        </span>
+                      )}
+                      {(blockStats[block.key]?.attention ?? 0) > 0 && (
+                        <span className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light rounded-full px-2 py-0.5 text-xs font-semibold">
+                          {t("block-attention-count", { count: blockStats[block.key].attention })}
+                        </span>
+                      )}
+                      <NiChevronDownSmall
+                        aria-hidden
+                        className={cn("text-text-secondary ml-auto transition-transform", expanded && "rotate-180")}
+                      />
+                    </button>
+                    {expanded && (
+                      <Box className="flex flex-col gap-1 pt-1">
+                        {block.fields.map((field) => {
+                          const composite = `${block.key}.${field.key}`;
+                          const meta = fields[composite];
+                          const isObservation = PROFESSIONAL_OBSERVATION_FIELDS.has(composite);
+                          return (
+                            <FormControl key={field.key} className="outlined" variant="standard" size="small">
+                              <FormLabel
+                                component="label"
+                                htmlFor={`consultation-field-${block.key}-${field.key}`}
+                                className="flex flex-row flex-wrap items-center gap-2"
+                              >
+                                {t(field.label)}
+                                {isObservation && (
+                                  <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
+                                    {t("field-observation-badge")}
+                                  </span>
+                                )}
+                                {meta?.value && (
+                                  <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
+                                )}
+                                {meta?.provenance?.quote && (
+                                  <button
+                                    type="button"
+                                    className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
+                                    onClick={(event) =>
+                                      setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
+                                    }
+                                  >
+                                    <NiPlay size="tiny" />
+                                    {t("field-provenance")}
+                                  </button>
+                                )}
+                              </FormLabel>
+                              <Input
+                                id={`consultation-field-${block.key}-${field.key}`}
+                                multiline={field.multiline}
+                                minRows={field.multiline ? 2 : undefined}
+                                readOnly={isReadOnly}
                                 value={meta?.value ?? ""}
-                                onToggle={(next) => {
-                                  queueAnswerSave(block.key, field.key, next);
+                                onChange={(event) => queueAnswerSave(block.key, field.key, event.target.value)}
+                                onBlur={() =>
+                                  void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
+                                }
+                              />
+                              {/* Tongue and pulse are dictated with a patient on
+                                  the table and their vocabulary is finite and
+                                  consecrated — tapping beats typing, and the
+                                  text stays free-form either way. */}
+                              {canEdit && TCM_VOCABULARY[composite] && (
+                                <VocabularyChips
+                                  groups={TCM_VOCABULARY[composite]}
+                                  value={meta?.value ?? ""}
+                                  onToggle={(next) => {
+                                    queueAnswerSave(block.key, field.key, next);
+                                    void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
+                                  }}
+                                  t={t}
+                                />
+                              )}
+                              <PreviousFieldValue
+                                previousValue={previous?.answers[composite]?.value}
+                                currentValue={meta?.value}
+                                canEdit={canEdit}
+                                onKeep={(value) => {
+                                  queueAnswerSave(block.key, field.key, value);
                                   void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
                                 }}
                                 t={t}
                               />
-                            )}
-                            <PreviousFieldValue
-                              previousValue={previous?.answers[composite]?.value}
-                              currentValue={meta?.value}
-                              canEdit={canEdit}
-                              onKeep={(value) => {
-                                queueAnswerSave(block.key, field.key, value);
-                                void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
-                              }}
-                              t={t}
-                            />
-                          </FormControl>
-                        );
-                      })}
-                    </AccordionDetails>
-                  </Accordion>
-                ))}
+                            </FormControl>
+                          );
+                        })}
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
 
+            {/* Clinical summary — her free-text close, with the AI-suggested
+                draft she can copy into it. Its own card, separate from the
+                anamnesis blocks. */}
+            <Card component="section">
+              <CardContent className="flex flex-col gap-4">
                 <FormControl className="outlined" variant="standard" size="small">
                   <FormLabel component="label" htmlFor="consultation-summary">
                     {t("consultation-summary")}
@@ -1288,7 +1280,7 @@ export default function ConsultaPage() {
                 </FormControl>
 
                 {/* AI-suggested summary (PRD §10 draft discipline): a separate
-                    draft she reviews and APPLIES — it never writes her summary
+                    draft she reviews and copies in — it never writes her summary
                     on its own. Generated once at finalization over all
                     recordings, and refreshable on demand while editable. */}
                 <ConsultationAiSummary
@@ -1302,7 +1294,14 @@ export default function ConsultaPage() {
             </Card>
           </Box>
 
-          <Box className="order-3 flex min-w-0 flex-col gap-5 lg:col-start-2 lg:row-start-2">
+          {/* With no capture column, the tools rise to row 1 so they sit beside
+              the chart instead of leaving the top-right blank (see order-1). */}
+          <Box
+            className={cn(
+              "order-3 flex min-w-0 flex-col gap-5 lg:col-start-2",
+              capabilities?.canEditClinicalRecord ? "lg:row-start-2" : "lg:row-start-1",
+            )}
+          >
             {/* Pattern hypotheses (PRD §10.8) — prepared on demand, because a
               pattern is read from the tongue and pulse, and those are HER
               observations, never inferred from the recording (PRD §10.3). */}
@@ -1315,6 +1314,9 @@ export default function ConsultaPage() {
               entitlementError={allowanceError}
               onRetryEntitlement={() => void reloadAllowance()}
               onDecisionChanged={() => void refreshHypothesisAcceptance()}
+              onBeforePrepare={async () => {
+                await saveCoordinator.flush();
+              }}
               isFinalized={isReadOnly}
             />
 
@@ -1502,43 +1504,15 @@ export default function ConsultaPage() {
           <Typography variant="body1" className="text-text-secondary leading-6">
             {t("consultation-finalize-body")}
           </Typography>
+          {/* A plain readout: how much of the chart is filled, out of the total.
+              Blank fields are "não informado", never a deficiency (PRD §10.5),
+              so this is a fraction — not an attention/draft to-do list. */}
           <Box className="border-grey-100 rounded-2xl border p-3">
             <Typography variant="subtitle2">{t("consultation-finalize-summary-title")}</Typography>
             <Typography variant="body2" className="text-text-secondary">
-              {t("consultation-finalize-summary-fields", { filled: filledCount, attention: attentionCount })}
-            </Typography>
-            <Typography variant="body2" className="text-text-secondary">
-              {t("consultation-finalize-summary-decisions", {
-                hypotheses: finalizeSummary.draftHypotheses,
-                plans: finalizeSummary.draftPlans,
-              })}
+              {t("consultation-finalize-summary-fields", { filled: filledCount, total: totalFieldCount })}
             </Typography>
           </Box>
-          {finalizeWarnings.length > 0 && (
-            <Alert severity="warning" className="neutral bg-background-paper/60!">
-              <Typography variant="body2" className="mb-1 font-semibold">
-                {t("consultation-finalize-warnings-title")}
-              </Typography>
-              {finalizeWarnings.map((warning) => (
-                <FormControlLabel
-                  key={warning}
-                  control={
-                    <Checkbox
-                      checked={acknowledgedWarnings.includes(warning)}
-                      onChange={(event) =>
-                        setAcknowledgedWarnings((current) =>
-                          event.target.checked
-                            ? [...new Set([...current, warning])]
-                            : current.filter((item) => item !== warning),
-                        )
-                      }
-                    />
-                  }
-                  label={t(`consultation-finalize-warning-${warning}`)}
-                />
-              ))}
-            </Alert>
-          )}
           {consultationIsEmpty && (
             <Alert severity="warning" className="neutral bg-background-paper/60!">
               <Typography variant="body2" className="mb-1 font-semibold">
@@ -1561,11 +1535,9 @@ export default function ConsultaPage() {
             variant="contained"
             color="primary"
             onClick={finalize}
-            disabled={busy || !allWarningsAcknowledged || (consultationIsEmpty && !emptyConfirmed)}
+            disabled={busy || (consultationIsEmpty && !emptyConfirmed)}
           >
-            {finalizeWarnings.length > 0
-              ? t("consultation-finalize-confirm-warnings")
-              : t("consultation-finalize-confirm")}
+            {t("consultation-finalize-confirm")}
           </Button>
         </DialogActions>
       </Dialog>
