@@ -3,9 +3,13 @@
 Plano de implementação para migração de outro sistema (entrada) e portabilidade
 (saída).
 
-**Estado: Fase A entregue** ([0076_data_import.sql](../packages/db/migrations/0076_data_import.sql),
-comportamento fixado em [0016_data_import.test.sql](../packages/db/tests/0016_data_import.test.sql)).
-As fases B–E seguem pendentes. A outra superfície existente é a página pública
+**Estado: fases A e B entregues** — schema e desfazer em
+[0076_data_import.sql](../packages/db/migrations/0076_data_import.sql), engine e
+gravação transacional em [0077_import_commit.sql](../packages/db/migrations/0077_import_commit.sql)
++ [lib/import/](../apps/web/src/lib/import/), com o comportamento fixado em
+[0016](../packages/db/tests/0016_data_import.test.sql)/[0017](../packages/db/tests/0017_import_commit.test.sql)
+e nos testes vitest ao lado dos módulos. Falta a interface (Fase C) — hoje nada
+disso é alcançável pela profissional. A outra superfície existente é a página pública
 [/migracao](../apps/web/src/app/(marketing)/migracao/page.tsx), que promete
 avaliação caso a caso pelo suporte — a cópia é honesta ("a migração não é
 automática"), então não há promessa a resgatar, apenas produto a construir.
@@ -167,7 +171,28 @@ nas consultas dela; um "desfazer" permissivo destruiria trabalho real.
 
 ---
 
-## 4. Fase B — engine (`apps/web/src/lib/import/`)
+## 4. Fase B — engine (`apps/web/src/lib/import/`) — **implementada**
+
+Entregue como módulos puros (bytes entram, linhas preparadas saem) mais o
+gravador transacional em [0077_import_commit.sql](../packages/db/migrations/0077_import_commit.sql).
+Três desvios do desenho abaixo, todos deliberados:
+
+- **`validate.ts` não existe**: a validação por linha e a detecção de duplicata
+  são a mesma passada que monta o preview, e separá-las obrigaria a percorrer
+  as linhas duas vezes com as mesmas regras. Tudo vive em `preview.ts`.
+- **O commit é um RPC, não um laço em TS**: só o banco garante que uma
+  importação pela metade não existe. Isso também dispensou a fila do Inngest —
+  são poucos milissegundos numa chamada só. Lotes de dezenas de milhares de
+  linhas (que nenhum consultório tem) precisariam de commit em blocos, e aí a
+  atomicidade teria de ser repensada.
+- **Sobrenome em coluna separada é suportado** (`Nome` + `Sobrenome`), porque é
+  como metade dos sistemas exporta; mas um sobrenome sozinho **não** salva uma
+  linha sem nome — "da Silva" não é um prontuário que alguém reencontra.
+
+Regra do commit que o schema força e a UI só reflete: **atualizar preenche
+lacunas, nunca sobrescreve**. Reenviar a exportação do mês passado não pode
+reverter em silêncio as correções que ela digitou desde então.
+
 
 Fica em `apps/web/src/lib/` junto de `clinical-pipeline.ts` e `anamnesis.ts`:
 é lógica clínica desta aplicação, não infraestrutura reutilizável entre apps
@@ -293,7 +318,7 @@ um `void supabase.rpc(...)` solto nunca dispara a requisição.
 | # | Entrega | Pronto quando |
 | --- | --- | --- |
 | 1 | ✅ Migração `0076_data_import.sql` | **Feito.** Tabelas, colunas, RLS, cerca de impersonation, bucket e `revert_import_batch` aplicados; reversão recusa lote com trabalho posterior (28 asserções em `packages/db/tests/0016_data_import.test.sql`) |
-| 2 | Engine de pacientes (parse → normalize → validate → commit) | Planilha real de origem BR (`;`, latin-1, datas ambíguas) importa sem corromper nome nem data |
+| 2 | ✅ Engine de pacientes (parse → normalize → preview → commit) | **Feito.** `apps/web/src/lib/import/` + `0077_import_commit.sql`; planilha BR (`;`, latin-1, datas ambíguas, nome dividido em duas colunas) importa sem corromper nome nem data — 39 testes vitest + 21 pgTAP |
 | 3 | Assistente de importação de pacientes | Fluxo completo com dry-run, erros por linha e desfazer |
 | 4 | Exportação por paciente | PDF + JSON, disponível no Gratuito |
 | 5 | Histórico legado como texto íntegro | Consulta importada aparece rotulada, congelada, fora da anamnese |
