@@ -58,6 +58,8 @@ const STATUS_BY_CODE: Partial<Record<ClinicalErrorCode, number>> = {
   plan_stale: 409,
   derived_safety_flags_immutable: 409,
   manual_plan_exists: 409,
+  prescription_not_found: 404,
+  prescription_not_validated: 409,
   document_issue_conflict: 409,
   document_profile_incomplete: 409,
   document_reissue_confirmation_required: 409,

@@ -280,6 +280,8 @@ export const CLINICAL_ERROR_CODES = [
   "manual_plan_exists",
   "safety_acknowledgement_required",
   "derived_safety_flags_immutable",
+  "prescription_not_found",
+  "prescription_not_validated",
   "document_issue_conflict",
   "document_profile_incomplete",
   "document_reissue_confirmation_required",

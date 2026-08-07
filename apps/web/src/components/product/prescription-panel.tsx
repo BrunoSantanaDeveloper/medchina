@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -50,6 +50,15 @@ type Draft = {
   notes: string;
 };
 
+type IssuedDoc = {
+  id: string;
+  sourceId: string;
+  version: number;
+  verifyCode: string;
+  status: string;
+  storagePath: string | null;
+};
+
 /**
  * The professional's receituário (migration 0074). Two kinds — a Chinese herbal
  * FORMULA and a free 'generic' script. It is authored by HER: nothing here is AI
@@ -81,6 +90,21 @@ export default function PrescriptionPanel({
   const [acknowledged, setAcknowledged] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<Prescription | null>(null);
 
+  // Issued PDFs, grouped by the prescription they were issued from (newest
+  // first). A validated prescription can become a signed, QR-verifiable document.
+  const [documents, setDocuments] = useState<Record<string, IssuedDoc[]>>({});
+  const [confirmReissue, setConfirmReissue] = useState<Prescription | null>(null);
+  const issueKeys = useRef<Record<string, string>>({});
+  const [sharingDoc, setSharingDoc] = useState<IssuedDoc | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareResult, setShareResult] = useState<{
+    url: string;
+    whatsappUrl?: string | null;
+    delivered: boolean;
+    reason?: string;
+  } | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+
   const load = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setLoaded(true);
@@ -98,20 +122,46 @@ export default function PrescriptionPanel({
       return;
     }
     setLoadFailed(false);
-    setPrescriptions(
-      (data ?? []).map((row) => ({
-        id: row.id,
-        kind: (row.kind as PrescriptionKind) ?? "generic",
-        title: row.title ?? "",
-        items: normalizeItems(row.items),
-        posology: row.posology ?? "",
-        preparation: row.preparation ?? "",
-        notes: row.notes ?? "",
-        status: row.status === "validated" ? "validated" : "draft",
-        validatedAt: row.validated_at,
-        updatedAt: row.updated_at,
-      })),
-    );
+    const rows = (data ?? []).map((row) => ({
+      id: row.id,
+      kind: (row.kind as PrescriptionKind) ?? "generic",
+      title: row.title ?? "",
+      items: normalizeItems(row.items),
+      posology: row.posology ?? "",
+      preparation: row.preparation ?? "",
+      notes: row.notes ?? "",
+      status: row.status === "validated" ? ("validated" as const) : ("draft" as const),
+      validatedAt: row.validated_at,
+      updatedAt: row.updated_at,
+    }));
+    setPrescriptions(rows);
+
+    // Issued PDFs for these prescriptions, newest first, grouped by source.
+    const ids = rows.map((row) => row.id);
+    if (ids.length > 0) {
+      const { data: docs } = await supabase
+        .from("documents")
+        .select("id, source_id, version, verify_code, status, storage_path")
+        .eq("kind", "prescription")
+        .eq("source_type", "consultation_prescription")
+        .in("source_id", ids)
+        .order("version", { ascending: false });
+      const grouped: Record<string, IssuedDoc[]> = {};
+      for (const doc of docs ?? []) {
+        const entry: IssuedDoc = {
+          id: doc.id,
+          sourceId: doc.source_id,
+          version: doc.version,
+          verifyCode: doc.verify_code,
+          status: doc.status,
+          storagePath: doc.storage_path,
+        };
+        (grouped[doc.source_id] ??= []).push(entry);
+      }
+      setDocuments(grouped);
+    } else {
+      setDocuments({});
+    }
     setLoaded(true);
   }, [consultationId]);
 
@@ -226,6 +276,105 @@ export default function PrescriptionPanel({
     }
   };
 
+  const issue = async (prescription: Prescription) => {
+    const docs = documents[prescription.id] ?? [];
+    const nextVersion = (docs[0]?.version ?? 0) + 1;
+    // Reissuing REVOKES the version already in the patient's hands — confirm it.
+    if (docs.length > 0 && confirmReissue?.id !== prescription.id) {
+      setConfirmReissue(prescription);
+      return;
+    }
+    setConfirmReissue(null);
+    setBusy(true);
+    setActionError(null);
+    try {
+      issueKeys.current[prescription.id] ??= crypto.randomUUID();
+      const response = await fetch(`/api/consultations/${consultationId}/prescriptions/${prescription.id}/issue`, {
+        method: "POST",
+        headers: {
+          "idempotency-key": issueKeys.current[prescription.id],
+          ...(docs.length > 0 ? { "confirm-version": String(nextVersion) } : {}),
+        },
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const code = body?.error?.code ?? body?.error;
+        setActionError(
+          code === "prescription_not_validated"
+            ? t("prescription-issue-need-validate")
+            : code === "document_profile_incomplete"
+              ? t("prescription-issue-profile-incomplete")
+              : code === "document_reissue_confirmation_required"
+                ? t("prescription-issue-version-conflict")
+                : t("prescription-issue-error"),
+        );
+        return;
+      }
+      delete issueKeys.current[prescription.id];
+      await load();
+    } catch {
+      setActionError(t("prescription-issue-error"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const download = async (doc: IssuedDoc) => {
+    if (!doc.storagePath) return;
+    setActionError(null);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.storage.from("documents").createSignedUrl(doc.storagePath, 120);
+      if (error || !data?.signedUrl) {
+        setActionError(t("prescription-download-error"));
+        return;
+      }
+      window.open(data.signedUrl, "_blank", "noopener");
+    } catch {
+      setActionError(t("prescription-download-error"));
+    }
+  };
+
+  const share = async (channel: "whatsapp" | "email" | "link") => {
+    if (!sharingDoc) return;
+    setShareBusy(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/documents/${sharingDoc.id}/share`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ channel }),
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        url?: string;
+        whatsappUrl?: string | null;
+        delivered?: boolean;
+        deliveryReason?: string;
+      };
+      if (!response.ok || !body.ok || !body.url) {
+        setActionError(t("prescription-share-error"));
+        return;
+      }
+      setShareResult({
+        url: body.url,
+        whatsappUrl: body.whatsappUrl ?? null,
+        delivered: body.delivered === true,
+        reason: body.deliveryReason,
+      });
+    } catch {
+      setActionError(t("prescription-share-error"));
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const closeShare = () => {
+    setSharingDoc(null);
+    setShareResult(null);
+    setShareCopied(false);
+  };
+
   const kindLabel = (kind: PrescriptionKind) =>
     kind === "herbal" ? t("prescription-kind-herbal") : t("prescription-kind-generic");
 
@@ -329,9 +478,63 @@ export default function PrescriptionPanel({
                             {t("prescription-validate")}
                           </Button>
                         )}
+                        {/* A validated prescription can become a signed PDF (PRD §9.8). */}
+                        {prescription.status === "validated" && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            onClick={() => void issue(prescription)}
+                            disabled={busy}
+                          >
+                            {(documents[prescription.id]?.length ?? 0) > 0
+                              ? t("prescription-reissue")
+                              : t("prescription-issue")}
+                          </Button>
+                        )}
                         <Button size="small" variant="text" color="grey" onClick={() => setConfirmDelete(prescription)}>
                           {t("prescription-delete")}
                         </Button>
+                      </Box>
+                    )}
+
+                    {/* Issued PDFs — viewable and verifiable even after the record
+                        is finalized (the prescription freezes, the document remains). */}
+                    {(documents[prescription.id]?.length ?? 0) > 0 && (
+                      <Box className="flex flex-col gap-1.5">
+                        {documents[prescription.id].map((doc) => (
+                          <Box
+                            key={doc.id}
+                            className="border-grey-100 flex flex-row flex-wrap items-center gap-2 rounded-xl border px-3 py-2"
+                          >
+                            <Box className="min-w-0 flex-1">
+                              <Typography variant="body2" className="text-text-primary text-xs font-medium">
+                                {t("plan-doc-version")} {doc.version}
+                                {doc.status === "revoked" ? ` · ${t("plan-doc-superseded")}` : ""}
+                              </Typography>
+                              <Typography variant="body2" className="text-text-secondary font-mono text-xs">
+                                {doc.verifyCode}
+                              </Typography>
+                            </Box>
+                            <Button size="small" variant="text" color="grey" onClick={() => void download(doc)}>
+                              {t("plan-doc-download")}
+                            </Button>
+                            {doc.status === "issued" && (
+                              <Button size="small" variant="text" color="primary" onClick={() => setSharingDoc(doc)}>
+                                {t("plan-doc-send")}
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="text"
+                              color="grey"
+                              href={`/verify/${doc.verifyCode}`}
+                              target="_blank"
+                            >
+                              {t("plan-doc-verify-link")}
+                            </Button>
+                          </Box>
+                        ))}
                       </Box>
                     )}
                   </Box>
@@ -524,6 +727,124 @@ export default function PrescriptionPanel({
             {busy ? <CircularProgress size={16} /> : t("prescription-delete")}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Reissuing revokes the version already in the patient's hands — its own
+          dialog naming the consequence. */}
+      <Dialog open={Boolean(confirmReissue)} onClose={() => setConfirmReissue(null)} maxWidth="xs" fullWidth>
+        <DialogHeader
+          title={t("prescription-reissue")}
+          closeLabel={t("close")}
+          onClose={() => setConfirmReissue(null)}
+        />
+        <DialogContent className="py-5!">
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {t("prescription-reissue-confirm")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setConfirmReissue(null)}>
+            {t("cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => confirmReissue && void issue(confirmReissue)}
+            disabled={busy}
+          >
+            {busy ? <CircularProgress size={16} /> : t("prescription-reissue")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Hand the document to the patient (PRD §9.8) — an expiring link, no
+          clinical content. Reuses the shared document-delivery copy. */}
+      <Dialog open={Boolean(sharingDoc)} onClose={closeShare} maxWidth="xs" fullWidth>
+        <DialogHeader title={t("plan-share-title")} closeLabel={t("close")} onClose={closeShare} />
+        <DialogContent className="flex flex-col gap-3 py-5!">
+          {!shareResult ? (
+            <>
+              <Typography variant="body2" className="text-text-secondary leading-6">
+                {t("plan-share-body")}
+              </Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                disabled={shareBusy}
+                onClick={() => void share("whatsapp")}
+              >
+                {t("plan-share-whatsapp")}
+              </Button>
+              <Button
+                variant="outlined"
+                color="grey"
+                fullWidth
+                disabled={shareBusy}
+                onClick={() => void share("email")}
+              >
+                {t("plan-share-email")}
+              </Button>
+              <Button variant="text" color="grey" fullWidth disabled={shareBusy} onClick={() => void share("link")}>
+                {t("plan-share-link")}
+              </Button>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t("plan-share-privacy")}
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Alert severity={shareResult.delivered ? "success" : "info"}>
+                {shareResult.delivered
+                  ? t("plan-share-sent")
+                  : shareResult.whatsappUrl
+                    ? t("plan-share-whatsapp-ready")
+                    : shareResult.reason === "contact_missing"
+                      ? t("plan-share-contact-missing")
+                      : shareResult.reason === "channel_unavailable"
+                        ? t("plan-share-channel-unavailable")
+                        : t("plan-share-link-ready")}
+              </Alert>
+              {shareResult.whatsappUrl && (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  href={shareResult.whatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {t("plan-share-whatsapp-open")}
+                </Button>
+              )}
+              <TextField
+                size="small"
+                fullWidth
+                value={shareResult.url}
+                slotProps={{ htmlInput: { readOnly: true, "aria-label": t("plan-share-copy") } }}
+              />
+              <Button
+                variant="outlined"
+                color="grey"
+                fullWidth
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(shareResult.url)
+                    .then(() => {
+                      setShareCopied(true);
+                      window.setTimeout(() => setShareCopied(false), 4000);
+                    })
+                    .catch(() => undefined);
+                }}
+              >
+                {shareCopied ? t("plan-share-copied") : t("plan-share-copy")}
+              </Button>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t("plan-share-expires")}
+              </Typography>
+            </>
+          )}
+        </DialogContent>
       </Dialog>
     </Card>
   );
