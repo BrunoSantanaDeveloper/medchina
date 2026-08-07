@@ -1,6 +1,7 @@
 "use client";
 
 import AccountCard from "./components/account-card";
+import PracticeScopeCard from "./components/practice-scope-card";
 import ProfileCard from "./components/profile-card";
 import SettingsMenu from "./components/settings-menu";
 import Link from "next/link";
@@ -72,6 +73,11 @@ export default function Settings() {
         {isSupabaseConfigured && (
           <>
             <ProfileCard />
+            {/* Scope of practice sits with the profile because it IS profile
+                data (profiles.practice_modalities), and because it was
+                write-once until now — declared in onboarding and then
+                unreachable. */}
+            <PracticeScopeCard />
             <AccountCard />
           </>
         )}

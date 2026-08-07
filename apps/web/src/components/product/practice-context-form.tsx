@@ -7,6 +7,7 @@ import * as yup from "yup";
 
 import { Alert, Autocomplete, Box, Button, CircularProgress, TextField, Typography } from "@mui/material";
 
+import PracticeModalitiesField from "@/components/product/fields/practice-modalities-field";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { COMMON_TIMEZONES, isValidTimeZone, PRACTICE_MODALITIES, type PracticeModality } from "@/lib/practice-context";
 import { createClient } from "@flyee/auth/client";
@@ -142,20 +143,11 @@ export default function PracticeContextForm({ onCompleted }: { onCompleted: () =
         )}
       />
 
-      <Autocomplete
-        multiple
-        disableCloseOnSelect
-        options={[...PRACTICE_MODALITIES]}
+      {/* Shared with the settings card so the option list and labels cannot
+          drift between the two places she can declare her scope. */}
+      <PracticeModalitiesField
         value={formik.values.modalities}
-        getOptionLabel={(option) => t(`practice-modality-${option}`)}
-        onChange={(_, value) => formik.setFieldValue("modalities", value)}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label={t("practice-context-modalities")}
-            helperText={t("practice-context-modalities-help")}
-          />
-        )}
+        onChange={(value) => formik.setFieldValue("modalities", value)}
       />
 
       {serverError && <Alert severity="error">{serverError}</Alert>}

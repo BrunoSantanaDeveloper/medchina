@@ -1,4 +1,13 @@
-import { type ColumnMapping, PATIENT_FIELDS, type PatientFieldKey } from "./types";
+import {
+  type ColumnMapping,
+  HISTORY_FIELDS,
+  type HistoryFieldKey,
+  type ImportKind,
+  PATIENT_FIELDS,
+  type PatientFieldKey,
+  SCHEDULE_FIELDS,
+  type ScheduleFieldKey,
+} from "./types";
 
 /**
  * Header -> field, guessed. Always a SUGGESTION: the wizard shows it next to
@@ -71,10 +80,72 @@ const MATCHERS: Record<PatientFieldKey, (header: string) => boolean> = {
 
 const isSurname = (header: string) => has(header, "sobrenome", "ultimo nome", "last name", "surname");
 
-export function guessColumnMapping(headers: string[]): MappingGuess {
+/**
+ * A history sheet is one line per past consultation. Its columns answer a
+ * different question — WHO, WHEN, and the text itself — so the patient here is
+ * a reference to an existing chart, never a new one.
+ */
+const HISTORY_MATCHERS: Record<HistoryFieldKey, (header: string) => boolean> = {
+  patient_ref: (header) =>
+    has(header, "prontuario", "matricula") ||
+    (has(header, "paciente") && has(header, "codigo", "id", "cod", "ref", "numero")),
+  patient_name: (header) => !has(header, ...NOT_THE_PATIENT) && has(header, "paciente", "nome", "name"),
+  // Unlike a patients sheet, a bare "data" here IS the record's date: that is
+  // what a history export is about.
+  date: (header) => has(header, "data", "date", "dt") && !has(header, "nasc"),
+  body: (header) =>
+    has(header, "evolucao", "descricao", "texto", "anotac", "obs", "relato", "conduta", "historico", "atendimento"),
+  external_ref: (header) => word(header, "id") || word(header, "cod") || has(header, "codigo", "numero", "registro"),
+  source: (header) => has(header, "sistema", "origem", "fonte"),
+};
+
+/**
+ * An agenda sheet shares most of its vocabulary with a history sheet — who and
+ * when — and adds the two things an appointment needs: a clock time and how
+ * long it lasts.
+ */
+const SCHEDULE_MATCHERS: Record<ScheduleFieldKey, (header: string) => boolean> = {
+  patient_ref: HISTORY_MATCHERS.patient_ref,
+  patient_name: HISTORY_MATCHERS.patient_name,
+  date: (header) => has(header, "data", "date", "dia") && !has(header, "nasc"),
+  time: (header) => has(header, "hora", "horario", "time", "hr"),
+  duration: (header) => has(header, "duracao", "duration", "minutos", "tempo"),
+  note: (header) => has(header, "obs", "anotac", "nota", "descricao", "motivo", "procedimento"),
+  external_ref: (header) => word(header, "id") || word(header, "cod") || has(header, "codigo", "numero", "registro"),
+};
+
+export function guessColumnMapping(headers: string[], kind: ImportKind = "patients"): MappingGuess {
   const normalized = headers.map(normalizeHeader);
   const taken = new Set<number>();
   const mapping: ColumnMapping = {};
+
+  if (kind === "schedule") {
+    for (const field of SCHEDULE_FIELDS) {
+      const matches = SCHEDULE_MATCHERS[field];
+      const index = normalized.findIndex(
+        (header, position) => !taken.has(position) && header !== "" && matches(header),
+      );
+      if (index >= 0) {
+        mapping[field] = index;
+        taken.add(index);
+      }
+    }
+    return { mapping };
+  }
+
+  if (kind === "history") {
+    for (const field of HISTORY_FIELDS) {
+      const matches = HISTORY_MATCHERS[field];
+      const index = normalized.findIndex(
+        (header, position) => !taken.has(position) && header !== "" && matches(header),
+      );
+      if (index >= 0) {
+        mapping[field] = index;
+        taken.add(index);
+      }
+    }
+    return { mapping };
+  }
 
   // Field order (PATIENT_FIELDS) is the priority: the fields an import is
   // useless without claim their column before the optional ones do.

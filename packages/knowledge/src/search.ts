@@ -32,6 +32,9 @@ export async function searchKnowledge(
     max_trust: options.maxTrust ?? 5,
     min_similarity: options.minSimilarity ?? 0.25,
     query_text: query,
+    // Null (not an empty array) means "no preference": the RPC skips the
+    // bonus entirely and ranks exactly as it did before 0079.
+    target_modalities: options.modalities?.length ? [...options.modalities] : null,
   });
   if (error) throw new Error(`knowledge_search failed: ${error.message}`);
   return (data ?? []) as KnowledgeSearchResult[];

@@ -1,4 +1,4 @@
-import type { ImportKind, StagedRow } from "./types";
+import type { ExistingPatient, ImportKind, StagedRow } from "./types";
 
 import { recordAudit } from "@/lib/audit";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -44,6 +44,33 @@ export async function fetchImportAllowance(
       maxRows: typeof payload.maxRows === "number" ? payload.maxRows : null,
       reason: typeof payload.reason === "string" ? payload.reason : "ok",
     },
+  };
+}
+
+/**
+ * Everyone already in the workspace, for duplicate resolution. Loaded whole:
+ * the preview has to answer "is this person already here?" for every line
+ * without a round trip per row, and a practice's patient list is small.
+ */
+export async function fetchExistingPatients(
+  supabase: SupabaseClient,
+  orgId: string,
+): Promise<ImportResult<ExistingPatient[]>> {
+  const { data, error } = await supabase
+    .from("patients")
+    .select("id, full_name, birth_date, document, external_ref")
+    .eq("org_id", orgId);
+
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: (data ?? []).map((row) => ({
+      id: row.id as string,
+      fullName: row.full_name as string,
+      birthDate: (row.birth_date as string | null) ?? null,
+      document: (row.document as string | null) ?? null,
+      externalRef: (row.external_ref as string | null) ?? null,
+    })),
   };
 }
 
@@ -136,11 +163,15 @@ export async function commitImportBatch(
   const payload = (data ?? {}) as Record<string, unknown>;
   if (payload.ok !== true) return rpcFailure(payload);
 
+  // A retry after a lost response answers `already_committed` and carries the
+  // counts on the batch instead of at the root — reading only the root would
+  // report a successful import as "0 created".
+  const source = (payload.code === "already_committed" ? payload.counts : payload) as Record<string, unknown>;
   const counts: ImportCounts = {
-    created: Number(payload.created ?? 0),
-    updated: Number(payload.updated ?? 0),
-    skipped: Number(payload.skipped ?? 0),
-    failed: Number(payload.failed ?? 0),
+    created: Number(source?.created ?? 0),
+    updated: Number(source?.updated ?? 0),
+    skipped: Number(source?.skipped ?? 0),
+    failed: Number(source?.failed ?? 0),
   };
 
   await recordAudit(supabase, "import.committed", {

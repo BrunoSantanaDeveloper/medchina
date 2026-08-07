@@ -64,6 +64,7 @@
     "@vidstack/react": "1.12.13",
     "autosuggest-highlight": "3.3.4",
     "dayjs": "1.11.21",
+    "fflate": "^0.8.3",
     "formik": "2.4.9",
     "gsap": "^3.15.0",
     "material-ui-popup-state": "5.3.7",

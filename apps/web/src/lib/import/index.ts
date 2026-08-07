@@ -10,10 +10,19 @@ export {
 } from "./dates";
 export { guessColumnMapping, normalizeHeader, type MappingGuess } from "./mapping";
 export { buildImportPreview, type PreviewInput } from "./preview";
+export { buildHistoryPreview, type HistoryPreviewInput } from "./history-preview";
+export {
+  buildSchedulePreview,
+  localNaive,
+  naiveMinutes,
+  type ExistingAppointment,
+  type SchedulePreviewInput,
+} from "./schedule-preview";
 export {
   attachImportFile,
   commitImportBatch,
   createImportBatch,
+  fetchExistingPatients,
   fetchImportAllowance,
   revertImportBatch,
   stageImportRows,

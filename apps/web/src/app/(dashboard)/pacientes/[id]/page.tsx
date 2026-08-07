@@ -13,6 +13,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -53,6 +54,12 @@ type Patient = {
   archivedAt: string | null;
   deletionRequestedAt: string | null;
   deletionRequestReason: string | null;
+  /**
+   * Set when the record came from another system (0076). A chart we cannot
+   * vouch for must never look like one she typed and checked, so the origin
+   * is stated on the record itself — not only in the import history.
+   */
+  importedFrom: { source: string | null; at: string } | null;
 };
 
 type Visit = {
@@ -64,6 +71,10 @@ type Visit = {
   chiefComplaint: string | null;
   appointmentNote: string | null;
   summary: string | null;
+  /** Set when the visit came from another system: shown as such, never as an
+   *  empty consultation nobody documented. */
+  legacyBody: string | null;
+  legacySource: string | null;
 };
 
 type PatientArtifact =
@@ -127,7 +138,9 @@ export default function PacienteFicha() {
       supabase.from("patients").select("*").eq("id", params.id).maybeSingle(),
       supabase
         .from("consultations")
-        .select("id, status, started_at, scheduled_for, duration_minutes, chief_complaint, appointment_note, summary")
+        .select(
+          "id, status, started_at, scheduled_for, duration_minutes, chief_complaint, appointment_note, summary, legacy_body, legacy_source",
+        )
         .eq("patient_id", params.id),
       supabase
         .from("recordings")
@@ -154,6 +167,19 @@ export default function PacienteFicha() {
     }
 
     const row = patientResult.data;
+    let importedFrom: Patient["importedFrom"] = null;
+    if (row.import_batch_id) {
+      const { data: batch } = await supabase
+        .from("import_batches")
+        .select("source_system, completed_at")
+        .eq("id", row.import_batch_id)
+        .maybeSingle();
+      importedFrom = {
+        source: (batch?.source_system as string | null) ?? null,
+        at: (batch?.completed_at as string | null) ?? row.created_at,
+      };
+    }
+
     setPatient({
       id: row.id,
       orgId: row.org_id,
@@ -167,6 +193,7 @@ export default function PacienteFicha() {
       archivedAt: row.archived_at,
       deletionRequestedAt: row.deletion_requested_at,
       deletionRequestReason: row.deletion_request_reason,
+      importedFrom,
     });
     setVisits(
       (consultationsResult.data ?? [])
@@ -177,6 +204,8 @@ export default function PacienteFicha() {
           scheduledFor: consultation.scheduled_for,
           durationMinutes: consultation.duration_minutes,
           chiefComplaint: consultation.chief_complaint,
+          legacyBody: (consultation.legacy_body as string | null) ?? null,
+          legacySource: (consultation.legacy_source as string | null) ?? null,
           appointmentNote: consultation.appointment_note,
           summary: consultation.summary,
         }))
@@ -377,43 +406,6 @@ export default function PacienteFicha() {
     setBusy(false);
   };
 
-  const exportPatient = async () => {
-    if (!patient) return;
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      patient: {
-        name: patient.fullName,
-        birthDate: patient.birthDate,
-        phone: patient.phone,
-        document: patient.document,
-        email: patient.email,
-        notes: patient.notes,
-        alerts: patient.alerts,
-      },
-      consultations: visits.map((visit) => ({
-        status: visit.status,
-        date: visit.scheduledFor ?? visit.startedAt,
-        durationMinutes: visit.durationMinutes,
-        appointmentNote: visit.appointmentNote,
-        chiefComplaint: visit.chiefComplaint,
-        summary: visit.summary,
-      })),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `paciente-${patient.id}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    await recordAudit(createClient(), "patient.exported", {
-      orgId: patient.orgId,
-      entityType: "patient",
-      entityId: patient.id,
-    });
-    enqueueSnackbar(t("patient-export-success"), { variant: "success" });
-  };
-
   if (loading) return <Skeleton variant="rounded" height={360} className="rounded-3xl" />;
 
   if (!patient) {
@@ -449,6 +441,17 @@ export default function PacienteFicha() {
               </Link>
               <Typography variant="body2">{patient.fullName}</Typography>
             </Breadcrumbs>
+            {patient.importedFrom && (
+              <Chip
+                size="small"
+                variant="outlined"
+                className="mt-2"
+                label={t("patient-imported", {
+                  source: patient.importedFrom.source || t("patient-imported-unknown-source"),
+                  date: new Intl.DateTimeFormat(locale).format(new Date(patient.importedFrom.at)),
+                })}
+              />
+            )}
           </Box>
 
           {!patient.archivedAt && (
@@ -602,13 +605,26 @@ export default function PacienteFicha() {
                     <>
                       <Box className="min-w-0 flex-1">
                         <Typography variant="body1" className="text-text-primary truncate font-medium">
-                          {visit.appointmentNote || visit.chiefComplaint || t("consultation-no-complaint")}
+                          {/* An imported record has no complaint field — showing
+                              "sem queixa registrada" would describe it as an
+                              empty consultation instead of a record from
+                              elsewhere. Its own first line is the honest title. */}
+                          {visit.legacyBody
+                            ? visit.legacyBody.split("\n")[0]
+                            : visit.appointmentNote || visit.chiefComplaint || t("consultation-no-complaint")}
                         </Typography>
                         <Typography variant="body2" className="text-text-secondary">
                           {new Intl.DateTimeFormat(locale, {
                             dateStyle: "medium",
                             timeStyle: visit.scheduledFor ? "short" : undefined,
                           }).format(new Date(visitDate(visit)))}
+                          {visit.legacyBody
+                            ? ` · ${
+                                visit.legacySource
+                                  ? t("legacy-record-from", { source: visit.legacySource })
+                                  : t("legacy-record-unknown-source")
+                              }`
+                            : ""}
                         </Typography>
                       </Box>
                       <StatusChip status={visit.status} label={t(`status-${visit.status}`)} />
@@ -695,14 +711,29 @@ export default function PacienteFicha() {
             <Typography variant="h6" component="h2">
               {t("patient-record-actions")}
             </Typography>
+            {/* Portability is not a feature of a plan: taking her own records
+                away works on any tier, and while the account is in arrears or
+                archived (PRD §9.10). The route is the only gate — RLS. */}
+            <Typography variant="body2" className="text-text-secondary">
+              {t("patient-export-hint")}
+            </Typography>
             <Button
               variant="text"
               color="grey"
               startIcon={<NiDownloadCloud />}
-              onClick={exportPatient}
+              href={`/api/patients/${patient.id}/export?format=pdf`}
               className="self-start"
             >
               {t("patient-export")}
+            </Button>
+            <Button
+              variant="text"
+              color="grey"
+              startIcon={<NiDownloadCloud />}
+              href={`/api/patients/${patient.id}/export?format=json`}
+              className="self-start"
+            >
+              {t("patient-export-json")}
             </Button>
             {!patient.archivedAt && (
               <Button

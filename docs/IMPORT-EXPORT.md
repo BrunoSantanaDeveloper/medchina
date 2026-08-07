@@ -3,13 +3,18 @@
 Plano de implementação para migração de outro sistema (entrada) e portabilidade
 (saída).
 
-**Estado: fases A e B entregues** — schema e desfazer em
+**Estado: itens 1 a 7 entregues** (schema, engine, assistente, exportação por
+paciente, histórico legado, exportação da conta e agenda futura) — schema e desfazer em
 [0076_data_import.sql](../packages/db/migrations/0076_data_import.sql), engine e
 gravação transacional em [0077_import_commit.sql](../packages/db/migrations/0077_import_commit.sql)
-+ [lib/import/](../apps/web/src/lib/import/), com o comportamento fixado em
-[0016](../packages/db/tests/0016_data_import.test.sql)/[0017](../packages/db/tests/0017_import_commit.test.sql)
-e nos testes vitest ao lado dos módulos. Falta a interface (Fase C) — hoje nada
-disso é alcançável pela profissional. A outra superfície existente é a página pública
++ [lib/import/](../apps/web/src/lib/import/), assistente em
+[/pacientes/importar](../apps/web/src/app/(dashboard)/pacientes/importar/page.tsx),
+histórico legado em [0080_import_history_commit.sql](../packages/db/migrations/0080_import_history_commit.sql)
++ [history-preview.ts](../apps/web/src/lib/import/history-preview.ts),
+com o comportamento fixado em
+[0016](../packages/db/tests/0016_data_import.test.sql)/[0017](../packages/db/tests/0017_import_commit.test.sql)/[0020](../packages/db/tests/0020_import_history.test.sql)
+e nos testes vitest ao lado dos módulos. Faltam a exportação da conta inteira, a
+agenda e a migração assistida — itens 6 a 8 abaixo. A outra superfície existente é a página pública
 [/migracao](../apps/web/src/app/(marketing)/migracao/page.tsx), que promete
 avaliação caso a caso pelo suporte — a cópia é honesta ("a migração não é
 automática"), então não há promessa a resgatar, apenas produto a construir.
@@ -75,9 +80,9 @@ Isto não é um item de backlog. É uma restrição de projeto.
 
 | Dado | Entra? | Como |
 | --- | --- | --- |
-| **Cadastro de pacientes** | Sim — prioridade 1 | Direto em `patients` (nome, nascimento, documento, e-mail, telefone, observações, alertas) |
-| **Histórico de atendimentos** | Sim — prioridade 2 | `consultations` já `finalized`, com o texto legado íntegro em coluna própria |
-| **Agenda futura** | Sim — prioridade 3 | `consultations` com `status = 'scheduled'` e `scheduled_for` (não existe tabela de agenda — ver [0027_agenda.sql](../packages/db/migrations/0027_agenda.sql) e [0028](../packages/db/migrations/0028_continuity_agenda_patients.sql)) |
+| **Cadastro de pacientes** | Sim — prioridade 1 | Direto em `patients`: nome, nascimento, documento, telefone, e-mail, observações e o código do sistema antigo. **Alertas clínicos ficam de fora por decisão**: alergia e gravidez aparecem antes de toda consulta, e uma coluna mal mapeada viraria um alerta clínico falso — ela digita os alertas que quiser, revendo cada ficha |
+| **Histórico de atendimentos** | ✅ Implementado | `consultations` já `finalized`, com o texto legado íntegro em coluna própria. A profissional escolhe o tipo no assistente; cada linha é anexada a uma paciente que **já existe** aqui (histórico nunca cria cadastro) |
+| **Agenda futura** | ✅ Implementado | `consultations` com `status = 'scheduled'` e `scheduled_for` (não existe tabela de agenda — ver [0027](../packages/db/migrations/0027_agenda.sql)/[0028](../packages/db/migrations/0028_continuity_agenda_patients.sql)). A hora da planilha é lida no fuso do consultório (0036) pelo próprio banco; horário ocupado e data passada são recusados por linha, nunca sobrepostos |
 | **Anexos/PDFs antigos** | Opcional, fase tardia | `consultation_attachments` com `kind = 'document'` |
 | **Áudios** | Não | Sem consentimento válido e sem valor clínico retroativo |
 | **Documentos assinados de terceiros** | Não como documento emitido | Nossos `documents` têm hash e QR verificável; um PDF alheio entra como anexo, jamais como documento nosso |
@@ -157,9 +162,13 @@ Bucket privado `imports`, caminho `<org_id>/<batch_id>/<arquivo>`. Políticas
 espelhando o padrão de [0013_avatars.sql](../packages/db/migrations/0013_avatars.sql),
 porém **privado** e por org, não por usuário.
 
-**Retenção curta**: a planilha original é dado clínico em texto puro. Apagar via
-job depois da janela de reversão (padrão 30 dias, configurável em
-`platform_settings`), e auditar todo download.
+**Retenção curta**: a planilha original é dado clínico em texto puro. Apagada
+depois da janela de reversão (padrão 30 dias, configurável em
+`platform_settings`) pelo cron `import-purge-staging`
+([lib/import-jobs.ts](../apps/web/src/lib/import-jobs.ts)), que chama
+`purge_import_staging` com service role e remove do bucket os caminhos que a
+função devolve — o banco não apaga objeto de storage. O lote sobrevive: ele é a
+procedência dos cadastros que criou.
 
 ### RPC de reversão
 
@@ -223,7 +232,28 @@ está no mesmo app.
 
 ---
 
-## 5. Fase C — UI (carregar a skill `product-screen` antes)
+## 5. Fase C — UI — **implementada**
+
+Rota `/pacientes/importar` ([page](../apps/web/src/app/(dashboard)/pacientes/importar/page.tsx))
+com os passos 2 e 3 em [import-mapping-step](../apps/web/src/components/product/import-mapping-step.tsx)
+e [import-review-step](../apps/web/src/components/product/import-review-step.tsx),
+sobre o `SetupWizard` existente. Entrada em `/pacientes` (ação secundária no
+cabeçalho e no estado vazio) e na paleta de comandos.
+
+Duas escolhas que valem registro:
+
+- **Tudo acontece no navegador até o último passo.** O arquivo é lido, parseado,
+  mapeado e conferido localmente; só ao confirmar é que o lote é criado, a
+  planilha sobe para o bucket e as linhas são gravadas. Abandonar o assistente
+  não deixa nada para trás.
+- **A planilha original não é dependência.** Se o upload falhar, a importação
+  segue e a tela diz que a cópia não foi guardada — perder a evidência não pode
+  custar o cadastro.
+
+O rótulo de origem do §1.2 vive na ficha da paciente: um chip
+"Importado de {sistema} em {data}", lido do lote. Sem ele, a garantia de que
+dado importado é distinguível existiria só no banco.
+
 
 Entrada em [/pacientes](../apps/web/src/app/(dashboard)/pacientes/page.tsx):
 ação secundária "Importar de outro sistema". A primária continua "Novo paciente"
@@ -240,8 +270,9 @@ Assistente em 5 passos:
 3. **Conferência** — quantos serão criados, atualizados, ignorados, recusados;
    erros listados com número da linha e download de um CSV só com as linhas
    problemáticas, para corrigir e reenviar.
-4. **Execução** — progresso real; lote grande continua em background e ela pode
-   sair da tela.
+4. **Execução** — a gravação é uma chamada só (§4), então a tela pede para não
+   fechar a página em vez de prometer um processamento em segundo plano que não
+   existe. Sair antes do fim não grava nada pela metade: a transação é atômica.
 5. **Resultado** — link para os pacientes importados e botão "Desfazer
    importação" enquanto a janela permitir (§3).
 
@@ -272,10 +303,43 @@ cobrado como serviço avulso.
 Metade do mesmo trabalho, porque o schema é o mesmo, e fecha a lacuna do PRD
 §9.10.
 
-- **Por paciente**: PDF legível + JSON estruturado (ficha, consultas, adendos,
-  planos validados, metadados dos documentos emitidos).
-- **Conta inteira**: ZIP gerado por job, link assinado com expiração curta,
-  download auditado.
+**Correção do diagnóstico inicial deste documento**: já existia uma exportação
+por paciente — um JSON montado no navegador com a ficha e uma lista rasa de
+consultas (status, data, queixa, resumo). Não era "nada"; era um resumo. O que
+faltava era o prontuário: anamnese, adendos, hipóteses, planos, consentimentos
+e o inventário de anexos/documentos, além de qualquer formato legível.
+
+- **Por paciente — implementado**: `GET /api/patients/[id]/export?format=pdf|json`
+  ([rota](../apps/web/src/app/api/patients/[id]/export/route.ts),
+  [payload](../apps/web/src/lib/patient-export.ts),
+  [PDF](../apps/web/src/lib/patient-export-document.tsx)), com botões na ficha.
+  O JSON é versionado (`medchina.patient-export`, v1) porque é contrato com o
+  sistema para onde ela for. Três decisões que valem registro:
+  - **Ordem cronológica crescente** — um prontuário exportado se lê para a
+    frente, ao contrário da timeline do app.
+  - **Rascunho de IA recusado não é exportado**: ela o descartou, e ressuscitá-lo
+    num arquivo que circula seria devolver um valor contra o qual ela decidiu.
+  - **Binários entram como inventário, não embutidos**: áudio, foto e PDF
+    emitido são listados com metadados. Embuti-los tornaria a portabilidade um
+    download sem limite e republicaria imagem clínica em silêncio.
+- **Conta inteira — implementado**: `POST /api/account/export` enfileira o job
+  ([0081_account_exports.sql](../packages/db/migrations/0081_account_exports.sql),
+  [account-export.ts](../apps/web/src/lib/account-export.ts),
+  [account-export-jobs.ts](../apps/web/src/lib/account-export-jobs.ts)), que
+  monta um ZIP com um JSON por paciente + manifesto + LEIA-ME e avisa no sino.
+  O download sai por link assinado de 60s, auditado, com o cartão em
+  Configurações › Consultório. Quatro decisões:
+  - **É pedido, não download**: montar o prontuário inteiro de um consultório
+    estoura o tempo de uma requisição justamente nas contas que mais precisam.
+  - **Um por vez por consultório**, garantido por índice único parcial — um
+    clique repetido cinco vezes enfileiraria cinco varreduras do banco.
+  - **O arquivo expira** (72h, configurável) e é apagado pelo cron; a linha
+    sobrevive, porque é o registro de que a exportação aconteceu. Sem isso,
+    ficaria uma segunda cópia do dado mais sensível que guardamos, fora dos
+    controles que protegem a primeira.
+  - **A profissional não escreve o resultado**: status, caminho e tamanho são
+    do job (service role), senão um cliente marcaria como pronta uma
+    exportação que falhou e distribuiria um link para nada.
 - **Disponível em todos os planos**, inclusive Gratuito, conta em atraso e
   assinatura cancelada. Só o que consome IA depende de plano; ler e levar embora
   os próprios dados, não.
@@ -297,9 +361,13 @@ Metade do mesmo trabalho, porque o schema é o mesmo, e fecha a lacuna do PRD
 
 ---
 
-## 9. Telemetria
+## 9. Telemetria — **pendente**
 
-Eventos: `import.started`, `import.previewed`, `import.committed`,
+Nada disso foi implementado ainda. O que existe hoje é a trilha de auditoria
+(`import.committed` e `import.reverted` via `recordAudit`), que é obrigação de
+compliance, não métrica de produto — as duas coisas não se substituem.
+
+Eventos previstos: `import.started`, `import.previewed`, `import.committed`,
 `import.reverted`, `export.requested`.
 
 Adicionar evento exige estender **as duas** allowlists de `product_events`
@@ -319,11 +387,11 @@ um `void supabase.rpc(...)` solto nunca dispara a requisição.
 | --- | --- | --- |
 | 1 | ✅ Migração `0076_data_import.sql` | **Feito.** Tabelas, colunas, RLS, cerca de impersonation, bucket e `revert_import_batch` aplicados; reversão recusa lote com trabalho posterior (28 asserções em `packages/db/tests/0016_data_import.test.sql`) |
 | 2 | ✅ Engine de pacientes (parse → normalize → preview → commit) | **Feito.** `apps/web/src/lib/import/` + `0077_import_commit.sql`; planilha BR (`;`, latin-1, datas ambíguas, nome dividido em duas colunas) importa sem corromper nome nem data — 39 testes vitest + 21 pgTAP |
-| 3 | Assistente de importação de pacientes | Fluxo completo com dry-run, erros por linha e desfazer |
-| 4 | Exportação por paciente | PDF + JSON, disponível no Gratuito |
-| 5 | Histórico legado como texto íntegro | Consulta importada aparece rotulada, congelada, fora da anamnese |
-| 6 | Exportação da conta | ZIP por job, link assinado, auditado |
-| 7 | Agenda futura | Consultas `scheduled` importadas sem conflito de horário |
+| 3 | ✅ Assistente de importação de pacientes | **Feito.** `/pacientes/importar` — dry-run, erros por linha com CSV, desfazer e rótulo de origem na ficha |
+| 4 | ✅ Exportação por paciente | **Feito.** PDF + JSON versionado por `GET /api/patients/[id]/export`, sem gate de plano — 10 testes vitest sobre a montagem do payload |
+| 5 | ✅ Histórico legado como texto íntegro | **Feito.** `0080_import_history_commit.sql` + `lib/import/history-preview.ts` + o tipo de importação no assistente; a consulta importada aparece rotulada na timeline e na própria consulta, congelada, no lugar da anamnese — 14 asserções pgTAP + 11 vitest |
+| 6 | ✅ Exportação da conta | **Feito.** `0081_account_exports.sql` + job Inngest + cartão em Configurações › Consultório; ZIP com um JSON por paciente, link assinado de 60s, expiração de 72h — 13 asserções pgTAP |
+| 7 | ✅ Agenda futura | **Feito.** `0082_import_schedule_commit.sql` + `lib/import/schedule-preview.ts` + o terceiro tipo no assistente; horário lido no fuso do consultório, conflito e data passada recusados linha a linha — 13 asserções pgTAP + 12 vitest |
 | 8 | Migração assistida no admin | Service role, autorização registrada, auditada, notificada |
 
 ---

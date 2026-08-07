@@ -101,6 +101,12 @@ type Consultation = {
   clinicalRevision: number;
   aiGaps: string[];
   aiSummary: string | null;
+  /**
+   * A record imported from another system (0076): kept whole, never parsed
+   * into anamnesis fields, and displayed instead of them.
+   */
+  legacyBody: string | null;
+  legacySource: string | null;
 };
 
 type Addendum = { id: string; body: string; reason: string | null; createdAt: string };
@@ -241,7 +247,7 @@ export default function ConsultaPage() {
       supabase
         .from("consultations")
         .select(
-          "id, org_id, patient_id, status, chief_complaint, summary, started_at, scheduled_for, clinical_revision, ai_gaps, ai_summary, patients(full_name)",
+          "id, org_id, patient_id, status, chief_complaint, summary, started_at, scheduled_for, clinical_revision, ai_gaps, ai_summary, legacy_body, legacy_source, patients(full_name)",
         )
         .eq("id", params.id)
         .maybeSingle(),
@@ -281,6 +287,8 @@ export default function ConsultaPage() {
       clinicalRevision: Number(row.clinical_revision ?? 0),
       aiGaps: (row.ai_gaps as string[] | null) ?? [],
       aiSummary: (row.ai_summary as string | null) ?? null,
+      legacyBody: (row.legacy_body as string | null) ?? null,
+      legacySource: (row.legacy_source as string | null) ?? null,
     };
     revisionRef.current = loadedConsultation.clinicalRevision;
     setConsultation(loadedConsultation);
@@ -1150,115 +1158,142 @@ export default function ConsultaPage() {
                 "Queixa principal e história atual" block — removed. Its column
                 (chief_complaint) still exists for the timeline, which falls back
                 to the appointment note when it is empty. */}
-            {ANAMNESIS_BLOCKS.map((block) => {
-              const expanded = expandedBlocks[block.key] ?? false;
-              return (
-                <Card key={block.key} component="section">
-                  <CardContent className="flex flex-col gap-1">
-                    <button
-                      type="button"
-                      aria-expanded={expanded}
-                      className="flex w-full flex-row flex-wrap items-center gap-2 text-left"
-                      onClick={() => setExpandedBlocks((current) => ({ ...current, [block.key]: !expanded }))}
-                    >
-                      <Typography component="h3" variant="subtitle1" className="mb-0">
-                        {t(block.title)}
-                      </Typography>
-                      {(blockStats[block.key]?.filled ?? 0) > 0 && (
-                        <span className="bg-grey-100 text-text-secondary rounded-full px-2 py-0.5 text-xs font-semibold">
-                          {t("block-filled-count", { count: blockStats[block.key].filled })}
-                        </span>
-                      )}
-                      {(blockStats[block.key]?.attention ?? 0) > 0 && (
-                        <span className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light rounded-full px-2 py-0.5 text-xs font-semibold">
-                          {t("block-attention-count", { count: blockStats[block.key].attention })}
-                        </span>
-                      )}
-                      <NiChevronDownSmall
-                        aria-hidden
-                        className={cn("text-text-secondary ml-auto transition-transform", expanded && "rotate-180")}
-                      />
-                    </button>
-                    {expanded && (
-                      <Box className="flex flex-col gap-1 pt-1">
-                        {block.fields.map((field) => {
-                          const composite = `${block.key}.${field.key}`;
-                          const meta = fields[composite];
-                          const isObservation = PROFESSIONAL_OBSERVATION_FIELDS.has(composite);
-                          return (
-                            <FormControl key={field.key} className="outlined" variant="standard" size="small">
-                              <FormLabel
-                                component="label"
-                                htmlFor={`consultation-field-${block.key}-${field.key}`}
-                                className="flex flex-row flex-wrap items-center gap-2"
-                              >
-                                {t(field.label)}
-                                {isObservation && (
-                                  <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
-                                    {t("field-observation-badge")}
-                                  </span>
-                                )}
-                                {meta?.value && (
-                                  <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
-                                )}
-                                {meta?.provenance?.quote && (
-                                  <button
-                                    type="button"
-                                    className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
-                                    onClick={(event) =>
-                                      setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
-                                    }
-                                  >
-                                    <NiPlay size="tiny" />
-                                    {t("field-provenance")}
-                                  </button>
-                                )}
-                              </FormLabel>
-                              <Input
-                                id={`consultation-field-${block.key}-${field.key}`}
-                                multiline={field.multiline}
-                                minRows={field.multiline ? 2 : undefined}
-                                readOnly={isReadOnly}
-                                value={meta?.value ?? ""}
-                                onChange={(event) => queueAnswerSave(block.key, field.key, event.target.value)}
-                                onBlur={() =>
-                                  void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
-                                }
-                              />
-                              {/* Tongue and pulse are dictated with a patient on
+            {/* A record from another system is shown as what it is — the text
+                as it was written, labelled with its origin — and REPLACES the
+                anamnesis blocks. Rendering forty empty fields next to it would
+                read as "not informed" about a consultation nobody documented
+                here, and splitting the text into those fields is exactly what
+                this feature refuses to do (docs/IMPORT-EXPORT.md §0). */}
+            {consultation.legacyBody ? (
+              <Card component="section">
+                <CardContent className="flex flex-col gap-3">
+                  <Box className="flex flex-col gap-1">
+                    <Typography variant="h5" component="h2" className="card-title mb-0">
+                      {t("legacy-record-title")}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary">
+                      {consultation.legacySource
+                        ? t("legacy-record-from", { source: consultation.legacySource })
+                        : t("legacy-record-unknown-source")}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1" className="text-text-primary whitespace-pre-wrap">
+                    {consultation.legacyBody}
+                  </Typography>
+                  <Alert severity="info">{t("legacy-record-note")}</Alert>
+                </CardContent>
+              </Card>
+            ) : (
+              ANAMNESIS_BLOCKS.map((block) => {
+                const expanded = expandedBlocks[block.key] ?? false;
+                return (
+                  <Card key={block.key} component="section">
+                    <CardContent className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        aria-expanded={expanded}
+                        className="flex w-full flex-row flex-wrap items-center gap-2 text-left"
+                        onClick={() => setExpandedBlocks((current) => ({ ...current, [block.key]: !expanded }))}
+                      >
+                        <Typography component="h3" variant="subtitle1" className="mb-0">
+                          {t(block.title)}
+                        </Typography>
+                        {(blockStats[block.key]?.filled ?? 0) > 0 && (
+                          <span className="bg-grey-100 text-text-secondary rounded-full px-2 py-0.5 text-xs font-semibold">
+                            {t("block-filled-count", { count: blockStats[block.key].filled })}
+                          </span>
+                        )}
+                        {(blockStats[block.key]?.attention ?? 0) > 0 && (
+                          <span className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light rounded-full px-2 py-0.5 text-xs font-semibold">
+                            {t("block-attention-count", { count: blockStats[block.key].attention })}
+                          </span>
+                        )}
+                        <NiChevronDownSmall
+                          aria-hidden
+                          className={cn("text-text-secondary ml-auto transition-transform", expanded && "rotate-180")}
+                        />
+                      </button>
+                      {expanded && (
+                        <Box className="flex flex-col gap-1 pt-1">
+                          {block.fields.map((field) => {
+                            const composite = `${block.key}.${field.key}`;
+                            const meta = fields[composite];
+                            const isObservation = PROFESSIONAL_OBSERVATION_FIELDS.has(composite);
+                            return (
+                              <FormControl key={field.key} className="outlined" variant="standard" size="small">
+                                <FormLabel
+                                  component="label"
+                                  htmlFor={`consultation-field-${block.key}-${field.key}`}
+                                  className="flex flex-row flex-wrap items-center gap-2"
+                                >
+                                  {t(field.label)}
+                                  {isObservation && (
+                                    <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
+                                      {t("field-observation-badge")}
+                                    </span>
+                                  )}
+                                  {meta?.value && (
+                                    <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
+                                  )}
+                                  {meta?.provenance?.quote && (
+                                    <button
+                                      type="button"
+                                      className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
+                                      onClick={(event) =>
+                                        setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
+                                      }
+                                    >
+                                      <NiPlay size="tiny" />
+                                      {t("field-provenance")}
+                                    </button>
+                                  )}
+                                </FormLabel>
+                                <Input
+                                  id={`consultation-field-${block.key}-${field.key}`}
+                                  multiline={field.multiline}
+                                  minRows={field.multiline ? 2 : undefined}
+                                  readOnly={isReadOnly}
+                                  value={meta?.value ?? ""}
+                                  onChange={(event) => queueAnswerSave(block.key, field.key, event.target.value)}
+                                  onBlur={() =>
+                                    void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
+                                  }
+                                />
+                                {/* Tongue and pulse are dictated with a patient on
                                   the table and their vocabulary is finite and
                                   consecrated — tapping beats typing, and the
                                   text stays free-form either way. */}
-                              {canEdit && TCM_VOCABULARY[composite] && (
-                                <VocabularyChips
-                                  groups={TCM_VOCABULARY[composite]}
-                                  value={meta?.value ?? ""}
-                                  onToggle={(next) => {
-                                    queueAnswerSave(block.key, field.key, next);
+                                {canEdit && TCM_VOCABULARY[composite] && (
+                                  <VocabularyChips
+                                    groups={TCM_VOCABULARY[composite]}
+                                    value={meta?.value ?? ""}
+                                    onToggle={(next) => {
+                                      queueAnswerSave(block.key, field.key, next);
+                                      void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
+                                    }}
+                                    t={t}
+                                  />
+                                )}
+                                <PreviousFieldValue
+                                  previousValue={previous?.answers[composite]?.value}
+                                  currentValue={meta?.value}
+                                  canEdit={canEdit}
+                                  onKeep={(value) => {
+                                    queueAnswerSave(block.key, field.key, value);
                                     void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
                                   }}
                                   t={t}
                                 />
-                              )}
-                              <PreviousFieldValue
-                                previousValue={previous?.answers[composite]?.value}
-                                currentValue={meta?.value}
-                                canEdit={canEdit}
-                                onKeep={(value) => {
-                                  queueAnswerSave(block.key, field.key, value);
-                                  void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
-                                }}
-                                t={t}
-                              />
-                            </FormControl>
-                          );
-                        })}
-                      </Box>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+                              </FormControl>
+                            );
+                          })}
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
 
             {/* Clinical summary — her free-text close, with the AI-suggested
                 draft she can copy into it. Its own card, separate from the

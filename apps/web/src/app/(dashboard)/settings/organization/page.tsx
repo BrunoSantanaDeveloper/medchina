@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import { Alert, Box, Breadcrumbs, Button, Drawer, Grid, Tooltip, Typography } from "@mui/material";
 
+import AccountExportCard from "@/components/product/account-export-card";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
 
 /** MVP account model: exactly one practice workspace per professional. */
@@ -64,6 +65,14 @@ export default function OrganizationSettings() {
           </Grid>
         )}
         {currentOrg && <OrgGeneral org={currentOrg} onUpdated={refreshOrgs} />}
+
+        {/* Portability lives with the practice, not with billing: leaving is
+            not a billing action (PRD §9.10). */}
+        {currentOrg && (
+          <Grid size={12}>
+            <AccountExportCard />
+          </Grid>
+        )}
 
         <Drawer open={openDrawer} anchor="right" onClose={() => setOpenDrawer(false)}>
           <Box className="min-w-80 p-7">

@@ -32,6 +32,13 @@ export interface KnowledgeSearchOptions {
   /** Only return documents at this trust level or better (lower number). */
   maxTrust?: TrustLevel;
   minSimilarity?: number;
+  /**
+   * The caller's declared practice modalities. A TIE-BREAKER, not a filter:
+   * documents tagged with one of these get a small rank bonus, documents with
+   * no modality are never penalised, and nothing is excluded (migration 0079).
+   * Omit it to rank exactly as before.
+   */
+  modalities?: readonly string[];
 }
 
 /**

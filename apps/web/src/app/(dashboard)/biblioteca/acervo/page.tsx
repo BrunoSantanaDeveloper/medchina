@@ -34,6 +34,8 @@ type AcervoDoc = {
   code: string | null;
   pinyin: string | null;
   meridian: string | null;
+  /** Empty means "applicable to every practice", never "unclassified". */
+  modalities: string[];
 };
 
 const KIND_FILTERS = ["all", "acupuncture_point", "herbal_formula", "tung_point", "internal_protocol"] as const;
@@ -63,6 +65,7 @@ export default function Acervo() {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<KindFilter>("all");
   const [meridian, setMeridian] = useState<string | null>(null);
+  const [modality, setModality] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setDocsState(remoteLoading());
@@ -81,7 +84,12 @@ export default function Acervo() {
       return;
     }
     const docs = (data ?? []).map((row) => {
-      const metadata = (row.metadata ?? {}) as { kind?: string; code?: string; pinyin?: string };
+      const metadata = (row.metadata ?? {}) as {
+        kind?: string;
+        code?: string;
+        pinyin?: string;
+        modality?: string[];
+      };
       return {
         id: row.id as string,
         title: row.title as string,
@@ -89,6 +97,9 @@ export default function Acervo() {
         code: metadata.code ?? null,
         pinyin: metadata.pinyin ?? null,
         meridian: metadata.kind === "acupuncture_point" ? meridianOf(metadata.code ?? null) : null,
+        // Absent means "applicable to every practice" (migration 0079), which
+        // is why an untagged card must never be filtered out below.
+        modalities: Array.isArray(metadata.modality) ? metadata.modality : [],
       };
     });
     setDocsState(docs.length === 0 ? remoteEmpty() : remoteSuccess(docs));
@@ -114,20 +125,35 @@ export default function Acervo() {
     return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [docs]);
 
+  // Only worth offering once the acervo actually holds more than one practice.
+  // Today it is entirely systemic acupuncture, so this stays empty and the
+  // facet does not render — which is the honest outcome, not a bug.
+  const modalities = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const doc of docs) {
+      for (const slug of doc.modalities) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+    return counts.size > 1 ? [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0])) : [];
+  }, [docs]);
+
   const filtered = useMemo(() => {
     const q = normalize(query.trim());
     return docs.filter((doc) => {
       if (kind !== "all" && doc.kind !== kind) return false;
       if (kind === "acupuncture_point" && meridian && doc.meridian !== meridian) return false;
+      // An untagged card is applicable to every practice, so it survives the
+      // modality filter — hiding it would bury the shared reference material.
+      if (modality && doc.modalities.length > 0 && !doc.modalities.includes(modality)) return false;
       if (!q) return true;
       return [doc.title, doc.code ?? "", doc.pinyin ?? ""].some((field) => normalize(field).includes(q));
     });
-  }, [docs, query, kind, meridian]);
+  }, [docs, query, kind, meridian, modality]);
 
   const clearFilters = () => {
     setQuery("");
     setKind("all");
     setMeridian(null);
+    setModality(null);
   };
 
   return (
@@ -214,6 +240,27 @@ export default function Acervo() {
                       variant={meridian === prefix ? "filled" : "outlined"}
                       color={meridian === prefix ? "primary" : "default"}
                       onClick={() => setMeridian(meridian === prefix ? null : prefix)}
+                    />
+                  ))}
+                </Box>
+              )}
+
+              {/* Renders only once the acervo holds more than one practice.
+                  Cards with no modality are shared reference and are never
+                  hidden by this filter (migration 0079). */}
+              {modalities.length > 0 && (
+                <Box className="flex flex-row flex-wrap items-center gap-1.5" aria-label={t("acervo-modality-label")}>
+                  <Typography variant="body2" className="text-text-secondary">
+                    {t("acervo-modality-label")}
+                  </Typography>
+                  {modalities.map(([slug, count]) => (
+                    <Chip
+                      key={slug}
+                      size="small"
+                      label={`${t(`practice-modality-${slug}`)} (${count})`}
+                      variant={modality === slug ? "filled" : "outlined"}
+                      color={modality === slug ? "primary" : "default"}
+                      onClick={() => setModality(modality === slug ? null : slug)}
                     />
                   ))}
                 </Box>

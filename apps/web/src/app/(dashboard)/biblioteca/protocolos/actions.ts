@@ -2,6 +2,7 @@
 
 import { recordAudit } from "@/lib/audit";
 import { OWN_PROTOCOLS_SLUG } from "@/lib/clinical-library";
+import { normalizeScope } from "@/lib/practice-scope-context";
 import { createClient } from "@flyee/auth/server";
 import { sendEvent } from "@flyee/jobs";
 import { processDocument } from "@flyee/knowledge";
@@ -89,6 +90,19 @@ export async function saveProtocol(input: {
   const collectionId = await ensureCollection(supabase, input.orgId, input.collectionName);
   if (!collectionId) return { ok: false, error: "collection_failed" };
 
+  // Her own protocol belongs to her own practice, so it carries her declared
+  // scope as its modality (migration 0079). This is the only path through
+  // which tagged content enters the acervo today — the 459 seeded cards are
+  // all systemic acupuncture. An empty declaration writes NO modality, which
+  // means "applicable to every practice", never "unclassified".
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("practice_modalities").eq("id", user.id).maybeSingle()
+    : { data: null };
+  const modality = normalizeScope(profile?.practice_modalities as string[] | null);
+
   const { data: created, error } = await supabase
     .from("knowledge_documents")
     .insert({
@@ -99,7 +113,7 @@ export async function saveProtocol(input: {
       // Verified first-party data: it is her own clinical protocol, second
       // only to the traditional sources the library was seeded with.
       trust_level: 2,
-      metadata: { kind: "internal_protocol" },
+      metadata: { kind: "internal_protocol", ...(modality.length > 0 ? { modality } : {}) },
       status: "pending",
     })
     .select("id")

@@ -20,6 +20,14 @@ export const PRODUCT_ACTIONS = [
     keywords: ["paciente", "patient", "novo", "new", "cadastrar"],
   },
   {
+    id: "import-patients",
+    labelKey: "command-import-patients",
+    descriptionKey: "command-import-patients-description",
+    href: "/pacientes/importar",
+    group: "create",
+    keywords: ["importar", "import", "migrar", "migration", "planilha", "csv", "outro sistema"],
+  },
+  {
     id: "new-appointment",
     labelKey: "command-new-appointment",
     descriptionKey: "command-new-appointment-description",

@@ -23,6 +23,15 @@ export type JobEvents = {
   "medchina/recording.process": { data: { recordingId: string; claimId: string } };
   /** Kick off the trial lifecycle email drip (activation → expiration → upgrade). */
   "medchina/trial.started": { data: { orgId: string; userId: string; email: string } };
+  /**
+   * Package a whole practice for download (PRD §9.10 portability). The two
+   * strings travel with the event because they are written INTO the archive
+   * and must be in the requester's language — a background job has no locale
+   * of its own to resolve them from.
+   */
+  "medchina/account.export": {
+    data: { exportId: string; scopeNote: string; readmeTitle: string; readyTitle: string; readyBody: string };
+  };
 };
 
 export const isInngestConfigured = Boolean(process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY);

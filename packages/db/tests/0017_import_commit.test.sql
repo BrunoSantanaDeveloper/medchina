@@ -247,32 +247,22 @@ select is(
 
 update public.plans set limits = limits || '{"import_rows": 200}'::jsonb where slug = 'gratuito';
 
--- ---------- Only the patients writer exists so far ----------
+-- ---------- A kind the writer does not know cannot even be created ----------
+-- All three kinds now have writers (patients 0077, history 0080, schedule
+-- 0082), so the protection that used to live in `commit_import_batch` — never
+-- fall through to the patients branch and create people out of appointment
+-- rows — is asserted where it now sits: the batch itself refuses a kind
+-- nothing can write.
 
-insert into public.import_batches (id, org_id, kind, status, created_by)
-values (
-  'a3000000-0000-4000-8000-000000000004', 'a2000000-0000-4000-8000-000000000001',
-  'history', 'preview', 'a1000000-0000-4000-8000-000000000001'
-);
-insert into public.import_rows (batch_id, org_id, row_number, raw, normalized, action)
-values ('a3000000-0000-4000-8000-000000000004', 'a2000000-0000-4000-8000-000000000001', 2,
-        '{}'::jsonb, '{"full_name":"Histórico"}'::jsonb, 'create');
-
-select set_config(
-  'request.jwt.claims',
-  '{"sub":"a1000000-0000-4000-8000-000000000001","role":"authenticated"}',
-  true
-);
-set local role authenticated;
-insert into commit_results values (
-  'kind', public.commit_import_batch('a3000000-0000-4000-8000-000000000004')
-);
-reset role;
-
-select is(
-  (select payload ->> 'code' from commit_results where name = 'kind'),
-  'kind_not_supported',
-  'a history batch is refused by name instead of writing patients from it'
+select throws_ok(
+  $$insert into public.import_batches (org_id, kind, status, created_by)
+    values (
+      'a2000000-0000-4000-8000-000000000001', 'agenda', 'preview',
+      'a1000000-0000-4000-8000-000000000001'
+    )$$,
+  '23514',
+  'new row for relation "import_batches" violates check constraint "import_batches_kind_check"',
+  'a batch of a kind no writer understands is refused at creation'
 );
 
 -- ---------- Suspension is the one thing that stops an import ----------

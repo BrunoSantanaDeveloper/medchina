@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { recordAudit } from "@/lib/audit";
 import { COLLECTION_KIND, type KnowledgeSourceRef, SOURCES_SENTINEL } from "@/lib/clinical-library";
 import { describePatientCase, loadPatientCase } from "@/lib/patient-case";
+import { buildPracticeScopeContext, normalizeScope } from "@/lib/practice-scope-context";
 import { alertAfterLibraryMessage, getAudioAllowance } from "@/lib/usage";
 import { type ChatAttachment, type ChatMessage, getChatProvider } from "@flyee/ai";
 import { createClient } from "@flyee/auth/server";
@@ -175,6 +176,19 @@ export async function POST(request: Request) {
     casePatientId = body.patientId ?? null;
   }
 
+  // What this professional actually treats with. The same declaration that
+  // bounds the therapeutic plan (plan/route.ts) becomes CONTEXT here — the
+  // study assistant answered every professional identically, so an
+  // auriculotherapist asking for "points for insomnia" got systemic points
+  // with nothing acknowledging her practice. Best-effort: a failed read simply
+  // injects nothing, which is the same as declaring no scope.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("practice_modalities")
+    .eq("id", user.id)
+    .maybeSingle();
+  const practiceScopeContext = buildPracticeScopeContext(profile?.practice_modalities as string[] | null);
+
   // Case review gates, enforced in code (never only in the UI):
   // Pro entitlement (reasoning over the record IS the Pro value, same gate as
   // hypotheses) and the patient's ACTIVE ai-processing consent (sending their
@@ -286,9 +300,15 @@ export async function POST(request: Request) {
   }));
 
   // Ground the assistant in its configured knowledge collections (RAG).
-  // Order: base instructions → the patient's case (when reviewing one) →
-  // retrieved library excerpts.
-  let systemPrompt: string = assistant.system_prompt + caseContext;
+  // Order: base instructions → who this professional is → the patient's case
+  // (when reviewing one) → retrieved library excerpts.
+  //
+  // The scope block sits right after the base because it is a STABLE quality
+  // of the practitioner (it belongs with the instructions), while the case and
+  // the excerpts are this round's variable material. It never goes after
+  // buildKnowledgeContext, which closes the prompt with the numbered [n]
+  // passages the answer must cite.
+  let systemPrompt: string = assistant.system_prompt + practiceScopeContext + caseContext;
   let sources: KnowledgeSourceRef[] = [];
   let retrievalFailed = false;
   const knowledgeConfig = (assistant.config as { knowledge?: AssistantKnowledgeConfig } | null)?.knowledge;
@@ -299,6 +319,10 @@ export async function POST(request: Request) {
         collectionIds,
         matchCount: knowledgeConfig.matchCount,
         maxTrust: knowledgeConfig.maxTrust,
+        // Ties break toward what she practises. Nothing is excluded — a
+        // document from another modality still ranks on its own merit, and an
+        // untagged one is never demoted (migration 0079).
+        modalities: normalizeScope(profile?.practice_modalities as string[] | null),
       });
       systemPrompt += buildKnowledgeContext(results);
       // The prompt numbers excerpts [1..n] in this same order — the refs the

@@ -37,6 +37,7 @@ type PatientRow = {
 };
 
 const NEW_PATIENT_HREF = getProductAction("new-patient").href;
+const IMPORT_PATIENTS_HREF = getProductAction("import-patients").href;
 
 /**
  * Patients (PRD §9.4). The job is "find the person I'm about to see and open
@@ -120,9 +121,16 @@ export default function Pacientes() {
             </Breadcrumbs>
           </Box>
           {patientsState.status === "success" && (
-            <Button variant="contained" color="primary" href={NEW_PATIENT_HREF} LinkComponent={Link}>
-              {t("patients-new")}
-            </Button>
+            <Box className="flex flex-row flex-wrap items-center gap-2">
+              {/* Migrating stays secondary: the primary job here is still to
+                  open a chart, and only a newcomer imports — once. */}
+              <Button variant="text" color="grey" href={IMPORT_PATIENTS_HREF} LinkComponent={Link}>
+                {t("patients-import-cta")}
+              </Button>
+              <Button variant="contained" color="primary" href={NEW_PATIENT_HREF} LinkComponent={Link}>
+                {t("patients-new")}
+              </Button>
+            </Box>
           )}
         </Box>
       </Grid>
@@ -142,6 +150,7 @@ export default function Pacientes() {
                 title={t("patients-empty-title")}
                 description={t("patients-empty-body")}
                 action={{ label: t("patients-empty-cta"), href: NEW_PATIENT_HREF }}
+                secondaryAction={{ label: t("patients-import-cta"), href: IMPORT_PATIENTS_HREF }}
               />
             ) : (
               <>
@@ -174,6 +183,7 @@ export default function Pacientes() {
                     title={t("patients-empty-title")}
                     description={t("patients-empty-body")}
                     action={{ label: t("patients-empty-cta"), href: NEW_PATIENT_HREF }}
+                    secondaryAction={{ label: t("patients-import-cta"), href: IMPORT_PATIENTS_HREF }}
                     className="border-none py-8"
                   />
                 ) : filtered.length === 0 && showArchived && !query ? (
