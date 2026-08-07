@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import { cn } from "@/lib/utils";
 
 /**
@@ -127,7 +129,12 @@ export default function Logo({
   tone?: "default" | "contrast";
 }) {
   const teal = tone === "contrast" ? "hsl(var(--text-contrast))" : "hsl(var(--primary))";
-  const p = tone === "contrast" ? "mc_c" : "mc";
+  // Gradient ids must be unique per <Logo> INSTANCE, not just per tone — two
+  // logos of the same tone on one page (e.g. a hidden shared header plus a
+  // page's own hand-built one) previously collided on the same "mc_full_w0"
+  // id, and the fill silently resolved to whichever copy paints second.
+  const uid = useId().replace(/:/g, "");
+  const p = (tone === "contrast" ? "mc_c" : "mc") + uid;
   return (
     <>
       <svg

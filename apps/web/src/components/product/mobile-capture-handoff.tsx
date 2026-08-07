@@ -260,9 +260,6 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
           </Typography>
           <InfoHint label={t("capture-qr-note")} className="ml-auto" />
         </Box>
-        <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-          {t("capture-qr-hint")}
-        </Typography>
         {statusLabel && (
           <Box className="flex flex-row items-center gap-2" role="status" aria-live="polite">
             <span

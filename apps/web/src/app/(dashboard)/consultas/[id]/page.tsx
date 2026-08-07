@@ -38,6 +38,7 @@ import ConsultationRecorder from "@/components/product/consultation-recorder";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
 import MobileCaptureHandoff from "@/components/product/mobile-capture-handoff";
 import PlanPanel from "@/components/product/plan-panel";
+import PrescriptionPanel from "@/components/product/prescription-panel";
 import RecordingsPanel from "@/components/product/recordings-panel";
 import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule-dialog";
 import UsageMeter from "@/components/product/usage-meter";
@@ -1328,6 +1329,11 @@ export default function ConsultaPage() {
               hasAcceptedHypotheses={hasAcceptedHypotheses}
               isFinalized={isReadOnly}
             />
+
+            {/* Receituário (PRD §9.8) — the professional's own prescription
+              (herbal formula / generic). Authored by her, never the AI; a draft
+              until she validates and signs it. */}
+            <PrescriptionPanel consultationId={consultation.id} orgId={consultation.orgId} isFinalized={isReadOnly} />
 
             {/* Gaps are suggestions to investigate — never answers (PRD §10.7). */}
             {consultation.aiGaps.length > 0 && canEdit && (

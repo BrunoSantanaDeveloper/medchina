@@ -65,9 +65,9 @@ export default function CookieConsent() {
           </Box>
         </Box>
         <Box className="flex gap-2 max-sm:flex-col">
-          <Button variant="contained" color="primary" className="flex-1" onClick={acknowledge}>
+          <a className="button button--sm" onClick={acknowledge}>
             {t("cookie-consent-accept")}
-          </Button>
+          </a>
           <Button variant="outlined" color="grey" className="flex-1" onClick={optOut}>
             {t("cookie-consent-reject")}
           </Button>

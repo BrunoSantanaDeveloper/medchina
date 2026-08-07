@@ -184,7 +184,7 @@ export default function Page() {
         <Box className="flex flex-col gap-4 px-8 sm:px-14">
           <Box className="flex flex-col">
             <Box className="mb-14 flex justify-center">
-              <Logo classNameMobile="hidden" />
+              <Logo classNameFull="h-12 w-auto" classNameMobile="hidden " />
             </Box>
 
             <Box className="flex flex-col gap-10">

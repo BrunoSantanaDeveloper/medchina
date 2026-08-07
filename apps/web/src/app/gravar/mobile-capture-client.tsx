@@ -54,6 +54,10 @@ type Resolved = {
  */
 type SentAttachment = { id: string; name: string; isImage: boolean; previewUrl: string | null };
 
+/** Rolling waveform window: 28 bars sampled every 110ms ≈ the last 3 seconds. */
+const WAVEFORM_BARS = 28;
+const WAVEFORM_SAMPLE_MS = 110;
+
 const MAX_DURATION_SECONDS = 120 * 60;
 const BUCKET = "transcriptions";
 // Speech needs little: 32 kbps mono opus keeps an hour near ~14 MB, which
@@ -128,6 +132,7 @@ export default function MobileCaptureClient() {
   const [warningKey, setWarningKey] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
   const [level, setLevel] = useState(0);
+  const [levels, setLevels] = useState<number[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   // Photos/documents share the SAME QR session as the audio — the phone is
   // camera and microphone in one flow.
@@ -152,6 +157,7 @@ export default function MobileCaptureClient() {
   const lastSoundAtRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const levelFrameRef = useRef<number | null>(null);
+  const lastBarAtRef = useRef(0);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const pendingBlob = useRef<{ blob: Blob; duration: number; mime: string } | null>(null);
   const phaseRef = useRef<Phase>("loading");
@@ -304,6 +310,7 @@ export default function MobileCaptureClient() {
     void audioContextRef.current?.close().catch(() => undefined);
     audioContextRef.current = null;
     setLevel(0);
+    setLevels([]);
   }, []);
   const releaseStream = useCallback(() => {
     stream.current?.getTracks().forEach((track) => track.stop());
@@ -368,6 +375,18 @@ export default function MobileCaptureClient() {
         const value = Math.min(1, peak / 96);
         if (value > 0.04) lastSoundAtRef.current = Date.now();
         setLevel(value);
+        // The waveform is a rolling window of REAL peaks, sampled well below
+        // frame rate: it is the level meter of invariant (6) with memory, so a
+        // silent stretch stays visible as flat bars instead of scrolling away
+        // in the same instant. Never a canned animation — that would draw
+        // "sound is arriving" over a dead microphone.
+        const now = performance.now();
+        if (now - lastBarAtRef.current >= WAVEFORM_SAMPLE_MS) {
+          lastBarAtRef.current = now;
+          setLevels((previous) =>
+            previous.length < WAVEFORM_BARS ? [...previous, value] : [...previous.slice(1), value],
+          );
+        }
         levelFrameRef.current = requestAnimationFrame(tick);
       };
       levelFrameRef.current = requestAnimationFrame(tick);
@@ -720,50 +739,91 @@ export default function MobileCaptureClient() {
         ) : (
           <>
             {(phase === "recording" || phase === "paused") && (
-              <Box
-                className={cn(
-                  "flex flex-col gap-3 rounded-2xl px-4 py-4",
-                  phase === "recording" ? "bg-accent-3/12" : "bg-grey-100",
-                )}
-                role="status"
-                aria-live="polite"
-              >
-                <Box className="flex flex-row items-center gap-2">
+              <Box className="flex flex-col items-center gap-4" role="status" aria-live="polite">
+                {/* What is being captured and what will be done with it — the
+                    two facts that justify a microphone being open in a room
+                    with a patient, stated where she can point at them. */}
+                <Box className="border-grey-100 flex w-full flex-row items-center gap-2 rounded-2xl border px-3 py-2">
+                  <NiMicrophone size="tiny" className="text-primary flex-none" aria-hidden />
+                  <Box className="min-w-0">
+                    <Typography variant="body2" className="text-text-primary text-xs leading-4 font-semibold">
+                      {t("capture-mobile-consent-badge")}
+                    </Typography>
+                    <Typography variant="body2" className="text-text-secondary text-xs leading-4">
+                      {resolved?.mode === "ai" ? t("capture-mode-ai") : t("capture-mode-audio")}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* The disc breathes with the MEASURED level, so it is a second
+                    reading of the same truth as the bars, never decoration
+                    that would keep moving over a dead microphone. */}
+                <Box className="relative flex h-36 w-36 flex-none items-center justify-center">
                   <span
                     aria-hidden
                     className={cn(
-                      "h-2.5 w-2.5 flex-none rounded-full",
-                      phase === "recording" ? "bg-accent-3 animate-pulse" : "bg-grey-500",
+                      "absolute inset-0 rounded-full",
+                      phase === "recording" ? "bg-primary/10" : "bg-grey-100",
                     )}
                   />
-                  <Typography variant="body2" className="font-semibold">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute rounded-full transition-transform duration-100",
+                      phase === "recording" ? "bg-primary" : "bg-grey-400",
+                    )}
+                    style={{
+                      height: "5rem",
+                      width: "5rem",
+                      transform: `scale(${phase === "recording" ? 1 + Math.min(0.28, level * 0.45) : 1})`,
+                    }}
+                  />
+                </Box>
+
+                <Box className="flex flex-col items-center gap-1">
+                  <Typography
+                    variant="body2"
+                    className="text-text-secondary text-center text-[0.6875rem] leading-4 font-semibold tracking-wider uppercase"
+                  >
                     {phase === "recording" ? t("recorder-recording") : t("recorder-paused")}
                   </Typography>
-                  <Typography
-                    variant="h5"
-                    component="p"
-                    className="text-text-primary mb-0 ml-auto font-mono tabular-nums"
-                  >
+                  <Typography variant="h2" component="p" className="text-text-primary mb-0 font-mono tabular-nums">
                     {mmss}
                   </Typography>
                 </Box>
+
+                {/* Same honest meter as before, now with ~3s of memory. The
+                    scalar level stays the accessible value; the bars are the
+                    visual. */}
+                <Box
+                  className="flex h-10 w-full flex-row items-end justify-center gap-[3px]"
+                  role="meter"
+                  aria-label={t("recorder-level-label")}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(level * 100)}
+                >
+                  {Array.from({ length: WAVEFORM_BARS }, (_, index) => {
+                    // Right-aligned: the newest sample sits at the end, and an
+                    // unfilled window reads as "just started", not as silence.
+                    const offset = WAVEFORM_BARS - levels.length;
+                    const sample = index >= offset ? levels[index - offset] : 0;
+                    return (
+                      <span
+                        key={index}
+                        aria-hidden
+                        className={cn(
+                          "w-[3px] flex-none rounded-full",
+                          phase === "recording" ? "bg-primary" : "bg-grey-300",
+                        )}
+                        style={{ height: `${Math.max(10, Math.round(sample * 100))}%` }}
+                      />
+                    );
+                  })}
+                </Box>
+
                 {phase === "recording" && (
-                  <Box
-                    className="bg-grey-100 h-2 w-full overflow-hidden rounded-full"
-                    role="meter"
-                    aria-label={t("recorder-level-label")}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(level * 100)}
-                  >
-                    <Box
-                      className="bg-primary h-full rounded-full transition-all duration-100"
-                      style={{ width: `${Math.max(2, Math.round(level * 100))}%` }}
-                    />
-                  </Box>
-                )}
-                {phase === "recording" && (
-                  <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                  <Typography variant="body2" className="text-text-secondary text-center text-xs leading-5">
                     {t("capture-mobile-screen-hint")}
                   </Typography>
                 )}

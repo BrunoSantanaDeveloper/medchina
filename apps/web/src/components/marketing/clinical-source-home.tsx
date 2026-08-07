@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import Logo from "@/components/logo/logo";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import {
   AndroidLogo,
@@ -267,10 +268,10 @@ const pricingPlans = [
 function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
     <a className={`brand ${inverse ? "brand--inverse" : ""}`} href="#inicio" aria-label="MedChina — início">
-      <img src="/brand/medchina-mark.png" alt="" width={38} height={38} />
-      <span>
-        Med<span>China</span>
-      </span>
+      {/* The one true logo (@/components/logo/logo.tsx) — same asset as the
+          logged-in header. tone="contrast" swaps the teal shapes to white for
+          the dark footer band; the camel wordmark gradient already reads on dark. */}
+      <Logo classNameFull="h-9 w-auto" classNameMobile="hidden" tone={inverse ? "contrast" : "default"} />
     </a>
   );
 }
@@ -813,17 +814,14 @@ export default function ClinicalSourceHome() {
           <div className="hero-copy">
             <p className="eyebrow">Clareza clínica, do primeiro relato à evolução</p>
             <h1 id="hero-title">
-              Sua prática de
+              Sua prática de MTC, <br />
+              ampliada por uma IA
               <br />
-              MTC, ampliada
-              <br />
-              por uma IA que
-              <br />
-              <em>você supervisiona.</em>
+              que <em>você supervisiona.</em>
             </h1>
             <p className="hero-lead">
-              Registre a consulta, estruture a anamnese e conecte padrões clínicos com rastreabilidade — sem abrir mão
-              da sua decisão.
+              Registre a consulta, estruture a anamnese e conecte padrões clínicos com rastreabilidade, sem abrir mão da
+              sua decisão.
             </p>
             <div className="hero-actions">
               <a className="button" href={signUpUrl}>

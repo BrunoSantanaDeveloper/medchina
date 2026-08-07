@@ -264,6 +264,7 @@ summary:focus-visible {
 
 .hero {
   position: relative;
+  overflow-x: clip;
   min-height: 820px;
   background: var(--paper);
 }
@@ -279,7 +280,7 @@ summary:focus-visible {
 .hero-copy {
   position: relative;
   z-index: 8;
-  width: 40.5%;
+  width: 48%;
   padding: 96px 0 64px 58px;
 }
 
@@ -311,7 +312,7 @@ h3 {
 }
 
 .hero h1 {
-  max-width: 520px;
+  max-width: 630px;
   margin-bottom: 24px;
   font-size: clamp(52px, 4.4vw, 64px);
   font-weight: 800;
@@ -403,7 +404,12 @@ h2 em {
   position: absolute;
   z-index: 2;
   top: 0;
-  right: 0;
+  /* .hero-inner caps out at 1440px and centers, so a plain right:0 stops
+     there too, leaving empty page background beyond it on wider screens.
+     This bleeds the stage (and the teal composite that fills it) to the
+     true viewport edge on wide screens while staying flush at/below
+     1440px, where .hero-inner already reaches the viewport edge. */
+  right: min(0px, calc((1440px - 100vw) / 2));
   bottom: 0;
   left: 38%;
   overflow: hidden;
@@ -415,8 +421,8 @@ h2 em {
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 35% 92%, rgba(158, 190, 191, 0.38), transparent 38%),
-    linear-gradient(180deg, #225c5c 0%, #145653 58%, #52777c 100%);
+    radial-gradient(circle at 35% 92%, rgba(158, 190, 191, 0.38), rgba(0, 0, 0, 0) 38%),
+    linear-gradient(#235960 0%, #175156 58%, #527a7f 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 14%, #000 100%);
   mask-image: linear-gradient(to right, transparent 0%, #000 14%, #000 100%);
 }
@@ -1006,6 +1012,7 @@ h2 em {
     opacity: 0.55;
     transform: scale(0.86);
   }
+
   50% {
     opacity: 1;
     transform: scale(1);
@@ -1409,6 +1416,7 @@ h2 em {
   from {
     transform: translateY(0);
   }
+
   to {
     transform: translateY(-8px);
   }
@@ -1418,6 +1426,7 @@ h2 em {
   from {
     transform: translate3d(0, 0, 0);
   }
+
   to {
     transform: translate3d(9px, -7px, 0);
   }
@@ -1757,6 +1766,7 @@ h2 em {
   from {
     transform: translateY(0);
   }
+
   to {
     transform: translateY(-8px);
   }

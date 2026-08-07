@@ -653,7 +653,7 @@ export default function Home() {
           <div className="hero-copy">
             <p className="eyebrow">Clareza clínica, do primeiro relato à evolução</p>
             <h1 id="hero-title">Sua prática de<br />MTC, ampliada<br />por uma IA que<br /><em>você supervisiona.</em></h1>
-            <p className="hero-lead">Registre a consulta, estruture a anamnese e conecte padrões clínicos com rastreabilidade — sem abrir mão da sua decisão.</p>
+            <p className="hero-lead">Registre a consulta, estruture a anamnese e conecte padrões clínicos com rastreabilidade, sem abrir mão da sua decisão.</p>
             <div className="hero-actions">
               <a className="button" href={signUpUrl}>Criar conta gratuita <ArrowRight size={18} /></a>
               <a className="button button--secondary" href="#como-funciona"><Play size={17} weight="fill" /> Conhecer a plataforma</a>

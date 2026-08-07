@@ -86,7 +86,7 @@ export default function TwoFactor() {
       <Paper elevation={3} className="bg-background-paper shadow-darker-xs w-lg max-w-full rounded-4xl py-14">
         <Box className="flex flex-col gap-6 px-8 sm:px-14">
           <Box className="flex justify-center">
-            <Logo classNameMobile="hidden" />
+            <Logo classNameFull="h-12 w-auto" classNameMobile="hidden" />
           </Box>
           <Box className="flex flex-col">
             <Typography variant="h1" component="h1" className="mb-2">

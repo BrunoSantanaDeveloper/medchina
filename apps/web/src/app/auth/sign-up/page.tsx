@@ -192,7 +192,7 @@ export default function Page() {
       <Paper elevation={3} className="bg-background-paper shadow-darker-xs w-lg max-w-full rounded-4xl py-14">
         <Box className="flex flex-col gap-4 px-8 sm:px-14">
           <Box className="mb-14 flex justify-center">
-            <Logo classNameMobile="hidden" />
+            <Logo classNameFull="h-12 w-auto" classNameMobile="hidden" />
           </Box>
 
           <Box className="flex flex-col gap-10">

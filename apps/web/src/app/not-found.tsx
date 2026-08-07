@@ -25,7 +25,7 @@ export default function Page() {
         <Box className="flex flex-col gap-4 px-8 sm:px-14">
           <Box className="flex flex-col">
             <Box className="mb-14 flex justify-center">
-              <Logo classNameMobile="hidden" />
+              <Logo classNameMobile="hidden h-9 w-auto" />
             </Box>
 
             <Box className="flex flex-col items-center gap-4">
