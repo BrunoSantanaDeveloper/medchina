@@ -8,6 +8,7 @@ import { Alert, Box, Button, FormControl, FormLabel, Input, Paper, Typography } 
 
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -17,6 +18,7 @@ import { sanitizeInternalNext } from "@flyee/clinical";
 export default function TwoFactor() {
   const router = useRouter();
   const t = useTranslations("auth");
+  const hydrated = useHydrated();
   const [factorId, setFactorId] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +101,7 @@ export default function TwoFactor() {
 
           <Box
             component="form"
+            method="post"
             className="flex flex-col gap-4"
             onSubmit={(event) => {
               event.preventDefault();
@@ -126,7 +129,7 @@ export default function TwoFactor() {
               </Alert>
             )}
 
-            <Button type="submit" variant="contained" disabled={!factorId || code.length < 6 || busy}>
+            <Button type="submit" variant="contained" disabled={!factorId || code.length < 6 || busy || !hydrated}>
               {busy ? t("two-factor-verifying") : t("two-factor-verify")}
             </Button>
             <Button color="grey" variant="text" onClick={signOut}>

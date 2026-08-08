@@ -22,6 +22,7 @@ import {
 
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
+import { useHydrated } from "@/hooks/use-hydrated";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
@@ -47,6 +48,7 @@ export default function Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("auth");
+  const hydrated = useHydrated();
   const next = sanitizeInternalNext(searchParams.get("next"), DEFAULTS.appRoot);
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -120,6 +122,7 @@ export default function Page() {
 
             <Box
               component="form"
+              method="post"
               onSubmit={(event) => {
                 setSubmitted(true);
                 formik.handleSubmit(event);
@@ -173,7 +176,12 @@ export default function Page() {
                 </Alert>
               )}
 
-              <Button type="submit" variant="contained" className="mt-2 mb-4" disabled={formik.isSubmitting}>
+              <Button
+                type="submit"
+                variant="contained"
+                className="mt-2 mb-4"
+                disabled={formik.isSubmitting || !hydrated}
+              >
                 {t("new-submit")}
               </Button>
             </Box>

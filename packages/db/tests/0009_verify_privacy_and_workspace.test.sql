@@ -46,14 +46,16 @@ select ok(
             from pg_proc where oid = 'public.create_organization(text,text)'::regprocedure), false),
   'platform operators stay exempt so tenants can still be created'
 );
+-- Since 0084 the guards live in the two-arg form (any operational action may
+-- start the trial, and each names its origin); the one-arg signature delegates.
 select ok(
   coalesce((select position('started_by = auth.uid()' in prosrc) > 0
-            from pg_proc where oid = 'public.start_pro_trial(uuid)'::regprocedure), false),
+            from pg_proc where oid = 'public.start_pro_trial(uuid,text)'::regprocedure), false),
   'the Pro trial is claimed per professional, not only per workspace'
 );
 select ok(
   coalesce((select position('for update' in prosrc) > 0
-            from pg_proc where oid = 'public.start_pro_trial(uuid)'::regprocedure), false),
+            from pg_proc where oid = 'public.start_pro_trial(uuid,text)'::regprocedure), false),
   'and the 0033 row lock against a web/mobile race is preserved'
 );
 

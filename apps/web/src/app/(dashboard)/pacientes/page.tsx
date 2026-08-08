@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
@@ -47,6 +47,7 @@ const IMPORT_PATIENTS_HREF = getProductAction("import-patients").href;
  */
 export default function Pacientes() {
   const t = useTranslations("product");
+  const locale = useLocale();
   const [patientsState, setPatientsState] = useState<RemoteState<PatientRow[], string>>(() => remoteLoading());
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -216,7 +217,9 @@ export default function Pacientes() {
                           <Typography variant="body2" className="text-text-secondary">
                             {patient.lastConsultation
                               ? t("patients-last-visit", {
-                                  date: new Date(patient.lastConsultation).toLocaleDateString(),
+                                  // The app's locale, not the browser's: a
+                                  // pt-BR chart was showing 3/13/2019.
+                                  date: new Intl.DateTimeFormat(locale).format(new Date(patient.lastConsultation)),
                                 })
                               : t("patients-no-visit")}
                           </Typography>

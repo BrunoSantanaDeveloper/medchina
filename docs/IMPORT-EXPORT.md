@@ -396,7 +396,45 @@ um `void supabase.rpc(...)` solto nunca dispara a requisição.
 
 ---
 
-## 11. Riscos conhecidos
+## 11. Verificação no navegador (ago/2026)
+
+Os itens 1 a 7 foram percorridos numa sessão real (Playwright + Chromium) contra
+o Supabase **local**, com a conta de teste `verify@medchina.local`. Contra o
+ambiente publicado não daria: `db:plan:remote` mostra que as migrações
+0075–0083 seguem **pendentes em produção**, então o site tem o código e não tem
+o schema.
+
+O que o banco registrou depois da caminhada, exatamente como o preview
+prometia: pacientes `created 2 / failed 1` (linha sem nome); o **mesmo arquivo
+reenviado** `updated 2 / created 0` — idempotência provada pela interface, sem
+duplicar ninguém; histórico `created 1 / failed 1` (paciente órfã); agenda
+`created 1 / failed 1` (horário em conflito).
+
+Quatro defeitos que só a caminhada encontrou:
+
+1. **Data importada aparecia um dia antes** (`14/03` virava `13/03`). 0080
+   convertia a data direto para `timestamptz` — meia-noite UTC, 21h do dia
+   anterior em São Paulo. Corrigido em
+   [0083](../packages/db/migrations/0083_import_history_timezone.sql).
+2. **Campo "De qual sistema você está vindo?" sem rótulo programático**
+   (`FormLabel` sem `htmlFor`): um leitor de tela anunciava um campo sem nome.
+3. **Data da última consulta na lista de pacientes no locale do navegador**
+   (`3/13/2019` para uma usuária pt-BR). Anterior a este trabalho; apareceu
+   porque a importação finalmente colocou uma consulta antiga na lista.
+4. **Login enviado antes da hidratação fazia submit nativo em GET** e a senha
+   ia para a URL (`/auth/sign-in?email=…&password=…`), logo para o histórico do
+   navegador, para o referrer e para os logs de acesso. Reproduzido em três
+   execuções. **Corrigido em duas camadas**, nos seis formulários de
+   autenticação: `method="post"` no form — a garantia de que nada chega a uma
+   URL mesmo se a hidratação falhar ou o JS estiver desligado — e o botão de
+   envio inerte até `useHydrated()` virar verdadeiro, para que o caminho normal
+   nunca chegue ao submit nativo. Verificado no HTML servido (form com
+   `method="post"`, submit `disabled`) e no navegador (login continua
+   funcionando, URL sem credenciais).
+
+---
+
+## 12. Riscos conhecidos
 
 - **Data ambígua** (`03/04/1985`) — resolver por coluna ou perguntar; nunca chutar.
 - **Encoding latin-1** — mojibake em nome de paciente é permanente e constrangedor.

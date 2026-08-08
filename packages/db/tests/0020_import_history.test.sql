@@ -146,11 +146,13 @@ select is(
   'finalized',
   'history arrives finalized — it is history, not a draft to continue'
 );
+-- Read in HER timezone on purpose: casting the bare date to timestamptz put
+-- it at midnight UTC, which São Paulo shows as the day before (0083).
 select is(
-  (select started_at::date::text from public.consultations
+  (select (started_at at time zone 'America/Sao_Paulo')::date::text from public.consultations
     where import_batch_id = 'b3000000-0000-4000-8000-000000000001'),
   '2019-06-14',
-  'and keeps the date it actually happened'
+  'and keeps the date it actually happened, on her calendar rather than on UTC''s'
 );
 select is(
   (select legacy_source from public.consultations

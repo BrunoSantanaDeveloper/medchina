@@ -35,6 +35,7 @@ import NiPlus from "@/icons/nexture/ni-plus";
 import NiSendUpRight from "@/icons/nexture/ni-send-up-right";
 import { type KnowledgeSourceRef, LIBRARY_ASSISTANT_SLUG, SOURCES_SENTINEL } from "@/lib/clinical-library";
 import { listActivePatientOptions, type PatientOption } from "@/lib/patients";
+import { ensureProTrial } from "@/lib/pro-trial";
 import { trackProductEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -91,6 +92,7 @@ export default function Biblioteca() {
   const [allowance, setAllowance] = useState<Allowance | null>(null);
   const [quotaExhausted, setQuotaExhausted] = useState<{ used: number; limit: number } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [trialStarted, setTrialStarted] = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
@@ -352,6 +354,14 @@ export default function Biblioteca() {
         }
 
         await Promise.all([loadConversations(), loadAllowance()]);
+        // Using the AI is what the trial is for (migration 0084). Fired after
+        // the answer so it can never delay or break the reply.
+        void ensureProTrial(orgId, "library").then(({ started }) => {
+          if (started) {
+            setTrialStarted(true);
+            void loadAllowance();
+          }
+        });
       } catch {
         removeAssistantPlaceholder();
         setSendError(t("library-error-generic"));
@@ -542,6 +552,14 @@ export default function Biblioteca() {
           {sendError && (
             <Alert severity="error" onClose={() => setSendError(null)}>
               {sendError}
+            </Alert>
+          )}
+          {/* Asking the library is real use of the AI, so it may have started
+              the Pro trial (migration 0084). Stated where it happened — a clock
+              that starts in silence is a trial that expires "unused". */}
+          {trialStarted && (
+            <Alert severity="info" onClose={() => setTrialStarted(false)}>
+              {t("trial-auto-started")}
             </Alert>
           )}
 

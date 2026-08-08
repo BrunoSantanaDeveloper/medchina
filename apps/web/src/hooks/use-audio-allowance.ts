@@ -72,7 +72,9 @@ export function useAudioAllowance(orgId: string | null) {
       const response = await fetch("/api/billing/start-trial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orgId }),
+        // The deliberate confirmation path (PRD §5.7). Implicit starts from
+        // ordinary actions go through lib/pro-trial.ts with their own origin.
+        body: JSON.stringify({ orgId, origin: "recorder" }),
       });
       const json = (await response.json().catch(() => null)) as { allowance?: AllowanceRow; error?: string } | null;
       if (!response.ok) return json?.error ?? "allowance_unavailable";

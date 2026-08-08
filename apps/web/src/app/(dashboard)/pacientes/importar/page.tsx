@@ -56,6 +56,7 @@ import {
   SCHEDULE_FIELDS,
   stageImportRows,
 } from "@/lib/import";
+import { ensureProTrial } from "@/lib/pro-trial";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 
@@ -97,6 +98,7 @@ export default function ImportarPacientes() {
   const [dateOrder, setDateOrder] = useState<DateOrder | undefined>(undefined);
 
   const [counts, setCounts] = useState<ImportCounts | null>(null);
+  const [trialStarted, setTrialStarted] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [uploadWarning, setUploadWarning] = useState(false);
   const [undoState, setUndoState] = useState<"idle" | "running" | "done">("idle");
@@ -325,6 +327,10 @@ export default function ImportarPacientes() {
 
     setCounts(committed.data);
     setPhase("done");
+    // Bringing her charts in is real use of the product, and it used to leave
+    // the Pro trial unreachable (migration 0084). Fired after the commit so a
+    // billing call can never put an import at risk.
+    void ensureProTrial(orgId, "import").then(({ started }) => setTrialStarted(started));
   };
 
   const undoImport = async () => {
@@ -407,8 +413,12 @@ export default function ImportarPacientes() {
           </Box>
 
           <FormControl className="outlined" variant="standard" size="small" fullWidth>
-            <FormLabel component="label">{t("import-source-label")}</FormLabel>
+            <FormLabel component="label" htmlFor="import-source-system">
+              {t("import-source-label")}
+            </FormLabel>
             <Input
+              id="import-source-system"
+              name="sourceSystem"
               value={sourceSystem}
               placeholder={t("import-source-placeholder")}
               onChange={(event) => setSourceSystem(event.target.value)}
@@ -544,6 +554,10 @@ export default function ImportarPacientes() {
               {/* What did NOT come across, stated where she is counting what
                   did — silence here becomes a support ticket later. */}
               <Alert severity="info">{t("import-scope-note")}</Alert>
+              {/* The import may have started the Pro trial (migration 0084) —
+                  said here, because a 14-day clock she never saw start is a
+                  trial that expires "without being used". */}
+              {trialStarted && <Alert severity="info">{t("trial-auto-started")}</Alert>}
               {uploadWarning && <Alert severity="info">{t("import-upload-warning")}</Alert>}
               {undoState === "done" && <Alert severity="success">{t("import-undo-done")}</Alert>}
               {undoBlockers && (

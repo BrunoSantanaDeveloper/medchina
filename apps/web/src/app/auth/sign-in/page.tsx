@@ -25,6 +25,7 @@ import {
 import { BRAND } from "@/brand";
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
+import { useHydrated } from "@/hooks/use-hydrated";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiEyeClose from "@/icons/nexture/ni-eye-close";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
@@ -58,6 +59,7 @@ export default function Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("auth");
+  const hydrated = useHydrated();
   const requestedNext = searchParams.get("next");
   const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
   const [submitted, setSubmitted] = useState(false);
@@ -223,6 +225,10 @@ export default function Page() {
 
                 <Box
                   component={"form"}
+                  // A form that carries a password must never be able to put it in a
+                  // URL. Before hydration a click submits NATIVELY, and the
+                  // default method is GET.
+                  method="post"
                   onSubmit={(event) => {
                     setSubmitted(true);
                     formik.handleSubmit(event);
@@ -313,7 +319,12 @@ export default function Page() {
                     >
                       {t("reset-password")}
                     </Link>
-                    <Button type="submit" variant="contained" className="mb-4" disabled={formik.isSubmitting}>
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      className="mb-4"
+                      disabled={formik.isSubmitting || !hydrated}
+                    >
                       {t("continue")}
                     </Button>
                   </Box>

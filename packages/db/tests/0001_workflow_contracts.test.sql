@@ -73,14 +73,26 @@ select ok(
   ), false),
   'offline mobile AI consent is pinned and version-valid at capture time'
 );
+-- The guards live in the two-arg form since 0084 (the trial may now be started
+-- by any operational action, each naming its origin); the one-arg signature is
+-- kept as a delegating wrapper, asserted below.
+select ok(
+  exists(
+    select 1
+    from pg_proc
+    where oid = 'public.start_pro_trial(uuid,text)'::regprocedure
+      and position('on conflict (org_id) do nothing' in lower(prosrc)) > 0
+  ),
+  'promotion activation is concurrency-idempotent'
+);
 select ok(
   exists(
     select 1
     from pg_proc
     where oid = 'public.start_pro_trial(uuid)'::regprocedure
-      and position('on conflict (org_id) do nothing' in lower(prosrc)) > 0
+      and position('start_pro_trial(target_org' in lower(prosrc)) > 0
   ),
-  'promotion activation is concurrency-idempotent'
+  'the legacy one-arg trial start delegates instead of duplicating the guards'
 );
 select ok(
   exists(

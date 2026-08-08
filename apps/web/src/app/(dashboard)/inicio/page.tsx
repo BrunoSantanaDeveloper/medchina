@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Box, Breadcrumbs, Button, Card, CardContent, Grid, Skeleton, Typography } from "@mui/material";
 
 import { TONE } from "@/components/marketing/tone";
+import AssistantBand from "@/components/product/assistant-band";
 import AudioUsageCard from "@/components/product/audio-usage-card";
 import ConsultationBriefingDialog from "@/components/product/consultation-briefing-dialog";
 import EmptyState from "@/components/product/empty-state";
@@ -235,6 +236,13 @@ export default function Inicio() {
   const greeting = displayName ? t("home-greeting", { name: displayName.split(" ")[0] }) : t("home-greeting-generic");
   const data = homeState.status === "success" ? homeState.data : null;
 
+  // The band's two contextual suggestions, derived from what the home already
+  // loaded — it must not issue queries of its own for a decorative rail.
+  // "Record" points at a consultation that is actually startable today; the
+  // briefing needs a patient, since it is assembled from her record.
+  const nextToRecord = data?.today.find((consultation) => consultation.status === "scheduled") ?? null;
+  const briefingCandidate = data?.today.find((consultation) => consultation.patientId) ?? null;
+
   return (
     <Grid container spacing={5}>
       <Grid size={12}>
@@ -383,6 +391,17 @@ export default function Inicio() {
               </Alert>
             </Grid>
           )}
+          {/* What this product does differently, above the day's work but
+              deliberately compact — the scannable answer stays in reach.
+              See docs/HOME-ASSISTENTE.md for why this is a band, not a chat. */}
+          <Grid size={12}>
+            <AssistantBand
+              hasPatients={data!.patients > 0}
+              recordHref={nextToRecord ? `/consultas/${nextToRecord.id}` : undefined}
+              onPrepareBriefing={briefingCandidate ? () => setBriefingFor(briefingCandidate) : undefined}
+            />
+          </Grid>
+
           <Grid size={12}>
             <Card component="section">
               <CardContent className="flex flex-col gap-3">

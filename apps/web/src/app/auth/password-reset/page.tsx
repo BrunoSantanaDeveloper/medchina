@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { Alert, Box, Button, Divider, FormControl, FormLabel, Input, Paper, Typography } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { sanitizeInternalNext } from "@flyee/clinical";
@@ -15,6 +16,7 @@ export default function Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("auth");
+  const hydrated = useHydrated();
   const requestedNext = searchParams.get("next");
   const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
   const [email, setEmail] = useState("");
@@ -65,7 +67,7 @@ export default function Page() {
               </Typography>
             </Box>
 
-            <Box component="form" onSubmit={handleSubmit} className="flex flex-col">
+            <Box component="form" method="post" onSubmit={handleSubmit} className="flex flex-col">
               <FormControl className="outlined" variant="standard" size="small">
                 <FormLabel component="label" htmlFor="email">
                   {t("email")}
@@ -87,7 +89,7 @@ export default function Page() {
                 </Alert>
               )}
 
-              <Button type="submit" variant="contained" className="mt-2 mb-4" disabled={busy}>
+              <Button type="submit" variant="contained" className="mt-2 mb-4" disabled={busy || !hydrated}>
                 {t("reset-submit")}
               </Button>
             </Box>

@@ -21,6 +21,7 @@ import {
 
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
+import { useHydrated } from "@/hooks/use-hydrated";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -63,6 +64,7 @@ export default function Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const t = useTranslations("auth");
+  const hydrated = useHydrated();
   const [ready, setReady] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -174,6 +176,7 @@ export default function Page() {
 
             <Box
               component="form"
+              method="post"
               onSubmit={(event) => {
                 setSubmitted(true);
                 formik.handleSubmit(event);
@@ -228,7 +231,12 @@ export default function Page() {
                 </Alert>
               )}
 
-              <Button type="submit" variant="contained" className="mt-2 mb-4" disabled={formik.isSubmitting}>
+              <Button
+                type="submit"
+                variant="contained"
+                className="mt-2 mb-4"
+                disabled={formik.isSubmitting || !hydrated}
+              >
                 {t("continue")}
               </Button>
             </Box>

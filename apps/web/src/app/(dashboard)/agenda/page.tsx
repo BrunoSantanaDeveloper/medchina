@@ -53,6 +53,7 @@ import {
   whatsappConfirmationLink,
 } from "@/lib/agenda";
 import { nextDay } from "@/lib/appointment-reminders";
+import { ensureProTrial } from "@/lib/pro-trial";
 import { cn } from "@/lib/utils";
 import { createClient } from "@flyee/auth/client";
 import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
@@ -890,6 +891,12 @@ export default function Agenda() {
                 variant: "success",
               });
             }
+            // Booking is real use of the product, so it may start the Pro trial
+            // (migration 0084). Announced, never silent: otherwise she is on a
+            // 14-day clock she never saw.
+            void ensureProTrial(orgId, "agenda").then(({ started }) => {
+              if (started) enqueueSnackbar(t("trial-auto-started"), { variant: "info", autoHideDuration: 10_000 });
+            });
             await load();
           }}
         />
