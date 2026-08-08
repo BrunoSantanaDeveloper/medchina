@@ -51,9 +51,11 @@ import {
   type ParsedTable,
   parseSpreadsheet,
   PATIENT_FIELDS,
+  REJECTION_MESSAGE_KEY,
   resolveDateOrder,
   revertImportBatch,
   SCHEDULE_FIELDS,
+  sniffSpreadsheet,
   stageImportRows,
 } from "@/lib/import";
 import { ensureProTrial } from "@/lib/pro-trial";
@@ -87,6 +89,12 @@ export default function ImportarPacientes() {
   const [maxRows, setMaxRows] = useState<number | null>(null);
   const [blockedReason, setBlockedReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Kept apart from `error` so it can render WHERE she just clicked. A rejected
+   * file announced only in the page header reads as "nothing happened" on a
+   * narrow screen, where the picker is below the alert.
+   */
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const [kind, setKind] = useState<ImportKind>("patients");
   const [file, setFile] = useState<File | null>(null);
@@ -177,22 +185,36 @@ export default function ImportarPacientes() {
   }, []);
 
   const handleFile = async (picked: File | null) => {
-    setError(null);
+    setFileError(null);
     setFile(picked);
     setTable(null);
     if (!picked) return;
 
+    // A file we could not read is not "her file": leaving it in state would
+    // keep the button reading "Trocar arquivo", which claims one is loaded.
+    const reject = (message: string) => {
+      setFile(null);
+      setFileError(message);
+    };
+
     try {
       const bytes = new Uint8Array(await picked.arrayBuffer());
+      // Before decoding: an .xlsx would otherwise reach the mapping step as
+      // mojibake column names instead of "salve como CSV".
+      const rejection = sniffSpreadsheet(bytes);
+      if (rejection) {
+        reject(t(REJECTION_MESSAGE_KEY[rejection]));
+        return;
+      }
       const parsed = parseSpreadsheet(bytes);
       if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-        setError(t("import-file-empty"));
+        reject(t("import-file-empty"));
         return;
       }
       setTable(parsed);
       applyGuess(parsed, kind);
     } catch {
-      setError(t("import-file-read-error"));
+      reject(t("import-file-read-error"));
     }
   };
 
@@ -398,7 +420,14 @@ export default function ImportarPacientes() {
                 type="file"
                 accept=".csv,text/csv"
                 hidden
-                onChange={(event) => handleFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => {
+                  const picked = event.target.files?.[0] ?? null;
+                  // Clearing the input is what lets her pick the SAME path
+                  // again after fixing the file in Excel — otherwise the
+                  // browser sees no change and the wizard never reacts.
+                  event.target.value = "";
+                  handleFile(picked);
+                }}
               />
             </Button>
             {table && (
@@ -409,6 +438,11 @@ export default function ImportarPacientes() {
                   encoding: table.encoding,
                 })}
               </Typography>
+            )}
+            {fileError && (
+              <Alert severity="error" className="w-full">
+                {fileError}
+              </Alert>
             )}
           </Box>
 

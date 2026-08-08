@@ -1,6 +1,7 @@
 export * from "./types";
 export { decodeSpreadsheet } from "./decode";
 export { columnValues, parseCsvText, parseSpreadsheet } from "./parse";
+export { REJECTION_MESSAGE_KEY, sniffSpreadsheet, type SpreadsheetRejection } from "./sniff";
 export {
   isImplausibleBirthDate,
   parseDateValue,

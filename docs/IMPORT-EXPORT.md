@@ -212,7 +212,8 @@ está no mesmo app.
   o padrão de exportação BR) e de encoding: sistemas brasileiros exportam
   **latin-1** com frequência, e o sintoma de errar isso é nome de paciente com
   mojibake gravado no prontuário. XLSX numa segunda rodada, com `exceljs`
-  (preferível ao SheetJS por manutenção/histórico de segurança).
+  (preferível ao SheetJS por manutenção/histórico de segurança) — até então,
+  `sniff.ts` recusa o arquivo dizendo como convertê-lo (§11.1).
 - **`mapping.ts`** — heurística de cabeçalho para pré-mapear (nome/paciente,
   nascimento/data nasc/dob, cpf/documento, telefone/celular/whatsapp, email,
   obs/observações). Sempre confirmável e sobrescrevível pela profissional.
@@ -431,6 +432,41 @@ Quatro defeitos que só a caminhada encontrou:
    nunca chegue ao submit nativo. Verificado no HTML servido (form com
    `method="post"`, submit `disabled`) e no navegador (login continua
    funcionando, URL sem credenciais).
+
+---
+
+## 11.1 Guarda de arquivo não-CSV (ago/2026)
+
+Pergunta da dona do produto depois do deploy — "'Selecionar arquivo .csv' aceita
+qualquer arquivo?" — que expôs uma falha silenciosa: `accept=".csv"` só filtra o
+seletor, e todo diálogo do sistema oferece "todos os arquivos". Um `.xlsx` (que é
+um zip) era decodificado como windows-1252 (esse decoder nunca falha), o
+papaparse achava um delimitador dentro do fluxo comprimido, e o passo 2 oferecia
+mojibake como nome de coluna. Nada era gravado — o passo 2 é conferência — mas a
+profissional ficava sem saber o que errou.
+
+[sniff.ts](../apps/web/src/lib/import/sniff.ts) decide pelos bytes, antes de
+decodificar, e cada formato recusado vem com a ação que resolve:
+`PK` (xlsx/ods/zip), OLE2 (`.xls`/`.doc`), `%PDF`, BOM UTF-16 (o "Texto Unicode"
+do Excel) e, por último, byte NUL nos primeiros 8 KB para o resto — um CSV em
+UTF-8 ou latin-1 nunca tem NUL, então não há falso positivo. A tabela
+`REJECTION_MESSAGE_KEY` mora junto dos códigos porque um `t(chave)` dinâmico
+falha em runtime, na frente de quem já está travada: o teste percorre os cinco
+catálogos e recusa uma chave ausente.
+
+Duas correções que a captura de tela cobrou:
+
+1. **O botão continuava lendo "Trocar arquivo"** depois de uma recusa — anunciando
+   um arquivo carregado que não existia. Arquivo recusado não fica no estado.
+2. **A mensagem só aparecia no topo da página**, longe de onde ela acabou de
+   clicar (em tela estreita, some acima do card). Erro de arquivo agora tem
+   estado próprio e renderiza embaixo do seletor.
+
+Verificado no navegador contra o Supabase local: `.xlsx` e `.pdf` recusados com a
+mensagem certa, `Continuar` inerte e rótulo do botão preservado; CSV latin-1
+aceito (`1 linhas · separador ";" · windows-1252`); o mesmo caminho escolhido
+duas vezes reage nas duas (o `input` é limpo no `onChange`, senão o navegador não
+emite `change` para o arquivo repetido).
 
 ---
 
