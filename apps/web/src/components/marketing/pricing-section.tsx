@@ -10,6 +10,7 @@ import Section from "@/components/marketing/section";
 import SectionHeader from "@/components/marketing/section-header";
 import { TONE, type Tone, toneAt } from "@/components/marketing/tone";
 import NiCheck from "@/icons/nexture/ni-check";
+import NiTag from "@/icons/nexture/ni-tag";
 import { cn } from "@/lib/utils";
 
 /** Display-ready plan: price already formatted for the active locale/currency. */
@@ -18,6 +19,10 @@ export type PublicPlanDisplay = {
   name: string;
   description?: string;
   price: string;
+  /** List price, struck through, when a campaign coupon lowered `price`. */
+  originalPrice?: string;
+  /** What the coupon takes off this card ("20% de desconto"). */
+  discountLabel?: string;
   period?: string;
   features: string[];
   highlighted?: boolean;
@@ -49,6 +54,7 @@ export default function PricingSection({
   decor = "none",
   tiers,
   footnote,
+  couponNotice,
 }: {
   id?: string;
   eyebrow?: string;
@@ -57,6 +63,12 @@ export default function PricingSection({
   plans: PublicPlanDisplay[];
   ctaLabel: string;
   ctaHref?: string;
+  /**
+   * Confirmation that a campaign code was recognized (or a plain statement that
+   * it was not). Someone who followed "use the code X" needs to see the code
+   * land — silence reads as failure and she leaves before the first card.
+   */
+  couponNotice?: { label: string; applied: boolean };
   /** Set "h1" when this section is the page's lead (e.g. the pricing page). */
   headingAs?: "h1" | "h2";
   /** Section depth layer — pages that LEAD with pricing use "glow" (same treatment as a hero). */
@@ -90,6 +102,19 @@ export default function PricingSection({
           />
         ))}
       <SectionHeader eyebrow={eyebrow} title={title} subtitle={subtitle} as={headingAs} />
+      {couponNotice && (
+        <p
+          className={cn(
+            "mx-auto -mt-4 mb-10 flex w-fit flex-row items-center gap-2 rounded-full px-4 py-2 text-sm font-bold",
+            // Never red: a coupon that no longer works is disappointing news,
+            // not a risk or a failure (docs/DESIGN.md colour contract).
+            couponNotice.applied ? "bg-primary/10 text-primary" : "bg-grey-50 text-text-secondary",
+          )}
+        >
+          <NiTag size="small" className="flex-none" />
+          {couponNotice.label}
+        </p>
+      )}
       {tiers && tiers.length > 0 && (
         <p className="text-text-secondary -mt-4 mb-10 flex flex-wrap items-center justify-center gap-3 text-xs font-bold tracking-widest uppercase">
           {tiers.map((tier, index) => (
@@ -136,10 +161,22 @@ export default function PricingSection({
                 {plan.description && <p className="text-text-secondary text-sm leading-5">{plan.description}</p>}
               </div>
 
-              <p className="flex flex-row items-baseline gap-1">
-                <span className="font-display text-display-md text-text-primary font-bold">{plan.price}</span>
-                {plan.period && <span className="text-text-secondary text-sm">{plan.period}</span>}
-              </p>
+              <div className="flex flex-col gap-1">
+                {plan.originalPrice && (
+                  <p className="flex flex-row items-center gap-2">
+                    <span className="text-text-secondary text-base line-through">{plan.originalPrice}</span>
+                    {plan.discountLabel && (
+                      <span className="bg-secondary/10 text-secondary rounded-full px-2 py-0.5 text-xs font-bold">
+                        {plan.discountLabel}
+                      </span>
+                    )}
+                  </p>
+                )}
+                <p className="flex flex-row items-baseline gap-1">
+                  <span className="font-display text-display-md text-text-primary font-bold">{plan.price}</span>
+                  {plan.period && <span className="text-text-secondary text-sm">{plan.period}</span>}
+                </p>
+              </div>
 
               <ul className="flex flex-1 flex-col gap-2">
                 {plan.features.map((feature) => (

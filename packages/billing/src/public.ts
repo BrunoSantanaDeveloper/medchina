@@ -1,4 +1,5 @@
 import { createServiceClient } from "@flyee/auth/service";
+import type { CheckoutCoupon } from "./types";
 
 /**
  * Plan fields safe to expose on public (unauthenticated) pages — no provider
@@ -64,4 +65,41 @@ export async function listPublicPlans(): Promise<PublicPlan[] | null> {
     limits: (row.limits ?? {}) as Record<string, number>,
     sort: row.sort,
   }));
+}
+
+/**
+ * Resolves a campaign code for the PUBLIC pricing page.
+ *
+ * The authenticated checkout validates the same code through the customer's own
+ * session (`validate_coupon`), but the pricing page has no session at all — and
+ * a visitor arriving from a partner's post with `?cupom=` has to SEE the price
+ * she was promised, or she concludes the code did not work and leaves. Reading
+ * it here, service-role and read-only, is what lets the page show the discount
+ * before anyone signs up.
+ *
+ * Returns null for an unknown, expired or exhausted code — the caller must say
+ * so rather than silently rendering full prices.
+ */
+export async function resolvePublicCoupon(code: string): Promise<CheckoutCoupon | null> {
+  const normalized = code.trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{1,32}$/.test(normalized)) return null;
+
+  let supabase: ReturnType<typeof createServiceClient>;
+  try {
+    supabase = createServiceClient();
+  } catch {
+    return null;
+  }
+
+  const { data, error } = await supabase.rpc("validate_coupon", { coupon_code: normalized });
+  if (error) return null;
+  const row = (data as { id: string; code: string; discount_type: string; discount_value: number }[] | null)?.[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    code: row.code,
+    discountType: row.discount_type as CheckoutCoupon["discountType"],
+    discountValue: row.discount_value,
+  };
 }

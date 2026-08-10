@@ -1,5 +1,6 @@
 import { getDisplayPlans } from "../plans";
 import { Metadata } from "next";
+import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
 import TrackEvent from "@/components/consent/track-event";
@@ -7,7 +8,10 @@ import Container from "@/components/marketing/container";
 import Cta from "@/components/marketing/cta";
 import Faq from "@/components/marketing/faq";
 import PricingSection from "@/components/marketing/pricing-section";
+import { COOKIE_KEYS } from "@/constants";
 import NiShieldCheck from "@/icons/nexture/ni-shield-check";
+import { normalizeCouponCode } from "@/lib/offer-link";
+import { resolvePublicCoupon } from "@flyee/billing/public";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("marketing");
@@ -18,8 +22,24 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function PricingPage() {
-  const [t, plans] = await Promise.all([getTranslations("marketing"), getDisplayPlans()]);
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [t, params, cookieStore] = await Promise.all([getTranslations("marketing"), searchParams, cookies()]);
+
+  /**
+   * The campaign code, straight from the link she followed or from the cookie
+   * the middleware stored on an earlier page. Resolved HERE, on the server,
+   * because a visitor told "use the code HELLEN" who lands on table prices
+   * concludes the code failed — and leaves before reaching the sign-up.
+   */
+  const requestedCoupon =
+    normalizeCouponCode(typeof params.cupom === "string" ? params.cupom : null) ??
+    normalizeCouponCode(cookieStore.get(COOKIE_KEYS.offerCoupon)?.value);
+  const coupon = requestedCoupon ? await resolvePublicCoupon(requestedCoupon) : null;
+  const plans = await getDisplayPlans(coupon);
 
   return (
     <>
@@ -31,6 +51,15 @@ export default async function PricingPage() {
         ctaLabel={t("cta-primary")}
         headingAs="h1"
         decor="glow"
+        // A code that did not resolve is named, not ignored: she must not read
+        // the table price as the discounted one.
+        couponNotice={
+          requestedCoupon
+            ? coupon
+              ? { label: t("pricing-coupon-applied", { code: coupon.code }), applied: true }
+              : { label: t("pricing-coupon-unknown", { code: requestedCoupon }), applied: false }
+            : undefined
+        }
       />
 
       {/* Risk reversal, next to the price (blueprint: reduce perceived risk). */}
