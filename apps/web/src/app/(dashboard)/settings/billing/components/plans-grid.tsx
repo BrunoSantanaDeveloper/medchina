@@ -1,10 +1,10 @@
 "use client";
 
-import { startCheckout } from "../actions";
+import { type AppliedCoupon, startCheckout, validateCouponCode } from "../actions";
 import type { PlanRow, SubscriptionInfo } from "./use-billing";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -19,12 +19,16 @@ import {
   DialogContentText,
   DialogTitle,
   Grid,
+  TextField,
   Typography,
 } from "@mui/material";
 
+import { COOKIE_KEYS } from "@/constants";
 import { derivePlanFeatures } from "@/lib/billing-plan-features";
+import { clearCouponCookie, normalizeCouponCode, readCouponCookie } from "@/lib/offer-link";
 import { trackCommercialEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
+import { applyDiscount } from "@flyee/billing/types";
 
 export default function PlansGrid({
   orgId,
@@ -57,6 +61,11 @@ export default function PlansGrid({
   const [workingPlan, setWorkingPlan] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<PlanRow | null>(null);
   const [showOthers, setShowOthers] = useState(false);
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponChecking, setCouponChecking] = useState(false);
+  const [couponError, setCouponError] = useState<"coupon_invalid" | "unavailable" | "link_invalid" | null>(null);
   const operationKeys = useRef(new Map<string, string>());
   const promptViewed = useRef(false);
   const offerRef = useRef<HTMLDivElement | null>(null);
@@ -76,6 +85,14 @@ export default function PlansGrid({
   // instead would look like the offer never existed, and she would either pay
   // full price by accident or think the product is broken.
   const offerMissing = Boolean(offerSlug) && !offerPlan;
+  const couponCurrency = paidPlans[0]?.currency ?? "BRL";
+
+  const removeCoupon = () => {
+    setCoupon(null);
+    setCouponInput("");
+    setCouponError(null);
+    clearCouponCookie(COOKIE_KEYS.offerCoupon);
+  };
   /**
    * Arriving with an offer link is a different job from shopping: the terms
    * were already agreed, and framing them as one of "other plans to compare"
@@ -102,6 +119,39 @@ export default function PlansGrid({
     node.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
   }, [offerPlanId]);
 
+  const applyCoupon = useCallback(async (code: string, fromLink = false) => {
+    setCouponError(null);
+    setCouponChecking(true);
+    const result = await validateCouponCode(code);
+    setCouponChecking(false);
+    if (result.coupon) {
+      setCoupon(result.coupon);
+      setCouponInput(result.coupon.code);
+      return;
+    }
+    setCoupon(null);
+    // A dead code that came from a link is not her typo — say which one failed,
+    // and stop carrying it so a finished campaign does not haunt every later
+    // visit to this page.
+    if (fromLink) {
+      clearCouponCookie(COOKIE_KEYS.offerCoupon);
+      setCouponError("link_invalid");
+      return;
+    }
+    setCouponError(result.error ?? "coupon_invalid");
+  }, []);
+
+  // Arriving from a campaign link, the code is already in the cookie the
+  // middleware stored: confirm it on screen without asking her to type what she
+  // was told she would not have to type.
+  useEffect(() => {
+    const stored = readCouponCookie(COOKIE_KEYS.offerCoupon);
+    if (!stored) return;
+    setCouponInput(stored);
+    setCouponOpen(true);
+    void applyCoupon(stored, true);
+  }, [applyCoupon]);
+
   if (!canManage) return null;
   if (!paidPlans.length) return null;
 
@@ -109,9 +159,18 @@ export default function PlansGrid({
     setError(null);
     setConfirming(null);
     setWorkingPlan(plan.id);
-    const idempotencyKey = operationKeys.current.get(plan.id) ?? crypto.randomUUID();
-    operationKeys.current.set(plan.id, idempotencyKey);
-    const result = await startCheckout({ orgId, planId: plan.id, idempotencyKey });
+    // The key includes the coupon: reusing it after she applies or removes one
+    // would hand back the provider session created for the OLD price, and she
+    // would pay the amount she just changed.
+    const operationScope = `${plan.id}:${coupon?.id ?? ""}`;
+    const idempotencyKey = operationKeys.current.get(operationScope) ?? crypto.randomUUID();
+    operationKeys.current.set(operationScope, idempotencyKey);
+    const result = await startCheckout({
+      orgId,
+      planId: plan.id,
+      idempotencyKey,
+      couponCode: coupon?.code ?? null,
+    });
     setWorkingPlan(null);
     if (!result.url) {
       // Named causes, not one generic failure: a missing CPF/CNPJ is fixed by
@@ -121,7 +180,7 @@ export default function PlansGrid({
       if (result.error === "billing_profile_required") onBillingProfileRequired?.();
       return;
     }
-    operationKeys.current.delete(plan.id);
+    operationKeys.current.delete(operationScope);
     window.location.assign(result.url);
   };
 
@@ -166,8 +225,65 @@ export default function PlansGrid({
           {error === "billing_profile_required" && <Alert severity="warning">{t("billing-profile-required")}</Alert>}
           {error === "suspended" && <Alert severity="error">{t("billing-suspended-blocked")}</Alert>}
           {error === "plan_required" && <Alert severity="info">{t("packs-plan-required")}</Alert>}
-          {error && !["billing_profile_required", "suspended", "plan_required"].includes(error) && (
+          {/* The checkout refused rather than quietly charging full price: the
+              discount she was promised is the reason she is here. */}
+          {error === "coupon_invalid" && <Alert severity="warning">{t("billing-coupon-invalid")}</Alert>}
+          {error && !["billing_profile_required", "suspended", "plan_required", "coupon_invalid"].includes(error) && (
             <Alert severity="error">{t("billing-checkout-error")}</Alert>
+          )}
+          {couponError === "link_invalid" && <Alert severity="info">{t("billing-coupon-link-invalid")}</Alert>}
+          {coupon ? (
+            <Alert
+              severity="success"
+              className="neutral"
+              action={
+                <Button color="grey" size="small" onClick={removeCoupon}>
+                  {t("billing-coupon-remove")}
+                </Button>
+              }
+            >
+              {coupon.discountType === "percent"
+                ? t("billing-coupon-applied-percent", { code: coupon.code, value: coupon.discountValue })
+                : t("billing-coupon-applied-fixed", {
+                    code: coupon.code,
+                    value: new Intl.NumberFormat(locale, { style: "currency", currency: couponCurrency }).format(
+                      coupon.discountValue / 100,
+                    ),
+                  })}
+            </Alert>
+          ) : couponOpen ? (
+            <Box className="flex flex-wrap items-start gap-2">
+              <TextField
+                size="small"
+                label={t("billing-coupon-label")}
+                value={couponInput}
+                onChange={(event) => setCouponInput(event.target.value.toUpperCase())}
+                error={couponError === "coupon_invalid" || couponError === "unavailable"}
+                helperText={
+                  couponError === "coupon_invalid"
+                    ? t("billing-coupon-invalid")
+                    : couponError === "unavailable"
+                      ? t("billing-coupon-unavailable")
+                      : undefined
+                }
+              />
+              <Button
+                variant="outlined"
+                className="mt-1"
+                disabled={couponChecking || !normalizeCouponCode(couponInput)}
+                onClick={() => void applyCoupon(couponInput)}
+              >
+                {couponChecking ? t("loading") : t("billing-coupon-apply")}
+              </Button>
+            </Box>
+          ) : (
+            <Box>
+              {/* Collapsed by default: most people have no code, and an empty
+                  field on a payment screen reads as a discount they are missing. */}
+              <Button variant="text" color="grey" onClick={() => setCouponOpen(true)}>
+                {t("billing-coupon-have")}
+              </Button>
+            </Box>
           )}
           <Grid container spacing={2.5}>
             {shownPlans.map((plan) => {
@@ -175,9 +291,12 @@ export default function PlansGrid({
               const isOffer = plan.id === offerPlan?.id;
               const solo = isOffer && !showOthers;
               const features = derivePlanFeatures(plan.limits);
-              const price = new Intl.NumberFormat(locale, { style: "currency", currency: plan.currency }).format(
-                plan.priceCents / 100,
-              );
+              const money = new Intl.NumberFormat(locale, { style: "currency", currency: plan.currency });
+              const price = money.format(plan.priceCents / 100);
+              // The SAME helper both providers use to charge, so the number on
+              // screen cannot drift from the number on the invoice.
+              const discountedCents = applyDiscount(plan.priceCents, coupon ?? undefined);
+              const discounted = discountedCents !== plan.priceCents;
               return (
                 <Grid key={plan.id} size={{ xs: 12, md: solo ? 8 : 6 }}>
                   <Card
@@ -204,7 +323,16 @@ export default function PlansGrid({
                         )}
                       </Box>
                       <Typography variant="h4" component="p">
-                        {price}
+                        {discounted && (
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            className="text-text-secondary mr-2 line-through"
+                          >
+                            {price}
+                          </Typography>
+                        )}
+                        {discounted ? money.format(discountedCents / 100) : price}
                         <Typography component="span" variant="body2" className="text-text-secondary">
                           {" "}
                           {t(`billing-period-${plan.period}` as never)}

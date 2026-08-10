@@ -1,3 +1,9 @@
+/**
+ * Types and pure money helpers. Exported as `@flyee/billing/types` so client
+ * components can compute what a coupon does to a price without importing the
+ * root entry, which pulls the provider SDKs into the browser bundle. Keep this
+ * file free of imports.
+ */
 export type BillingProviderName = "stripe" | "asaas";
 export type PlanKind = "recurring" | "credits";
 export type BillingPeriod = "weekly" | "monthly" | "yearly";

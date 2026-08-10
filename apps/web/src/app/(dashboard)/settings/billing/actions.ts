@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
+import { normalizeCouponCode } from "@/lib/offer-link";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
 import { type CheckoutPlan, defaultProvider, getProvider } from "@flyee/billing";
@@ -36,6 +37,53 @@ async function appOrigin() {
 }
 
 export type StartCheckoutResult = { url?: string; error?: string };
+
+export type AppliedCoupon = { id: string; code: string; discountType: "percent" | "fixed"; discountValue: number };
+
+/**
+ * Resolves a campaign code the customer typed (or arrived with) into the
+ * discount the providers will actually apply.
+ *
+ * `validate_coupon` is a SECURITY DEFINER function precisely so this can happen
+ * without exposing the coupons table: an invalid, expired or exhausted code is
+ * indistinguishable from a code that never existed.
+ *
+ * Checked here, BEFORE the payment page, because the alternative is finding out
+ * at the provider — and a partner's audience that was promised a discount would
+ * be looking at the full price with no explanation.
+ */
+export async function validateCouponCode(
+  code: string,
+): Promise<{ coupon?: AppliedCoupon; error?: "coupon_invalid" | "unavailable" }> {
+  const normalized = normalizeCouponCode(code);
+  if (!normalized) return { error: "coupon_invalid" };
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "unavailable" };
+    const { data, error } = await supabase.rpc("validate_coupon", { coupon_code: normalized });
+    if (error) {
+      logBillingFailure("coupon_validation_failed", { code: normalized }, error);
+      return { error: "unavailable" };
+    }
+    const row = (data as AppliedCouponRow[] | null)?.[0];
+    if (!row) return { error: "coupon_invalid" };
+    return {
+      coupon: {
+        id: row.id,
+        code: row.code,
+        discountType: row.discount_type,
+        discountValue: row.discount_value,
+      },
+    };
+  } catch {
+    return { error: "unavailable" };
+  }
+}
+
+type AppliedCouponRow = { id: string; code: string; discount_type: "percent" | "fixed"; discount_value: number };
 
 /**
  * Refuses a purchase the workspace must not be able to make.
@@ -136,6 +184,8 @@ export async function startCheckout(input: {
   orgId: string;
   planId: string;
   idempotencyKey: string;
+  /** Campaign code, if she typed one or arrived with `?cupom=`. */
+  couponCode?: string | null;
 }): Promise<StartCheckoutResult> {
   let activeClaim: ActiveBillingClaim | null = null;
   try {
@@ -165,6 +215,19 @@ export async function startCheckout(input: {
     if (!payer.document) {
       logBillingFailure("missing_billing_document", { orgId: input.orgId });
       return { error: "billing_profile_required" };
+    }
+
+    // A code that no longer works STOPS the checkout. Dropping it silently and
+    // charging the table price is the one outcome she would never forgive: she
+    // is here because a campaign promised that discount.
+    let coupon: AppliedCoupon | undefined;
+    if (normalizeCouponCode(input.couponCode)) {
+      const validated = await validateCouponCode(input.couponCode ?? "");
+      if (!validated.coupon) {
+        logBillingFailure("coupon_rejected", { orgId: input.orgId, reason: validated.error });
+        return { error: validated.error ?? "coupon_invalid" };
+      }
+      coupon = validated.coupon;
     }
 
     const plan: CheckoutPlan = {
@@ -219,6 +282,11 @@ export async function startCheckout(input: {
       customerEmail: user.email ?? "",
       plan,
       modules: [],
+      // Both providers mirror it natively (Stripe coupon `duration: forever`,
+      // Asaas a discounted subscription value), so the discount rides every
+      // cycle — and the webhook stamps `coupon_id` on the subscription, which
+      // is what makes partner attribution and revenue share possible at all.
+      coupon,
       payer,
       successUrl: `${origin}/settings/billing?checkout=success`,
       cancelUrl: `${origin}/settings/billing?checkout=canceled`,

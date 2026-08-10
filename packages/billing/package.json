@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./public": "./src/public.ts",
+    "./types": "./src/types.ts",
     "./stripe": "./src/providers/stripe.ts",
     "./asaas": "./src/providers/asaas.ts"
   },

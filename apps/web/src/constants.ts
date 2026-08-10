@@ -21,6 +21,11 @@ export const COOKIE_KEYS = {
   // Opt-out flag for marketing analytics (read server-side to SSR the trackers,
   // and client-side by lib/analytics). Absent = tracking on (opt-out model).
   analyticsOptOut: `${storagePrefix}-analytics-optout`,
+  // Coupon code carried by a campaign link (`?cupom=`). Captured by the
+  // middleware on ANY page so it survives the sign-up + e-mail confirmation
+  // round trip and is still there when she reaches checkout. Not a secret:
+  // readable by the client so the billing page can confirm it visually.
+  offerCoupon: `${storagePrefix}-cupom`,
 };
 
 export const LOCAL_STORAGE_KEYS = {

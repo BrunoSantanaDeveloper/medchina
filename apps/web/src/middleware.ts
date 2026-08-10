@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { DEFAULTS } from "@/config";
+import { COOKIE_KEYS } from "@/constants";
+import { COUPON_COOKIE_MAX_AGE, COUPON_PARAM, normalizeCouponCode } from "@/lib/offer-link";
 import { IMPERSONATION_MARKER_COOKIE, parseImpersonationMarker } from "@flyee/auth";
 import { updateSession } from "@flyee/auth/middleware";
 import { sanitizeInternalNext } from "@flyee/clinical";
@@ -86,6 +88,31 @@ export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const requestedPath = `${pathname}${search}`;
 
+  /**
+   * A campaign code (`?cupom=`) must reach the checkout, and between the click
+   * and the checkout sit a sign-up, an e-mail confirmation and redirects that
+   * all drop the query string. Capturing it here — before any of them — is the
+   * only place that sees the original link on EVERY route.
+   *
+   * The newest link wins over an older stored code: typing a code in a URL is a
+   * deliberate act, not passive attribution, and the last campaign she followed
+   * is the offer she believes she is getting.
+   */
+  const linkCoupon = normalizeCouponCode(request.nextUrl.searchParams.get(COUPON_PARAM));
+  const withCoupon = <T extends NextResponse>(res: T): T => {
+    if (linkCoupon) {
+      res.cookies.set(COOKIE_KEYS.offerCoupon, linkCoupon, {
+        path: "/",
+        maxAge: COUPON_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        // Read by the billing page to confirm the code visually. A coupon code
+        // is public by nature — it is printed in the campaign itself.
+        httpOnly: false,
+      });
+    }
+    return res;
+  };
+
   if (impersonating && pathname !== IMPERSONATION_EXIT) {
     const marker = parseImpersonationMarker(request.cookies.get(IMPERSONATION_MARKER_COOKIE)?.value);
 
@@ -136,22 +163,22 @@ export async function middleware(request: NextRequest) {
   if (user && needsMfa && !isPublic(pathname)) {
     const twoFactor = new URL("/auth/two-factor", request.url);
     twoFactor.searchParams.set("next", sanitizeInternalNext(requestedPath));
-    return NextResponse.redirect(twoFactor);
+    return withCoupon(NextResponse.redirect(twoFactor));
   }
 
   // Signed-in users don't need the sign-in/sign-up screens.
   if (user && !needsMfa && (pathname.startsWith("/auth/sign-in") || pathname.startsWith("/auth/sign-up"))) {
     const destination = sanitizeInternalNext(request.nextUrl.searchParams.get("next"), DEFAULTS.appRoot);
-    return NextResponse.redirect(new URL(destination, request.url));
+    return withCoupon(NextResponse.redirect(new URL(destination, request.url)));
   }
 
   if (!user && !isPublic(pathname)) {
     const signIn = new URL("/auth/sign-in", request.url);
     signIn.searchParams.set("next", sanitizeInternalNext(requestedPath));
-    return NextResponse.redirect(signIn);
+    return withCoupon(NextResponse.redirect(signIn));
   }
 
-  return response;
+  return withCoupon(response);
 }
 
 export const config = {
