@@ -68,8 +68,11 @@
   **Captura do link**: o middleware lê `?cupom=` em QUALQUER rota e guarda em cookie de 30 dias, sobrevivendo ao cadastro, à confirmação de e-mail e aos redirects — inclusive o de login. A tela de assinatura valida sozinha e confirma na hora ("Cupom HELLEN aplicado: 20% de desconto"), com o preço riscado e o novo valor calculado pela **mesma função** que os provedores usam para cobrar (`applyDiscount`, exposta em `@flyee/billing/types` para não arrastar o SDK do Stripe para o browser).
   **Regra dura**: um código inválido/expirado **interrompe o checkout** em vez de cobrar o preço cheio em silêncio — o pior desfecho possível para quem veio por uma promessa de desconto. Cupom vindo de link que não vale mais é dito explicitamente e o cookie é limpo, para uma campanha encerrada não perseguir a pessoa em toda visita.
   **`/planos` público também mostra o desconto (corrigido após teste real)**: a primeira versão só tratava o cupom na tela autenticada, então quem seguia `/planos?cupom=HELLEN` via preço cheio e concluía que o código não funcionou — abandonando antes do cadastro. Agora a página pública resolve o cupom no servidor (`resolvePublicCoupon`, service-role) e mostra o selo "Cupom X aplicado", o preço de tabela riscado e o selo de desconto por card. Cupom inexistente/expirado é **nomeado** ("O cupom X não está mais disponível. Os preços abaixo são os vigentes."), nunca silenciado. O `priceAmount` do JSON-LD segue sendo o preço de tabela de propósito — os dados estruturados descrevem a oferta aberta a todos, e crawlers nunca chegam com código de campanha.
-  ⚠️ **Dívida conhecida**: os cards da HOME continuam hardcoded (D12), então um cupom não aparece lá — só em `/planos` e no checkout. Enquanto D12 não for resolvido, mandar os links de campanha para `/planos?cupom=…`, nunca para `/?cupom=…`.
-- **Atribuição mínima** (T5.0, 1 dia): capturar `utm_*`/`origem`/`onda` em cookie de primeiro toque → gravar no signup. Sem isso a comparação entre ondas se perde para sempre.
+  ✅ **Home também (D12 resolvida, 2026-08-10)**: os cards da home leem a mesma fonte e exibem selo de cupom, preço riscado e selo de desconto. Links de campanha podem apontar para `/?cupom=…`, `/planos?cupom=…` ou direto para a oferta — todos chegam ao checkout com o desconto.
+- ✅ **Atribuição — ENTREGUE (2026-08-10, Etapa 3)**. O middleware captura `?origem`, `?onda` e `utm_*` (+ referrer e página de entrada) no **primeiro toque**, em cookie httpOnly de 90 dias — e **nunca sobrescreve**: a campanha que trouxe a pessoa é a que ganhou o cadastro, mesmo que ela volte depois por um favorito. (O cupom é o oposto, último toque, porque digitar um código é ato deliberado.)
+  **Persistência**: migração `0086_signup_attribution.sql` cria a tabela por workspace, escrita uma única vez (`on conflict do nothing`) nos dois caminhos de cadastro — confirmação de e-mail (`/auth/callback`) e OAuth (`/auth/complete-profile`, onde o workspace só nasce depois). Leitura só do superadmin; a profissional não vê nem escreve. Apaga junto com o workspace (LGPD).
+  **Chega até a venda**: `CompleteRegistration` leva a campanha direto do cookie, e o `Purchase` do webhook leva `origem`/`onda`/`utm_*` + **plano (slug), ciclo e cupom** — antes ele só carregava valor e moeda. Como a oferta Fundadores é uma linha de plano própria, `plan: "pro-fundador"` já responde "foi fundador?" sem campo extra.
+  **Aceite verificado por construção**: um cadastro vindo de `/voltar?onda=1&origem=whatsapp` carrega as dimensões até o `Purchase`. Contrato fixado em `packages/db/tests/0024_signup_attribution.test.sql` (8 asserções: primeiro toque vence, valor gigante recusado pelo banco, profissional não lê, operador lê, erasure leva junto).
 - **Reenvio de confirmação de e-mail** em `/auth/get-verification` (<1 dia) — ou decisão de desligar "Confirm email" no Supabase durante a campanha de calls.
 - **`Learn more` do announcement → i18n** (minutos): o CTA da oferta hoje sai em inglês.
 
@@ -117,7 +120,7 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 | D9 | WhatsApp automático nas confirmações/lembretes | **ativar Meta Cloud API** (código pronto em `packages/whatsapp`; exige verificação de negócio + templates aprovados + custo/msg — prazo de semanas) OU **handoff `wa.me`** (padrão atual da agenda clínica, envio manual) | env vars + decisão operacional (T2.2) |
 | D10 | Indexação das landings de funil | /fundadores, /voltar, /masterclass: entrar no sitemap ou `noindex`? (recomendação: noindex + fora do sitemap; registrar a exceção para o lint de marketing não "corrigir") | metadata das páginas |
 | D11 | Equivalência minutos→consultas | PRD e código usam consulta de referência de **50 min** → 3.000 min ≈ **60 consultas** (`plans.ts:40`, PRD §5.2). Confirmar 60 ou mudar o PRD junto | `plans.ts` + i18n + PRD |
-| D12 | Estratégia da home | a home é componente monolítico hardcoded (preços "R$ 199/299" em TSX, fora do banco/i18n — viola a regra de preços configuráveis). Ajustes cirúrgicos no componente OU religar os cards a `getDisplayPlans()` (recomendado) | EPIC 4 |
+| D12 | ✅ **Home religada ao banco (2026-08-10)**: os cards de preço passaram a ler `getDisplayPlans()` — a mesma fonte de `/planos` e do checkout. Preço, período, nome, descrição e o que está incluído vêm de `plans`; no código ficou só a apresentação (ícone, kicker, selo, texto do botão), mapeada por slug com fallback para slugs desconhecidos. O restante do componente segue hardcoded em pt-BR — isso é dívida separada, não bloqueia venda | decidido | `app/(marketing)/page.tsx` + `clinical-source-home.tsx` |
 | D13 | ✅ **Confirmação de e-mail (2026-08-10)**: **manter ligada** no Supabase e implementar o **botão de reenvio** em `/auth/get-verification` (hoje quem não recebe o e-mail fica sem saída). Protege a validade do e-mail, de que dependem o drip do trial e a confirmação de assinatura | decidido | Etapa 4 (T4-P0) |
 
 ---
@@ -300,6 +303,8 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 - Depende de T2.1 (/agendar publicado).
 - **Aceite:** header, hero e CTA final oferecem as duas opções.
 
+> ✅ **Pré-requisito de T4.2/T4.3 resolvido (2026-08-10)**: com a home lendo `plans`, a **ordem** dos cards passou a ser o campo `sort` do banco e o destaque segue o mesmo critério de `/planos`. Reordenar (Assistente → Pro → Gratuito) e trocar o rótulo "Comece aqui" viraram edições em `/admin/billing`, **sem deploy** — o que resta de T4.2 é a decisão comercial e o toggle anual (T1.1). A home também deixou de omitir a cota de 20 perguntas/mês da biblioteca, que `/planos` já publicava.
+
 ### T4.2 — Reordenar e reposicionar planos
 **Estado: ⬜ (posição/rótulo/toggle)** — ⚠️ correção: o card **destacado** já é o Assistente nas duas grades (`featured` + "Mais escolhido" na home; `highlightIndex=1` em `/planos`). O que procede: o Gratuito é o **primeiro** card nas duas grades e carrega "Comece aqui".
 - Ordem: Assistente (centro, recomendado) → Pro → Gratuito (último, visualmente discreto). Em `/planos` é o campo `sort` no banco; na home depende de D12.
@@ -472,7 +477,7 @@ Não iniciar a Onda 1 sem **todos** os itens abaixo verificados em produção:
 - [ ] `/fundadores` publicada, sem nenhuma rota de saída para o plano gratuito (T3.1)
 - [ ] `/voltar` publicada nas duas variantes, com redirect de `/migracao` preservando parâmetros (T3.2)
 - [ ] Vídeo de demonstração no ar (T3.5)
-- [ ] **Atribuição origem/onda/cupom capturada e persistida de ponta a ponta (T5.0)** — sem isso a comparação de ondas se perde para sempre
+- [x] ✅ **Atribuição origem/onda/cupom capturada e persistida de ponta a ponta (T5.0)** — entregue em 2026-08-10. Falta apenas aplicar a migração `0086` em produção e conferir um cadastro real de teste chegando com `onda`/`origem` no Events Manager
 - [ ] `Schedule` disparando; `StartTrial` e `Purchase` verificados em produção com dedup (`META_CAPI_TEST_EVENT_CODE`) (T5.1)
 - [ ] Migrações 0075–0084 aplicadas em produção (pipeline de import + trial 0084) (T6.2)
 - [ ] Superfícies do plano Gratuito alinhadas (T7.2) e base legal da lista de ~500 contatos documentada (Riscos 1)

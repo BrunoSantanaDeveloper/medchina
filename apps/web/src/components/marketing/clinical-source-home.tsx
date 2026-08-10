@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import Logo from "@/components/logo/logo";
+import type { PublicPlanDisplay } from "@/components/marketing/pricing-section";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import {
   AndroidLogo,
@@ -36,6 +37,7 @@ import {
   SlidersHorizontal,
   Sparkle,
   Stethoscope,
+  Tag,
   TrendUp,
   WarningCircle,
   Waveform,
@@ -213,57 +215,38 @@ const mobileHighlights = [
   },
 ];
 
-const pricingPlans = [
-  {
-    name: "Gratuito",
+/**
+ * How each tier is PRESENTED here — icon, kicker, badge and the words on the
+ * button. Everything commercial (name, description, price, period, what is
+ * included) comes from the database through `getDisplayPlans`, because a price
+ * or a minute limit written in this file goes stale the moment it changes in
+ * /admin/billing, and the home was the one surface still doing that.
+ *
+ * A slug with no entry here still renders — plainly, with no badge — so adding
+ * a plan can never blank out the pricing section.
+ */
+const PLAN_PRESENTATION: Record<string, { eyebrow: string; badge?: string; icon: PhosphorIcon; cta: string }> = {
+  gratuito: {
     eyebrow: "Fundação clínica",
     badge: "Comece aqui",
     icon: Notebook,
-    description: "Organize pacientes, consultas e prontuários enquanto constrói seu fluxo no MedChina.",
-    price: "R$ 0",
-    cadence: "/mês",
     cta: "Criar conta grátis",
-    features: [
-      "Pacientes e prontuários ilimitados",
-      "Anamnese e protocolos manuais",
-      "Consultas e recursos clínicos manuais",
-      "Sem cartão",
-    ],
   },
-  {
-    name: "Assistente",
+  assistente: {
     eyebrow: "Documentação automática",
     badge: "Mais escolhido",
     icon: Waveform,
-    description: "Transforme a conversa em documentação estruturada, pronta para a sua revisão clínica.",
-    price: "R$ 199",
-    cadence: "/mês",
     cta: "Começar com automação",
-    featured: true,
-    features: [
-      "Tudo do plano Gratuito",
-      "Aplicativo, gravação e transcrição",
-      "Anamnese com origem rastreável",
-      "Até 3.000 minutos por mês",
-    ],
   },
-  {
-    name: "Pro",
+  pro: {
     eyebrow: "Inteligência supervisionada",
     badge: "Mais completo",
     icon: Sparkle,
-    description: "Avance da documentação para hipóteses e possibilidades terapêuticas que você valida.",
-    price: "R$ 299",
-    cadence: "/mês",
     cta: "Conhecer o Pro",
-    features: [
-      "Tudo do plano Assistente",
-      "Hipóteses e padrões explicados",
-      "Protocolos e plano preparados",
-      "Até 6.000 minutos por mês",
-    ],
   },
-];
+};
+
+const DEFAULT_PRESENTATION = { eyebrow: "Plano", icon: Notebook, cta: "Criar conta grátis" } as const;
 
 function Brand({ inverse = false }: { inverse?: boolean }) {
   return (
@@ -804,7 +787,15 @@ function Header() {
   );
 }
 
-export default function ClinicalSourceHome() {
+export default function ClinicalSourceHome({
+  plans,
+  couponNotice,
+}: {
+  /** Live catalog from packages/billing, already formatted by the server page. */
+  plans: PublicPlanDisplay[];
+  /** Confirmation that a campaign code was recognized — or that it was not. */
+  couponNotice?: { label: string; applied: boolean };
+}) {
   return (
     <main id="inicio" className="clinical-source-home">
       <Header />
@@ -1113,31 +1104,46 @@ export default function ClinicalSourceHome() {
             </span>
           </div>
         </div>
+        {couponNotice && (
+          <p className={`pricing-coupon ${couponNotice.applied ? "" : "pricing-coupon--inactive"}`}>
+            <Tag size={17} weight="fill" aria-hidden="true" /> {couponNotice.label}
+          </p>
+        )}
         <div className="pricing-grid">
-          {pricingPlans.map(
-            ({ name, eyebrow, badge, icon: Icon, description, price, cadence, cta, features, featured }) => (
-              <article className={`price-card ${featured ? "price-card--featured" : ""}`} key={name}>
+          {plans.map((plan) => {
+            const presentation = PLAN_PRESENTATION[plan.slug] ?? DEFAULT_PRESENTATION;
+            const Icon = presentation.icon;
+            const badge = "badge" in presentation ? presentation.badge : undefined;
+            const featured = Boolean(plan.highlighted);
+            return (
+              <article className={`price-card ${featured ? "price-card--featured" : ""}`} key={plan.slug}>
                 <div className="plan-topline">
                   <span className="plan-icon">
                     <Icon size={27} weight="duotone" aria-hidden="true" />
                   </span>
-                  <span className="plan-label">{badge}</span>
+                  {badge && <span className="plan-label">{badge}</span>}
                 </div>
-                <p className="plan-eyebrow">{eyebrow}</p>
-                <h3>{name}</h3>
-                <p className="plan-description">{description}</p>
+                <p className="plan-eyebrow">{presentation.eyebrow}</p>
+                <h3>{plan.name}</h3>
+                {plan.description && <p className="plan-description">{plan.description}</p>}
+                {plan.originalPrice && (
+                  <p className="plan-was">
+                    <s>{plan.originalPrice}</s>
+                    {plan.discountLabel && <span className="plan-discount">{plan.discountLabel}</span>}
+                  </p>
+                )}
                 <div className="price">
-                  <strong>{price}</strong>
-                  <small>{cadence}</small>
+                  <strong>{plan.price}</strong>
+                  {plan.period && <small>{plan.period}</small>}
                 </div>
                 <a className={`button ${featured ? "" : "button--secondary"}`} href={signUpUrl}>
-                  {cta}
+                  {presentation.cta}
                   <ArrowRight size={17} />
                 </a>
                 <div className="plan-includes">
                   <strong>O que está incluído</strong>
                   <ul>
-                    {features.map((feature) => (
+                    {plan.features.map((feature) => (
                       <li key={feature}>
                         <CheckCircle size={18} weight="fill" /> {feature}
                       </li>
@@ -1145,8 +1151,8 @@ export default function ClinicalSourceHome() {
                   </ul>
                 </div>
               </article>
-            ),
-          )}
+            );
+          })}
         </div>
         <div className="pricing-assurance">
           <span className="pricing-assurance-icon">

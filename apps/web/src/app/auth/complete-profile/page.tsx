@@ -1,4 +1,5 @@
 "use client";
+import { captureSignupAttribution } from "./actions";
 import { useFormik } from "formik";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -110,6 +111,11 @@ export default function Page() {
         setServerError(t("request-failed"));
         return;
       }
+
+      // The workspace exists only now for a social signup, so this is where its
+      // campaign attribution gets attached (migration 0086). Never blocks the
+      // redirect: a marketing dimension is not worth stranding her here.
+      await captureSignupAttribution();
 
       const destination = await resolvePostAuthDestination(supabase, user.id);
       const requestedNext = searchParams.get("next");

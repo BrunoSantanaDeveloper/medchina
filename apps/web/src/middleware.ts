@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { DEFAULTS } from "@/config";
 import { COOKIE_KEYS } from "@/constants";
+import { ATTRIBUTION_COOKIE_MAX_AGE, encodeAttribution, readAttributionFromUrl } from "@/lib/attribution";
 import { COUPON_COOKIE_MAX_AGE, COUPON_PARAM, normalizeCouponCode } from "@/lib/offer-link";
 import { IMPERSONATION_MARKER_COOKIE, parseImpersonationMarker } from "@flyee/auth";
 import { updateSession } from "@flyee/auth/middleware";
@@ -99,6 +100,17 @@ export async function middleware(request: NextRequest) {
    * is the offer she believes she is getting.
    */
   const linkCoupon = normalizeCouponCode(request.nextUrl.searchParams.get(COUPON_PARAM));
+
+  /**
+   * Campaign attribution (?origem/?onda/utm_*), captured on the FIRST touch and
+   * never overwritten: the campaign that brought her earned the signup, and a
+   * later visit through a bookmark must not take the credit. Persisted to the
+   * workspace once the account exists (lib/signup-attribution.ts).
+   */
+  const linkAttribution = request.cookies.has(COOKIE_KEYS.attribution)
+    ? null
+    : readAttributionFromUrl(request.nextUrl, request.headers.get("referer"));
+
   const withCoupon = <T extends NextResponse>(res: T): T => {
     if (linkCoupon) {
       res.cookies.set(COOKIE_KEYS.offerCoupon, linkCoupon, {
@@ -108,6 +120,14 @@ export async function middleware(request: NextRequest) {
         // Read by the billing page to confirm the code visually. A coupon code
         // is public by nature — it is printed in the campaign itself.
         httpOnly: false,
+      });
+    }
+    if (linkAttribution) {
+      res.cookies.set(COOKIE_KEYS.attribution, encodeAttribution(linkAttribution), {
+        path: "/",
+        maxAge: ATTRIBUTION_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        httpOnly: true,
       });
     }
     return res;

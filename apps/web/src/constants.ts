@@ -26,6 +26,10 @@ export const COOKIE_KEYS = {
   // round trip and is still there when she reaches checkout. Not a secret:
   // readable by the client so the billing page can confirm it visually.
   offerCoupon: `${storagePrefix}-cupom`,
+  // FIRST-touch campaign attribution (?origem/?onda/utm_*), captured by the
+  // middleware and persisted to the workspace at signup. httpOnly: nothing in
+  // the browser reads it, unlike the coupon.
+  attribution: `${storagePrefix}-atrib`,
 };
 
 export const LOCAL_STORAGE_KEYS = {

@@ -1,10 +1,14 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { DEFAULTS } from "@/config";
+import { COOKIE_KEYS } from "@/constants";
+import { decodeAttribution } from "@/lib/attribution";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
+import { persistSignupAttribution } from "@/lib/signup-attribution";
 import { createClient } from "@flyee/auth/server";
 import { sanitizeInternalNext } from "@flyee/clinical";
 
@@ -34,11 +38,16 @@ export async function GET(request: Request) {
         const createdAtMs = data.user.created_at ? new Date(data.user.created_at).getTime() : 0;
         if (createdAtMs && Date.now() - createdAtMs < NEW_ACCOUNT_WINDOW_MS) {
           const metaContext = await getMetaClientContext(`${origin}/auth/callback`);
+          // The campaign that brought her, straight from the first-touch cookie
+          // — the workspace row may not exist yet on the OAuth path, and the
+          // signup is the event a campaign is optimized against.
+          const campaign = decodeAttribution((await cookies()).get(COOKIE_KEYS.attribution)?.value) ?? {};
           await sendMetaConversion({
             eventName: "CompleteRegistration",
             eventId: data.user.id,
             email: data.user.email,
             externalId: data.user.id,
+            customData: campaign,
             ...metaContext,
           });
           // GA4 sign_up — stitched to the web session via the _ga client id.
@@ -59,6 +68,13 @@ export async function GET(request: Request) {
           .eq("user_id", data.user.id)
           .limit(1)
           .maybeSingle();
+        // The workspace exists from here on (the sign-up trigger created it),
+        // so this is the first moment the campaign that brought her can be
+        // attached to something durable. First touch wins; a second call is a
+        // no-op (migration 0086).
+        if (membership?.org_id) {
+          await persistSignupAttribution(membership.org_id);
+        }
         if (!membership) {
           const safeNext = requestedNext ? sanitizeInternalNext(requestedNext) : null;
           // An invite supplies the user's single MVP workspace after explicit

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { notifyUsers } from "@/lib/notifications";
+import { readSignupAttribution } from "@/lib/signup-attribution";
 import { logAuditEvent } from "@flyee/audit";
 import { createServiceClient } from "@flyee/auth/service";
 import { type BillingEvent, type BillingPeriod, getProvider } from "@flyee/billing";
@@ -539,6 +540,27 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
             .select("fbp, fbc, email, client_ip, client_user_agent, ga_client_id")
             .eq("org_id", orgId)
             .maybeSingle();
+          // Which wave/channel produced this sale, and what was actually
+          // bought. Without it a Purchase is an amount with no way back to the
+          // campaign that earned it — and comparing waves is the reason they
+          // are run separately (docs/FUNIL.md T5.0).
+          const campaign = await readSignupAttribution(orgId);
+          const planFacts: Record<string, string | number> = {};
+          if (sub?.period) planFacts.billing_cycle = sub.period;
+          // Slug and code, not UUIDs: these are read by a human in the Events
+          // Manager, and "pro-fundador" answers the founders question by itself.
+          if (sub?.plan_id) {
+            const { data: planRow } = await supabase.from("plans").select("slug").eq("id", sub.plan_id).maybeSingle();
+            if (planRow?.slug) planFacts.plan = planRow.slug;
+          }
+          if (sub?.coupon_id) {
+            const { data: couponRow } = await supabase
+              .from("coupons")
+              .select("code")
+              .eq("id", sub.coupon_id)
+              .maybeSingle();
+            if (couponRow?.code) planFacts.coupon = couponRow.code;
+          }
           await sendMetaConversion({
             eventName: "Purchase",
             eventId: `${event.provider}:${event.providerInvoiceId}`,
@@ -550,6 +572,7 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
             clientUserAgent: attribution?.client_user_agent ?? null,
             value: event.amountCents / 100,
             currency: event.currency,
+            customData: { ...campaign, ...planFacts },
             // Honest source: the webhook fired this, no browser present. The
             // match keys above still attribute it to the ad click.
             actionSource: "system_generated",

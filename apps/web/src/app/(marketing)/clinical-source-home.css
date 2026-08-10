@@ -2635,15 +2635,66 @@ h2 em {
   color: #77dfc7;
 }
 
+/* Campaign code confirmation, above the grid: someone who followed "use the
+   code X" has to see it land, or she reads the table price as a failure. */
+.pricing-coupon {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  margin: -118px auto 18px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: rgba(23, 124, 129, 0.12);
+  color: #0f5e62;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* A code that no longer works is disappointing news, never a risk: neutral,
+   never red (docs/DESIGN.md colour contract). */
+.pricing-coupon--inactive {
+  background: rgba(15, 40, 38, 0.06);
+  color: #4c5a58;
+}
+
+.pricing-coupon + .pricing-grid {
+  margin-top: 0;
+}
+
 .pricing-grid {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* Tracks the real plan count instead of assuming three: adding a yearly tier
+     in /admin/billing must not overflow a fixed 3-column grid. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 18px;
   align-items: stretch;
   margin-top: -142px;
   padding: 0 42px;
+}
+
+/* Struck list price + what the coupon takes off it. */
+.plan-was {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 -8px;
+  color: #6b7a78;
+  font-size: 15px;
+}
+
+.plan-discount {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(192, 147, 98, 0.16);
+  color: #7a5527;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .price-card {
@@ -3361,6 +3412,12 @@ h2 em {
   .traceability-row > div + div {
     border-top: 1px solid var(--line);
     border-left: 0;
+  }
+
+  .pricing-coupon {
+    margin: -62px auto 16px;
+    max-width: calc(100% - 56px);
+    text-align: center;
   }
 
   .pricing-grid {

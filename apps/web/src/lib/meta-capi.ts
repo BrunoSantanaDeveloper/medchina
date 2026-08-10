@@ -76,6 +76,13 @@ export interface MetaConversionInput {
   // Commercial payload (never clinical).
   value?: number;
   currency?: string;
+  /**
+   * Campaign dimensions and plan facts carried into `custom_data` — which wave
+   * and channel produced this conversion, and what was bought. Without them a
+   * Purchase is a number with no way back to the campaign that earned it
+   * (docs/FUNIL.md T5.0). Keys are sent as-is, so keep them non-clinical.
+   */
+  customData?: Record<string, string | number>;
 }
 
 /** Reads the Meta match cookies + client hints from the current request. */
@@ -108,9 +115,12 @@ export async function sendMetaConversion(input: MetaConversionInput): Promise<vo
       user_data: userData,
     };
     if (input.eventSourceUrl) event.event_source_url = input.eventSourceUrl;
+    const customData: Record<string, string | number> = { ...(input.customData ?? {}) };
     if (input.value !== undefined && input.currency) {
-      event.custom_data = { value: input.value, currency: input.currency };
+      customData.value = input.value;
+      customData.currency = input.currency;
     }
+    if (Object.keys(customData).length > 0) event.custom_data = customData;
 
     const body: Record<string, unknown> = { data: [event] };
     if (TEST_EVENT_CODE) body.test_event_code = TEST_EVENT_CODE;
