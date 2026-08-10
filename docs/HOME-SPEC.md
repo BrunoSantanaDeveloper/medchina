@@ -98,13 +98,14 @@ Esse CTA deve levar a uma demonstração visual em outra página com dados fict�
 
 ## 3.3 Conversão posterior, dentro do produto
 
-O objetivo da home não é forçar a contratação imediata do Pro. Após criar a conta gratuita, a profissional poderá ativar conscientemente um trial completo do Medchina Pro quando estiver pronta para realizar sua primeira consulta real com IA.
+O objetivo da home não é forçar a contratação imediata do Pro. Após criar a conta gratuita, a profissional ganha um trial completo do Medchina Pro assim que começa a trabalhar na plataforma.
 
-Regras do trial que podem ser comunicadas na página:
+Regras do trial que podem ser comunicadas na página (atualizadas pela migração `0084`):
 
 - 14 dias ou 300 minutos, o que ocorrer primeiro;
-- começa somente na primeira consulta real com IA;
-- não começa ao criar a conta;
+- começa na primeira ação de trabalho — gravar, agendar, importar prontuários ou usar a biblioteca clínica;
+- não começa ao criar a conta, configurar o perfil ou explorar a plataforma;
+- o início é sempre anunciado na tela que o disparou;
 - não exige cartão;
 - não gera cobrança automática;
 - após o trial, a conta retorna ao plano Gratuito;
@@ -1125,7 +1126,7 @@ Usar acordeão acessível. Apenas uma pergunta pode ser aberta por vez no mobile
 
 ## 24.2 O trial começa quando eu criar minha conta?
 
-> Não. Você pode conhecer e configurar o Medchina gratuitamente. O trial Pro começa somente quando você decidir iniciar sua primeira consulta real com IA.
+> Não. Criar a conta, configurar o perfil e explorar a plataforma não consomem nada. O trial Pro começa automaticamente na sua primeira ação de trabalho — gravar uma consulta, agendar um atendimento, importar seus prontuários ou usar a biblioteca clínica — e avisamos na hora em que isso acontece.
 
 ## 24.3 Preciso cadastrar um cartão para testar o Pro?
 

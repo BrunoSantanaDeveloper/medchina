@@ -55,7 +55,7 @@ const faqItems = [
   {
     question: "O trial começa quando eu criar minha conta?",
     answer:
-      "Não. Você pode conhecer e configurar o MedChina gratuitamente. O trial Pro começa somente quando você decidir iniciar sua primeira consulta real com IA.",
+      "Não. Criar a conta, configurar o perfil e explorar a plataforma não consomem nada. O trial Pro começa automaticamente na sua primeira ação de trabalho — gravar uma consulta, agendar um atendimento, importar seus prontuários ou usar a biblioteca clínica — e avisamos na hora em que isso acontece.",
   },
   {
     question: "Preciso cadastrar um cartão para testar o Pro?",
@@ -1153,9 +1153,10 @@ export default function ClinicalSourceHome() {
             <ShieldCheck size={25} weight="duotone" aria-hidden="true" />
           </span>
           <span>
-            <strong>Você decide quando a automação começa.</strong>
+            <strong>Você começa a testar quando começa a trabalhar.</strong>
             <small>
-              O trial Pro só é ativado na sua primeira consulta real com IA. Nada é cobrado automaticamente.
+              O trial Pro é ativado na sua primeira ação de trabalho — gravar, agendar, importar ou usar a biblioteca —
+              e avisamos na hora. Nada é cobrado automaticamente.
             </small>
           </span>
           <a href="#duvidas">

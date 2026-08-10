@@ -29,7 +29,7 @@ O Medchina é uma plataforma clínica para Medicina Tradicional Chinesa e possui
 
 O diferencial principal será um assistente clínico ambiente. Durante uma consulta autorizada, o aplicativo mobile captura o áudio; a plataforma identifica participantes, transcreve a conversa, preenche a anamnese estruturada, registra observações ditadas pela profissional, compara a consulta ao histórico, identifica lacunas e prepara análises e condutas conforme o plano contratado. A profissional permanece responsável por revisar, editar, validar e finalizar o prontuário.
 
-O modelo comercial será freemium. O plano Gratuito mantém os recursos clínicos manuais e cadastros sem limite funcional de pacientes ou prontuários. O plano Assistente automatiza a documentação. O plano Pro automatiza também a preparação do raciocínio terapêutico. Toda nova conta poderá ativar um trial Pro sem cartão, iniciado somente na primeira consulta real com IA.
+O modelo comercial será freemium. O plano Gratuito mantém os recursos clínicos manuais e cadastros sem limite funcional de pacientes ou prontuários. O plano Assistente automatiza a documentação. O plano Pro automatiza também a preparação do raciocínio terapêutico. Toda nova conta poderá ativar um trial Pro sem cartão, iniciado na primeira ação operacional de qualquer tipo (ver §5.7).
 
 ## Decisões consolidadas
 
@@ -38,7 +38,7 @@ O modelo comercial será freemium. O plano Gratuito mantém os recursos clínico
 | Produto existente | O projeto é uma nova versão do Medchina, não o MVP inicial da empresa.                                                        |
 | Plano gratuito    | Todos os recursos manuais atuais permanecerão disponíveis, com pacientes e prontuários ilimitados.                            |
 | Monetização       | O pagamento será pela automação e economia de tempo, não pelo acesso básico ao prontuário.                                    |
-| Trial             | Trial Pro de 14 dias ou 300 minutos, iniciado na primeira consulta real com IA, sem cartão e sem cobrança automática.         |
+| Trial             | Trial Pro de 14 dias ou 300 minutos, iniciado na primeira ação operacional (gravar, agendar, importar ou usar a biblioteca), sem cartão e sem cobrança automática. |
 | Mobile            | Aplicativo complementar focado em captação de áudio e comandos rápidos; contratação e cobrança somente na web.                |
 | IA no MVP         | A IA preencherá a anamnese, comparará histórico, apontará lacunas e, conforme o plano, preparará análise e plano terapêutico. |
 | Controle clínico  | Nenhuma inferência da IA se torna decisão final sem revisão ou validação da profissional.                                     |
@@ -330,9 +330,11 @@ A ausência de limite clínico não implica armazenamento infinito. O plano deve
 
 - Duração de 14 dias ou 300 minutos, o que ocorrer primeiro.
 
-- A contagem começa apenas quando a profissional inicia conscientemente a primeira consulta real com IA.
+- A contagem começa na PRIMEIRA AÇÃO OPERACIONAL de qualquer tipo — gravar uma consulta, salvar um agendamento, concluir uma importação de prontuários ou usar a biblioteca clínica. **Atualizado pela migração `0084_trial_any_operational_action.sql`**: a regra original (só na primeira consulta real com IA) deixava sem acesso ao Pro justamente quem começava importando a base ou montando a agenda — a ação de maior compromisso do produto não podia ser a única porta. A origem fica registrada em `pro_trials.started_via` (`recorder | agenda | import | library | patient | other`), que é o corte comercial de "o que converte".
 
-- Exploração da plataforma e demonstração fictícia não consomem o trial.
+- O início nunca é silencioso: a tela que disparou avisa que o trial começou, para ninguém entrar em um relógio de 14 dias sem ver.
+
+- Criar a conta, configurar o perfil e explorar a plataforma não consomem o trial.
 
 - Não exige cartão e não gera cobrança automática.
 

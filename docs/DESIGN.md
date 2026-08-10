@@ -46,7 +46,7 @@
 
 - Never say or imply the AI diagnoses, treats, prescribes autonomously or replaces the professional; use "hipótese", "sugestão", "preparado para sua revisão", "requer validação".
 - Never promise "100% seguro/LGPD"; prefer "desenvolvido com requisitos de privacidade desde a concepção".
-- The trial never reads as automatic — it starts only at the first real AI consultation, no card.
+- The trial starts at the first WORKING action of any kind (recording, scheduling, importing charts, using the library — migration 0084), never at sign-up, and never needs a card. Do not write "only at the first AI consultation": that was true before 0084 and is now a promise the product breaks for whoever starts by importing her charts.
 - The mobile app is always "complementar" to the web platform; no purchase language for the app.
 - No fabricated metrics, testimonials, logos or seals (HOME-SPEC §33.5) — plan facts (minutes, trial length, price hypotheses) are the only numbers allowed, loaded from configurable data.
 - Mockup data is always fictitious (patient "Helena Martins").

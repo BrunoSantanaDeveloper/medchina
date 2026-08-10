@@ -56,6 +56,7 @@ export default function PlansGrid({
   const [error, setError] = useState<string | null>(null);
   const [workingPlan, setWorkingPlan] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<PlanRow | null>(null);
+  const [showOthers, setShowOthers] = useState(false);
   const operationKeys = useRef(new Map<string, string>());
   const promptViewed = useRef(false);
   const offerRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +76,17 @@ export default function PlansGrid({
   // instead would look like the offer never existed, and she would either pay
   // full price by accident or think the product is broken.
   const offerMissing = Boolean(offerSlug) && !offerPlan;
+  /**
+   * Arriving with an offer link is a different job from shopping: the terms
+   * were already agreed, and framing them as one of "other plans to compare"
+   * invites her to reopen a decision she already made. So the offer leads
+   * alone, and the ordinary tiers (with the trial explanation, which is the
+   * alternative to buying today) stay one click away rather than gone.
+   */
+  const orderedPlans = offerPlan
+    ? [offerPlan, ...visiblePlans.filter((plan) => plan.id !== offerPlan.id)]
+    : visiblePlans;
+  const shownPlans = offerPlan && !showOthers ? orderedPlans.slice(0, 1) : orderedPlans;
 
   useEffect(() => {
     if (!canManage || paidPlans.length === 0 || promptViewed.current) return;
@@ -135,14 +147,20 @@ export default function PlansGrid({
         <CardContent className="flex flex-col gap-4">
           <Box>
             <Typography variant="h5" component="h2" className="card-title">
-              {t("billing-plans-title")}
+              {offerPlan ? t("billing-offer-title") : t("billing-plans-title")}
             </Typography>
             <Typography variant="body2" className="text-text-secondary">
-              {t("billing-plans-body")}
+              {offerPlan ? t("billing-offer-body") : t("billing-plans-body")}
             </Typography>
-            <Typography variant="body2" className="text-text-secondary mt-2 leading-6">
-              {trialParams ? t("billing-trial-explanation", trialParams) : t("billing-trial-explanation-generic")}
-            </Typography>
+            {/* The trial is the alternative to paying today. It belongs on the
+                shopping screen — but for someone who arrived to complete terms
+                already agreed it reads as a reason to postpone, so it moves
+                into the "other plans" block she can open at any moment. */}
+            {!offerPlan && (
+              <Typography variant="body2" className="text-text-secondary mt-2 leading-6">
+                {trialParams ? t("billing-trial-explanation", trialParams) : t("billing-trial-explanation-generic")}
+              </Typography>
+            )}
           </Box>
           {offerMissing && <Alert severity="info">{t("billing-offer-unavailable")}</Alert>}
           {error === "billing_profile_required" && <Alert severity="warning">{t("billing-profile-required")}</Alert>}
@@ -152,15 +170,16 @@ export default function PlansGrid({
             <Alert severity="error">{t("billing-checkout-error")}</Alert>
           )}
           <Grid container spacing={2.5}>
-            {visiblePlans.map((plan) => {
+            {shownPlans.map((plan) => {
               const current = subscription?.planId === plan.id;
               const isOffer = plan.id === offerPlan?.id;
+              const solo = isOffer && !showOthers;
               const features = derivePlanFeatures(plan.limits);
               const price = new Intl.NumberFormat(locale, { style: "currency", currency: plan.currency }).format(
                 plan.priceCents / 100,
               );
               return (
-                <Grid key={plan.id} size={{ xs: 12, md: 6 }}>
+                <Grid key={plan.id} size={{ xs: 12, md: solo ? 8 : 6 }}>
                   <Card
                     ref={isOffer ? offerRef : undefined}
                     variant="outlined"
@@ -174,9 +193,12 @@ export default function PlansGrid({
                         {current && (
                           <Chip label={t("billing-current-chip")} size="small" color="success" variant="outlined" />
                         )}
-                        {/* Names WHY this card looks different: it is the offer
-                            she was sent, not a fourth tier that appeared. */}
-                        {isOffer && !current && <Chip label={t("billing-offer-chip")} size="small" color="primary" />}
+                        {/* Names WHY this card looks different once the other
+                            tiers are on screen; alone under its own heading the
+                            chip would only repeat it. */}
+                        {isOffer && !current && showOthers && (
+                          <Chip label={t("billing-offer-chip")} size="small" color="primary" />
+                        )}
                         {features.clinicalReasoning && !isOffer && (
                           <Chip label={t("billing-most-complete")} size="small" color="primary" />
                         )}
@@ -254,6 +276,21 @@ export default function PlansGrid({
               );
             })}
           </Grid>
+          {/* Nothing is hidden, only reordered: one click restores the ordinary
+              tiers AND the trial explanation, so she can still compare or wait
+              instead of buying. */}
+          {offerPlan && orderedPlans.length > 1 && (
+            <Box>
+              <Button variant="text" color="grey" onClick={() => setShowOthers((open) => !open)}>
+                {showOthers ? t("billing-offer-others-hide") : t("billing-offer-others")}
+              </Button>
+              {showOthers && (
+                <Typography variant="body2" className="text-text-secondary mt-2 leading-6">
+                  {trialParams ? t("billing-trial-explanation", trialParams) : t("billing-trial-explanation-generic")}
+                </Typography>
+              )}
+            </Box>
+          )}
         </CardContent>
       </Card>
 
