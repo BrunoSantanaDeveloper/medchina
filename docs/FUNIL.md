@@ -1,0 +1,485 @@
+# MedChina — Funil Comercial: Especificação de Implementação (auditada)
+
+**Objetivo:** deixar a aplicação e o site prontos para iniciar as ondas de captação e vendas.
+
+> **Versão auditada contra o código em 2026-08-09** (branch main, commit c019990). Cada tarefa traz uma linha **Estado** com o que já existe no repositório, citando arquivo/migração. Legenda: ✅ já existe · 🟡 parcial · ⬜ não existe · ⚠️ correção — a versão anterior deste plano afirmava algo que o código desmente.
+
+**Contexto de negócio:** custo médio de IA por consulta ≈ R$ 1,00 é **hipótese não medida** — hoje nenhum custo de transcrição/inferência é registrado (ver T1.6). Capacidade de onboarding: até 30 calls/semana. O gargalo do negócio é **demanda qualificada**, não capacidade de atendimento. Toda decisão de produto abaixo prioriza **gerar e capturar agendamentos**, não cadastros.
+
+**Métrica-mestre do funil:** `Schedule` (call agendada) → `StartTrial` (trial Pro iniciado) → `Purchase`.
+
+⚠️ **Correção da métrica**: desde a migração `0084_trial_any_operational_action.sql`, o trial Pro **não** inicia apenas na "1ª consulta real com IA" — inicia na **primeira ação operacional de qualquer tipo** (gravação, agendamento clínico, importação, biblioteca, cadastro de paciente), com a origem gravada em `pro_trials.started_via` (`recorder|agenda|import|library|patient|other`) e trava de uma promoção por profissional (`started_by`). O evento já existe e dispara server-side com deduplicação (`StartTrial` Meta CAPI + `start_trial` GA4, em `apps/web/src/app/api/billing/start-trial/route.ts`). Para o recorte "consulta com IA", segmentar por `started_via='recorder'`. **Atenção**: `apps/web/CLAUDE.md` e `docs/PRODUCT.md` §5.7 ainda descrevem a mecânica antiga — atualizar junto (ver Riscos, item 7), pois é fonte de erro recorrente.
+
+**Regra permanente:** nenhuma campanha ou automação deve ser otimizada por criação de conta.
+
+---
+
+# PARTE A — Plano de vendas imediatas (operação + prontidão real)
+
+> Auditoria de prontidão de vendas (2026-08-09): jornada de compra, conversão in-app, ferramentas da operação e canais de comunicação verificados no código. Contexto: base antiga de ~500 cadastros (máx. 20 pagantes, encerrou com 5) fora deste banco; conteúdo orgânico já rodando (reputação); ativos humanos = Débora (autoridade entre terapeutas MTC, fechamento) e Hellen (14k seguidores, alcance). Capacidade: 20–30 calls/semana. A venda imediata é **liderada por call**, não self-serve.
+
+## A.1 Veredito de prontidão (o que a plataforma entrega HOJE)
+
+**O que já vende (pronto, zero dev):**
+- **Cobrança anual com PIX**: Asaas cria assinatura `YEARLY` com `billingType UNDEFINED` — a fatura hospedada deixa escolher PIX/boleto/cartão, inclusive na 1ª cobrança anual (`asaas.ts:167-215`). Para anual de ~R$2.000 no Brasil, isso é decisivo e está pronto.
+- **Plano novo é configuração**: `/admin/billing → New plan` cria o `pro-fundador` anual (period Yearly no select, `limits` JSON com `clinical_reasoning:1` + `audio_minutes:6000`, preço livre) sem deploy.
+- **Trial Pro sem cartão como ferramenta de venda**: inicia sozinho na 1ª ação operacional (0084), com drip de 4 e-mails (welcome/ativação/expirando/encerrado → `/settings/billing`) e gates honestos in-app (raciocínio Pro, minutos, biblioteca). "Crie a conta e use agora" é verdade.
+- **Pós-pagamento sólido**: webhook ativa o plano em segundos (PIX/cartão), sino + e-mail de confirmação, `PendingCheckoutCard` cobre a janela do boleto.
+- **Announcement in-app** (`/admin/announcements`): banner para todo usuário logado, com janela e dismissal — canal imediato para anunciar a oferta aos signups atuais.
+- **Pixel opt-out**: Meta Pixel + GA4 disparam no primeiro pageview por padrão (`marketing-trackers.tsx`) — as visitas vindas do conteúdo orgânico JÁ constroem audiência de retargeting, se `NEXT_PUBLIC_META_PIXEL_ID` estiver em produção.
+- **Venda manual (caixa de escape)**: `set_org_plan` (0067) coloca qualquer workspace num plano ativo sem checkout, auditado — viabiliza fechar um fundador hoje com PIX manual (ressalvas em A.3).
+
+**O que queima a venda se a operação começar amanhã (bloqueadores reais):**
+1. **Sandbox silencioso**: `ASAAS_BASE_URL` vazio = TODA cobrança vai para o sandbox (`asaas.ts:29-33`) — o cliente "paga", o plano ativa e nenhum real entra. Exigir `https://api.asaas.com/v3` explícito + 1 compra de teste real antes da 1ª call.
+2. **E-mail silencioso**: sem `RESEND_API_KEY`/`INNGEST_*` em produção, drip de trial, /contato e confirmação de assinatura falham retornando `{sent:false}` sem alarme.
+3. **Cupom prometido sem campo**: não existe onde digitar cupom — `startCheckout` nunca envia coupon. Anunciar "use o cupom HELLEN" quebra no caixa (ver A.4-P0).
+4. **Plano Fundadores impossível de esconder**: qualquer plano `is_active` aparece em `/planos` (público) e `/settings/billing` (todo assinante); inativo não é assinável nem atribuível. Sem o dev de ocultação, o preço de fundador vaza no minuto em que a linha ativar.
+5. **Confirmação de e-mail sem reenvio**: `/auth/get-verification` não tem botão de reenvio — e-mail no spam mata o cadastro no meio da call.
+6. **Upgrade sem proration**: assinante mensal que compra o anual no meio do ciclo perde os dias pagos (diálogo avisa). Vender anual para a base atual no fim do ciclo, ou compensar manualmente.
+7. **Sem atribuição** (T5.0): nada captura origem/onda/cupom — começar as ondas antes disso = nunca saber o que converteu (não se backfilla).
+
+## A.2 Checklist de configuração de produção (zero dev — condição de partida)
+
+- [ ] `BILLING_PROVIDER=asaas` + `ASAAS_API_KEY` + `ASAAS_WEBHOOK_TOKEN` + **`ASAAS_BASE_URL=https://api.asaas.com/v3` explícito**; webhook apontado para `/api/webhooks/asaas`
+- [ ] **Compra de teste real** (plano mensal, PIX de verdade) validando: fatura → webhook → plano ativo → sino → e-mail
+- [ ] `RESEND_API_KEY` + `EMAIL_FROM` no domínio real com SPF/DKIM + `CONTACT_FORM_TO` + chaves `INNGEST_*` (drip do trial não roda sem elas) — enviar e-mail de teste
+- [ ] `NEXT_PUBLIC_META_PIXEL_ID` + `NEXT_PUBLIC_GA4_ID` + `META_CAPI_TOKEN` + `GA4_API_SECRET` (retargeting do conteúdo orgânico começa a acumular já)
+- [ ] `/admin/support`: WhatsApp humano da operação (o widget flutuante fica invisível até isso — com ele, todo visitante tem 1 clique para o WhatsApp da fundadora)
+- [ ] Migrações 0075–0084 aplicadas em produção (import + trial)
+- [ ] Corrigir o mailto `contato@medchina.com.br` da home → domínio real (EPIC 4, T4.5) ou ao menos confirmar que a caixa existe
+
+## A.3 Fase 0 — esta semana (zero deploy: operação + agendamento)
+
+1. **Decidir D2–D4** (valor da oferta, vagas, prazo) e **criar o plano `pro-fundador` anual** no `/admin/billing`, deixando `is_active=false` até o momento de cada venda.
+2. **Débora 1:1 nos ex-pagantes**: WhatsApp pessoal dela para os 5 pagantes finais primeiro, depois os ~15 demais ex-pagantes. É a ação de maior conversão disponível e custa zero dev. Meta: 8–12 calls agendadas. Agendamento via Cal.com/Google Agenda **externo** (link direto na conversa — a rota `/agendar` fica para a Fase 2).
+3. **Roteiro da call com fulfillment** (✅ já suportado pelo sistema desde a Etapa 1): cadastro ANTES da call com o link `https://<app>/auth/sign-up?next=%2Fsettings%2Fbilling%3Fplan%3Dpro-fundador` (o `?next=` sobrevive à confirmação de e-mail e leva direto à oferta destacada); CPF/CNPJ preenchido antes de clicar em assinar (evita o vaivém `billing_profile_required`); fechar → ela clica no card destacado → fatura Asaas com PIX → webhook ativa o Pro em segundos. **Não é mais preciso ligar/desligar o plano**: ele fica `is_active=true, is_public=false` o tempo todo — vendável pelo link, invisível no catálogo. Alternativa concierge (só se o checkout falhar): PIX por fora + `set_org_plan` no `/admin/billing → Subscriptions` — funciona e é auditado, mas não gera renovação automática nem fatura no sistema (anotar a renovação na agenda da operação).
+4. **Announcement da oferta** para os usuários logados atuais (level info/warning — nunca critical/vermelho), redigido como "vagas fundadoras" **sem comparar preço** (aparece também para quem paga preço cheio; sem segmentação por plano hoje).
+5. **Masterclass com Hellen agendada para a semana 3–4** (dá tempo do funil da Fase 1/2 ficar pronto). **Não anunciar "cupom HELLEN" até o cupom funcionar no checkout** — até lá, a parceria opera por link/página dedicada.
+6. **LGPD da base antiga**: documentar a base legal (legítimo interesse com LIA, ou consentimento da relação anterior), com opt-out em todo contato — ANTES do primeiro disparo em massa. Os 500 estão fora deste banco: o outreach é 100% externo (WhatsApp manual + ESP externo; o produto não tem broadcast).
+7. **Garantia de 7 dias operada manualmente por enquanto**: publicar os termos (página em `/legal`, T1.5) pode esperar a Fase 1; até lá a garantia vale por escrito na conversa e o reembolso é feito no painel do Asaas (o webhook já reconcilia o estorno).
+
+## A.4 Fase 1 — dev mínimo que destrava venda escalável (~1 semana)
+
+**P0 (destrava a venda pelo sistema):**
+- ✅ **Ocultação de plano + deep-link — ENTREGUE (2026-08-10, Etapa 1)**. Migração `0085_plan_visibility.sql` separa `is_active` (pode ser cobrado) de `is_public` (aparece no catálogo). Um plano `ativo + não público` continua 100% vendável por link, atribuível pelo admin e com entitlement vindo do próprio `limits` — só some das duas grades (`packages/billing/src/public.ts` e `use-billing.ts`). `/settings/billing?plan=<slug>` mostra a oferta mesmo não listada, com destaque, chip "Sua condição" e scroll até o card; link de oferta encerrada exibe aviso explícito em vez de cair na grade normal. Checkbox "Listed in the pricing grids" no `/admin/billing` + chip `unlisted`. Contrato fixado em `packages/db/tests/0023_plan_visibility.test.sql` (10 asserções).
+  **Como criar a oferta** (`/admin/billing → New plan`): slug `pro-fundador`, period **Yearly**, price **1990,00**, limits `{"audio_minutes": 6000, "clinical_reasoning": 1, "members": 1}`, **Active ✔ / Listed ✘**. O link de venda é `/settings/billing?plan=pro-fundador`.
+- **Cupom no checkout + `?cupom=`** (T1.2, 1–2 dias): campo no checkout + `validate_coupon` (RPC pronto, sem caller) + cookie de primeiro toque. O webhook já grava a atribuição — é o que torna a parceria da Hellen **mensurável e remunerável**.
+- **Atribuição mínima** (T5.0, 1 dia): capturar `utm_*`/`origem`/`onda` em cookie de primeiro toque → gravar no signup. Sem isso a comparação entre ondas se perde para sempre.
+- **Reenvio de confirmação de e-mail** em `/auth/get-verification` (<1 dia) — ou decisão de desligar "Confirm email" no Supabase durante a campanha de calls.
+- **`Learn more` do announcement → i18n** (minutos): o CTA da oferta hoje sai em inglês.
+
+**P1 (na sequência, mesma semana ou seguinte):**
+- Contador de vagas + cerco no checkout (T1.4).
+- `/fundadores` (T3.1, route group sem menu) — necessária para a onda Hellen; a venda por call funciona sem ela.
+- Preços hardcoded da home religados ao banco (T7.2/D12) — antes de qualquer mudança de preço.
+- Termos da garantia publicados (T1.5, a página; o fluxo de reembolso no painel pode vir depois).
+
+## A.5 Fase 2 — para a onda Hellen e a base antiga (semanas 2–4)
+
+- `/voltar` + redirect de `/migracao` (T3.2) — o copy atual ("migração avaliada caso a caso") **contradiz a capacidade real** do produto (pipeline de import entregue) e deve morrer antes do disparo à base.
+- Página de captação da masterclass + evento `Lead` (T3.3; call site é o que falta — o tipo já existe). Grupo de WhatsApp gerido manualmente.
+- Vídeo `/demonstracao` (T3.5, vidstack já é dependência; self-host ou click-to-load por causa do consent).
+- Evento `Schedule` + `/agendar` próprio (T2.x) — até lá, Cal.com externo resolve.
+- Painel semanal: começar com perguntas salvas no `/admin/insights` (T5.2 depois).
+
+## A.6 Sequência comercial recomendada (quem, quando, meta)
+
+| Onda | Quem | Quando | Mecanismo | Meta realista |
+|---|---|---|---|---|
+| 1a | 5 pagantes finais + 15 ex-pagantes | Semana 1–2 | WhatsApp pessoal da Débora → call → fechar | 5–8 fundadores; **cada um gera depoimento com consentimento** (destrava T4.4/T3.1) |
+| 1b | ~480 cadastros antigos | Semana 3+ (após `/voltar` + atribuição) | ESP externo + WhatsApp manual → `/voltar` → call | 10–25 calls; 3–8 fundadores |
+| 2 | Audiência da Hellen (14k) | Semana 3–4 | Masterclass (Instagram + grupo WhatsApp) → replay → `/fundadores` com link/cupom da parceira | 100–300 leads; 10–20 fundadores |
+| 3 | Escolas de MTC | Mês 2 | `/escolas` + reunião com coordenação | pipeline recorrente, não vendas imediatas |
+
+Racional: a base antiga já converteu a ~4% no histórico e foi queimada uma vez — ela sozinha não enche 30 vagas; a audiência da Hellen é o único ativo com alcance para isso. Os ex-pagantes vêm primeiro porque têm a maior probabilidade de fechar E são a fonte dos depoimentos que a landing da onda 2 precisa. O conteúdo orgânico em curso alimenta retargeting (pixel opt-out já coleta) e aquece a onda 2 — não interrompê-lo.
+
+---
+
+## 0. Decisões de negócio necessárias ANTES do desenvolvimento
+
+Estes valores são entradas de configuração. A IA de desenvolvimento **não deve inventá-los** — deve implementá-los como parâmetros configuráveis e solicitar os valores. No padrão deste repo, "configurável" significa **linha de banco**: catálogo em `plans` (editável em `/admin/billing`) e parâmetros operacionais em `platform_settings` (migração 0018; chaves existentes: `trial`, `dunning`, `support`, `imports`, `recording`, `account_exports`, `impersonation`).
+
+| # | Decisão | Valor | Onde vive |
+|---|---|---|---|
+| D1 | ✅ **Preço anual (2026-08-10)**: anual = 10× o mensal (2 meses grátis). **Assistente R$1.990/ano** (`199000` cents), **Pro R$2.990/ano** (`299000` cents) | decidido | novas linhas em `plans` (period `yearly`) — enum e providers já suportam (T1.1) |
+| D2 | ✅ **Oferta Fundadores (2026-08-10)**: acesso **Pro pelo preço do Assistente anual = R$1.990/ano** (R$166/mês), 12 meses, preço travado enquanto a assinatura viver. Mecânica escolhida: **plano dedicado oculto**, não cupom | decidido | linha `pro-fundador` (period yearly, `price_cents` 199000, limits do Pro, `is_public=false`) — T1.3 |
+| D3 | ✅ **30 vagas** (2026-08-10) | decidido | `platform_settings` key `founders` |
+| D4 | ✅ **30 dias** a partir da abertura da oferta; encerra no que vier primeiro (vagas ou data) | decidido | `platform_settings` key `founders` |
+| D5 | Percentual/valor do cupom da parceira | ex.: `HELLEN` = mesmo benefício + atribuição. **Nota**: com D2 = plano oculto, a oferta da Hellen pode ser um **segundo plano oculto** (`pro-fundador-hellen`, mesmo preço) — o cupom fica para desconto/atribuição em campanhas futuras | `coupons` (entidade já existe; T1.2) |
+| D6 | Capacidade semanal de calls | inteiro (base: 20; pico: 30) | `platform_settings` OU limites do Cal.com — decidir em T2.1 |
+| D7 | Tema, data e hora da masterclass | texto + datetime | `platform_settings` key `masterclass` (alimenta countdown T3.3 e prazo do replay) |
+| D8 | Política do plano Gratuito | ver EPIC 7 — ⚠️ reformulado: **não há divergência jurídica**; a decisão é manter o ilimitado real ou introduzir limites (exige construir grandfathering) | `plans.limits` |
+| D9 | WhatsApp automático nas confirmações/lembretes | **ativar Meta Cloud API** (código pronto em `packages/whatsapp`; exige verificação de negócio + templates aprovados + custo/msg — prazo de semanas) OU **handoff `wa.me`** (padrão atual da agenda clínica, envio manual) | env vars + decisão operacional (T2.2) |
+| D10 | Indexação das landings de funil | /fundadores, /voltar, /masterclass: entrar no sitemap ou `noindex`? (recomendação: noindex + fora do sitemap; registrar a exceção para o lint de marketing não "corrigir") | metadata das páginas |
+| D11 | Equivalência minutos→consultas | PRD e código usam consulta de referência de **50 min** → 3.000 min ≈ **60 consultas** (`plans.ts:40`, PRD §5.2). Confirmar 60 ou mudar o PRD junto | `plans.ts` + i18n + PRD |
+| D12 | Estratégia da home | a home é componente monolítico hardcoded (preços "R$ 199/299" em TSX, fora do banco/i18n — viola a regra de preços configuráveis). Ajustes cirúrgicos no componente OU religar os cards a `getDisplayPlans()` (recomendado) | EPIC 4 |
+| D13 | ✅ **Confirmação de e-mail (2026-08-10)**: **manter ligada** no Supabase e implementar o **botão de reenvio** em `/auth/get-verification` (hoje quem não recebe o e-mail fica sem saída). Protege a validade do e-mail, de que dependem o drip do trial e a confirmação de assinatura | decidido | Etapa 4 (T4-P0) |
+
+---
+
+## 0.5 Convenções obrigatórias do repo (valem para TODAS as tarefas)
+
+1. **Toda tabela nova**: migração em `packages/db/migrations` com RLS + `select public.enable_row_versioning('public.<tabela>')`; **testes pgtap** em `packages/db/tests` para RPCs/policies novas (padrão do commit 3996a02 — os testes pinam funções por `regprocedure`).
+2. **Toda mutação server-side**: `recordAudit` (`apps/web/src/lib/audit.ts`).
+3. **Toda rota pública nova**: adicionar a `PUBLIC_PREFIXES` em `apps/web/src/middleware.ts` (senão redireciona para login) + `apps/web/src/app/sitemap.ts` (ou exceção noindex — D10); copy no namespace `marketing` nos **5 locales** de `packages/content/messages/` (só pt-BR é indexado); `generateMetadata` com canonical; exatamente um `<h1>`; JsonLd via componente. Os hooks `marketing-guard`/`marketing-lint` impõem a skill e o contrato automaticamente.
+4. **Direção visual**: `docs/DESIGN.md` é ESTRITA e herdada por toda página nova. Se /fundadores exigir estética de resposta direta divergente, pedir explicitamente "redesign" dessa página — senão a skill construirá no padrão comprometido. Depoimentos/métricas fabricados são proibidos (`docs/DESIGN.md` + HOME-SPEC §33.5) — publicar exige material real E atualizar esses contratos junto.
+5. **Preços/limites/vagas/datas**: linhas de banco, nunca constantes. `platform_settings` é o mecanismo de flag sem deploy — leitura **pública por design** (nunca segredos); cada flag de campanha precisa de card de edição num console admin (hoje só a key `support` tem UI — ver T6.6).
+6. **`sendEvent` (Inngest) nunca lança**: todo caller precisa de fallback inline; drip/cron **não roda sem chaves Inngest** configuradas.
+7. **Vermelho apenas para risco/falha** (PRD §10) — contador de vagas e urgência de oferta não usam vermelho.
+8. **Mobile**: por política de loja (PRD §4.4), NENHUMA oferta/checkout/CTA de compra nas telas do app. Campanhas por WhatsApp levam à web. O trial pode iniciar por ação no mobile (0084) — verificar que o fluxo mobile também dispara `StartTrial`.
+
+---
+
+## EPIC 1 — Billing: plano anual, cupom e oferta Fundadores
+**Bloqueia:** todas as ondas. Sem isto não existe oferta.
+
+### T1.1 — Criar ciclo de cobrança anual
+**Estado: 🟡** — a infraestrutura anual existe de ponta a ponta: enum `billing_period` já tem `yearly` (0001_billing.sql:30), Stripe usa `interval: year`, Asaas usa `cycle: YEARLY`, o webhook calcula `period_end` de 12 meses e o `admin_metrics` já normaliza MRR anual. O que **não** existe: nenhuma linha de plano anual seedada (0024 só cria monthly) e nenhum toggle na UI.
+- O modelo é **1 preço por linha** de `plans` — criar novas linhas (`assistente-anual`, `pro-anual`) via `/admin/billing` ou migração; nada do engine de billing muda.
+- Toggle mensal/anual agrupando planos por família no `PricingSection` (`/planos`) e no `plans-grid` (`/settings/billing`), com anual pré-selecionado.
+- Exibir valor total e o equivalente mensal ("R$ X/ano · equivale a R$ Y/mês").
+- Cards da home dependem da decisão D12 (hoje hardcoded).
+- **Aceite:** é possível assinar Assistente anual e Pro anual em produção, com recibo correto e renovação agendada para 12 meses.
+
+### T1.2 — Ligar o sistema de cupons ao checkout
+**Estado: 🟡** — ⚠️ a entidade `coupons` JÁ existe (code, percent|fixed, valor, validade, `max_redemptions`, `redeemed_count`, ativo — 0001_billing.sql:86-98) com console CRUD em `/admin/billing`, aplicação nos dois providers e **atribuição permanente já implementada**: o webhook grava `coupon_id` na assinatura e incrementa redemption (`api/webhooks/[provider]/route.ts:370-391`). Porém está **inerte**: `startCheckout` não aceita cupom, não há campo na UI do cliente, nenhum handler de `?cupom=`, e o RPC `validate_coupon` (0001:323) não tem nenhum caller.
+- Aceitar `coupon` em `startCheckout` (`settings/billing/actions.ts`), validando via `validate_coupon` e passando `CheckoutCoupon` ao provider (já suportado) — o webhook então faz a atribuição sem mudança.
+- Campo de cupom no checkout com confirmação visual ("Cupom HELLEN aplicado").
+- `?cupom=CODIGO`: persistir em cookie de primeiro toque (sobrevive a navegação e ao redirect de auth — mesmo requisito da atribuição T5.0) e pré-preencher no checkout.
+- Gravar também o **código legível** junto da atribuição (hoje só o FK `coupon_id`; revenue share da parceira precisa do code — join resolve, mas explicitar no relatório).
+- `grant_de_tier`/`ciclos_aplicaveis` **não existem** — só criar se a decisão de T1.3 for por cupom (a recomendação abaixo dispensa).
+- **Aceite:** cupom aplicado por URL persiste durante toda a sessão de checkout, mesmo com navegação intermediária, e fica gravado na assinatura.
+
+### T1.3 — Mecânica da oferta Fundadores
+**Estado: ⬜** — nada existe (nenhum campo `is_founder`/`price_locked` no schema; grep no repo = zero). O adjacente mais próximo é `set_org_plan` (0067 — plano comped pelo superadmin, sem cobrança).
+**Recomendação revista (menor atrito no modelo atual): linha de plano dedicada, não cupom.** Criar plano `pro-fundador`: `price_cents` do Assistente anual + `limits` do Pro (`clinical_reasoning:1`, `audio_minutes:6000`). `org_entitlements` e `org_audio_allowance` leem `plans.limits`, então o entitlement Pro e o preço travado saem **de graça** da própria linha — a renovação mantém o preço enquanto a assinatura viver, e `is_active=false` fecha a oferta para novos sem afetar quem já assinou.
+- Migração em `subscriptions` apenas se relatórios/eventos precisarem do flag explícito: `is_founder` (bool) e `grant_expires_at` — alternativa: derivar de `plan_id`.
+- Se o fundador cancelar e voltar depois, o plano não está mais em catálogo → o preço travado se perde automaticamente (regra do documento atendida por construção).
+- **Aceite:** conta fundadora tem acesso a todas as features Pro, é cobrada pelo valor do Assistente, e a simulação de renovação em 12 meses mantém o valor travado.
+
+### T1.4 — Contador de vagas real + cerco na compra
+**Estado: ⬜** — nenhum endpoint/contador/waitlist existe.
+- Endpoint que retorna `vagas_totais`, `vagas_usadas`, `vagas_restantes`, calculado no servidor da contagem real de assinaturas do plano fundador. Cache de até 60s. **Não** implementar contador falso, decrescente por tempo ou aleatório.
+- Teto e data em `platform_settings` key `founders` (`{enabled, seats, deadline}`) — leitura pública por design, a página lê via anon client; edição via console (T6.6).
+- **Cerco na compra (novo — o contador sozinho não impede a 31ª venda):** `startCheckout` do plano fundador recusa quando contagem ≥ teto, e o webhook aplica a defesa final (checkouts em voo + cache de 60s tornam o contador apenas indicativo).
+- Quando `vagas_restantes = 0`: substituir CTA por captura de lista de espera (entidade de lead T2.0, segmento `waitlist`).
+- **Aceite:** o número na página corresponde à contagem de assinaturas fundadoras no banco, e é impossível assinar a vaga N+1.
+
+### T1.5 — Garantia de 7 dias e fluxo de reembolso
+**Estado: ⬜ (lado ativo)** — a metade **passiva** já existe: refund/chargeback iniciado no provider é reconciliado pelo webhook (`payment_reverted` → `revert_paid_invoice`, com estorno de pack de minutos — 0069_billing_reliability.sql). Não existem: página de termos, `refund_eligible_until`, solicitação no painel, ação de refund no admin.
+- Página de termos da garantia em `app/(marketing)/legal/`, **versionada via `consent_terms`** (packages/audit — mecanismo de versionamento pronto; não inventar outro).
+- Campo `refund_eligible_until` = data da compra + 7 dias, na assinatura (migração).
+- Fluxo de solicitação no painel do usuário (não só por e-mail) + ação de reembolso no admin que **chama a API de refund do provider**, com registro de motivo e `recordAudit`.
+- Dependência: os achados C1–C4 do `docs/BILLING-AUDIT.md` (T1.7) — estorno Asaas está fora do domínio hoje.
+- **Aceite:** solicitação dentro da janela gera ticket no admin; fora da janela, mensagem clara e canal de contato.
+
+### T1.6 — Telemetria de custo por tier
+**Estado: ⬜** — nenhum custo de IA é registrado em lugar nenhum. As colunas `messages.tokens_in/tokens_out` existem desde 0002 e **nunca são escritas**; `packages/ai` e `packages/transcribe` descartam o `usageMetadata` dos providers. O proxy mais próximo é `audio_usage` (minutos consumidos por org — unidade de cobrança, não custo).
+- Passo 1 (barato): capturar o usage dos providers e preencher `tokens_in/tokens_out`.
+- Passo 2: ledger `ai_costs` (consultation_id, etapa `transcricao|inferencia`, provider, model, tokens, custo estimado, tier) escrito nos pontos únicos do pipeline (`lib/clinical-pipeline.ts`, `lib/clinical-reasoning.ts`, job de transcrição).
+- Relatório no admin: custo médio por consulta, por tier, por mês.
+- **Justificativa:** o custo de R$ 1,00 refere-se ao fluxo de documentação. O Pro executa inferência adicional e o custo real precisa ser medido antes de escalar a oferta Fundadores, que concentra volume no Pro.
+- **Aceite:** o relatório mostra custo médio por tier com base em dados reais de produção.
+
+### T1.7 — Resolver pendências críticas do billing (NOVA)
+**Estado: ⬜** — `docs/BILLING-AUDIT.md` (C1–C4) documenta: webhook Asaas com 500 permanente, cliente sem cpfCnpj, `SUBSCRIPTION_DELETED` não tratado, estorno/chargeback fora do domínio Asaas. A oferta Fundadores (anual + cupom + garantia de 7 dias) atravessa exatamente esse caminho.
+- **Aceite:** C1–C4 resolvidos e verificados; entra no portão de largada da Onda 1.
+
+---
+
+## EPIC 2 — Agendamento (`/agendar`)
+**Bloqueia:** Ondas 1, 2 e 3. É o mecanismo central de todo o plano.
+
+⚠️ **Colisão de nomes a registrar**: já existe `/agenda` — a agenda **clínica** autenticada da profissional (consultas de pacientes; uma consulta agendada é uma linha de `consultations` com status `scheduled` — 0027_agenda.sql, com conflito de horário, séries e briefing). `/agendar` (comercial, público) é outra coisa: copy, menus e eventos de analytics devem mantê-las separadas.
+
+### T2.0 — Entidade de lead/agendamento (NOVA — pré-requisito comum)
+**Estado: ⬜** — não existe nenhuma tabela de lead, contato comercial ou lista de espera no schema (o formulário `/contato` é fire-and-forget por e-mail, nada vai ao banco). Esta entidade é o ponto único de persistência de T2.1 + T2.3 + T2.4 + T1.4-waitlist e a base de T6.4.
+- Tabela **platform-level, sem `org_id`** (lead pré-conta): nome, WhatsApp, e-mail, flag "já usou a versão anterior", faixa de pacientes/semana, `origem`, `onda`, `cupom`, `segmento`, `status`, histórico de contato, consentimentos (ver T2.4).
+- Leitura superadmin-only (RLS); escrita via service role em server action pública **com anti-abuso** (rate limit + honeypot — não há precedente no repo de formulário público escrevendo em banco).
+- RLS + row versioning + pgtap (convenções §0.5).
+- **Aceite:** criar/listar/filtrar leads com origem persistida; abuso de bot não polui a tabela.
+
+### T2.1 — Página e motor de agendamento
+**Estado: ⬜** — nenhuma rota `/agendar`, nenhum motor de slots, nenhuma integração Cal.com/Google Calendar em lugar algum do repo.
+- Rota `/agendar` com calendário real, slots de 30 min. Integração com Cal.com ou Google Calendar (não construir agenda própria). Timezone explícito `America/Sao_Paulo`.
+- Formulário mínimo: nome, WhatsApp, e-mail, "você já usou a versão anterior do MedChina?" (sim/não), "quantos pacientes atende por semana?" (faixas) → persiste em T2.0.
+- Bloqueio de capacidade (D6): decidir onde vive o teto — limites de disponibilidade no próprio Cal.com OU verificação no backend ao receber o webhook de booking. Ao esgotar, exibir próxima semana — nunca abrir slots além do limite.
+- LGPD: Cal.com processa PII de leads → avaliar como operador (DPA) antes de escolher.
+- Requisitos de rota pública (§0.5 item 3) + decisão D10 sobre indexação.
+- **Aceite:** agendamento cria evento no calendário, envia confirmação e respeita o teto semanal configurado.
+
+### T2.2 — Confirmação e redução de no-show
+**Estado: ⬜ (disparos) / 🟡 (transporte)** — nenhum disparo automático existe (nem para as consultas clínicas, onde o lembrete é handoff manual `wa.me` por decisão — 0066). Mas o transporte está pronto:
+- **E-mail**: Resend ativo com 5 templates reais e contrato de degradação (`packages/email`) — criar templates de confirmação + lembrete (não existem).
+- **Agendamento temporal**: padrão provado no drip do trial (`lib/trial-jobs.ts` com `step.sleepUntil`) — adicionar evento `medchina/booking.created` ao event map de `packages/jobs` + função Inngest que dorme até T-24h e T-1h.
+- **WhatsApp**: ⚠️ o pipeline de código está COMPLETO em `packages/whatsapp` (envio manual/agendado, templates Meta com fallback, webhook de status servido no app, tabela `wa_messages`) — "inerte" significa **não configurado e sem callers**, não "sem código". Pré-requisitos são operacionais: env vars do provider, **verificação de negócio Meta + aprovação de templates (prazo de semanas — risco de cronograma)**. Decisão D9: ativar Meta Cloud API ou operar com handoff `wa.me`. Iniciar a verificação Meta no Sprint 1 se D9 = automático.
+- **Entregabilidade**: validar SPF/DKIM do domínio de envio (`EMAIL_FROM`) em `medchinaprontuarios.com.br` antes da onda — confirmação caindo em spam anula a tarefa (conectado ao achado de e-mail divergente em T4.5).
+- Link de reagendamento e cancelamento no lembrete.
+- **Aceite:** os três disparos ocorrem para um agendamento de teste.
+
+### T2.3 — Pré-preenchimento por origem
+**Estado: ⬜** — nenhum parâmetro `origem/onda/cupom` é lido ou persistido hoje (grep utm/origem = zero no app). A atribuição existente (`meta_attribution`/`ga_attribution`, 0051/0052) é adjacente: sinais de anúncio por org no checkout, não lead pré-conta.
+- Aceitar `?origem=`, `?onda=`, `?cupom=` e persistir na entidade de lead (T2.0). Integra com a captura de primeiro toque de T5.0.
+- Disparo server-side do `Schedule` na criação do agendamento, com esses campos (fundação pronta: `lib/meta-capi.ts` + `lib/ga4-mp.ts` com `event_id`).
+- **Aceite:** o admin mostra, para cada call, de qual onda/canal ela veio.
+
+### T2.4 — Consentimento de gravação da call
+**Estado: 🟡** — o mecanismo pedido existe pronto e cumpre o aceite ao pé da letra: `consent_terms` (texto versionado) + `consent_acceptances` (aceite pina versão, com data e revogação sem delete) + `recordConsent` (packages/audit). **Bloqueio**: `consent_acceptances.org_id` é NOT NULL e a RLS de insert exige membro da org — lead não tem conta.
+- Decidir o modelo: (a) migração tornando `org_id` nullable para `subject_type='lead'` (reaproveita tudo — recomendado) ou (b) colunas de consentimento na entidade de lead pinando `slug+version` de `consent_terms`.
+- Dois termos: autorização de gravação da call (finalidade explícita: treinamento interno e melhoria de produto) e, separada e opcional, autorização de uso de depoimento (pré-requisito do T4.4).
+- **Aceite:** as duas autorizações ficam registradas com data e versão do texto.
+
+---
+
+## EPIC 3 — Landing pages
+
+**Estado geral: confirmado** — nenhuma das 6 páginas existe; o site é 100% orientado a tráfego frio/auto-cadastro (todos os CTAs do chrome → `/auth/sign-up`). As páginas novas seguem as convenções §0.5 (PUBLIC_PREFIXES, i18n 5 locales, canonical, DESIGN.md estrita).
+
+### T3.1 — `/fundadores` (prioridade máxima)
+**Estado: ⬜**. Destino final de todas as ondas.
+- **Sem menu de navegação. Sem nenhum link para o plano gratuito ou para `/auth/sign-up`.** Se o visitante consegue chegar ao grátis a partir desta página, a página falhou.
+- **Mecanismo de layout (obrigatório saber antes):** nested layout NÃO remove chrome no App Router — dentro de `(marketing)` a página herda header/footer. Criar route group irmão (ex.: `app/(funil)/fundadores/`) com layout próprio **remontando** `MarketingTrackers` + `MarketingAnalytics` + `CookieConsent` (hoje só o layout de marketing os monta — sem eles o Pixel não dispara). Não repetir o hack CSS `body:has()` da home (exceção nomeada em DESIGN.md, não padrão).
+- Blocos, nesta ordem: promessa em uma linha → o que é a condição de fundador e por que existe → contador de vagas (T1.4) → oferta anual com valor de tabela riscado → **garantia de 7 dias com o mesmo peso visual do preço** → 3 depoimentos com nome, foto e cidade → o que só o fundador recebe (migração assistida, onboarding 1:1, canal direto com a fundadora, preço travado) → FAQ de objeção (cartão, cancelamento, migração, LGPD) → CTA único.
+- **Depoimentos:** o componente `Testimonials` atual não tem foto/cidade (avatar por iniciais) e o repo **proíbe depoimento fabricado** (DESIGN.md + HOME-SPEC §33.5) — exige estender o componente, material real com consentimento (T2.4) e atualização dos contratos de design (dependência dura com T4.4).
+- Se a página exigir estética de resposta direta divergente de "Cuidado Sereno", pedir explicitamente redesign desta página (§0.5 item 4).
+- Aceita `?cupom=` pré-aplicado (T1.2). Indexação: D10.
+- **Aceite:** auditoria de links confirma zero rotas de saída para cadastro gratuito.
+
+### T3.2 — `/voltar` (reescrita da `/migracao`) — Onda 1
+**Estado: ⬜ (página nova) / crítica à atual CONFIRMADA** — o copy publicado diz literalmente "crie uma nova conta; a migração de dados é avaliada caso a caso pelo suporte" (chaves `mig-*` em `packages/content/messages/*.json`), com CTA "Falar com o suporte". ⚠️ E está **defasado para trás**: o produto JÁ tem pipeline real de importação de pacientes (`/pacientes/importar`, migrações 0076-0083, `docs/IMPORT-EXPORT.md`) — a promessa central da página tem lastro técnico entregue, não futuro.
+- Nova narrativa, nesta ordem:
+  1. Reconhecimento explícito de que a versão anterior não estava pronta.
+  2. O que mudou, concreto: IA supervisionada, mobile, rastreabilidade de origem, consentimento versionado.
+  3. **"Você não vai recadastrar nada — a migração dos seus pacientes é feita com você na call de 30 minutos."** A maior objeção da onda passa a ser o motivo de agendar.
+  4. Vídeo de demonstração (T3.5).
+  5. CTA único: `/agendar`. Não "criar conta", não "falar com o suporte".
+- Duas variantes por parâmetro `?v=pagante` / `?v=cadastro`. **Sem problema de cache**: as páginas de marketing são dinâmicas por request (cookies de consent/locale no layout) — basta ler `searchParams` (Promise no Next 15). Canonical único em `/voltar` para as duas variantes.
+- **Redirect**: `async redirects()` em `apps/web/next.config.mjs` (`{source:'/migracao', destination:'/voltar', permanent:true}` — query preservada por padrão; `permanent:true` responde 308, equivalente a 301 para SEO; usar `statusCode:301` se o literal importar). Atualizar `PUBLIC_PREFIXES` (+`/voltar`), `sitemap.ts` (trocar a rota) e o link do footer (`marketing-footer.tsx`). Aposentar as 16 chaves `mig-*` nos 5 locales juntas.
+- **Aceite:** as duas variantes renderizam textos distintos e o redirect preserva parâmetros de URL.
+
+### T3.3 — `/masterclass` e `/masterclass/replay` — Onda 2
+**Estado: ⬜** — nem página, nem countdown (nada regressivo existe em marketing; `CountUp` só anima para cima), nem captura de inscrição.
+- Página de **evento**, não de produto: tema clínico, data/hora (D7, de `platform_settings` — não hardcoded), fotos e credenciais das duas especialistas, o que a participante sai sabendo, CTA único = entrar no grupo de WhatsApp.
+- **Nenhuma menção a preço ou plano antes da live.**
+- Contador de tempo até o evento: componente client novo, reduced-motion-safe, timezone explícito.
+- Inscrição persiste na entidade de lead (T2.0) com origem/onda e dispara `Lead` (tipo já declarado nos vocabulários — falta só o call site; par browser+server com `event_id` compartilhado).
+- `/masterclass/replay`: vídeo + prazo da oferta visível (de config) + CTA para `/fundadores?cupom=HELLEN`.
+- **Aceite:** inscrição dispara evento `Lead` e adiciona o contato à lista da onda com origem identificada.
+
+### T3.4 — `/escolas` — Onda 3
+**Estado: ⬜** — página inteiramente nova, sem bloqueio arquitetural (compõe primitivas existentes). Antecipada para o Sprint 2: é o único canal capaz de encher a agenda de forma repetível.
+- Público: coordenador de curso de formação em MTC, não aluno.
+- Conteúdo: licença institucional gratuita durante a formação, como integra o currículo, o que o egresso recebe ao se formar, casos, CTA = agendar reunião.
+- **Aceite:** página publicada com CTA para `/agendar?origem=escolas` (depende do EPIC 2).
+
+### T3.5 — `/demonstracao`
+**Estado: ⬜ (página/vídeo/eventos)** — mas o player está mais perto do que parece: `@vidstack/react` **já é dependência** do apps/web (hoje usado só no showcase `/ui`, bloqueado em produção) e expõe eventos de tempo.
+- Página com o vídeo de 10–12 min percorrendo **um caso clínico completo**: primeira consulta → anamnese estruturada → retorno com histórico. Não é tour de features. Capítulos/marcadores por etapa.
+- Eventos de progresso 25/50/75/100% via `track()` (fbq trackCustom) + espelho server-side, para retargeting.
+- **Consentimento**: embed YouTube/Vimeo injeta cookies antes do consent — preferir MP4 self-hosted via vidstack, ou click-to-load atrás do `CookieConsent`.
+- "Visíveis no painel": definir = Meta Events Manager/GA4 (padrão). Painel admin exigiria armazenamento próprio (a tabela `product_events` tem allowlist fechada; estender é migração).
+- CTA ao final: `/agendar`.
+- **Aceite:** eventos de progresso disparam corretamente e são verificáveis (Events Manager com `META_CAPI_TEST_EVENT_CODE`).
+
+---
+
+## EPIC 4 — Ajustes na home (`/`)
+
+⚠️ **Decisão D12 primeiro**: a home é um componente monolítico hardcoded (`components/marketing/clinical-source-home.tsx`, ~1.250 linhas, pt-BR fixo, fora de i18n/primitivas/banco). Preços "R$ 199/299" e "Até 3.000 minutos" estão em constantes TSX — **uma mudança de preço no `/admin/billing` atualizaria `/planos` e o checkout, deixando a home mentindo**. Recomendação: religar os cards de plano a `getDisplayPlans()`/`listPublicPlans()` (mesma fonte de `/planos`) como parte deste EPIC.
+
+### T4.1 — CTA duplo
+**Estado: ⬜ / afirmação CONFIRMADA** — 100% dos CTAs de conversão da home apontam para `/auth/sign-up` (header desktop/mobile, hero, 3 cards de plano, FAQ, CTA final, rodapé — `clinical-source-home.tsx`); os secundários são âncoras internas. Nenhum caminho de conversa/agendamento existe.
+- CTA primário passa a ser duplo em todos os blocos principais: **"Criar conta grátis"** e **"Agendar demonstração de 30 min"**.
+- Incluir também o header mobile e os cards de plano, não só header/hero/CTA final.
+- Depende de T2.1 (/agendar publicado).
+- **Aceite:** header, hero e CTA final oferecem as duas opções.
+
+### T4.2 — Reordenar e reposicionar planos
+**Estado: ⬜ (posição/rótulo/toggle)** — ⚠️ correção: o card **destacado** já é o Assistente nas duas grades (`featured` + "Mais escolhido" na home; `highlightIndex=1` em `/planos`). O que procede: o Gratuito é o **primeiro** card nas duas grades e carrega "Comece aqui".
+- Ordem: Assistente (centro, recomendado) → Pro → Gratuito (último, visualmente discreto). Em `/planos` é o campo `sort` no banco; na home depende de D12.
+- Remover o rótulo "Comece aqui" do plano Gratuito.
+- Adicionar toggle anual/mensal (depende de T1.1).
+- **Aceite:** o plano Gratuito não é mais o primeiro elemento nem o mais destacado.
+
+### T4.3 — Linguagem clínica nos planos
+**Estado: 🟡** — `/planos` (via banco) já publica a equivalência ("Até {minutes} minutos de áudio por mês (~{sessions} consultas)", derivada dos MESMOS `limits` que o runtime aplica) e a fronteira já existe no subtítulo ("O Assistente automatiza a documentação. O Pro também prepara o raciocínio terapêutico."). A home hardcoded traz minutos secos.
+- ⚠️ **Aritmética**: a consulta de referência do código e do PRD é de **50 minutos** → 3.000 min ≈ **60 consultas** (não 50). Resolver D11 antes de escrever copy; padronizar a duração de referência num único lugar.
+- Reescrever a fronteira nos cards: **Assistente documenta; Pro raciocina** (hipóteses, padrões explicados, contradições, dados ausentes, protocolos preparados) — a prop `footnote` do `PricingSection` existe e está sem uso em `/planos`.
+- **Aceite:** nenhum card de plano descreve o diferencial principal em unidade de minuto.
+
+### T4.4 — Bloco de prova social e autoridade
+**Estado: ⬜ integral** — nenhuma página menciona a fundadora; zero depoimentos; nenhuma tabela/console. Lacuna de maior impacto do site: o ativo principal do negócio é a reputação da fundadora na comunidade de MTC.
+- Bloco da fundadora: nome, foto, formação, por que construiu o MedChina.
+- Bloco de 3 a 5 depoimentos com nome, foto, cidade e tipo de prática.
+- **Estrutura de dados**: reaproveitar o padrão DB-managed de `/ajuda` e `/blog` (migração + console admin + `lib/public-content.ts`) — não inventar mecanismo novo. Estender `Testimonials` com foto/cidade/prática.
+- **Pré-requisitos**: consentimento de uso de depoimento (T2.4) e atualização de `docs/DESIGN.md` + `docs/HOME-SPEC.md` §33.5 (hoje proíbem depoimentos sem evidência — sem atualizar, futuras edições assistidas removerão os blocos).
+- **Aceite:** blocos publicados na home e reutilizáveis em `/fundadores`.
+
+### T4.5 — Correções de integridade
+**Estado: afirmações CONFIRMADAS ✅ / correções ⬜**:
+- **Âncoras**: confirmado âncora por âncora no rodapé da home (`Sobre`→`#inicio`, `Privacidade`→`#seguranca`, `Central de ajuda`→`#duvidas`) — e **também no header da home** (`#como-funciona`/`#recursos`/`#seguranca`/`#planos`), com as páginas reais existindo e ignoradas. O rodapé compartilhado das demais páginas já está correto.
+- **Rodapé duplo**: confirmado — o chrome compartilhado é montado na home e escondido via CSS `display:none`, **permanecendo no DOM servido** (visível a crawlers). Correção estrutural no layout (não montar o chrome na home, ou adotá-lo), não mais CSS.
+- **E-mail**: confirmado — único e-mail público é `mailto:contato@medchina.com.br` hardcoded no rodapé da home; o domínio canônico é `ai.medchinaprontuarios.com.br` e `BRAND.support.email` está vazio. Trocar por canal configurável (`BRAND.support`/`platform_settings` 'support') com o domínio correto e **conferir que a caixa existe** (conecta com SPF/DKIM de T2.2).
+- **WhatsApp visível**: 🟡 o mecanismo está pronto (SupportWidget lê `platform_settings` 'support'; console `/admin/support`; renderiza null sem canal). Configurar o canal é **dado, não código**; decidir presença adicional no rodapé e em `/contato`.
+- **Aceite:** varredura de links sem âncoras órfãs e sem destinos duplicados conflitantes.
+
+---
+
+## EPIC 5 — Instrumentação e eventos
+
+⚠️ **Cabeçalho reescrito** — a premissa "falta evento de produto" está desatualizada. Já existem, server-side, com `event_id` determinístico e espelho GA4 (Measurement Protocol): `CompleteRegistration` (auth callback), `StartTrial` (start-trial route), `Activated` (1ª consulta finalizada da org), `InitiateCheckout`, `Purchase` (por fatura paga, com enriquecimento via `meta_attribution` 0051/0052), `Subscribe` (1ª fatura da assinatura) e `TrialExpiring` (drip). **`docs/TRACKING.md` é a fonte canônica do event map — referenciar, não recriar.** Stack dupla: todo evento novo entra nos dois lados (Meta + GA4). O PostHog do `.env.example` é resíduo do template, sem integração — ignorar.
+
+### T5.0 — Captura de atribuição origem/onda/cupom (NOVA — bloqueia a largada)
+**Estado: ⬜** — **o maior gap do funil**: nenhuma captura de `utm_*`/`origem`/`onda` existe no código. A atribuição existente (`meta_attribution`: fbp/fbc/ga_client_id por org no checkout) resolve o match de anúncio, não a dimensão de campanha.
+- Capturar `?origem/?onda/?cupom/utm_*` no primeiro toque do site, persistir em cookie, sobreviver ao redirect de auth e checkout (padrão análogo a `lib/meta-capi-context.ts`), gravar no signup (coluna na org ou extensão de `meta_attribution`) e propagar até assinatura e eventos.
+- **Sem isso, a segmentação de T5.2 e a comparação de ondas de T5.3 são inimplementáveis — e coorte não se backfilla.** Precisa estar em produção ANTES da Onda 1.
+- **Aceite:** um cadastro vindo de `/voltar?onda=1&origem=whatsapp` carrega essas dimensões até o evento `Purchase`.
+
+### T5.1 — Eventos de produto (delta sobre o que existe)
+| Evento | Estado | Ação |
+|---|---|---|
+| `Lead` | ⬜ tipo declarado (`analytics.ts:35`, `meta-capi.ts:45`), nunca disparado | criar call site na inscrição da masterclass/grupo (T3.3): par browser+server com `event_id` compartilhado |
+| `Schedule` | ⬜ nem consta nos vocabulários | adicionar aos TRÊS unions (`meta-capi.ts:40-52`, `analytics.ts:32-43`, `ga4-mp.ts:36-43`) + disparo na criação do agendamento (T2.3), payload origem/onda/cupom |
+| `CompleteRegistration` | ✅ existe (dedup por user.id) | adicionar `origem` ao payload (T5.0). Atenção: depende da confirmação de e-mail ligada no Supabase — se desligarem, o callback não roda |
+| `primeira_anamnese_completa` | ✅ como **`Activated`** (1ª consulta FINALIZADA da org) | **mapear, não renomear** (renomear quebra histórico no Events Manager). Completar payload "dias desde cadastro" e **documentar no código que é o evento de otimização de campanha** |
+| `trial_pro_iniciado` | ✅ como **`StartTrial`** | ⚠️ semântica 0084: primeira ação operacional de QUALQUER tipo; segmentar por `pro_trials.started_via` |
+| `ativo_d7` | ⬜ | job novo (passo no drip existente ou cron Inngest), fonte `access_events`/`product_events` após a 1ª consulta finalizada; **definir "sessão"** no aceite (o conceito não existe no schema) |
+| `Purchase` | ✅ existe (por fatura paga; `Subscribe` separado na 1ª — melhor que o pedido) | enriquecer `custom_data` com plano/ciclo/cupom (dados já no banco: `plans.period`, `subscriptions.coupon_id`); `is_founder` após T1.3 |
+
+- Regra LGPD mantida (já implementada): eventos do app clínico são **server-only** — nenhum tracker monta no app autenticado. Só `Lead`/`Schedule` (páginas públicas) ganham o par browser+server.
+- **Aceite:** todos os eventos aparecem no Gerenciador de Eventos sem duplicação (`META_CAPI_TEST_EVENT_CODE` já existe para o teste).
+
+### T5.2 — Painel semanal
+**Estado: ⬜** — `admin_metrics()` (0010) não serve como dado (agregados de 30 dias, nada semanal), mas serve como **padrão**: RPC `SECURITY DEFINER` + gate `is_superadmin()`.
+- Novo RPC irmão (ex.: `admin_weekly_funnel()`): calls agendadas na semana (bloqueia em T2.0), trials iniciados (`pro_trials.started_at` + `started_via`), pagantes novos (1ª fatura paga por assinatura — padrão já usado no webhook), cancelamentos (`canceled_at`).
+- Segmentação por origem/onda (depende de T5.0). Quatro números, sem nada além.
+- **Aceite:** painel acessível no admin, atualizado diariamente (RPC live já resolve).
+
+### T5.3 — Funil de coorte
+**Estado: ⬜** — todas as etapas já têm timestamp confiável em tabelas existentes (`organizations.created_at`, consultas finalizadas, `pro_trials.started_at`, faturas pagas, `product_events`/`access_events` para D30). O único bloqueio é a dimensão onda/origem (T5.0).
+- Visão por coorte de entrada (semana): cadastro → 1ª anamnese → trial → pagante → ativo D30.
+- Atalho: entregar a primeira versão como pergunta salva no `/admin/insights` (SQL read-only já existente) antes de construir tela dedicada.
+- **Aceite:** é possível comparar a coorte da Onda 1 com a da Onda 2.
+
+---
+
+## EPIC 6 — Ferramentas internas (admin)
+
+Referência: os 12 consoles existentes (`/admin`, `/admin/organizations`, `/admin/billing`, `/admin/ai`, `/admin/knowledge`, `/admin/audit`, `/admin/insights`, `/admin/backups`, `/admin/announcements`, `/admin/help`, `/admin/blog`, `/admin/support`). Ferramentas novas seguem o mesmo padrão: gate `is_superadmin` + RLS real + `recordAudit` + console EN-only.
+
+### T6.1 — Lista de contas gratuitas paradas
+**Estado: ⬜ (console)** — o `/admin/organizations` atual mostra plano/status/membros/suspensão, sem coluna de trial nem exportação.
+- ⚠️ **Query corrigida** (a premissa antiga era a mecânica pré-0084): "conta parada" = organização **sem linha em `pro_trials`** E ainda **elegível** — o trial é 1 por profissional e 1 por org PARA SEMPRE (0084 + 0024). Quem já consumiu o trial é outra lista, com abordagem de venda diferente.
+- ⚠️ **Bloqueio de dado**: o cadastro da profissional **não coleta telefone** (profiles só tem display_name/company) — "exportação com WhatsApp" exige antes coletar o dado (signup ou perfil); sem isso a lista entrega só e-mail.
+- Exportação com e-mail (e WhatsApp quando existir), campo de status de contato (na entidade T2.0/T6.4).
+- Validação imediata: `/admin/insights` já responde "quantas contas sem trial?" ad hoc, antes do console dedicado.
+- **Aceite:** lista exportável e filtrável por faixa de dias desde o cadastro.
+
+### T6.2 — Migração assistida (reescopo)
+**Estado: ✅ núcleo / ⬜ modo assistido** — ⚠️ o pipeline self-service está **entregue e verificado**, além do que este plano pedia: importação de 3 tipos (cadastro de pacientes, histórico legado congelado, agenda futura), pré-visualização obrigatória, log permanente (`import_batches` nunca deletado), desfazer com janela de 30 dias, idempotência por `external_ref`, recusa de .xlsx/.pdf com instrução de conversão, limite por plano. Migrações 0076–0083; spec canônica: **`docs/IMPORT-EXPORT.md`** (referenciar, não redescrever). Aceite de 30 pacientes < 5 min: já verificado lá (§11).
+- **Escopo restante = Fase D** (IMPORT-EXport §6, item 8): superfície em `/admin/organizations` chamando os RPCs existentes com **service role** (já aceitam), exigindo justificativa + referência da autorização da titular, gravando `import.assisted` em `audit_events` e notificando a profissional no sino.
+- **Restrição de projeto**: importação NUNCA acontece via impersonation — a cerca de 0057 recusa escrita clínica em sessão impersonada. Na call, a alternativa imediata é a profissional dirigir o import logada (tela compartilhada).
+- **Pré-requisito de lançamento**: confirmar que as migrações 0075–0084 estão aplicadas em produção (IMPORT-EXPORT §11 registrava pendência em ago/2026 — reverificar contra o banco real).
+- **Aceite:** importação assistida de uma base de teste de 30 pacientes, auditada, com notificação à titular.
+
+### T6.3 — Fluxo da call de onboarding
+**Estado: ⬜** — nenhuma estrutura de checklist/call no admin. Depende de T2.0 (entidade de call).
+- Checklist no admin, por call: dados migrados → primeiro paciente real cadastrado → **primeira ação com IA executada durante a call** → plano apresentado → resultado (fechou / follow-up / perdeu, com motivo).
+- Os itens "primeiro paciente" e "primeira ação com IA" devem ser **predicados automáticos lidos do banco** (padrão live-predicate de `lib/onboarding.ts`; `pro_trials`/`started_via`), não checkboxes manuais.
+- Campo de objeções em texto livre, alimentando relatório (insumo para conteúdo e discurso).
+- **Aceite:** relatório de objeções agrupadas disponível.
+
+### T6.4 — Gestão de contatos por onda
+**Estado: ⬜** — não existe CRM/contato de funil (as únicas entidades de pessoa são `profiles`, `patients` — dado clínico tenant-scoped, **jamais** reutilizável como lista de marketing — e `meta_attribution`).
+- Evolução da entidade T2.0: `onda`, `segmento` (ex_pagante | cadastro_v1 | live | escola | indicacao | gratuito_parado | waitlist), `status`, `historico_de_contato`. Platform-level, superadmin-only.
+- A carga dos ~500 contatos da versão anterior precisa de caminho próprio (o pipeline de import escreve pacientes de um workspace, não contatos de funil). Base legal LGPD: ver Riscos, item 1.
+- **Aceite:** possível filtrar e exportar por segmento.
+
+### T6.5 — Programa de indicação
+**Estado: ⬜** — nada existe (o `invite` do schema é convite de MEMBRO de organização — RBAC, outra coisa; irrelevante no MVP de workspace único).
+- Peças reaproveitáveis: cupons do billing (código persistido na assinatura) para o benefício; o webhook de billing como gatilho observável de "o indicado pagou"; `platform_settings` para a flag.
+- Link de convite por usuário, atribuição do indicado, bônus liberado **somente quando o indicado paga**.
+- **Aceite:** cadeia indicador → indicado → pagamento → crédito rastreável de ponta a ponta.
+- **Ativar apenas após 25–30 pagantes satisfeitos.** Implementar agora, manter desligado por flag.
+
+### T6.6 — Console de flags de campanha (NOVA)
+**Estado: ⬜** — `platform_settings` é o mecanismo certo, mas hoje só a key `support` tem UI (`/admin/support`); as demais são editadas por SQL. Sem console, a operação NÃO liga/desliga campanha sem deploy.
+- Cards de edição para as keys de campanha: `founders` (enabled/seats/deadline), `masterclass` (D7), `referral` (flag T6.5).
+- **Aceite:** superadmin liga/desliga a oferta Fundadores e edita vagas/data sem deploy.
+
+---
+
+## EPIC 7 — Plano Gratuito (reformulado)
+
+⚠️ **A auditoria (T7.1) foi executada e a divergência temida NÃO existe.** O código não limita pacientes, prontuários ou consultas manuais em nenhum plano — "Pacientes e prontuários ilimitados" é **verdadeiro**, e o PRD §5.2/§5.3 especifica o ilimitado clínico como intencional. "Limitação de armazenamento" **não existe no produto** (únicos tetos: globais por arquivo de gravação, iguais para todos os planos — e o Gratuito nem grava). Não há risco jurídico na promessa principal.
+
+**Limites reais do Gratuito hoje** (todos em `plans.limits`, editáveis em `/admin/billing`): `audio_minutes: 0` · `library_messages: 20`/mês · `import_rows: 200`/lote (por lote — não é teto cumulativo) · `members: 1` · export **livre** em todos os planos (portabilidade LGPD, por decisão).
+
+**Divergências menores reais** (direção: código limita mais que o texto): o teto de import não é publicado em nenhuma página; o card hardcoded da home omite a cota de 20 msgs/mês da biblioteca, que `/planos` (via banco) publica corretamente.
+
+### T7.1 — Registro da auditoria (residual)
+- Formalizar a tabela código × texto acima em `docs/` (seção em `docs/BILLING-AUDIT.md` ou arquivo próprio), citando as migrações 0024, 0042, 0076, 0081.
+- **Aceite:** documento comparando limite em código × texto publicado. ✔ conteúdo levantado; falta commitar.
+
+### T7.2 — Alinhamento (redefinido)
+- **(a) Decisão D8**: manter o grátis genuinamente ilimitado (estado atual, verdadeiro) OU introduzir limites — o que exige construir **grandfathering do zero** (`plans.limits` é global por plano; nada no schema versiona limites por data de criação de conta).
+- **(b) Alinhar superfícies**: religar o card da home ao banco (D12); publicar o teto de import ("importação em lotes de até 200 linhas no Gratuito") OU removê-lo via `/admin/billing` se não for diferencial intencional; incluir a cota da biblioteca no card da home.
+- **(c)** Se D8 evoluir, implementar a política de uso justo de armazenamento/anexos prevista no PRD §5.3 (hoje inexistente).
+- **Aceite:** texto publicado e comportamento do sistema idênticos em todas as superfícies (incluindo a home).
+
+---
+
+## Riscos e considerações transversais
+
+1. **LGPD da base da Onda 1**: abordar ~500 contatos da versão anterior por WhatsApp/e-mail exige base legal documentada (consentimento da relação anterior? legítimo interesse com LIA?), política de retenção/eliminação e direitos do titular sobre a nova entidade de contato. Opt-out obrigatório (PRD §18.3) — a infra já existe (`lifecycle_email_opt_out` + token de unsubscribe, 0056). Cal.com/terceiros que processem PII de leads = operador → avaliar DPA.
+2. **Mobile**: nenhuma oferta/checkout no app (política de loja). O trial pode iniciar por ação no mobile (0084) — verificar que o fluxo mobile dispara `StartTrial`; planejar deep links de campanha (abrir no app vs web).
+3. **Entregabilidade de e-mail**: SPF/DKIM do domínio de envio do Resend no domínio real (`medchinaprontuarios.com.br`); unificar o e-mail de contato (T4.5). Confirmações caindo em spam anulam T2.2.
+4. **Anti-abuso**: `/agendar`, captura da masterclass, waitlist e `?cupom=` são endpoints públicos escrevendo em banco via service role — rate limit + honeypot desde o primeiro deploy (T2.0).
+5. **Timezone**: slots, lembretes 24h/1h e countdown com `America/Sao_Paulo` explícito e renderização client/server consistente (o repo já teve correção de TZ no import — 0083).
+6. **Vídeo × consentimento**: player de terceiro injeta cookies antes do consent — self-host ou click-to-load (T3.5, T3.3).
+7. **Documentos internos desatualizados (fonte de erro recorrente)**: `apps/web/CLAUDE.md` e `docs/PRODUCT.md` §5.7 ainda descrevem o trial pré-0084 ("inicia só no recorder"). Atualizar ambos junto com este plano — um agente de desenvolvimento que os leia reimplementará a premissa errada (aconteceu durante esta auditoria).
+8. **Ativos existentes a aproveitar** (o plano anterior ignorava): drip de e-mail do trial com unsubscribe (0056 + `lib/trial-jobs.ts`) — a "educação durante o trial" já existe; `notifications` (0012) + `announcements` (0011) para comunicação in-app; `/admin/insights` para perguntas de coorte ad hoc; `packages/documents` (hash + `/verify/[code]`) caso a garantia gere documento; SupportWidget + `platform_settings` 'support' para o WhatsApp visível.
+
+---
+
+## Sprints e critério de largada (re-escalonados pelo estado real)
+
+### Sprint 1 — Semana 1 (bloqueia tudo)
+`T5.0` (atribuição — **antes de qualquer onda**; coorte não se backfilla) · `T1.1` (linhas anuais + toggle) · `T1.2` (ligar cupom ao checkout + `?cupom=`) · `T1.3` `T1.4` (com cerco na compra) · `T1.7` (BILLING-AUDIT C1–C4) · `T2.0` `T2.1` `T2.2` (e-mail; D9 decide WhatsApp) · decisões D8–D12.
+Em paralelo, fora do desenvolvimento: gravar o vídeo de demonstração; fechar termos com a parceira e habilitar a parceria de contas no Meta Business; **iniciar a verificação de negócio Meta imediatamente se D9 = automático** (prazo de semanas); validar SPF/DKIM e caixa de e-mail do domínio real.
+
+### Sprint 2 — Semana 2
+`T1.5` · `T3.1` `T3.2` `T3.5` · `T4.1` `T4.2` `T4.3` `T4.4` `T4.5` (com D12) · `T6.1` `T6.2` (Fase D) `T6.3` · `T7.1` `T7.2` · `T2.3` `T2.4` · `T3.4` · `T5.1` (delta)
+
+### Sprint 3 — Semana 3 (em paralelo à Onda 1 já rodando)
+`T3.3` · `T5.2` `T5.3` · `T6.4` `T6.5` (desligado) `T6.6` · `T1.6`
+
+### Portão de largada da Onda 1
+Não iniciar a Onda 1 sem **todos** os itens abaixo verificados em produção:
+
+- [ ] Assinatura anual funcionando com cupom aplicado no checkout (T1.1, T1.2)
+- [ ] Mecânica Fundadores concedendo entitlement Pro e cobrando o preço travado (T1.3)
+- [ ] Contador de vagas refletindo o banco E cerco na compra ativo (T1.4)
+- [ ] Garantia de 7 dias publicada e fluxo de reembolso operante (T1.5)
+- [ ] Pendências críticas do billing Asaas resolvidas — C1–C4 do BILLING-AUDIT (T1.7)
+- [ ] `/agendar` recebendo agendamento real, com lembretes disparando (T2.1, T2.2) e e-mail entregando do domínio correto (SPF/DKIM)
+- [ ] `/fundadores` publicada, sem nenhuma rota de saída para o plano gratuito (T3.1)
+- [ ] `/voltar` publicada nas duas variantes, com redirect de `/migracao` preservando parâmetros (T3.2)
+- [ ] Vídeo de demonstração no ar (T3.5)
+- [ ] **Atribuição origem/onda/cupom capturada e persistida de ponta a ponta (T5.0)** — sem isso a comparação de ondas se perde para sempre
+- [ ] `Schedule` disparando; `StartTrial` e `Purchase` verificados em produção com dedup (`META_CAPI_TEST_EVENT_CODE`) (T5.1)
+- [ ] Migrações 0075–0084 aplicadas em produção (pipeline de import + trial 0084) (T6.2)
+- [ ] Superfícies do plano Gratuito alinhadas (T7.2) e base legal da lista de ~500 contatos documentada (Riscos 1)
+
+**Faltando qualquer item, adiar a onda.** A base é de ~500 contatos e existe uma única oportunidade de reconquista — queimá-la com funil incompleto repete exatamente o erro da versão anterior.
+
+---
+
+## Notas de arquitetura para quem implementa
+
+- **Nada de escassez falsa.** Contador de vagas, prazos e "restam X" derivam SEMPRE de estado real no servidor.
+- **Atribuição é requisito de negócio, não relatório.** `origem`, `onda` e `cupom` precisam sobreviver a toda a jornada, incluindo redirects de autenticação e checkout (T5.0). A sobrevivência dos sinais de ANÚNCIO (fbp/fbc/ga) já está resolvida (`meta_attribution` 0051/0052) — faltam as dimensões de campanha.
+- **Idempotência nos eventos.** `event_id` compartilhado entre Pixel e CAPI; eventos de produto no servidor (padrão já vigente em todos os call sites). Eventos do app clínico: server-only, sem exceção (LGPD).
+- **Feature flags** em `platform_settings` com console de edição (T6.6): indicação, oferta Fundadores, contador de vagas, masterclass. Leitura pública por design — nunca segredos.
+- **Não refazer a home.** O posicionamento profissional e o vocabulário de MTC estão corretos. As tarefas do EPIC 4 são ajustes cirúrgicos de conversão — a única mudança estrutural recomendada é religar os cards de plano ao banco (D12), que é dívida do próprio repo, não redesign.
+- **Onde vive cada entidade nova**: lead/agendamento e contatos → `packages/db` (migração + RLS superadmin) + consoles em `apps/web/.../admin`; extensões de cupom/plano → `packages/db/src/schema/billing.ts` + `packages/billing` + console `/admin/billing` existente; termos de garantia e consentimentos → `consent_terms`/`recordConsent` (packages/audit) + página em `(marketing)/legal`; lembretes → `packages/jobs` (event map) + `packages/email` (templates novos) + `packages/whatsapp` (se D9); depoimentos → padrão DB-managed de help/blog; custo de IA → ledger service-role alimentado por `packages/ai`/`packages/transcribe`.

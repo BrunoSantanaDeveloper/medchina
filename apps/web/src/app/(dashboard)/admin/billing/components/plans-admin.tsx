@@ -38,6 +38,7 @@ type PlanForm = {
   trial_days: number;
   is_free: boolean;
   is_active: boolean;
+  is_public: boolean;
   limits: string;
   sort: number;
 };
@@ -55,6 +56,7 @@ const EMPTY: PlanForm = {
   trial_days: 0,
   is_free: false,
   is_active: true,
+  is_public: true,
   limits: "{}",
   sort: 0,
 };
@@ -94,6 +96,7 @@ export default function PlansAdmin() {
       trial_days: row.trial_days as number,
       is_free: row.is_free as boolean,
       is_active: row.is_active as boolean,
+      is_public: row.is_public !== false,
       limits: JSON.stringify(row.limits ?? {}, null, 2),
       sort: row.sort as number,
     });
@@ -124,6 +127,7 @@ export default function PlansAdmin() {
       trial_days: Number(form.trial_days) || 0,
       is_free: form.is_free,
       is_active: form.is_active,
+      is_public: form.is_public,
       limits,
       sort: Number(form.sort) || 0,
     };
@@ -162,6 +166,10 @@ export default function PlansAdmin() {
           />
           {(row.is_free as boolean) && <Chip label="free default" size="small" color="success" variant="outlined" />}
           {!(row.is_active as boolean) && <Chip label="inactive" size="small" variant="outlined" />}
+          {/* Sellable but off the catalog — a founders/partner offer reached by
+              /settings/billing?plan=<slug>. Not the same as inactive, which is
+              not sellable at all. */}
+          {row.is_public === false && <Chip label="unlisted" size="small" color="primary" variant="outlined" />}
           <Tooltip title="Edit">
             <Button className="icon-only" size="small" color="grey" variant="text" onClick={() => openEdit(row)}>
               <NiPen size="medium" />
@@ -257,9 +265,28 @@ export default function PlansAdmin() {
                     onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                   />
                 }
-                label="Active"
+                label="Active (sellable at all)"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={form.is_public}
+                    onChange={(e) => setForm({ ...form, is_public: e.target.checked })}
+                  />
+                }
+                label="Listed in the pricing grids"
               />
             </Box>
+            {/* The distinction the console has to make explicit: unchecking
+                "Active" is how an offer becomes UNBUYABLE, which is the wrong
+                tool for taking it off the catalog. */}
+            {!form.is_public && form.is_active && (
+              <Alert severity="info" className="neutral bg-background-paper/60! mt-2">
+                Unlisted: hidden from /planos and from the customer plan grid, still purchasable at
+                {` /settings/billing?plan=${form.slug || "<slug>"}`} and assignable from Subscriptions.
+              </Alert>
+            )}
             {error && (
               <Alert severity="error" className="neutral bg-background-paper/60! mt-2">
                 {error}

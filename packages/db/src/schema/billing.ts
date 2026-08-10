@@ -45,6 +45,10 @@ export const plans = pgTable("plans", {
   trialDays: integer("trial_days").notNull().default(0),
   isFree: boolean("is_free").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
+  // Catalog visibility, independent of `isActive` (0085): a plan that is active
+  // but not public stays purchasable through a direct link — how a limited
+  // founders offer is sold without publishing its price in the pricing grids.
+  isPublic: boolean("is_public").notNull().default(true),
   limits: jsonb("limits").notNull().default({}),
   providerRefs: jsonb("provider_refs").notNull().default({}),
   sort: integer("sort").notNull().default(0),

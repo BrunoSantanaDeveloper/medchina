@@ -58,6 +58,12 @@ export interface PlanRow {
   isAddon: boolean;
   /** Minutes an à-la-carte pack grants; 0 for everything else. */
   packMinutes: number;
+  /**
+   * Whether the plan belongs in the catalog grid (0085). A limited offer is
+   * active and fully purchasable but not public: it is reached by the link the
+   * operator sends (`?plan=<slug>`), never listed next to the table price.
+   */
+  isPublic: boolean;
   limits: Record<string, unknown>;
 }
 
@@ -302,6 +308,9 @@ export function useBilling() {
         isFree: p.is_free,
         audioMinutes: Number((p.limits as { audio_minutes?: number } | null)?.audio_minutes ?? 0),
         isAddon: Boolean(p.is_addon),
+        // Defaults to public when the column is absent, so a database that has
+        // not run 0085 yet keeps listing every plan instead of emptying the grid.
+        isPublic: p.is_public !== false,
         packMinutes: Number((p.limits as { audio_minutes_pack?: number } | null)?.audio_minutes_pack ?? 0),
         limits: (p.limits as Record<string, unknown> | null) ?? {},
       }));

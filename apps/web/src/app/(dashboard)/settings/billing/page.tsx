@@ -29,6 +29,9 @@ export default function BillingSettings() {
   const checkout = searchParams.get("checkout");
   const source = searchParams.get("source");
   const feature = searchParams.get("feature");
+  // The offer she was sent by link (`?plan=pro-fundador`): the grid surfaces it
+  // even when it is unlisted, and says so when the offer has ended.
+  const offerSlug = searchParams.get("plan");
   const [openDrawer, setOpenDrawer] = useState(false);
   const [checkoutState, setCheckoutState] = useState<RemoteState<boolean, "check_failed">>(() => remoteLoading());
   // Set when the provider refused the checkout for a missing CPF/CNPJ, so the
@@ -225,6 +228,7 @@ export default function BillingSettings() {
               canManage={canManage}
               checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
               trialParams={trialParams}
+              offerSlug={offerSlug}
               onBillingProfileRequired={() => setNeedsBillingProfile(true)}
             />
             {/* After the tiers on purpose: for most people an upgrade is the

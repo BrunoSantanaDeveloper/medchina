@@ -42,6 +42,10 @@ export async function listPublicPlans(): Promise<PublicPlan[] | null> {
     // Add-ons (à-la-carte packs) are not tiers: on a public pricing page they
     // would read as another plan to choose between.
     .eq("is_addon", false)
+    // A limited offer (founders) is active and fully purchasable, but reached
+    // by the link the operator sends — publishing its price next to the table
+    // price would read as overcharging everybody else (0085).
+    .eq("is_public", true)
     .order("sort", { ascending: true });
 
   if (error || !data) return null;

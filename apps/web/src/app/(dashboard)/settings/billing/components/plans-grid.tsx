@@ -24,6 +24,7 @@ import {
 
 import { derivePlanFeatures } from "@/lib/billing-plan-features";
 import { trackCommercialEvent } from "@/lib/product-events";
+import { cn } from "@/lib/utils";
 
 export default function PlansGrid({
   orgId,
@@ -32,6 +33,7 @@ export default function PlansGrid({
   canManage,
   checkoutAvailable,
   trialParams,
+  offerSlug,
   onBillingProfileRequired,
 }: {
   orgId: string;
@@ -40,6 +42,12 @@ export default function PlansGrid({
   canManage: boolean;
   checkoutAvailable: boolean;
   trialParams: { days: number; minutes: number } | null;
+  /**
+   * Plan slug she arrived with (`?plan=`) — the offer agreed on a call. It is
+   * shown here even when the plan is unlisted (0085), highlighted and scrolled
+   * to, so the link she was sent lands on the thing it promised.
+   */
+  offerSlug?: string | null;
   /** Surfaces the fiscal-data form when the provider needs it to proceed. */
   onBillingProfileRequired?: () => void;
 }) {
@@ -50,14 +58,37 @@ export default function PlansGrid({
   const [confirming, setConfirming] = useState<PlanRow | null>(null);
   const operationKeys = useRef(new Map<string, string>());
   const promptViewed = useRef(false);
+  const offerRef = useRef<HTMLDivElement | null>(null);
   const paidPlans = plans.filter((plan) => !plan.isFree && plan.kind === "recurring" && plan.period);
   const currentPlan = paidPlans.find((plan) => plan.id === subscription?.planId) ?? null;
+  const offerPlan = offerSlug ? (paidPlans.find((plan) => plan.slug === offerSlug) ?? null) : null;
+  /**
+   * An unlisted plan is a real plan, just not on offer to everybody: it appears
+   * for the person who arrived with its link, and for whoever already pays for
+   * it. Listing it for everyone would show a full-price subscriber a cheaper
+   * price for what she already has.
+   */
+  const visiblePlans = paidPlans.filter(
+    (plan) => plan.isPublic || plan.id === currentPlan?.id || plan.id === offerPlan?.id,
+  );
+  // A link to an offer that ended must SAY so. Rendering the ordinary grid
+  // instead would look like the offer never existed, and she would either pay
+  // full price by accident or think the product is broken.
+  const offerMissing = Boolean(offerSlug) && !offerPlan;
 
   useEffect(() => {
     if (!canManage || paidPlans.length === 0 || promptViewed.current) return;
     promptViewed.current = true;
     trackCommercialEvent("upgrade.prompt_viewed", "billing", "plans");
   }, [canManage, paidPlans.length]);
+
+  const offerPlanId = offerPlan?.id ?? null;
+  useEffect(() => {
+    const node = offerRef.current;
+    if (!offerPlanId || !node) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    node.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+  }, [offerPlanId]);
 
   if (!canManage) return null;
   if (!paidPlans.length) return null;
@@ -113,6 +144,7 @@ export default function PlansGrid({
               {trialParams ? t("billing-trial-explanation", trialParams) : t("billing-trial-explanation-generic")}
             </Typography>
           </Box>
+          {offerMissing && <Alert severity="info">{t("billing-offer-unavailable")}</Alert>}
           {error === "billing_profile_required" && <Alert severity="warning">{t("billing-profile-required")}</Alert>}
           {error === "suspended" && <Alert severity="error">{t("billing-suspended-blocked")}</Alert>}
           {error === "plan_required" && <Alert severity="info">{t("packs-plan-required")}</Alert>}
@@ -120,15 +152,20 @@ export default function PlansGrid({
             <Alert severity="error">{t("billing-checkout-error")}</Alert>
           )}
           <Grid container spacing={2.5}>
-            {paidPlans.map((plan) => {
+            {visiblePlans.map((plan) => {
               const current = subscription?.planId === plan.id;
+              const isOffer = plan.id === offerPlan?.id;
               const features = derivePlanFeatures(plan.limits);
               const price = new Intl.NumberFormat(locale, { style: "currency", currency: plan.currency }).format(
                 plan.priceCents / 100,
               );
               return (
                 <Grid key={plan.id} size={{ xs: 12, md: 6 }}>
-                  <Card variant="outlined" className="h-full">
+                  <Card
+                    ref={isOffer ? offerRef : undefined}
+                    variant="outlined"
+                    className={cn("h-full", isOffer && "border-primary")}
+                  >
                     <CardContent className="flex h-full flex-col gap-3">
                       <Box className="flex flex-wrap items-center gap-2">
                         <Typography variant="h6" component="h3">
@@ -137,7 +174,10 @@ export default function PlansGrid({
                         {current && (
                           <Chip label={t("billing-current-chip")} size="small" color="success" variant="outlined" />
                         )}
-                        {features.clinicalReasoning && (
+                        {/* Names WHY this card looks different: it is the offer
+                            she was sent, not a fourth tier that appeared. */}
+                        {isOffer && !current && <Chip label={t("billing-offer-chip")} size="small" color="primary" />}
+                        {features.clinicalReasoning && !isOffer && (
                           <Chip label={t("billing-most-complete")} size="small" color="primary" />
                         )}
                       </Box>

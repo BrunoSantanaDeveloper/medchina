@@ -1366,6 +1366,8 @@
     "billing-load-error": "Impossible de charger votre abonnement. Réessayez.",
     "billing-provider-unavailable": "La souscription est temporairement indisponible. Vos données et les soins manuels restent accessibles.",
     "billing-current-chip": "Current plan",
+    "billing-offer-chip": "Your offer",
+    "billing-offer-unavailable": "The offer in that link is no longer available. The plans below are the current ones — if you agreed on different terms, talk to us before subscribing.",
     "billing-period-weekly": "per week",
     "billing-period-monthly": "per month",
     "billing-period-yearly": "per year",

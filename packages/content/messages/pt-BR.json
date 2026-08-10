@@ -1366,6 +1366,8 @@
     "billing-load-error": "Não foi possível carregar sua assinatura. Tente novamente.",
     "billing-provider-unavailable": "A contratação está temporariamente indisponível. Seus dados e o atendimento manual continuam acessíveis.",
     "billing-current-chip": "Plano atual",
+    "billing-offer-chip": "Sua condição",
+    "billing-offer-unavailable": "A condição desse link não está mais disponível. Os planos abaixo são os vigentes — se você combinou outra condição, fale com a gente antes de assinar.",
     "billing-period-weekly": "por semana",
     "billing-period-monthly": "por mês",
     "billing-period-yearly": "por ano",

@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Onda 1 — Reativação da base legada · MedChina</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --paper: #EFF2F1;
+      --card: #FBFCFC;
+      --ink: #16232C;
+      --slate: #5B6A71;
+      --mist: #D7DEDC;
+      --line: #C6D0CE;
+      --a1: #B33A22;
+      --a2: #C97A2B;
+      --b: #93893F;
+      --c: #4E7C79;
+      --d: #98A6AB;
+      --qing: #2E6E6B;
+      --ff-h: "Newsreader", Georgia, serif;
+      --ff-b: "IBM Plex Sans", system-ui, sans-serif;
+      --ff-m: "IBM Plex Mono", ui-monospace, monospace;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--ff-b);
+      font-size: 15.5px;
+      line-height: 1.62;
+      -webkit-font-smoothing: antialiased
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 28px 100px
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: var(--ff-h);
+      font-weight: 600;
+      letter-spacing: -.015em;
+      line-height: 1.14;
+      margin: 0
+    }
+
+    .eyebrow {
+      font-family: var(--ff-m);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--qing)
+    }
+
+    .num {
+      font-family: var(--ff-m);
+      font-variant-numeric: tabular-nums
+    }
+
+    /* header */
+    header {
+      padding: 64px 0 34px;
+      border-bottom: 2px solid var(--ink)
+    }
+
+    header h1 {
+      font-size: clamp(34px, 5.4vw, 56px);
+      margin: 14px 0 10px
+    }
+
+    header .sub {
+      font-family: var(--ff-h);
+      font-size: 20px;
+      color: var(--slate);
+      font-style: italic;
+      max-width: 62ch
+    }
+
+    .meta {
+      display: block;
+      flex-wrap: wrap;
+      gap: 26px;
+      margin-top: 26px;
+      font-family: var(--ff-m);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--slate)
+    }
+
+    .meta b {
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    /* sections */
+    section {
+      padding: 56px 0;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .sec-head {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 20px;
+      align-items: start;
+      margin-bottom: 30px
+    }
+
+    .sec-num {
+      font-family: var(--ff-m);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--paper);
+      background: var(--ink);
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%
+    }
+
+    .sec-head h2 {
+      font-size: clamp(25px, 3.4vw, 34px)
+    }
+
+    .sec-head p {
+      margin: 8px 0 0;
+      color: var(--slate);
+      max-width: 82ch
+    }
+
+    /* hero bars */
+    .thesis {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 30px 28px;
+      margin: 8px 0 0
+    }
+
+    .bar {
+      display: flex;
+      height: 46px;
+      overflow: hidden;
+      border-radius: 3px
+    }
+
+    .bar span {
+      display: block;
+      position: relative
+    }
+
+    .barlabel {
+      display: flex;
+      margin-top: 3px;
+      font-family: var(--ff-m);
+      font-size: 10.5px;
+      color: var(--slate);
+      letter-spacing: .04em
+    }
+
+    .bartitle {
+      font-family: var(--ff-m);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--slate);
+      margin: 20px 0 0
+    }
+
+    .bar+.bartitle {
+      margin-top: 30px
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 20px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--mist);
+      font-size: 12.5px
+    }
+
+    .legend i {
+      width: 11px;
+      height: 11px;
+      display: inline-block;
+      margin-right: 7px;
+      border-radius: 2px;
+      vertical-align: -1px
+    }
+
+    .pull {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      margin: 30px 0 0
+    }
+
+    .pull div {
+      background: var(--card);
+      padding: 20px 18px
+    }
+
+    .pull .k {
+      font-family: var(--ff-m);
+      font-size: 34px;
+      font-weight: 500;
+      letter-spacing: -.03em;
+      display: block;
+      line-height: 1
+    }
+
+    .pull .l {
+      font-size: 12.5px;
+      color: var(--slate);
+      margin-top: 7px;
+      display: block;
+      line-height: 1.4
+    }
+
+    /* tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 22px 0
+    }
+
+    th {
+      font-family: var(--ff-m);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+      color: var(--slate);
+      text-align: left;
+      padding: 0 10px 9px;
+      border-bottom: 1.5px solid var(--ink);
+      vertical-align: bottom
+    }
+
+    td {
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--mist);
+      vertical-align: top
+    }
+
+    td.n,
+    th.n {
+      text-align: right;
+      font-family: var(--ff-m);
+      font-variant-numeric: tabular-nums
+    }
+
+    tr.tot td {
+      border-top: 1.5px solid var(--ink);
+      border-bottom: none;
+      font-weight: 600
+    }
+
+    .chip {
+      font-family: var(--ff-m);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 3px;
+      color: #fff;
+      letter-spacing: .04em
+    }
+
+    .minibar {
+      height: 7px;
+      border-radius: 2px;
+      display: block
+    }
+
+    /* charts */
+    .chart {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 26px 24px;
+      margin: 24px 0
+    }
+
+    .chart h4 {
+      font-family: var(--ff-m);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--slate);
+      margin-bottom: 4px
+    }
+
+    .chart .cap {
+      font-size: 12.5px;
+      color: var(--slate);
+      margin: 0 0 20px
+    }
+
+    .hrow {
+      display: grid;
+      grid-template-columns: 158px 1fr 54px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 9px;
+      font-size: 13px
+    }
+
+    .hrow .t {
+      color: var(--slate)
+    }
+
+    .hrow .bwrap {
+      background: var(--mist);
+      height: 19px;
+      border-radius: 2px;
+      overflow: hidden
+    }
+
+    .hrow .bfill {
+      height: 100%;
+      border-radius: 2px
+    }
+
+    .hrow .v {
+      text-align: right;
+      font-family: var(--ff-m);
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums
+    }
+
+    .cols {
+      display: flex;
+      align-items: flex-end;
+      gap: 5px;
+      height: 150px;
+      margin-top: 14px
+    }
+
+    .cols .col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 6px
+    }
+
+    .cols .cb {
+      width: 100%;
+      background: var(--c);
+      border-radius: 2px 2px 0 0
+    }
+
+    .cols .cl {
+      font-family: var(--ff-m);
+      font-size: 9.5px;
+      color: var(--slate);
+      writing-mode: vertical-rl;
+      transform: rotate(180deg)
+    }
+
+    .cols .cv {
+      font-family: var(--ff-m);
+      font-size: 10.5px;
+      color: var(--slate)
+    }
+
+    /* callouts */
+    .find {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 16px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--mist)
+    }
+
+    .find:last-child {
+      border-bottom: none
+    }
+
+    .find .i {
+      font-family: var(--ff-m);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--a1)
+    }
+
+    .find h3 {
+      font-size: 20px;
+      margin-bottom: 6px
+    }
+
+    .find p {
+      margin: 0;
+      color: var(--slate)
+    }
+
+    .find p b {
+      color: var(--ink)
+    }
+
+    .kit {
+      background: #E9EEEC;
+      border-left: 3px solid var(--qing);
+      padding: 16px 18px;
+      margin: 16px 0
+    }
+
+    .kit .kt {
+      font-family: var(--ff-m);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--qing);
+      margin-bottom: 9px
+    }
+
+    .kit ul {
+      margin: 0;
+      padding-left: 19px;
+      font-size: 13.5px
+    }
+
+    .kit li {
+      margin-bottom: 4px
+    }
+
+    .kit code {
+      font-family: var(--ff-m);
+      font-size: 12.5px;
+      background: #fff;
+      padding: 1px 5px;
+      border-radius: 2px;
+      border: 1px solid var(--mist)
+    }
+
+    .stage {
+      margin: 34px 0 0;
+      padding-top: 26px;
+      border-top: 1px solid var(--mist)
+    }
+
+    .stage:first-of-type {
+      border-top: none;
+      padding-top: 0
+    }
+
+    .stage .sh {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px
+    }
+
+    .stage .sh h3 {
+      font-size: 21px
+    }
+
+    .tag {
+      font-family: var(--ff-m);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      color: var(--slate);
+      background: var(--card)
+    }
+
+    .msg {
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 20px 22px;
+      margin: 14px 0;
+      font-family: var(--ff-h);
+      font-size: 15.5px;
+      line-height: 1.68
+    }
+
+    .msg .mh {
+      font-family: var(--ff-m);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--a1);
+      margin-bottom: 12px
+    }
+
+    .msg p {
+      margin: 0 0 12px
+    }
+
+    .msg p:last-child {
+      margin-bottom: 0
+    }
+
+    .msg em {
+      color: var(--slate)
+    }
+
+    .cal {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      margin: 20px 0;
+      font-size: 11.5px
+    }
+
+    .cal div {
+      background: var(--card);
+      padding: 10px 9px;
+      min-height: 96px
+    }
+
+    .cal .dd {
+      font-family: var(--ff-m);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--slate);
+      letter-spacing: .08em;
+      margin-bottom: 6px
+    }
+
+    .cal .ev {
+      display: block;
+      margin-bottom: 5px;
+      padding-left: 7px;
+      border-left: 2px solid var(--a1);
+      line-height: 1.35
+    }
+
+    .cal .ev.e2 {
+      border-color: var(--c)
+    }
+
+    .cal .ev.e3 {
+      border-color: var(--d)
+    }
+
+    .cal .rest {
+      background: #E9EEEC
+    }
+
+    .script {
+      margin: 20px 0
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 16px;
+      padding: 15px 0;
+      border-bottom: 1px solid var(--mist)
+    }
+
+    .step .tm {
+      font-family: var(--ff-m);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--qing)
+    }
+
+    .step h4 {
+      font-family: var(--ff-b);
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px
+    }
+
+    .step p {
+      margin: 0;
+      font-size: 13.5px;
+      color: var(--slate)
+    }
+
+    .step.key {
+      background: #FBF2EE;
+      margin: 0 -14px;
+      padding: 15px 14px;
+      border-bottom: 1px solid var(--mist)
+    }
+
+    .step.key .tm {
+      color: var(--a1)
+    }
+
+    .warn {
+      border: 1.5px solid var(--a1);
+      padding: 20px 22px;
+      margin: 26px 0;
+      background: #FBF2EE
+    }
+
+    .warn .wt {
+      font-family: var(--ff-m);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+      color: var(--a1);
+      margin-bottom: 9px
+    }
+
+    .warn ol {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 14px
+    }
+
+    .warn li {
+      margin-bottom: 7px
+    }
+
+    .warn li:last-child {
+      margin-bottom: 0
+    }
+
+    footer {
+      padding: 44px 0 0;
+      font-size: 12.5px;
+      color: var(--slate)
+    }
+
+    @media (max-width:720px) {
+      .wrap {
+        padding: 0 18px 70px
+      }
+
+      .sec-head {
+        grid-template-columns: 1fr;
+        gap: 10px
+      }
+
+      .hrow {
+        grid-template-columns: 104px 1fr 46px
+      }
+
+      .cal {
+        grid-template-columns: repeat(2, 1fr)
+      }
+
+      .step,
+      .find {
+        grid-template-columns: 1fr;
+        gap: 6px
+      }
+
+      .cols .cl {
+        writing-mode: horizontal-tb;
+        transform: none;
+        font-size: 8.5px
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+        font-size: 10.5pt
+      }
+
+      section {
+        break-inside: avoid;
+        padding: 26px 0
+      }
+
+      .chart,
+      .msg,
+      .kit,
+      .warn,
+      .thesis {
+        break-inside: avoid
+      }
+
+      header {
+        padding-top: 0
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <header>
+      <div class="eyebrow">MedChina · Plano comercial · Onda 1 de 4</div>
+      <h1>Reativação da base legada</h1>
+      <p class="sub">O que a base realmente é, e como transformar 14 dias de contato em clientes fundadores.</p>
+      <div class="meta">
+        <span>Responsável · <b>Débora Giovanella</b></span>
+        <span>Janela · <b>14 dias + 10 de cauda</b></span>
+        <span>Fonte · <b>users.csv, 1.067 registros</b></span>
+        <span>Meta · <b>20 a 30 pagantes</b></span>
+      </div>
+    </header>
+
+    <!-- ============ HERO / TESE ============ -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">01</div>
+        <div>
+          <div class="eyebrow">Anamnese da base</div>
+          <h2>Trinta e oito pessoas são a base</h2>
+          <p>As duas barras abaixo têm a mesma largura e contam a mesma base de dois jeitos. A de cima conta pessoas. A
+            de baixo conta consultas clínicas efetivamente registradas na plataforma antiga.</p>
+        </div>
+      </div>
+
+      <div class="thesis">
+        <p class="bartitle">Distribuição por número de pessoas · 1.046 contatos</p>
+        <div class="bar">
+          <span style="background:var(--a1);width:3.6%"></span>
+          <span style="background:var(--a2);width:5.4%"></span>
+          <span style="background:var(--b);width:12.2%"></span>
+          <span style="background:var(--c);width:10.6%"></span>
+          <span style="background:var(--d);width:68.2%"></span>
+        </div>
+        <div class="barlabel"><span style="width:25.2%">A1+A2+B+C — 333 alvo de call</span><span
+            style="width:68.2%;text-align:right">D — 713 nunca cadastraram um paciente</span></div>
+
+        <p class="bartitle">Distribuição por consultas registradas · 27.458 consultas</p>
+        <div class="bar">
+          <span style="background:var(--a1);width:94.6%"></span>
+          <span style="background:var(--a2);width:4.3%"></span>
+          <span style="background:var(--b);width:0.4%"></span>
+          <span style="background:var(--c);width:0.7%"></span>
+        </div>
+        <div class="barlabel"><span>A1 — 38 pessoas concentram 25.978 consultas</span></div>
+
+        <div class="legend">
+          <span><i style="background:var(--a1)"></i><b>A1</b> · ex-pagante de uso intenso · 38</span>
+          <span><i style="background:var(--a2)"></i><b>A2</b> · ex-pagante de uso real · 56</span>
+          <span><i style="background:var(--b)"></i><b>B</b> · ex-pagante de uso leve · 128</span>
+          <span><i style="background:var(--c)"></i><b>C</b> · trial que encostou · 111</span>
+          <span><i style="background:var(--d)"></i><b>D</b> · trial sem uso · 713</span>
+        </div>
+      </div>
+
+      <div class="pull">
+        <div><span class="k">1.046</span><span class="l">contatos únicos, já sem internos e sem equipe</span></div>
+        <div><span class="k" style="color:var(--a1)">222</span><span class="l">ex-pagantes — passaram dos 7 dias de
+            trial</span></div>
+        <div><span class="k">333</span><span class="l">alvo de call nesta onda, 279 com WhatsApp</span></div>
+        <div><span class="k">68%</span><span class="l">nunca cadastraram um único paciente</span></div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Segmento</th>
+            <th class="n">Pessoas</th>
+            <th class="n">WhatsApp</th>
+            <th class="n">Pacientes<br>(mediana)</th>
+            <th class="n">Consultas<br>(mediana)</th>
+            <th class="n">Permanência<br>(mediana)</th>
+            <th>Peso na atividade clínica</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="chip" style="background:var(--a1)">A1</span> &nbsp;Ex-pagante de uso intenso</td>
+            <td class="n">38</td>
+            <td class="n">38</td>
+            <td class="n">99</td>
+            <td class="n">382</td>
+            <td class="n">1,9 ano</td>
+            <td><span class="minibar" style="background:var(--a1);width:100%"></span><span class="num"
+                style="font-size:11px;color:var(--slate)">94,6%</span></td>
+          </tr>
+          <tr>
+            <td><span class="chip" style="background:var(--a2)">A2</span> &nbsp;Ex-pagante de uso real</td>
+            <td class="n">56</td>
+            <td class="n">51</td>
+            <td class="n">7</td>
+            <td class="n">10</td>
+            <td class="n">167 dias</td>
+            <td><span class="minibar" style="background:var(--a2);width:4.6%"></span><span class="num"
+                style="font-size:11px;color:var(--slate)">4,3%</span></td>
+          </tr>
+          <tr>
+            <td><span class="chip" style="background:var(--b)">B</span> &nbsp;Ex-pagante de uso leve</td>
+            <td class="n">128</td>
+            <td class="n">106</td>
+            <td class="n">1</td>
+            <td class="n">0</td>
+            <td class="n">61 dias</td>
+            <td><span class="minibar" style="background:var(--b);width:1%"></span><span class="num"
+                style="font-size:11px;color:var(--slate)">0,4%</span></td>
+          </tr>
+          <tr>
+            <td><span class="chip" style="background:var(--c)">C</span> &nbsp;Trial que encostou</td>
+            <td class="n">111</td>
+            <td class="n">84</td>
+            <td class="n">1</td>
+            <td class="n">1</td>
+            <td class="n">—</td>
+            <td><span class="minibar" style="background:var(--c);width:1.2%"></span><span class="num"
+                style="font-size:11px;color:var(--slate)">0,7%</span></td>
+          </tr>
+          <tr>
+            <td><span class="chip" style="background:var(--d)">D</span> &nbsp;Trial sem uso</td>
+            <td class="n">713</td>
+            <td class="n">282</td>
+            <td class="n">0</td>
+            <td class="n">0</td>
+            <td class="n">—</td>
+            <td><span class="num" style="font-size:11px;color:var(--slate)">0%</span></td>
+          </tr>
+          <tr class="tot">
+            <td>Base líquida</td>
+            <td class="n">1.046</td>
+            <td class="n">561</td>
+            <td class="n">—</td>
+            <td class="n">—</td>
+            <td class="n">—</td>
+            <td class="num" style="font-size:11px">27.458 consultas</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="chart">
+        <h4>Permanência na plataforma antiga</h4>
+        <p class="cap">Dias entre o cadastro e o último acesso. O trial era de 7 dias — quem passou disso contratou
+          plano pago. É por aqui que se identifica quem já pagou, na ausência de tabela de cobrança.</p>
+        <div class="hrow"><span class="t">Nunca logou</span><span class="bwrap"><span class="bfill"
+              style="display: block; background:#16232C;width:38%"></span></span><span class="v">227</span></div>
+        <div class="hrow"><span class="t">Até 7 dias · só trial</span><span class="bwrap"><span class="bfill"
+              style="display: block; background:#375c77;width:100%"></span></span><span class="v">597</span></div>
+        <div class="hrow"><span class="t">8 a 90 dias</span><span class="bwrap"><span class="bfill"
+              style="display: block; background:#34adbd;width:16.4%"></span></span><span class="v">98</span></div>
+        <div class="hrow"><span class="t">91 a 365 dias</span><span class="bwrap"><span class="bfill"
+              style="display: block; background:#C97A2B;width:10.2%"></span></span><span class="v">61</span></div>
+        <div class="hrow"><span class="t">1 a 2 anos</span><span class="bwrap"><span class="bfill"
+              style="display: block; background:#E5C06E;width:5.5%"></span></span><span class="v">33</span></div>
+        <div class="hrow"><span class="t">Mais de 2 anos</span><span class="bwrap"><span class="bfill"
+              style="display: block; background:#1e8609;width:5%"></span></span><span class="v">30</span></div>
+        <p class="cap" style="margin:16px 0 0;padding-top:14px;border-top:1px solid var(--mist)">Somando as quatro
+          faixas acima de 7 dias: <b style="color:var(--ink)">222 ex-pagantes</b>. Os 63 que ficaram mais de um ano
+          pagando são o coração da onda.</p>
+      </div>
+
+      <div class="chart">
+        <h4>Pacientes cadastrados por usuário</h4>
+        <p class="cap">A curva que explica a conversão de 4% da versão antiga: a maioria nunca chegou a usar o produto.
+        </p>
+        <div class="cols">
+          <div class="col"><span class="cv">771</span><span class="cb"
+              style="display: block; height:100%;background:#16232C"></span><span class="cl">0 pacientes</span></div>
+          <div class="col"><span class="cv">175</span><span class="cb"
+              style="display: block; height:22.7%;background:#34adbd"></span><span class="cl">1 a 2</span></div>
+          <div class="col"><span class="cv">48</span><span class="cb"
+              style="display: block; height:6.2%;background:#C97A2B"></span><span class="cl">3 a 9</span></div>
+          <div class="col"><span class="cv">16</span><span class="cb"
+              style="display: block; height:2.1%;background:#E5C06E"></span><span class="cl">10 a 29</span></div>
+          <div class="col"><span class="cv">17</span><span class="cb"
+              style="display: block; height:2.2%;background:#1e8609"></span><span class="cl">30 a 99</span></div>
+          <div class="col"><span class="cv">19</span><span class="cb"
+              style="display: block; height:2.5%;background:#1e8609"></span><span class="cl">100 ou mais</span></div>
+        </div>
+      </div>
+
+      <div class="chart">
+        <h4>Último acesso, mês a mês</h4>
+        <p class="cap">Uso normal até janeiro de 2026, quando a plataforma foi encerrada. A dormência é de 6 a 7 meses,
+          não de um ano.</p>
+        <svg viewBox="0 0 900 190" style="width:100%;height:auto" role="img"
+          aria-label="Colunas de último acesso por mês, de julho de 2024 a janeiro de 2026, com queda a zero após janeiro de 2026">
+          <line x1="0" y1="150" x2="900" y2="150" stroke="#C6D0CE" stroke-width="1" />
+          <g fill="#4E7C79">
+            <rect x="6" y="80" width="34" height="70" />
+            <rect x="46" y="100" width="34" height="50" />
+            <rect x="86" y="30" width="34" height="120" />
+            <rect x="126" y="80" width="34" height="70" />
+            <rect x="166" y="100" width="34" height="50" />
+            <rect x="206" y="100" width="34" height="50" />
+            <rect x="246" y="20" width="34" height="130" />
+            <rect x="286" y="90" width="34" height="60" />
+            <rect x="326" y="20" width="34" height="130" />
+            <rect x="366" y="0" width="34" height="150" />
+            <rect x="406" y="60" width="34" height="90" />
+            <rect x="446" y="60" width="34" height="90" />
+            <rect x="486" y="70" width="34" height="80" />
+            <rect x="526" y="130" width="34" height="20" />
+            <rect x="566" y="0" width="34" height="150" />
+            <rect x="606" y="90" width="34" height="60" />
+            <rect x="646" y="70" width="34" height="80" />
+            <rect x="686" y="30" width="34" height="120" />
+          </g>
+          <rect x="726" y="50" width="34" height="100" fill="#B33A22" />
+          <line x1="772" y1="8" x2="772" y2="162" stroke="#B33A22" stroke-width="1.5" stroke-dasharray="4 3" />
+          <text x="782" y="60" font-family="IBM Plex Mono, monospace" font-size="12" fill="#B33A22">plataforma</text>
+          <text x="782" y="76" font-family="IBM Plex Mono, monospace" font-size="12" fill="#B33A22">encerrada</text>
+          <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#5B6A71">
+            <text x="6" y="168">jul/24</text><text x="246" y="168">jan/25</text>
+            <text x="486" y="168">jul/25</text><text x="712" y="168">jan/26</text>
+          </g>
+        </svg>
+      </div>
+
+      <div class="chart">
+        <h4>Onde estão os 94 do A1 e A2</h4>
+        <p class="cap">Concentração em São Paulo. Nove sem UF preenchida — a call revela.</p>
+        <div class="hrow"><span class="t">São Paulo</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#16232C;width:100%"></span></span><span class="v">35</span></div>
+        <div class="hrow"><span class="t">Minas Gerais</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#34adbd;width:25.7%"></span></span><span class="v">9</span></div>
+        <div class="hrow"><span class="t">Sem UF no cadastro</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#C97A2B;width:25.7%"></span></span><span class="v">9</span></div>
+        <div class="hrow"><span class="t">Santa Catarina</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#34adbd;width:17.1%"></span></span><span class="v">6</span></div>
+        <div class="hrow"><span class="t">Distrito Federal</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#34adbd;width:17.1%"></span></span><span class="v">6</span></div>
+        <div class="hrow"><span class="t">Goiás</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#34adbd;width:14.3%"></span></span><span class="v">5</span></div>
+        <div class="hrow"><span class="t">Rio de Janeiro</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#34adbd;width:14.3%"></span></span><span class="v">5</span></div>
+        <div class="hrow"><span class="t">Rio Grande do Sul</span><span class="bwrap"><span class="bfill"
+              style="display:block; background:#34adbd;width:11.4%"></span></span><span class="v">4</span></div>
+      </div>
+    </section>
+
+    <!-- ============ DIAGNÓSTICO ============ -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">02</div>
+        <div>
+          <div class="eyebrow">Diagnóstico</div>
+          <h2>Quatro conclusões que mudam a execução</h2>
+        </div>
+      </div>
+
+      <div class="find">
+        <div class="i">01</div>
+        <div>
+          <h3>222 usuários já usaram o produto</h3>
+          <p>Ao longo da vida da v1,
+            <b>222 pessoas passaram dos 7 dias de trial e contrataram plano</b>. Dessas, 63 permaneceram mais de um ano
+            pagando.
+          </p>
+        </div>
+      </div>
+      <div class="find">
+        <div class="i">02</div>
+        <div>
+          <h3>771 pessoas nunca cadastraram um paciente</h3>
+          <p>Elas não avaliaram o MedChina e reprovaram — elas nunca
+            chegaram a usar. Isso confirma a decisão de tornar o onboarding assistido obrigatório: o problema nunca foi
+            alcance nem funcionalidade, foi o primeiro uso que não aconteceu.</p>
+        </div>
+      </div>
+      <div class="find">
+        <div class="i">03</div>
+        <div>
+          <h3>38 pessoas carregam 94,6% da atividade clínica</h3>
+          <p>O A1 tem mediana de <b>99 pacientes e 382 consultas por pessoa</b>, com permanência mediana de <b>1,9 ano
+              pagando</b>. São profissionais que rodaram a prática inteira dentro da plataforma por anos. É o público de
+            maior intenção que o MedChina tem em qualquer lugar — mais quente que qualquer audiência de Instagram.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CONDUTA ============ -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">03</div>
+        <div>
+          <div class="eyebrow">Conduta</div>
+          <h2>Execução em 14 dias</h2>
+          <p>Capacidade: 30 calls por semana, 50 vagas de 30 minutos abertas na janela. O alvo de call é 333 pessoas — a
+            demanda potencial excede a agenda, então a ordem de prioridade é rígida.</p>
+        </div>
+      </div>
+
+      <div class="thesis" style="padding:24px">
+        <p class="bartitle">Mesma base, agora como mapa de ação</p>
+        <div class="bar" style="height:38px">
+          <span style="background:var(--a1);width:3.6%"></span><span style="background:var(--a2);width:5.4%"></span>
+          <span style="background:var(--b);width:12.2%"></span><span style="background:var(--c);width:10.6%"></span>
+          <span style="background:var(--d);width:68.2%"></span>
+        </div>
+        <table style="margin-top:18px">
+          <thead>
+            <tr>
+              <th>Ordem</th>
+              <th>Quem</th>
+              <th class="n">Qtd</th>
+              <th>Canal e tratamento</th>
+              <th>Quando</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="chip" style="background:var(--a1)">1º</span></td>
+              <td>A1 — uso intenso</td>
+              <td class="n">38</td>
+              <td>Áudio pessoal da Débora, um por um. Sem link no primeiro contato</td>
+              <td>D1–D2</td>
+            </tr>
+            <tr>
+              <td><span class="chip" style="background:var(--a2)">2º</span></td>
+              <td>A2 — uso real</td>
+              <td class="n">56</td>
+              <td>Áudio ou texto pessoal + e-mail da sequência</td>
+              <td>D3–D5</td>
+            </tr>
+            <tr>
+              <td><span class="chip" style="background:var(--b)">3º</span></td>
+              <td>B — uso leve</td>
+              <td class="n">128</td>
+              <td>Sequência de e-mail + WhatsApp em lotes de 40/dia</td>
+              <td>D6–D10</td>
+            </tr>
+            <tr>
+              <td><span class="chip" style="background:var(--c)">4º</span></td>
+              <td>C — encostou</td>
+              <td class="n">111</td>
+              <td>Só e-mail. WhatsApp apenas para quem abrir</td>
+              <td>D8–D12</td>
+            </tr>
+            <tr>
+              <td><span class="chip" style="background:var(--d)">5º</span></td>
+              <td>D — sem uso</td>
+              <td class="n">713</td>
+              <td><b>Fora desta onda.</b> Entram no fluxo de conteúdo e na masterclass da Onda 2</td>
+              <td>Depois</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style="font-size:19px;margin:38px 0 6px">Calendário</h3>
+      <div class="cal">
+        <div>
+          <div class="dd">D1 SEG</div><span class="ev">Áudio A1 · 20 primeiros</span>
+        </div>
+        <div>
+          <div class="dd">D2 TER</div><span class="ev">Áudio A1 · 18 restantes</span>
+        </div>
+        <div>
+          <div class="dd">D3 QUA</div><span class="ev">Áudio A2 · lote 1</span><span class="ev e2">Primeiras
+            calls</span>
+        </div>
+        <div>
+          <div class="dd">D4 QUI</div><span class="ev">Áudio A2 · lote 2</span><span class="ev e2">Calls</span>
+        </div>
+        <div>
+          <div class="dd">D5 SEX</div><span class="ev">2º toque A1 sem resposta</span><span class="ev e2">Calls</span>
+        </div>
+        <div>
+          <div class="dd">D6 SÁB</div><span class="ev e3">E-mail 1 → B</span>
+        </div>
+        <div class="rest">
+          <div class="dd">D7 DOM</div><span class="ev e3">Sem envio. Só leitura de métricas</span>
+        </div>
+        <div>
+          <div class="dd">D8 SEG</div><span class="ev e3">WhatsApp 1 → B (40)</span><span class="ev e3">E-mail 1 →
+            C</span><span class="ev e2">Calls</span>
+        </div>
+        <div>
+          <div class="dd">D9 TER</div><span class="ev e3">WhatsApp 1 → B (40)</span><span class="ev e2">Calls</span>
+        </div>
+        <div>
+          <div class="dd">D10 QUA</div><span class="ev e3">E-mail 2 (caso clínico) → B e C</span><span
+            class="ev e2">Calls</span>
+        </div>
+        <div>
+          <div class="dd">D11 QUI</div><span class="ev e3">WhatsApp 1 → B (48)</span><span class="ev e2">Calls</span>
+        </div>
+        <div>
+          <div class="dd">D12 SEX</div><span class="ev e3">E-mail 3 (oferta Fundadores) → todos</span><span
+            class="ev e2">Calls</span>
+        </div>
+        <div>
+          <div class="dd">D13 SÁB</div><span class="ev e3">WhatsApp última chamada → quem clicou</span>
+        </div>
+        <div>
+          <div class="dd">D14 DOM</div><span class="ev e3">E-mail 4 · encerramento</span>
+        </div>
+      </div>
+      <p style="font-size:13px;color:var(--slate);margin-top:-6px"><span style="color:var(--a1)">▌</span> contato
+        pessoal &nbsp;&nbsp; <span style="color:var(--c)">▌</span> calls &nbsp;&nbsp; <span
+          style="color:var(--d)">▌</span> sequência automatizada. Cauda de follow-up nos 10 dias seguintes.</p>
+
+      <!-- ETAPA 1 -->
+      <div class="stage">
+        <div class="sh">
+          <h3>Etapa 1 · Preparação</h3><span class="tag">D-3 a D-1</span>
+        </div>
+        <p>Abrir 50 vagas de 30 min na agenda, em blocos de 4 a 5 por dia com 15 min de folga entre elas — a call vai
+          passar de 30 min nas primeiras. Reservar os dois melhores horários de cada dia para o A1. Para cada pessoa do
+          A1 e A2, montar uma nota de três linhas antes de falar: quanto tempo pagou, quantos pacientes, quantas
+          consultas. Esses números estão na planilha e são o que transforma campanha em reconhecimento.</p>
+        <div class="kit">
+          <div class="kt">Material necessário</div>
+          <ul>
+            <li><code>segmento-A-contato-pessoal.csv</code> — os 94 nomes do A1 e A2, com métricas de uso</li>
+            <li><code>base-segmentada-onda1.csv</code> — base completa priorizada, para os lotes de B, C e D</li>
+            <li>Agenda de <code>/agendar</code> com teto semanal configurado</li>
+            <li>Número de WhatsApp aquecido — se for novo, 7 dias de uso real antes do D1</li>
+            <li>Ferramenta de importação assistida testada com base fictícia de 30 pacientes</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ETAPA 2 -->
+      <div class="stage">
+        <div class="sh">
+          <h3>Etapa 2 · Contato pessoal com A1 e A2</h3><span class="tag">D1 a D5</span><span class="tag"
+            style="border-color:var(--a1);color:var(--a1)">94 pessoas · maior retorno da onda</span>
+        </div>
+        <p>Áudio de WhatsApp gravado pela Débora, um por um, sem link. Voz reconhecível vale mais que qualquer texto. Se
+          a pessoa responder, a Débora responde pessoalmente — o link da agenda só entra depois da resposta.</p>
+
+        <div class="msg">
+          <div class="mh">Áudio 1 · A1 — personalizar com os números reais de cada pessoa</div>
+          <p>Oi [nome], é a Débora Giovanella, do MedChina. Tô te mandando áudio porque acho que isso merece minha voz.
+          </p>
+          <p>Fui ver os registros e você usou o MedChina por [X ano/meses], com [N] pacientes e mais de [N] consultas
+            registradas. Você foi uma das pessoas que mais rodou a plataforma de verdade.</p>
+          <p>Aí eu encerrei aquela versão em janeiro pra reconstruir tudo do zero. E a nova ficou pronta agora — não é
+            atualização, é outra coisa.</p>
+          <p>Não tô te pedindo pra assinar nada. Queria te mostrar, uns 30 minutos, e ouvir o que você acha — teu olhar
+            vale muito justamente porque você usou a antiga a sério. Posso te mandar?</p>
+        </div>
+        <div class="msg">
+          <div class="mh">Áudio 2 · A2</div>
+          <p>Oi [nome], é a Débora do MedChina. Você usou a plataforma em [ano], chegou a cadastrar [N] pacientes e
+            depois eu encerrei aquela versão pra refazer tudo.</p>
+          <p>A nova ficou pronta. Tô chamando quem já usou a antiga pra ver antes de abrir pra fora, porque quem
+            conheceu a versão anterior enxerga a diferença na hora. Te interessa ver? São 30 minutos.</p>
+        </div>
+        <div class="msg">
+          <div class="mh">Toque 2 · D5, sem resposta</div>
+          <p>[nome], sem pressa nenhuma. Deixo aqui um vídeo de 10 minutos mostrando uma consulta completa na plataforma
+            nova — primeira consulta, anamnese e o retorno com o histórico. Se fizer sentido, minha agenda tá aqui:
+            [link]. Se não fizer, tudo bem também.</p>
+        </div>
+
+        <div class="kit">
+          <div class="kt">Material necessário</div>
+          <ul>
+            <li>Roteiro dos áudios acima, com os números de cada pessoa preenchidos antes de gravar</li>
+            <li>Vídeo de demonstração publicado em <code>/demonstracao</code> — consulta clínica completa, 10 a 12 min
+            </li>
+            <li>Link da agenda, com parâmetro de origem: <code>/agendar?origem=onda1&amp;seg=A1</code></li>
+            <li>Página <code>/voltar?v=pagante</code> — versão pessoal, assinada pela Débora</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ETAPA 3 -->
+      <div class="stage">
+        <div class="sh">
+          <h3>Etapa 3 · Sequência para B e C</h3><span class="tag">D6 a D14</span><span class="tag">239 pessoas</span>
+        </div>
+        <p>Aqui entra automação, mas com regra dura de WhatsApp: no máximo 40 a 50 mensagens novas por dia, distribuídas
+          ao longo do dia, primeira mensagem sem link, texto variado entre três ou quatro estruturas. Um disparo em
+          rajada bane o número e custa também a Onda 2, onde o WhatsApp é o mecanismo central de inscrição da
+          masterclass.</p>
+
+        <div class="msg">
+          <div class="mh">E-mail 1 · assunto: “Sobre a versão do MedChina que você usou”</div>
+          <p>[nome], você usou o MedChina em [ano] e depois aquela versão saiu do ar. Eu encerrei em janeiro pra
+            reconstruir a plataforma inteira.</p>
+          <p>O que existe hoje é outra coisa:</p>
+          <p>— Você grava a consulta pelo celular, com consentimento registrado, e a anamnese chega estruturada na
+            linguagem da MTC: Zang-Fu, Ba Gang, língua, pulso, emoções.<br>
+            — Cada campo mantém o vínculo com o trecho exato em que a paciente falou aquilo. O que não foi dito continua
+            em branco — ausência nunca vira negação.<br>
+            — No retorno, você abre o prontuário e o raciocínio está lá inteiro, com o que mudou entre as sessões.</p>
+          <p>A IA organiza. Você revisa, ajusta, valida e decide. Nada é finalizado automaticamente.</p>
+          <p>A estrutura nova é diferente, então a conta antiga não é reaproveitada — mas você não vai recadastrar
+            paciente nenhum. Eu faço a importação com você, ao vivo, numa call de 30 minutos.</p>
+          <p><em>[botão] Ver o que mudou → /voltar?v=cadastro&amp;origem=email1</em></p>
+        </div>
+        <div class="msg">
+          <div class="mh">E-mail 2 · assunto: “A paciente volta em três semanas. Você lembra qual padrão tratou?”</div>
+          <p>Você atendeu na terça. Deficiência de Qi de Baço com umidade, pontos escolhidos, orientação alimentar dada.
+            Anotou três linhas no caderno entre um paciente e outro.</p>
+          <p>Três semanas depois ela volta e diz que melhorou um pouco. Um pouco em quê? O sono, que era o que mais
+            incomodava, ou a distensão? Você tratou o padrão principal ou tinha decidido tratar o secundário primeiro?
+          </p>
+          <p>Você reconstrói de memória. Funciona quase sempre — mas custa energia que devia estar na escuta.</p>
+          <p>É esse o problema que o MedChina resolve. Não é ter prontuário. É chegar no retorno com o raciocínio
+            inteiro na tela.</p>
+          <p><em>[botão] Ver uma consulta completa, 10 min → /demonstracao?origem=email2</em></p>
+        </div>
+        <div class="msg">
+          <div class="mh">E-mail 3 · assunto: “[X] vagas de fundador — e por que estou limitando”</div>
+          <p>Vou ser direta: estou abrindo [X] vagas de fundador, e limitando porque cada uma inclui 30 minutos meus, ao
+            vivo, importando seus pacientes e fazendo sua primeira consulta com você. Não consigo fazer isso pra muita
+            gente ao mesmo tempo.</p>
+          <p>O fundador recebe: acesso completo ao plano Pro cobrado pelo valor do Assistente por 12 meses · preço
+            travado enquanto renovar · importação dos dados feita por mim · onboarding 1 a 1 e canal direto comigo · 7
+            dias de garantia com devolução integral.</p>
+          <p>As vagas fecham em [data] ou quando acabarem.</p>
+          <p><em>[botão] Ver a condição de fundador → /fundadores?cupom=FUNDADOR&amp;origem=email3</em></p>
+        </div>
+
+        <div class="kit">
+          <div class="kt">Material necessário</div>
+          <ul>
+            <li>Ferramenta de e-mail com descadastro funcional e registro de opt-out</li>
+            <li>Validação prévia dos e-mails da base — 6 meses parada gera bounce, e bounce alto queima o domínio</li>
+            <li>Três a quatro variações do texto de WhatsApp, para não repetir mensagem literal</li>
+            <li>Páginas <code>/voltar?v=cadastro</code>, <code>/demonstracao</code> e <code>/fundadores</code>
+              publicadas</li>
+            <li>Cupom <code>FUNDADOR</code> ativo, aplicável por URL, e contador de vagas real</li>
+            <li>Retargeting de apoio, R$ 15 a 25/dia, para visitantes que não agendaram</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ETAPA 4 -->
+      <div class="stage">
+        <div class="sh">
+          <h3>Etapa 4 · A call de 30 minutos</h3><span class="tag">contínuo, D3 a D24</span><span class="tag"
+            style="border-color:var(--a1);color:var(--a1)">onde a venda acontece</span>
+        </div>
+        <p>Diga o roteiro em voz alta no começo, incluindo que haverá oferta no final. Anunciar a venda elimina a tensão
+          da venda escondida e aumenta o fechamento — a pessoa passa a call escutando, em vez de esperando a pegadinha.
+        </p>
+
+        <div class="script">
+          <div class="step"><span class="tm">0–3 min</span>
+            <div>
+              <h4>Enquadramento e permissão de gravação</h4>
+              <p>“São 30 minutos. Primeiro eu te escuto, depois trago seus pacientes pra dentro, depois a gente faz uma
+                consulta real junto. No final eu te falo dos planos — e se não fizer sentido, tá tudo bem.”</p>
+            </div>
+          </div>
+          <div class="step"><span class="tm">3–8 min</span>
+            <div>
+              <h4>Diagnóstico — você escuta, não fala</h4>
+              <p>Como registra hoje · quantos pacientes por semana · quanto tempo por dia gasta com registro depois do
+                atendimento · o que mais trava no retorno. Anote as palavras exatas dela: você vai devolvê-las no
+                fechamento.</p>
+            </div>
+          </div>
+          <div class="step"><span class="tm">8–12 min</span>
+            <div>
+              <h4>Importação ao vivo</h4>
+              <p>Traga os dados dela ali, na tela compartilhada. É o momento em que a promessa do e-mail se cumpre. Sem
+                arquivo, cadastre dois pacientes reais junto com ela.</p>
+            </div>
+          </div>
+          <div class="step key"><span class="tm">12–22 min</span>
+            <div>
+              <h4>Primeira consulta com IA — momento decisivo</h4>
+              <p>Peça que ela narre uma consulta real recente como se estivesse atendendo. Grave pela plataforma. Mostre
+                a anamnese chegando estruturada, cada campo com a origem, os campos em branco onde não houve informação.
+                Não fale por cima: deixe ela ler em silêncio. Se esta etapa não acontecer de verdade, a call foi
+                demonstração e a cliente cancela dentro da garantia.</p>
+            </div>
+          </div>
+          <div class="step"><span class="tm">22–27 min</span>
+            <div>
+              <h4>O retorno</h4>
+              <p>Mostre a evolução entre sessões e amarre com a resposta dela: “você me disse que trava justamente em
+                [palavras dela]. É isso que essa tela resolve.”</p>
+            </div>
+          </div>
+          <div class="step"><span class="tm">27–30 min</span>
+            <div>
+              <h4>Oferta e fechamento</h4>
+              <p>Apresente <b>só o Pro</b>, não os três planos. Ancore no consultório dela: “você atende [N] pacientes
+                por semana a [valor] a sessão — o plano custa menos que [1 ou 2] sessões por mês.” Garantia de 7 dias,
+                vagas restantes reais, e peça o fechamento: “quer que eu já libere sua vaga agora?”</p>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:14px"><b>Se vier “vou pensar”</b>, nunca deixe aberto: “vou te mandar o link com sua
+          condição, ele vale até [data]. Posso te chamar na [dia] às [hora] pra você me dizer sim ou não? Qualquer uma
+          das duas respostas serve.”</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:32%">Objeção</th>
+              <th>Como responder</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>“Está caro”</td>
+              <td>Não defenda o preço. Ancore em número de sessões por mês. Se persistir, ofereça anual — nunca desconto
+                extra, que quebra a oferta dos outros fundadores</td>
+            </tr>
+            <tr>
+              <td>“Já usei a versão antiga e paguei”</td>
+              <td>Concorde antes de argumentar: “era incompleta, foi por isso que eu encerrei.” Depois mostre, não
+                explique</td>
+            </tr>
+            <tr>
+              <td>“Minha paciente vai aceitar ser gravada?”</td>
+              <td>Mostre a tela de consentimento versionado por finalidade. Aqui o MedChina é mais forte que qualquer
+                concorrente</td>
+            </tr>
+            <tr>
+              <td>“Não confio em IA em prontuário”</td>
+              <td>Terreno favorável: ausência não vira negação, cada campo com origem rastreável, nada finalizado
+                sozinho. Mostre um campo em branco na tela</td>
+            </tr>
+            <tr>
+              <td>“Atendo poucos pacientes”</td>
+              <td>Ofereça Assistente em vez de Pro, ou reconheça que não é o momento e peça indicação. Vender para quem
+                não tem uso gera churn</td>
+            </tr>
+            <tr>
+              <td>“Já uso caderno e funciona”</td>
+              <td>Não ataque o caderno. Pergunte quanto tempo ela gasta reconstruindo o retorno de memória, e devolva o
+                número</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="kit">
+          <div class="kt">Material necessário</div>
+          <ul>
+            <li>Roteiro acima impresso ou em segunda tela</li>
+            <li>Checklist da call no admin: importou · cadastrou paciente real · <b>executou consulta com IA</b> ·
+              apresentou plano · resultado e objeção nas palavras dela</li>
+            <li>Autorização de gravação da call e autorização separada de uso de depoimento</li>
+            <li>Link de checkout com cupom pré-aplicado, para fechar durante a call</li>
+            <li>Termos da garantia de 7 dias, em página própria</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ETAPA 5 -->
+      <div class="stage">
+        <div class="sh">
+          <h3>Etapa 5 · Pós-call</h3><span class="tag">cauda de 10 dias</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:22%">Resultado</th>
+              <th>Sequência</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>Fechou</b></td>
+              <td>Mesmo dia: resumo do que foi configurado + acesso + contato direto · D+2: “conseguiu atender com ela
+                hoje?” · D+7: verificar uso — quem não usou na primeira semana cancela na garantia · D+30: pedir
+                depoimento gravado</td>
+            </tr>
+            <tr>
+              <td><b>Follow-up</b></td>
+              <td>D+2: link com a condição e o prazo · D+5: um argumento novo escolhido pela objeção dela, não repetição
+                · D+10: encerramento. <b>Pare no terceiro toque</b> — depois disso ela entra no fluxo de conteúdo, não
+                de venda</td>
+            </tr>
+            <tr>
+              <td><b>Não compareceu</b></td>
+              <td>Mesmo dia, sem cobrança, com duas opções de horário. Um único reagendamento</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size:14px"><b>Fundador-âncora:</b> entre os três primeiros que fecharem, identifique quem tem
+          mais credibilidade na comunidade e peça depoimento em vídeo na semana seguinte. Essa fala vai ser usada nas
+          calls seguintes, na página de fundadores e na masterclass da Onda 2.</p>
+      </div>
+    </section>
+
+    <!-- ============ EVOLUÇÃO ============ -->
+    <section>
+      <div class="sec-head">
+        <div class="sec-num">04</div>
+        <div>
+          <div class="eyebrow">Evolução</div>
+          <h2>Metas e leitura semanal</h2>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Etapa do funil</th>
+            <th class="n">Conservador</th>
+            <th class="n">Provável</th>
+            <th>Observação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Contatados (A1+A2+B+C)</td>
+            <td class="n">333</td>
+            <td class="n">333</td>
+            <td>D fica de fora desta onda</td>
+          </tr>
+          <tr>
+            <td>Respondem ou engajam</td>
+            <td class="n">85</td>
+            <td class="n">130</td>
+            <td>A1 e A2 devem responder acima de 60%</td>
+          </tr>
+          <tr>
+            <td>Calls agendadas</td>
+            <td class="n">38</td>
+            <td class="n">55</td>
+            <td>Teto de 50 vagas — se passar, abra a semana seguinte</td>
+          </tr>
+          <tr>
+            <td>Comparecem</td>
+            <td class="n">30</td>
+            <td class="n">44</td>
+            <td>Alvo de comparecimento: 80%</td>
+          </tr>
+          <tr>
+            <td class="num" style="font-weight:600">Fundadores fechados</td>
+            <td class="n"><b>20</b></td>
+            <td class="n"><b>31</b></td>
+            <td>Fechamento de 60%+ esperado no A1</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:14px;color:var(--slate)">A meta original do dia 30 era 15 pagantes. Com 222 ex-pagantes
+        identificados no lugar de 20, <b style="color:var(--ink)">a Onda 1 sozinha deve superar essa meta</b> — o limite
+        passa a ser a agenda, não a demanda. O número a acompanhar toda semana não é receita, é <b
+          style="color:var(--ink)">vagas de agenda preenchidas</b>: semana com 25 calls marcadas é semana boa mesmo que
+        feche 8.</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:30%">Sintoma</th>
+            <th style="width:30%">Diagnóstico</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Resposta abaixo de 10% depois de 150 contatos</td>
+            <td>Problema de mensagem, não de base</td>
+            <td>Reescrever a abertura. Testar áudio em vez de texto no B</td>
+          </tr>
+          <tr>
+            <td>Responde e não agenda (menos de 15%)</td>
+            <td>Fricção ou desconfiança</td>
+            <td>Oferecer horário específico em vez de link de agenda</td>
+          </tr>
+          <tr>
+            <td>Agenda e não comparece (abaixo de 70%)</td>
+            <td>Lembrete ou expectativa</td>
+            <td>Confirmar pessoalmente na véspera, por WhatsApp</td>
+          </tr>
+          <tr>
+            <td>Comparece e não fecha (abaixo de 25%)</td>
+            <td>Roteiro da call</td>
+            <td>Ouvir três gravações. Provavelmente há fala demais nos minutos 3 a 8</td>
+          </tr>
+          <tr>
+            <td>Fecha e cancela na garantia</td>
+            <td>Ativação não aconteceu</td>
+            <td>A consulta com IA na call não foi executada de verdade. Torná-la obrigatória</td>
+          </tr>
+          <tr>
+            <td>Bloqueios no WhatsApp acima de 2%</td>
+            <td>Risco de perder o número</td>
+            <td>Parar o canal na hora e revisar o texto</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============ PENDÊNCIAS ============ -->
+    <section style="border-bottom:none">
+      <div class="sec-head">
+        <div class="sec-num">05</div>
+        <div>
+          <div class="eyebrow">Antes do D1</div>
+          <h2>Pendências e riscos</h2>
+        </div>
+      </div>
+
+      <div class="warn">
+        <div class="wt">Resolver antes de enviar a primeira mensagem</div>
+        <ol>
+          <li><b>Validar os 222 ex-pagantes contra a cobrança.</b> A identificação usa permanência acima de 7 dias como
+            proxy. Se a plataforma antiga permitia login após o trial vencido sem pagar, o segmento B (mediana de 61
+            dias e zero consultas) está superestimado. A1 e A2 — 94 pessoas — são seguros de qualquer forma.</li>
+          <li><b>Validar os e-mails da base.</b> Seis meses de dormência produzem bounce alto, e bounce alto queima a
+            reputação do domínio no primeiro disparo.</li>
+          <li><b>Aquecer o número de WhatsApp</b> por 7 dias antes do D1, se for número novo.</li>
+          <li><b>Revisão jurídica do contato.</b> São pessoas com relação prévia e, em 222 casos, relação comercial —
+            base defensável. Mas contato por WhatsApp a uma lista dormente merece parecer antes do disparo. Esta
+            orientação é operacional, não jurídica.</li>
+          <li><b>Confirmar o portão de largada:</b> <code>/voltar</code> nas duas versões, <code>/fundadores</code> sem
+            saída para o plano grátis, <code>/agendar</code> com lembretes disparando, vídeo de demonstração no ar,
+            cupom e contador de vagas funcionando, importação assistida testada, eventos de agendamento, trial e compra
+            registrando.</li>
+        </ol>
+      </div>
+
+      <p style="font-size:14px"><b>Sete registros excluídos como equipe</b> (acesso após fevereiro de 2026, via link
+        externo) e 14 como internos ou teste. Entre os excluídos há dois nomes com uso alto — vale a Débora conferir a
+        lista antes de descartar, para não perder um contato real.</p>
+      <p style="font-size:14px"><b>O que a base não permite:</b> segmentação por especialidade (apenas 43 registros têm
+        atividade declarada) e por região para a maior parte (724 sem UF). Nada disso bloqueia a Onda 1 — a call revela.
+      </p>
+
+      <footer>
+        <p>Fonte: <code>users.csv</code>, 1.067 registros únicos por e-mail. Recorte de referência: 9 de agosto de 2026.
+          Segmentação por permanência (cadastro → último acesso) cruzada com pacientes e consultas registradas. Arquivos
+          de trabalho: <code>base-segmentada-onda1.csv</code> e <code>segmento-A-contato-pessoal.csv</code>.</p>
+      </footer>
+    </section>
+
+  </div>
+</body>
+
+</html>
