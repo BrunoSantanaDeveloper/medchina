@@ -24,6 +24,7 @@ import {
 import { BRAND } from "@/brand";
 import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
+import { SESSION_STORAGE_KEYS } from "@/constants";
 import { useHydrated } from "@/hooks/use-hydrated";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
@@ -117,7 +118,14 @@ export default function Page() {
         router.push(next ?? destination);
         router.refresh();
       } else {
-        // Email confirmation is enabled on the Supabase project.
+        // Email confirmation is enabled on the Supabase project. Carry the
+        // address so the next screen can resend the link — without it, an
+        // e-mail that lands in spam is a dead end mid sign-up.
+        try {
+          sessionStorage.setItem(SESSION_STORAGE_KEYS.signupEmail, values.email);
+        } catch {
+          // Private-mode storage refusal only costs the prefill; she can type it.
+        }
         router.push(`/auth/get-verification${next ? `?next=${encodeURIComponent(next)}` : ""}`);
       }
     },

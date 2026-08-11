@@ -451,7 +451,9 @@
     "impersonation-scope": "Nur Lesezugriff auf die Krankenakte",
     "impersonation-reason": "Grund: {reason}",
     "impersonation-remaining": "Endet in {time}",
-    "impersonation-exit": "Konto verlassen"
+    "impersonation-exit": "Konto verlassen",
+    "announcement-learn-more": "Mehr erfahren",
+    "announcement-dismiss": "Hinweis schließen"
   },
   "marketing": {
     "nav-home": "Startseite",
@@ -2901,6 +2903,11 @@
     "two-factor-code": "Authentifizierungscode",
     "two-factor-verify": "Bestätigen",
     "two-factor-verifying": "Wird geprüft…",
-    "two-factor-failed": "Die Prüfung konnte nicht gestartet werden."
+    "two-factor-failed": "Die Prüfung konnte nicht gestartet werden.",
+    "get-verification-email-label": "Registrierte E-Mail",
+    "get-verification-resend": "Bestätigungs-E-Mail erneut senden",
+    "get-verification-resend-wait": "Erneut senden in {seconds}s",
+    "get-verification-resend-sent": "Fertig. Falls für diese Adresse eine Registrierung auf Bestätigung wartet, wurde der Link soeben verschickt. Prüfen Sie auch den Spam-Ordner.",
+    "get-verification-resend-error": "Wir konnten gerade nicht erneut senden. Bitte versuchen Sie es in Kürze noch einmal."
   }
 }

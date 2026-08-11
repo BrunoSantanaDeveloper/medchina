@@ -451,7 +451,9 @@
     "impersonation-scope": "Solo lectura en la historia clínica",
     "impersonation-reason": "Motivo: {reason}",
     "impersonation-remaining": "Termina en {time}",
-    "impersonation-exit": "Salir de la cuenta"
+    "impersonation-exit": "Salir de la cuenta",
+    "announcement-learn-more": "Saber más",
+    "announcement-dismiss": "Descartar aviso"
   },
   "marketing": {
     "nav-home": "Inicio",
@@ -2901,6 +2903,11 @@
     "two-factor-code": "Código de autenticación",
     "two-factor-verify": "Verificar",
     "two-factor-verifying": "Verificando…",
-    "two-factor-failed": "No pudimos iniciar la verificación."
+    "two-factor-failed": "No pudimos iniciar la verificación.",
+    "get-verification-email-label": "Correo registrado",
+    "get-verification-resend": "Reenviar correo de confirmación",
+    "get-verification-resend-wait": "Reenviar en {seconds}s",
+    "get-verification-resend-sent": "Listo. Si hay un registro pendiente de confirmación para esa dirección, el enlace acaba de salir. Revisa también la carpeta de spam.",
+    "get-verification-resend-error": "No pudimos reenviar ahora. Inténtalo de nuevo en unos instantes."
   }
 }

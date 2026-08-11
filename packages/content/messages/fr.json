@@ -451,7 +451,9 @@
     "impersonation-scope": "Lecture seule sur le dossier clinique",
     "impersonation-reason": "Motif : {reason}",
     "impersonation-remaining": "Se termine dans {time}",
-    "impersonation-exit": "Quitter le compte"
+    "impersonation-exit": "Quitter le compte",
+    "announcement-learn-more": "En savoir plus",
+    "announcement-dismiss": "Masquer l’annonce"
   },
   "marketing": {
     "nav-home": "Accueil",
@@ -2901,6 +2903,11 @@
     "two-factor-code": "Code d'authentification",
     "two-factor-verify": "Vérifier",
     "two-factor-verifying": "Vérification…",
-    "two-factor-failed": "Impossible de démarrer la vérification."
+    "two-factor-failed": "Impossible de démarrer la vérification.",
+    "get-verification-email-label": "E-mail enregistré",
+    "get-verification-resend": "Renvoyer l’e-mail de confirmation",
+    "get-verification-resend-wait": "Renvoyer dans {seconds}s",
+    "get-verification-resend-sent": "C’est fait. Si une inscription attend confirmation pour cette adresse, le lien vient de partir. Vérifiez aussi le dossier spam.",
+    "get-verification-resend-error": "Nous n’avons pas pu renvoyer pour le moment. Réessayez dans un instant."
   }
 }

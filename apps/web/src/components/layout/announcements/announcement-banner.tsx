@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import { Alert, Box, Button, IconButton } from "@mui/material";
@@ -29,6 +30,7 @@ const SEVERITY: Record<Announcement["level"], "info" | "warning" | "error"> = {
  * message never nags twice. Renders nothing when there is nothing to say.
  */
 export default function AnnouncementBanner() {
+  const t = useTranslations("dashboard");
   const [items, setItems] = useState<Announcement[]>([]);
 
   useEffect(() => {
@@ -75,10 +77,15 @@ export default function AnnouncementBanner() {
             <Box className="flex flex-row items-center gap-1">
               {item.href && (
                 <Button color="inherit" size="small" component={Link} href={item.href}>
-                  Learn more
+                  {t("announcement-learn-more")}
                 </Button>
               )}
-              <IconButton size="small" color="inherit" aria-label="Dismiss" onClick={() => dismiss(item.id)}>
+              <IconButton
+                size="small"
+                color="inherit"
+                aria-label={t("announcement-dismiss")}
+                onClick={() => dismiss(item.id)}
+              >
                 <NiCross size="small" />
               </IconButton>
             </Box>

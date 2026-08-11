@@ -32,6 +32,15 @@ export const COOKIE_KEYS = {
   attribution: `${storagePrefix}-atrib`,
 };
 
+export const SESSION_STORAGE_KEYS = {
+  /**
+   * The address a sign-up just used, handed to /auth/get-verification so it can
+   * resend the confirmation without asking her to retype it. sessionStorage,
+   * not the URL: an e-mail in a query string ends up in history and server logs.
+   */
+  signupEmail: `${storagePrefix}-signup-email`,
+};
+
 export const LOCAL_STORAGE_KEYS = {
   themeColor: `${storagePrefix}-theme-color`,
   themeMode: `${storagePrefix}-theme-mode`,

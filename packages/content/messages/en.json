@@ -451,7 +451,9 @@
     "impersonation-scope": "Read-only on the clinical record",
     "impersonation-reason": "Reason: {reason}",
     "impersonation-remaining": "Ends in {time}",
-    "impersonation-exit": "Leave account"
+    "impersonation-exit": "Leave account",
+    "announcement-learn-more": "Learn more",
+    "announcement-dismiss": "Dismiss announcement"
   },
   "marketing": {
     "nav-home": "Home",
@@ -2901,6 +2903,11 @@
     "two-factor-code": "Authentication code",
     "two-factor-verify": "Verify",
     "two-factor-verifying": "Verifying…",
-    "two-factor-failed": "Could not start the challenge."
+    "two-factor-failed": "Could not start the challenge.",
+    "get-verification-email-label": "Registered e-mail",
+    "get-verification-resend": "Resend confirmation e-mail",
+    "get-verification-resend-wait": "Resend in {seconds}s",
+    "get-verification-resend-sent": "Done. If there is a sign-up awaiting confirmation for that address, the link has just gone out. Check the spam folder too.",
+    "get-verification-resend-error": "We could not resend right now. Please try again in a moment."
   }
 }
