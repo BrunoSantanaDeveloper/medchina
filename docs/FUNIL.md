@@ -77,7 +77,11 @@
 - ✅ **`Learn more` do announcement → i18n (2026-08-11)**: o CTA do banner e o `aria-label` de dispensar saíam em inglês para uma audiência 100% pt-BR — corrigido nos 5 idiomas. É o botão que leva à oferta Fundadores no anúncio in-app da Fase 0.
 
 **P1 (na sequência, mesma semana ou seguinte):**
-- Contador de vagas + cerco no checkout (T1.4).
+- ✅ **Contador de vagas + cerco no checkout — ENTREGUE (2026-08-11, T1.4)**. Migração `0087_founders_offer.sql` cria a RPC `founders_offer()`: **uma única resposta** que alimenta o contador público E o cerco do checkout, para que a página nunca anuncie uma vaga que o pagamento recusaria (nem o contrário, que é como uma oferta de 30 vira 40). Estado calculado de `platform_settings` ('founders': `enabled`, `plan_slug`, `seats`, `deadline`) + contagem viva de assinaturas no plano da oferta.
+  **Semântica da vaga**: ocupada por assinatura viva (`trialing/active/past_due`). Consequências deliberadas — checkout abandonado (`incomplete`) **não** queima vaga, e fundador que cancela **libera** a dela. A janela de duas compras simultâneas pela última vaga é aceita, não reservada: as vendas são por call em ritmo humano, e reservar no início do checkout deixaria carrinho abandonado fechar oferta que ainda tinha espaço.
+  **Causa nomeada, nunca inferida**: `open | disabled | expired | sold_out | not_configured` — "esgotou" e "o operador ainda não abriu" são idênticos olhando só `seats_left`, e a página precisa dizer coisas diferentes. Quem tenta assinar depois do fim recebe mensagem própria (`billing-offer-closed`), não erro genérico.
+  **Console** em `/admin/billing → Founders offer`: abre/fecha, edita vagas e prazo, e mostra a contagem real ao lado — sem deploy e sem SQL. Fechar é **desmarcar "Offer open"**, nunca desativar o plano (isso o tornaria impossível de comprar inclusive para quem está concluindo um checkout). A chave nasce com `enabled: false`: abrir a oferta é decisão datada do operador, não efeito colateral de rodar a migração.
+  Contrato em `packages/db/tests/0025_founders_offer.test.sql` (11 asserções percorrendo o ciclo: não aberta → aberta → enchendo → esgotada → cancelamento libera → prazo vencido).
 - `/fundadores` (T3.1, route group sem menu) — necessária para a onda Hellen; a venda por call funciona sem ela.
 - Preços hardcoded da home religados ao banco (T7.2/D12) — antes de qualquer mudança de preço.
 - Termos da garantia publicados (T1.5, a página; o fluxo de reembolso no painel pode vir depois).

@@ -1,5 +1,11 @@
 import "@/lib/connectors";
 
+// The recording pipeline (download + transcribe + extract + apply) runs in ONE
+// invocation of this route when queued. Without an explicit cap it runs under
+// the Vercel plan default, which can kill a long transcription mid-flight —
+// skipping the terminal failure update and stranding the row in 'processing'.
+export const maxDuration = 300;
+
 import { accountExportFunctions } from "@/lib/account-export-jobs";
 import { agendaFunctions } from "@/lib/agenda-jobs";
 import { billingFunctions } from "@/lib/billing-jobs";

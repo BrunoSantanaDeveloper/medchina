@@ -64,6 +64,7 @@ const STATUS_BY_CODE: Partial<Record<ClinicalErrorCode, number>> = {
   document_profile_incomplete: 409,
   document_reissue_confirmation_required: 409,
   provider_unavailable: 503,
+  provider_rejected: 502,
   usage_record_failed: 503,
   internal_error: 500,
 };

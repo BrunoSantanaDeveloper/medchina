@@ -286,6 +286,9 @@ export const CLINICAL_ERROR_CODES = [
   "document_profile_incomplete",
   "document_reissue_confirmation_required",
   "provider_unavailable",
+  // A definitive provider refusal (invalid key, model gone, credits depleted):
+  // retrying cannot fix it, unlike the transient provider_unavailable.
+  "provider_rejected",
   "internal_error",
 ] as const;
 

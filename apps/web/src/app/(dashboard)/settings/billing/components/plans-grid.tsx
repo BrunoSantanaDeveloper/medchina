@@ -228,9 +228,14 @@ export default function PlansGrid({
           {/* The checkout refused rather than quietly charging full price: the
               discount she was promised is the reason she is here. */}
           {error === "coupon_invalid" && <Alert severity="warning">{t("billing-coupon-invalid")}</Alert>}
-          {error && !["billing_profile_required", "suspended", "plan_required", "coupon_invalid"].includes(error) && (
-            <Alert severity="error">{t("billing-checkout-error")}</Alert>
-          )}
+          {/* The seats ran out (or the deadline passed) between opening the link
+              and clicking. Not an error on her side, and not a generic failure —
+              she needs to know the condition is gone and what is left. */}
+          {error === "offer_closed" && <Alert severity="info">{t("billing-offer-closed")}</Alert>}
+          {error &&
+            !["billing_profile_required", "suspended", "plan_required", "coupon_invalid", "offer_closed"].includes(
+              error,
+            ) && <Alert severity="error">{t("billing-checkout-error")}</Alert>}
           {couponError === "link_invalid" && <Alert severity="info">{t("billing-coupon-link-invalid")}</Alert>}
           {coupon ? (
             <Alert

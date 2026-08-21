@@ -1988,6 +1988,9 @@
     "recordings-status-ready": "Entwurf bereit",
     "recordings-status-audio-ready": "Audio aufbewahrt",
     "recordings-status-failed": "Fehlgeschlagen",
+    "recordings-status-retrying": "Dienst instabil — erneuter Versuch",
+    "recordings-error-provider-unavailable": "Der KI-Dienst ist vorübergehend überlastet. Ihre Aufnahme bleibt erhalten — wir versuchen es automatisch erneut; Sie können es auch in einigen Minuten versuchen.",
+    "recordings-error-provider-rejected": "Der KI-Dienst hat die Verarbeitung abgelehnt; ein erneuter Versuch hilft nicht. Unser Team kann den Grund einsehen — wenden Sie sich an den Support. Ihre Aufnahme bleibt erhalten.",
     "recordings-status-cancelled": "Abgebrochen",
     "transcript-title": "Transkript",
     "transcript-open": "Transkript ansehen",
@@ -2816,7 +2819,8 @@
     "import-issue-schedule_in_past": "Das Datum liegt in der Vergangenheit. Kommende Termine enthalten keine alten.",
     "import-issue-schedule_conflict": "Dieser Termin ist belegt. Es wird nicht doppelt gebucht.",
     "import-issue-patient_unavailable": "Patientin archiviert oder nicht in dieser Praxis.",
-    "import-issue-duration_not_recognized": "Dauer nicht erkannt — es gilt die Standarddauer."
+    "import-issue-duration_not_recognized": "Dauer nicht erkannt — es gilt die Standarddauer.",
+    "billing-offer-closed": "Diese Kondition ist nicht mehr verfügbar — die Plätze sind vergeben oder die Frist ist abgelaufen. Sprechen Sie mit uns, bevor Sie einen anderen Tarif buchen: Wenn Sie das Angebot erhalten und es nicht abschließen konnten, klären wir das."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

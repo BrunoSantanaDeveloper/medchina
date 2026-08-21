@@ -179,7 +179,11 @@ export async function processRecording(
       // persisted to transcriptions.error, but log it here so a failure is
       // diagnosable from the server logs instead of an opaque 503.
       console.error("[pipeline] transcription failed", transcribed.error);
-      return reject("provider_unavailable", "transcription");
+      // A capacity 503 is worth retrying later (provider_unavailable, in the
+      // retryable set); a definitive refusal — credits depleted, bad key,
+      // model gone — is not, and re-burning attempts on it only delayed the
+      // honest failure the professional needed to see.
+      return reject(transcribed.transient === false ? "provider_rejected" : "provider_unavailable", "transcription");
     }
   }
 

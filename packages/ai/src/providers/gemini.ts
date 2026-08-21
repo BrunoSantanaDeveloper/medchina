@@ -2,6 +2,14 @@ import { GoogleGenAI } from "@google/genai";
 
 import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
 
+/**
+ * Bounded deadline + the SDK's built-in retry on transient statuses (408/429/
+ * 5xx). Without these each call is one bare fetch: a "model overloaded" 503
+ * fails the request outright, and a hung connection blocks until the platform
+ * kills the function.
+ */
+const HTTP_OPTIONS = { timeout: 120_000, retryOptions: { attempts: 3 } };
+
 function toGeminiContents(messages: ChatMessage[]) {
   return messages.map((message) => ({
     role: message.role === "assistant" ? "model" : "user",
@@ -25,7 +33,7 @@ export class GeminiProvider implements ChatProvider {
   async *streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error("GEMINI_API_KEY is not set");
-    const client = new GoogleGenAI({ apiKey: key });
+    const client = new GoogleGenAI({ apiKey: key, httpOptions: HTTP_OPTIONS });
 
     const contents = toGeminiContents(messages);
 
@@ -52,7 +60,7 @@ export class GeminiProvider implements ChatProvider {
   ): Promise<unknown> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error("GEMINI_API_KEY is not set");
-    const client = new GoogleGenAI({ apiKey: key });
+    const client = new GoogleGenAI({ apiKey: key, httpOptions: HTTP_OPTIONS });
 
     const response = await client.models.generateContent({
       model: config.model,

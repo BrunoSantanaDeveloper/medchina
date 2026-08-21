@@ -21,7 +21,13 @@ Speaker labels are generic (`Speaker 1`, `Speaker 2`); projects relabel them in 
 ## Configuration
 
 - `GEMINI_API_KEY` — required (clear error without it; nothing else breaks).
-- `TRANSCRIBE_MODEL` — optional, defaults to `gemini-2.5-flash`.
+- `TRANSCRIBE_MODEL` — optional, defaults to `gemini-flash-latest`.
+- `TRANSCRIBE_MODEL_FALLBACKS` — optional, comma-separated models tried in order when the primary fails
+  TRANSIENTLY (503 overload, rate limit). Defaults to `gemini-2.0-flash`; set empty to disable. Fatal
+  provider errors (bad key, model gone, depleted credits) are never retried on any model.
+- `TRANSCRIBE_ATTEMPT_TIMEOUT_MS` / `TRANSCRIBE_TOTAL_BUDGET_MS` — optional per-attempt HTTP deadline
+  (default 180000) and overall retry budget (default 250000); keeps a hung provider request from
+  outliving the serverless function.
 - Migration: `packages/db/migrations/0007_transcriptions.sql`.
 
 This also unlocks audio for Anthropic-backed assistants: transcribe first, send the text.

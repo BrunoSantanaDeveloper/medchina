@@ -1988,6 +1988,9 @@
     "recordings-status-ready": "Brouillon prêt",
     "recordings-status-audio-ready": "Audio conservé",
     "recordings-status-failed": "Échec",
+    "recordings-status-retrying": "Instabilité du service — nouvelle tentative",
+    "recordings-error-provider-unavailable": "Le service d'IA est temporairement surchargé. Votre audio est préservé — nous réessaierons automatiquement ; vous pouvez aussi réessayer dans quelques minutes.",
+    "recordings-error-provider-rejected": "Le service d'IA a refusé le traitement et réessayer n'y changera rien. Notre équipe peut en voir la raison — contactez le support. Votre audio est préservé.",
     "recordings-status-cancelled": "Annulé",
     "transcript-title": "Transcription",
     "transcript-open": "Voir la transcription",
@@ -2816,7 +2819,8 @@
     "import-issue-schedule_in_past": "La date est passée. Les rendez-vous à venir n'incluent pas les anciens.",
     "import-issue-schedule_conflict": "Ce créneau est occupé. Il ne sera pas doublé.",
     "import-issue-patient_unavailable": "Patient archivé ou hors de ce cabinet.",
-    "import-issue-duration_not_recognized": "Durée non reconnue — la durée standard sera utilisée."
+    "import-issue-duration_not_recognized": "Durée non reconnue — la durée standard sera utilisée.",
+    "billing-offer-closed": "Cette condition n’est plus disponible : les places sont épuisées ou le délai est passé. Parlez-nous-en avant de souscrire un autre plan : si vous aviez reçu l’offre sans pouvoir la finaliser, nous voulons y remédier."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

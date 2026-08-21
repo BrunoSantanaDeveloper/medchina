@@ -33,6 +33,8 @@ type Recording = {
   createdAt: string;
   mode: "ai" | "audio_only";
   failureStage: string | null;
+  /** Set mid-'processing' by a non-terminal transient failure — "retrying". */
+  errorCode: string | null;
   transcriptionId: string | null;
   audioPath: string | null;
 };
@@ -104,7 +106,9 @@ export default function RecordingsPanel({
       const supabase = createClient();
       const { data, error: loadError } = await supabase
         .from("recordings")
-        .select("id, status, duration_seconds, created_at, mode, failure_stage, transcription_id, audio_path")
+        .select(
+          "id, status, duration_seconds, created_at, mode, failure_stage, error_code, transcription_id, audio_path",
+        )
         .eq("consultation_id", consultationId)
         .order("created_at", { ascending: false });
       if (loadError) {
@@ -118,6 +122,7 @@ export default function RecordingsPanel({
         createdAt: row.created_at,
         mode: row.mode,
         failureStage: row.failure_stage,
+        errorCode: row.error_code,
         transcriptionId: row.transcription_id,
         audioPath: row.audio_path,
       }));
@@ -133,6 +138,11 @@ export default function RecordingsPanel({
     if (code === "allowance_unavailable" || code === "audio_allowance_exhausted")
       return t("recordings-error-allowance");
     if (code === "recording_pending" || code === "processing_already_claimed") return t("recordings-error-pending");
+    // A busy AI service and a definitive refusal are DIFFERENT facts: one says
+    // "try again in a few minutes, the audio is safe"; the other says trying
+    // again changes nothing and support is looking at it.
+    if (code === "provider_unavailable") return t("recordings-error-provider-unavailable");
+    if (code === "provider_rejected") return t("recordings-error-provider-rejected");
     return t("recordings-process-error");
   };
 
@@ -181,9 +191,11 @@ export default function RecordingsPanel({
         return;
       }
       // Job path: poll the row until it leaves 'processing'. Inline path is
-      // already done when the request returns.
+      // already done when the request returns. The horizon must OUTLIVE the
+      // worst-case run (provider retries + fallback model, up to ~300s server
+      // side) — a poll that gives up at 120s left the row visibly stuck.
       if (body.queued) {
-        for (let attempt = 0; attempt < 40; attempt++) {
+        for (let attempt = 0; attempt < 110; attempt++) {
           await new Promise((resolve) => setTimeout(resolve, 3000));
           const supabase = createClient();
           const { data } = await supabase
@@ -321,8 +333,14 @@ export default function RecordingsPanel({
             // must be reachable from ANY stuck status, not only from 'failed'.
             const canDiscard = ["failed", "recording", "local", "uploading"].includes(recording.status);
             const isProcessing = recording.status === "processing" || busyId === recording.id;
-            const visibleStatus =
-              recording.status === "ready" && recording.mode === "audio_only"
+            // A non-terminal transient failure stamps error_code on a row that
+            // STAYS 'processing' while the job waits to retry. Saying only
+            // "Processando…" there hid the fact something already went wrong
+            // once; saying "Falha" would be a lie. This is the honest middle.
+            const isRetrying = recording.status === "processing" && recording.errorCode === "provider_unavailable";
+            const visibleStatus = isRetrying
+              ? t("recordings-status-retrying")
+              : recording.status === "ready" && recording.mode === "audio_only"
                 ? t("recordings-status-audio-ready")
                 : statusLabel(recording.status);
             const duration = recording.durationSeconds
@@ -342,7 +360,9 @@ export default function RecordingsPanel({
                     label={visibleStatus}
                     className={cn(
                       "text-xs font-semibold",
-                      STATUS_TONE[recording.status] ?? "bg-grey-100 text-text-secondary",
+                      isRetrying
+                        ? "bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light"
+                        : (STATUS_TONE[recording.status] ?? "bg-grey-100 text-text-secondary"),
                     )}
                   />
                   {isProcessing && <CircularProgress size={18} aria-label={visibleStatus} />}

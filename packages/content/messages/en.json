@@ -1988,6 +1988,9 @@
     "recordings-status-ready": "Draft ready",
     "recordings-status-audio-ready": "Audio preserved",
     "recordings-status-failed": "Failed",
+    "recordings-status-retrying": "Service instability — retrying",
+    "recordings-error-provider-unavailable": "The AI service is temporarily overloaded. Your audio is preserved — we will retry automatically; you can also try again in a few minutes.",
+    "recordings-error-provider-rejected": "The AI service refused the processing and retrying will not help. Our team can see the reason — contact support. Your audio is preserved.",
     "recordings-status-cancelled": "Cancelled",
     "transcript-title": "Transcript",
     "transcript-open": "View transcript",
@@ -2816,7 +2819,8 @@
     "import-issue-schedule_in_past": "The date has passed. Upcoming appointments do not include old ones.",
     "import-issue-schedule_conflict": "That slot is taken. It will not be booked over.",
     "import-issue-patient_unavailable": "Patient archived or not in this practice.",
-    "import-issue-duration_not_recognized": "Duration not recognized — the standard one will be used."
+    "import-issue-duration_not_recognized": "Duration not recognized — the standard one will be used.",
+    "billing-offer-closed": "This condition is no longer available — the seats ran out or the deadline passed. Talk to us before subscribing to another plan: if you were given the offer and could not complete it, we want to sort it out."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

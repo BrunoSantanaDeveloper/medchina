@@ -272,7 +272,13 @@ export async function extractAnamnesis(transcript: TranscriptResult): Promise<Ex
   if (!key) throw new Error("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
   if (!transcript.segments?.length) return empty;
 
-  const client = new GoogleGenAI({ apiKey: key });
+  // Bounded per-attempt deadline + the SDK's own retry on transient statuses
+  // (408/429/5xx): a "model overloaded" 503 gets in-process second chances
+  // instead of failing the whole pipeline run on one bad minute.
+  const client = new GoogleGenAI({
+    apiKey: key,
+    httpOptions: { timeout: 120_000, retryOptions: { attempts: 3 } },
+  });
   const response = await client.models.generateContent({
     model,
     contents: [{ role: "user", parts: [{ text: buildPrompt(transcript) }] }],

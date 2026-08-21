@@ -1988,6 +1988,9 @@
     "recordings-status-ready": "Borrador listo",
     "recordings-status-audio-ready": "Audio conservado",
     "recordings-status-failed": "Fallo",
+    "recordings-status-retrying": "Inestabilidad del servicio — reintentando",
+    "recordings-error-provider-unavailable": "El servicio de IA está temporalmente sobrecargado. Tu audio está preservado: reintentaremos automáticamente; también puedes intentarlo en unos minutos.",
+    "recordings-error-provider-rejected": "El servicio de IA rechazó el procesamiento y reintentar no lo resuelve. Nuestro equipo puede ver el motivo — contacta al soporte. Tu audio está preservado.",
     "recordings-status-cancelled": "Cancelada",
     "transcript-title": "Transcripción",
     "transcript-open": "Ver transcripción",
@@ -2816,7 +2819,8 @@
     "import-issue-schedule_in_past": "La fecha ya pasó. La agenda futura no incluye atenciones antiguas.",
     "import-issue-schedule_conflict": "Ese horario está ocupado. No se agendará encima.",
     "import-issue-patient_unavailable": "Paciente archivada o fuera de este consultorio.",
-    "import-issue-duration_not_recognized": "Duración no reconocida: usaremos la estándar."
+    "import-issue-duration_not_recognized": "Duración no reconocida: usaremos la estándar.",
+    "billing-offer-closed": "Esta condición ya no está disponible: se agotaron las plazas o venció el plazo. Habla con nosotros antes de contratar otro plan: si recibiste la oferta y no pudiste completarla, queremos resolverlo."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

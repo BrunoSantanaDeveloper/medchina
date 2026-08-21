@@ -112,6 +112,30 @@ async function purchaseBlockedReason(
 }
 
 /**
+ * Refuses a seat in a limited offer that is no longer open.
+ *
+ * Only applies to the plan the offer names (migration 0087) — every other plan
+ * is unaffected. Returns the reason to log, or null when the purchase may go
+ * on. A failure to READ the offer state deliberately does NOT block: an
+ * ordinary Assistente checkout must not break because a founders campaign is
+ * misconfigured.
+ */
+async function foundersOfferBlock(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  planSlug: string,
+): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc("founders_offer");
+    if (error || !data) return null;
+    const offer = data as { plan_slug?: string | null; closed?: boolean; reason?: string };
+    if (!offer.plan_slug || offer.plan_slug !== planSlug) return null;
+    return offer.closed ? (offer.reason ?? "closed") : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The fiscal identity Asaas requires to create a customer.
  *
  * Returned as a typed error rather than the generic "unavailable" because this
@@ -215,6 +239,16 @@ export async function startCheckout(input: {
     if (!payer.document) {
       logBillingFailure("missing_billing_document", { orgId: input.orgId });
       return { error: "billing_profile_required" };
+    }
+
+    // A limited offer has to stop selling when it runs out. The counter on the
+    // landing page and this guard read the SAME function (migration 0087), so
+    // the page can never advertise a seat the checkout would refuse — nor the
+    // reverse, which is how a 30-seat offer quietly becomes 40.
+    const offerBlock = await foundersOfferBlock(supabase, planRow.slug);
+    if (offerBlock) {
+      logBillingFailure("offer_closed", { orgId: input.orgId, plan: planRow.slug, reason: offerBlock });
+      return { error: "offer_closed" };
     }
 
     // A code that no longer works STOPS the checkout. Dropping it silently and
