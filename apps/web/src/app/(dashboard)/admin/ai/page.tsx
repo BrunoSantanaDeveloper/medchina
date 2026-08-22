@@ -1,6 +1,7 @@
 "use client";
 
 import AssistantsAdmin from "./components/assistants-admin";
+import McpAdmin from "./components/mcp-admin";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -57,13 +58,30 @@ export default function AdminAi() {
       )}
 
       {allowed && (
-        <Grid size={12}>
-          <Card component="section">
-            <CardContent>
-              <AssistantsAdmin />
-            </CardContent>
-          </Card>
-        </Grid>
+        <>
+          <Grid size={12}>
+            <Card component="section">
+              <CardContent>
+                <AssistantsAdmin />
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={12}>
+            <Card component="section">
+              <CardContent className="flex flex-col gap-3">
+                <Typography variant="h6" component="h2" className="mb-0">
+                  MCP connectors
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary">
+                  Workspaces with external assistants (ChatGPT/Claude) connected through the MCP server. Weights and
+                  rate limits live in platform_settings (&apos;mcp&apos;); per-plan availability in
+                  plans.limits.mcp_access.
+                </Typography>
+                <McpAdmin />
+              </CardContent>
+            </Card>
+          </Grid>
+        </>
       )}
     </Grid>
   );

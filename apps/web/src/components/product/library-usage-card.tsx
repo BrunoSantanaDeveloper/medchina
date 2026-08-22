@@ -49,7 +49,9 @@ export default function LibraryUsageCard() {
 
   const used = allowance.used ?? 0;
   const limit = allowance.limit ?? 0;
-  const remaining = Math.max(limit - used, 0);
+  // `used` may be fractional since 0088 (MCP tool calls consume a discounted
+  // weight of the same quota); keep the headline readable either way.
+  const remaining = Math.round(Math.max(limit - used, 0) * 10) / 10;
   const percent = limit > 0 ? Math.floor((used * 100) / limit) : 0;
   const nearLimit = !unlimited && percent >= 80;
 

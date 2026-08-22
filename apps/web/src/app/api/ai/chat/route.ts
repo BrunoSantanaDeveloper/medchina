@@ -407,6 +407,11 @@ export async function POST(request: Request) {
                 target_assistant: body.assistantSlug,
                 target_conversation: conversationId,
                 target_user: user.id,
+                // Weighted ledger (0088): an in-app message is the full unit.
+                // MCP tool calls write the same ledger with their discounted
+                // weight — one quota, two channels.
+                target_channel: "library_chat",
+                target_weight: 1.0,
               });
               // 80/95/100% bell alert, now counting a message that was really
               // answered (PRD §5.8 pattern shared with audio minutes).

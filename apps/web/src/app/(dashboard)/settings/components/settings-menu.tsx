@@ -6,10 +6,11 @@ import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from 
 import NiBuilding from "@/icons/nexture/ni-building";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
+import NiPlug from "@/icons/nexture/ni-plug";
 import NiUser from "@/icons/nexture/ni-user";
 import NiWallet from "@/icons/nexture/ni-wallet";
 
-export type SettingsMenuActive = "profile" | "organization" | "preferences" | "billing" | "security";
+export type SettingsMenuActive = "profile" | "organization" | "preferences" | "connections" | "billing" | "security";
 
 type GroupProps = { label: string };
 
@@ -74,6 +75,12 @@ export default function SettingsMenu({ active }: { active: SettingsMenuActive })
           label={t("settings-preferences")}
           icon={<NiMicrophone size="medium" />}
           selected={active === "preferences"}
+        />
+        <Item
+          href="/settings/connections"
+          label={t("settings-connections")}
+          icon={<NiPlug size="medium" />}
+          selected={active === "connections"}
         />
         <Group label={t("settings-group-payment")} />
         <Item
