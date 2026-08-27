@@ -29,17 +29,18 @@ import { type Prescription, prescriptionText } from "@/lib/prescription";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 
-/** A prescription as this panel sees it: one free text plus its review state. */
+/** The prescription as this panel sees it: one free text plus its review state. */
 type Row = Prescription & { text: string };
 
 /**
- * The professional's receituário — deliberately SIMPLE: one free-text body she
- * writes herself (nothing here is AI generated; the assistant never prescribes,
- * PRD §10/§16). She writes, validates (signs), and prints or downloads the
- * signed PDF straight from the card — the letterhead (clinic + professional),
- * signature and QR verification are the document's frame, her text is its only
- * body. Versioning and verification codes stay INTERNAL: the QR on the paper
- * remains the proof, without asking her to manage versions.
+ * The professional's receituário — ONE per consultation, deliberately simple.
+ *
+ * She writes a single free text (nothing here is AI generated; the assistant
+ * never prescribes, PRD §10/§16), validates it (signs), and downloads or prints
+ * the signed PDF from the icons in this card's own header. The letterhead
+ * (clinic + professional), signature and QR verification are the document's
+ * frame; her text is its only body. Versions and verify codes stay INTERNAL —
+ * the QR on the paper is the public proof, and she never manages versions.
  */
 export default function PrescriptionPanel({
   consultationId,
@@ -51,15 +52,15 @@ export default function PrescriptionPanel({
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
-  const [rows, setRows] = useState<Row[]>([]);
+  const [row, setRow] = useState<Row | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState<{ id: string | null; text: string } | null>(null);
-  const [validating, setValidating] = useState<Row | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<Row | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -68,31 +69,37 @@ export default function PrescriptionPanel({
       return;
     }
     const supabase = createClient();
+    // One per consultation — the oldest wins if history ever left more than one,
+    // so the card never silently picks a different prescription between loads.
     const { data, error } = await supabase
       .from("consultation_prescriptions")
       .select("id, kind, title, items, posology, preparation, notes, status, validated_at, updated_at")
       .eq("consultation_id", consultationId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
     if (error) {
       setLoadFailed(true);
       setLoaded(true);
       return;
     }
     setLoadFailed(false);
-    setRows(
-      (data ?? []).map((row) => ({
-        id: row.id,
-        kind: row.kind === "herbal" ? "herbal" : "generic",
-        title: row.title ?? "",
-        items: [],
-        posology: row.posology ?? "",
-        preparation: row.preparation ?? "",
-        notes: row.notes ?? "",
-        status: row.status === "validated" ? "validated" : "draft",
-        validatedAt: row.validated_at,
-        updatedAt: row.updated_at,
-        text: prescriptionText(row),
-      })),
+    setRow(
+      data
+        ? {
+            id: data.id,
+            kind: data.kind === "herbal" ? "herbal" : "generic",
+            title: data.title ?? "",
+            items: [],
+            posology: data.posology ?? "",
+            preparation: data.preparation ?? "",
+            notes: data.notes ?? "",
+            status: data.status === "validated" ? "validated" : "draft",
+            validatedAt: data.validated_at,
+            updatedAt: data.updated_at,
+            text: prescriptionText(data),
+          }
+        : null,
     );
     setLoaded(true);
   }, [consultationId]);
@@ -151,7 +158,7 @@ export default function PrescriptionPanel({
   };
 
   const validate = async () => {
-    if (!validating) return;
+    if (!row) return;
     setSaving(true);
     setActionError(null);
     try {
@@ -162,9 +169,9 @@ export default function PrescriptionPanel({
       const { error } = await supabase
         .from("consultation_prescriptions")
         .update({ status: "validated", validated_by: user?.id ?? null, validated_at: new Date().toISOString() })
-        .eq("id", validating.id);
+        .eq("id", row.id);
       if (error) throw error;
-      setValidating(null);
+      setValidating(false);
       await load();
     } catch {
       setActionError(t("prescription-error"));
@@ -174,14 +181,14 @@ export default function PrescriptionPanel({
   };
 
   const remove = async () => {
-    if (!confirmDelete) return;
+    if (!row) return;
     setSaving(true);
     setActionError(null);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from("consultation_prescriptions").delete().eq("id", confirmDelete.id);
+      const { error } = await supabase.from("consultation_prescriptions").delete().eq("id", row.id);
       if (error) throw error;
-      setConfirmDelete(null);
+      setConfirmDelete(false);
       await load();
     } catch {
       setActionError(t("prescription-error"));
@@ -191,19 +198,17 @@ export default function PrescriptionPanel({
   };
 
   /**
-   * The signed PDF for a validated prescription, issuing (or re-issuing after
-   * an edit + re-validation) only when the current version is not already on
-   * file. Versions and verify codes are managed here so the professional never
-   * has to — the QR printed on the paper remains the public proof.
+   * The signed PDF for a validated prescription, issuing (or re-issuing after an
+   * edit + re-validation) only when the current version is not already on file.
    */
-  const ensurePdfPath = async (row: Row): Promise<string | null> => {
+  const ensurePdfPath = async (target: Row): Promise<string | null> => {
     const supabase = createClient();
     const { data: latest } = await supabase
       .from("documents")
       .select("id, version, status, storage_path, issued_at")
       .eq("kind", "prescription")
       .eq("source_type", "consultation_prescription")
-      .eq("source_id", row.id)
+      .eq("source_id", target.id)
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -211,13 +216,13 @@ export default function PrescriptionPanel({
     const current =
       latest?.status === "issued" &&
       latest.storage_path &&
-      row.validatedAt &&
+      target.validatedAt &&
       latest.issued_at &&
-      new Date(latest.issued_at) >= new Date(row.validatedAt);
+      new Date(latest.issued_at) >= new Date(target.validatedAt);
     if (current) return latest.storage_path as string;
 
     const issueOnce = async (confirmVersion?: number) =>
-      fetch(`/api/consultations/${consultationId}/prescriptions/${row.id}/issue`, {
+      fetch(`/api/consultations/${consultationId}/prescriptions/${target.id}/issue`, {
         method: "POST",
         headers: {
           "idempotency-key": crypto.randomUUID(),
@@ -251,8 +256,8 @@ export default function PrescriptionPanel({
     return (issued?.storage_path as string | null) ?? null;
   };
 
-  const fetchPdfBlobUrl = async (row: Row): Promise<string | null> => {
-    const path = await ensurePdfPath(row);
+  const fetchPdfBlobUrl = async (target: Row): Promise<string | null> => {
+    const path = await ensurePdfPath(target);
     if (!path) return null;
     const supabase = createClient();
     const { data: signed } = await supabase.storage.from("documents").createSignedUrl(path, 120);
@@ -268,8 +273,9 @@ export default function PrescriptionPanel({
     return URL.createObjectURL(await pdf.blob());
   };
 
-  const download = async (row: Row) => {
-    setBusyId(row.id);
+  const download = async () => {
+    if (!row) return;
+    setBusy(true);
     setActionError(null);
     try {
       const url = await fetchPdfBlobUrl(row);
@@ -282,18 +288,19 @@ export default function PrescriptionPanel({
     } catch {
       setActionError(t("prescription-download-error"));
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   };
 
-  const print = async (row: Row) => {
-    setBusyId(row.id);
+  const print = async () => {
+    if (!row) return;
+    setBusy(true);
     setActionError(null);
     try {
       const url = await fetchPdfBlobUrl(row);
       if (!url) return;
       const viewer = window.open(url, "_blank", "noopener");
-      // Best effort: the browser's PDF viewer has its own print control when
+      // Best effort: the browser's PDF viewer keeps its own print control when
       // the programmatic call is refused for a blob document.
       window.setTimeout(() => {
         try {
@@ -305,21 +312,21 @@ export default function PrescriptionPanel({
     } catch {
       setActionError(t("prescription-download-error"));
     } finally {
-      setBusyId(null);
+      setBusy(false);
     }
   };
 
   // Nothing to show and nothing to add on a finalized record without content.
-  if (loaded && rows.length === 0 && isFinalized) return null;
+  if (loaded && !row && isFinalized) return null;
 
-  const titleOf = (row: Row) => {
-    const firstLine = row.text.split("\n").find((line) => line.trim().length > 0) ?? "";
-    return firstLine.length > 70 ? `${firstLine.slice(0, 70)}…` : firstLine || t("prescription-title");
-  };
+  const printable = row?.status === "validated";
 
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
+        {/* Header owns the document actions: there is ONE prescription, so its
+            download/print belong to the card itself rather than to a nested
+            card repeating the same title. */}
         <Box className="flex flex-row items-center gap-2">
           <span
             aria-hidden
@@ -327,7 +334,7 @@ export default function PrescriptionPanel({
           >
             <NiReceipt size="small" />
           </span>
-          <Box className="min-w-0">
+          <Box className="min-w-0 flex-1">
             <Typography variant="h6" component="h2" className="mb-0">
               {t("prescription-title")}
             </Typography>
@@ -335,6 +342,44 @@ export default function PrescriptionPanel({
               {t("prescription-subtitle")}
             </Typography>
           </Box>
+          {row?.status === "validated" && (
+            <Chip
+              size="small"
+              label={t("prescription-status-validated")}
+              className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light flex-none text-xs font-semibold"
+            />
+          )}
+          {row &&
+            (busy ? (
+              <CircularProgress size={18} aria-label={t("loading")} className="flex-none" />
+            ) : (
+              <Box className="-mr-1 flex flex-none flex-row items-center">
+                <Tooltip title={printable ? t("plan-doc-download") : t("prescription-validate-first")}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      aria-label={t("plan-doc-download")}
+                      disabled={!printable}
+                      onClick={() => void download()}
+                    >
+                      <NiDownloadCloud size="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title={printable ? t("prescription-print") : t("prescription-validate-first")}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      aria-label={t("prescription-print")}
+                      disabled={!printable}
+                      onClick={() => void print()}
+                    >
+                      <NiPrinter size="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            ))}
         </Box>
 
         {loadFailed && (
@@ -355,93 +400,11 @@ export default function PrescriptionPanel({
 
         {!loaded ? (
           <CircularProgress size={20} aria-label={t("loading")} />
-        ) : (
+        ) : !row ? (
           <>
-            {rows.length === 0 ? (
-              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                {t("prescription-empty")}
-              </Typography>
-            ) : (
-              <Box className="flex flex-col gap-2">
-                {rows.map((row) => {
-                  const busy = busyId === row.id;
-                  const printable = row.status === "validated";
-                  return (
-                    <Box key={row.id} className="border-grey-100 flex flex-col gap-2 rounded-2xl border px-3.5 py-3">
-                      <Box className="flex flex-row items-center gap-2">
-                        <Typography variant="body2" className="text-text-primary min-w-0 flex-1 font-semibold">
-                          {titleOf(row)}
-                        </Typography>
-                        {row.status === "validated" && (
-                          <Chip
-                            size="small"
-                            label={t("prescription-status-validated")}
-                            className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
-                          />
-                        )}
-                        {busy ? (
-                          <CircularProgress size={18} aria-label={t("loading")} />
-                        ) : (
-                          <Box className="-mr-1 flex flex-none flex-row items-center">
-                            <Tooltip title={printable ? t("plan-doc-download") : t("prescription-validate-first")}>
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  aria-label={t("plan-doc-download")}
-                                  disabled={!printable}
-                                  onClick={() => void download(row)}
-                                >
-                                  <NiDownloadCloud size="small" />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                            <Tooltip title={printable ? t("prescription-print") : t("prescription-validate-first")}>
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  aria-label={t("prescription-print")}
-                                  disabled={!printable}
-                                  onClick={() => void print(row)}
-                                >
-                                  <NiPrinter size="small" />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                          </Box>
-                        )}
-                      </Box>
-                      <Typography variant="body2" className="text-text-secondary line-clamp-2 text-xs leading-5">
-                        {row.text}
-                      </Typography>
-                      {!isFinalized && (
-                        <Box className="flex flex-row flex-wrap gap-2">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="grey"
-                            onClick={() => {
-                              setActionError(null);
-                              setDraft({ id: row.id, text: row.text });
-                            }}
-                          >
-                            {t("prescription-edit")}
-                          </Button>
-                          {row.status === "draft" && (
-                            <Button size="small" variant="outlined" color="primary" onClick={() => setValidating(row)}>
-                              {t("prescription-validate")}
-                            </Button>
-                          )}
-                          <Button size="small" variant="text" color="grey" onClick={() => setConfirmDelete(row)}>
-                            {t("prescription-delete")}
-                          </Button>
-                        </Box>
-                      )}
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-
+            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+              {t("prescription-empty")}
+            </Typography>
             {!isFinalized && (
               <Button
                 variant="outlined"
@@ -455,6 +418,36 @@ export default function PrescriptionPanel({
               >
                 {t("prescription-add")}
               </Button>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Her text, straight in the card — the same body the PDF carries. */}
+            <Typography variant="body2" className="text-text-primary leading-6 whitespace-pre-line">
+              {row.text}
+            </Typography>
+            {!isFinalized && (
+              <Box className="flex flex-row flex-wrap gap-2">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="grey"
+                  onClick={() => {
+                    setActionError(null);
+                    setDraft({ id: row.id, text: row.text });
+                  }}
+                >
+                  {t("prescription-edit")}
+                </Button>
+                {row.status === "draft" && (
+                  <Button size="small" variant="outlined" color="primary" onClick={() => setValidating(true)}>
+                    {t("prescription-validate")}
+                  </Button>
+                )}
+                <Button size="small" variant="text" color="grey" onClick={() => setConfirmDelete(true)}>
+                  {t("prescription-delete")}
+                </Button>
+              </Box>
             )}
           </>
         )}
@@ -495,15 +488,15 @@ export default function PrescriptionPanel({
       </Dialog>
 
       {/* Validate (sign) confirmation. */}
-      <Dialog open={Boolean(validating)} onClose={() => setValidating(null)} maxWidth="xs" fullWidth>
-        <DialogHeader title={t("prescription-validate")} closeLabel={t("close")} onClose={() => setValidating(null)} />
+      <Dialog open={validating} onClose={() => setValidating(false)} maxWidth="xs" fullWidth>
+        <DialogHeader title={t("prescription-validate")} closeLabel={t("close")} onClose={() => setValidating(false)} />
         <DialogContent className="py-5!">
           <Typography variant="body2" className="text-text-secondary leading-6">
             {t("prescription-validate-body")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button color="grey" onClick={() => setValidating(null)}>
+          <Button color="grey" onClick={() => setValidating(false)}>
             {t("cancel")}
           </Button>
           <Button variant="contained" color="primary" onClick={validate} disabled={saving}>
@@ -513,15 +506,19 @@ export default function PrescriptionPanel({
       </Dialog>
 
       {/* Delete confirmation. */}
-      <Dialog open={Boolean(confirmDelete)} onClose={() => setConfirmDelete(null)} maxWidth="xs" fullWidth>
-        <DialogHeader title={t("prescription-delete")} closeLabel={t("close")} onClose={() => setConfirmDelete(null)} />
+      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth="xs" fullWidth>
+        <DialogHeader
+          title={t("prescription-delete")}
+          closeLabel={t("close")}
+          onClose={() => setConfirmDelete(false)}
+        />
         <DialogContent className="py-5!">
           <Typography variant="body2" className="text-text-secondary leading-6">
             {t("prescription-delete-confirm")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button color="grey" onClick={() => setConfirmDelete(null)}>
+          <Button color="grey" onClick={() => setConfirmDelete(false)}>
             {t("cancel")}
           </Button>
           <Button variant="contained" color="error" onClick={remove} disabled={saving}>
