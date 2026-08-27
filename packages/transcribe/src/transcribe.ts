@@ -44,11 +44,11 @@ const FILE_POLL_TIMEOUT_MS = 5 * 60_000;
  * Per-CALL ceiling. Congestion on Gemini OSCILLATES minute to minute — the same
  * audio that hung past the whole budget in the 17:08 production attempt
  * answered in 35s on a probe at 17:14. Good runs measure 35–70s, so a call
- * still silent at 90s is almost certainly parked in a congested window:
+ * still silent at 80s is almost certainly parked in a congested window:
  * cutting it leaves room for a SECOND fresh call inside the same invocation,
  * which may land in a clear window. One hung call must never eat the budget.
  */
-const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 90_000;
+const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 80_000;
 /**
  * Overall budget across every attempt. The pipeline passes a tighter SHARED
  * deadline, which always wins — this is only the ceiling when called directly.
@@ -66,7 +66,7 @@ const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 
  * reason, rather than by the platform killing the whole invocation and leaving
  * the recording stranded in 'processing'.
  */
-const TOTAL_BUDGET_MS = Number(process.env.TRANSCRIBE_TOTAL_BUDGET_MS) || 140_000;
+const TOTAL_BUDGET_MS = Number(process.env.TRANSCRIBE_TOTAL_BUDGET_MS) || 170_000;
 /**
  * Safety margin subtracted from the remaining budget when arming each call's
  * abort signal, so the deadline is reached by US and not by the platform.
@@ -225,7 +225,11 @@ function modelChain(): { model: string; retryOnce: boolean }[] {
   const fallbacks = (fallbacksRaw === undefined ? DEFAULT_FALLBACK_MODELS : fallbacksRaw.split(","))
     .map((model) => model.trim())
     .filter((model) => model && model !== primary);
-  return [{ model: primary, retryOnce: true }, ...fallbacks.map((model) => ({ model, retryOnce: false }))];
+  // The primary gets a SECOND try only when it is alone: with fallbacks
+  // configured, retrying the same hung model spends exactly the window the
+  // next model needed — measured in production, two consecutive cut calls on
+  // one congested primary exhausted the budget before any fallback ran.
+  return [{ model: primary, retryOnce: fallbacks.length === 0 }, ...fallbacks.map((model) => ({ model, retryOnce: false }))];
 }
 
 /** A failed run may still carry PROGRESS — the caller persists it for resume. */

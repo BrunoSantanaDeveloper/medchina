@@ -43,7 +43,7 @@ const PIPELINE_BUDGET_MS = Number(process.env.CLINICAL_PIPELINE_BUDGET_MS) || 25
  * extraction would be squeezed into whatever was left — turning a good
  * transcript into a failed consultation at the very last step.
  */
-const EXTRACTION_RESERVE_MS = Number(process.env.CLINICAL_EXTRACTION_RESERVE_MS) || 110_000;
+const EXTRACTION_RESERVE_MS = Number(process.env.CLINICAL_EXTRACTION_RESERVE_MS) || 80_000;
 
 type RecordingClaimOutcome = { claimId: string } | { result: PipelineResult };
 
