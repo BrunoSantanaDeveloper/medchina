@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { recordAudit } from "@/lib/audit";
 import { clinicalError } from "@/lib/clinical-route";
+import { prescriptionText } from "@/lib/prescription";
 import { type PrescriptionDocumentData, renderPrescriptionPdf } from "@/lib/prescription-document";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
@@ -149,7 +150,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const dateFmt = (value: string | null) => (value ? new Date(value).toLocaleDateString(locale, dateOptions) : "—");
   const issuedAt = new Date().toLocaleDateString(locale, dateOptions);
 
-  const makeDocumentData = (version: number, sourceSnapshot: unknown): PrescriptionDocumentData => {
+  const makeDocumentData = (_version: number, sourceSnapshot: unknown): PrescriptionDocumentData => {
     const source = readPrescriptionSnapshot(sourceSnapshot, prescriptionId, id);
     return {
       orgName: org.name,
@@ -157,14 +158,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       professionalName: professional.display_name,
       consultationDate: dateFmt(consultation.started_at),
       validatedAt: dateFmt(source.validatedAt),
-      version,
       issuedAt,
-      kindLabel: source.kind === "herbal" ? t("prescription-kind-herbal") : t("prescription-kind-generic"),
-      title: source.title,
-      items: source.items,
-      preparation: source.preparation,
-      posology: source.posology,
-      notes: source.notes,
+      // The PDF body is ONE text: the professional's own words. Legacy rows
+      // with structured fields compose into the same canonical text, so an old
+      // prescription prints exactly what a new one would.
+      description: prescriptionText(source),
     };
   };
 

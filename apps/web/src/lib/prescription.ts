@@ -55,3 +55,33 @@ export function itemsForSave(items: PrescriptionItem[]): PrescriptionItem[] {
 export function emptyItem(): PrescriptionItem {
   return { name: "", amount: "", notes: "" };
 }
+
+/**
+ * The prescription as ONE free-text body.
+ *
+ * The receituário was simplified to a single descriptive field the
+ * professional writes herself — but earlier rows carry structured fields
+ * (title, items, posology...). Composing them here gives ONE canonical text
+ * used everywhere: the card, the edit modal prefill and the PDF body — so a
+ * legacy prescription prints exactly what a new one would.
+ */
+export function prescriptionText(input: {
+  title?: string | null;
+  items?: unknown;
+  posology?: string | null;
+  preparation?: string | null;
+  notes?: string | null;
+}): string {
+  const items = normalizeItems(input.items).map(
+    (item) => `- ${item.name}${item.amount ? ` — ${item.amount}` : ""}${item.notes ? ` (${item.notes})` : ""}`,
+  );
+  return [
+    input.title?.trim(),
+    items.join("\n") || null,
+    input.preparation?.trim(),
+    input.posology?.trim(),
+    input.notes?.trim(),
+  ]
+    .filter((part): part is string => Boolean(part && part.length > 0))
+    .join("\n\n");
+}
