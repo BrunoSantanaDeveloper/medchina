@@ -1,10 +1,13 @@
 import "@/lib/connectors";
 
 // The recording pipeline (download + transcribe + extract + apply) runs in ONE
-// invocation of this route when queued. Without an explicit cap it runs under
-// the Vercel plan default, which can kill a long transcription mid-flight —
-// skipping the terminal failure update and stranding the row in 'processing'.
-export const maxDuration = 300;
+// invocation of this route when queued, so it needs the REAL ceiling — not the
+// 300s platform DEFAULT that a long consultation kept dying against. 800s is
+// the documented maximum for this plan (Pro/Enterprise, nodejs24.x). The
+// pipeline's own deadline stops well short of it, so WE end the work and record
+// why, instead of the platform killing the process before anything is written —
+// which is what left recordings stranded in 'processing' with a live lease.
+export const maxDuration = 800;
 
 import { accountExportFunctions } from "@/lib/account-export-jobs";
 import { agendaFunctions } from "@/lib/agenda-jobs";

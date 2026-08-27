@@ -6,7 +6,7 @@ import { createServiceClient } from "@flyee/auth/service";
 import { sendEvent } from "@flyee/jobs";
 
 // Transcription + extraction are two Gemini calls over an audio file.
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 /**
  * Kick off the clinical pipeline for one recording (PRD §10.2). The heavy work

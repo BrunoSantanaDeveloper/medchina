@@ -36,14 +36,14 @@ export const isRetryablePipelineError = (code: ClinicalErrorCode) => RETRYABLE_P
  * This deadline is the ONE authority every stage reads, and it stops well short
  * of the platform's cap so that WE end the work and record why.
  */
-const PIPELINE_BUDGET_MS = Number(process.env.CLINICAL_PIPELINE_BUDGET_MS) || 240_000;
+const PIPELINE_BUDGET_MS = Number(process.env.CLINICAL_PIPELINE_BUDGET_MS) || 700_000;
 /**
  * Time held back from transcription so the EXTRACTION stage still has room.
  * Without this reservation transcription would spend the whole budget and
  * extraction would be squeezed into whatever was left — turning a good
  * transcript into a failed consultation at the very last step.
  */
-const EXTRACTION_RESERVE_MS = Number(process.env.CLINICAL_EXTRACTION_RESERVE_MS) || 90_000;
+const EXTRACTION_RESERVE_MS = Number(process.env.CLINICAL_EXTRACTION_RESERVE_MS) || 150_000;
 
 type RecordingClaimOutcome = { claimId: string } | { result: PipelineResult };
 
