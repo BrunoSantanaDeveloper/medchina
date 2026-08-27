@@ -60,7 +60,15 @@ const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 
  * long consultations need an async provider (submit + callback), which is why
  * the provider abstraction is the next piece of work.
  */
-const TOTAL_BUDGET_MS = Number(process.env.TRANSCRIBE_TOTAL_BUDGET_MS) || 285_000;
+const TOTAL_BUDGET_MS = Number(process.env.TRANSCRIBE_TOTAL_BUDGET_MS) || 200_000;
+/**
+ * Safety margin subtracted from the remaining budget when arming each call's
+ * abort signal, so the deadline is reached by US and not by the platform.
+ * Overrunning is not a slow request — it is a recording STUCK in 'processing':
+ * the platform kills the invocation before the terminal fail() update runs, the
+ * row keeps a live lease, and the UI says "Processando..." indefinitely.
+ */
+const CALL_MARGIN_MS = 10_000;
 /**
  * A transcript is only trustworthy if it reaches the END of the audio. Below
  * this share of the recording's duration it is treated as INCOMPLETE.
@@ -235,6 +243,13 @@ async function transcribeAudio(
   const remaining = () => TOTAL_BUDGET_MS - (Date.now() - startedAt);
 
   const askModel = async (model: string, instruction: string): Promise<TranscriptResult> => {
+    // The deadline is whatever is LEFT of the budget, never a fixed per-call
+    // timeout. MEASURED IN PRODUCTION: with a 240s per-call timeout under a
+    // 285s budget, a call started with 250s left ran on to ~490s; the platform
+    // killed the invocation at its own 300s cap, so the terminal fail() never
+    // ran and the row stranded in 'processing' with a live lease — the UI said
+    // "Processando..." for hours while the cron kept re-claiming it.
+    const budgetMs = Math.max(15_000, Math.min(ATTEMPT_TIMEOUT_MS, remaining() - CALL_MARGIN_MS));
     const response = await client.models.generateContent({
       model,
       contents: [{ role: "user", parts: [audioPart, { text: instruction }] }],
@@ -243,6 +258,7 @@ async function transcribeAudio(
         responseJsonSchema: RESULT_SCHEMA,
         temperature: 0,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
+        abortSignal: AbortSignal.timeout(budgetMs),
       },
     });
     const text = response.text;
