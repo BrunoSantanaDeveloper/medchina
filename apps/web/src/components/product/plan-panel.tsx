@@ -109,6 +109,8 @@ export default function PlanPanel({
   const [retrievalFailed, setRetrievalFailed] = useState(false);
   /** Reissuing revokes the signed PDF that is already in the patient's hands. */
   const [confirmReissue, setConfirmReissue] = useState(false);
+  /** Generating with AI over a MANUAL draft replaces what she typed — confirmed. */
+  const [confirmReplaceManual, setConfirmReplaceManual] = useState(false);
   /** The issued document she is handing to the patient (PRD §9.8). */
   const [sharingDoc, setSharingDoc] = useState<IssuedDocument | null>(null);
   const [shareBusy, setShareBusy] = useState(false);
@@ -774,6 +776,23 @@ export default function PlanPanel({
                         {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
                       </Button>
                     )}
+                    {/* A manual draft used to be a DEAD END for the AI: prepare()
+                        without replaceManual is refused (manual_plan_exists) and
+                        this footer only offered "reprepare" for AI plans — so a
+                        professional who started manually could never receive the
+                        point/moxa/cupping proposals at all. The replacement is
+                        explicit and confirmed: it overwrites her manual DRAFT
+                        (a validated plan is refused server-side). */}
+                    {!isFinalized && canReason && plan.status === "draft" && plan.origin === "manual" && (
+                      <Button
+                        variant="text"
+                        color="grey"
+                        onClick={() => setConfirmReplaceManual(true)}
+                        disabled={busy || !hasAcceptedHypotheses}
+                      >
+                        {busy ? <CircularProgress size={16} /> : t("plan-generate-ai")}
+                      </Button>
+                    )}
                     {!isFinalized && (
                       <Button variant="outlined" color="grey" onClick={startEdit} disabled={busy}>
                         {t("plan-edit")}
@@ -884,6 +903,37 @@ export default function PlanPanel({
           </Button>
           <Button variant="contained" color="primary" onClick={() => void issue()} disabled={busy}>
             {t("plan-reissue")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Generating with AI over a manual DRAFT replaces what she typed — an
+          act with that consequence gets a dialog that names it. */}
+      <Dialog open={confirmReplaceManual} onClose={() => setConfirmReplaceManual(false)} maxWidth="xs" fullWidth>
+        <DialogHeader
+          title={t("plan-generate-ai")}
+          closeLabel={t("close")}
+          onClose={() => setConfirmReplaceManual(false)}
+        />
+        <DialogContent className="py-5!">
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {t("plan-replace-manual-body")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setConfirmReplaceManual(false)}>
+            {t("cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={busy}
+            onClick={() => {
+              setConfirmReplaceManual(false);
+              void prepare(true);
+            }}
+          >
+            {t("plan-generate-ai")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -240,8 +240,13 @@ function buildPrompt(
     `1. SCOPE OF PRACTICE — this practitioner treats ONLY with: ${scope.join(", ")}. Propose modalities ONLY from`,
     "   that list. Never propose, mention or hint at one outside it: she cannot apply it, and a validated plan is",
     "   signed into a document under her professional responsibility.",
-    "2. Within that scope, include ONLY the modalities that genuinely fit this case. Omit the rest — never pad to",
-    "   look complete.",
+    "2. Within that scope, propose EVERY modality that is applicable to the accepted patterns — the practitioner",
+    "   registered them because she uses them, and an applicable modality left empty reads as a silent omission.",
+    "   Omit a modality only when it genuinely does not fit this case, and never pad one just to look complete.",
+    "2b. Proposals must be CONCRETE, in the nomenclature the library uses: acupuncture fills mainPoints (e.g.",
+    "    BP9, E36, VC12) with the reasoning in its objective; auriculotherapy names the auricular points;",
+    "    moxibustion names the points/areas and technique; cupping names the areas and method. Prefer points",
+    "    supported by the library excerpts below, and cite them.",
     "3. For moxibustion you MUST provide a contraindication checklist to verify before application (PRD §10.9).",
     "4. NEVER hide a contraindication. The recorded case has these sensitive factors flagged; every modality you",
     "   propose must be compatible with them, and where one matters (e.g. cupping with an anticoagulant, moxa or",
@@ -297,14 +302,31 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       // One query per accepted pattern plus one for the case: a plan is built
       // FROM the patterns she accepted, so those are the terms the library
       // should be searched by — not the chart flattened into one vector.
+      // Patterns alone retrieve pattern/formula cards — semantically they are
+      // the nearest neighbours. The 466 point cards only surface when the
+      // QUESTION is about the modality, so each in-scope treatment modality
+      // gets its own query over the accepted patterns. Measured symptom: a
+      // practitioner with acupuncture, moxa, cupping and auriculotherapy on
+      // her profile received formula guidance and zero points.
+      const patternsLine = input.acceptedPatterns.join(", ");
+      const modalityQueries: string[] = patternsLine
+        ? [
+            scope.includes("acupuncture") ? `pontos de acupuntura indicados para ${patternsLine}` : null,
+            scope.includes("auriculotherapy") ? `auriculoterapia pontos auriculares para ${patternsLine}` : null,
+            scope.includes("moxibustion") ? `moxabustão pontos e técnica para ${patternsLine}` : null,
+            scope.includes("cupping") ? `ventosaterapia áreas e aplicação para ${patternsLine}` : null,
+            scope.includes("diet") ? `dietoterapia chinesa alimentos para ${patternsLine}` : null,
+          ].filter((query): query is string => Boolean(query))
+        : [];
       const queries = [
         ...input.acceptedPatterns,
+        ...modalityQueries,
         [input.chiefComplaint, describeCase(input)].filter(Boolean).join("\n"),
       ].filter((query) => query.trim());
       const outcomes = await Promise.allSettled(
         queries
-          .slice(0, 5)
-          .map((query) => searchKnowledge(supabase, query, { collectionIds, matchCount: 6, minSimilarity: 0.25 })),
+          .slice(0, 9)
+          .map((query) => searchKnowledge(supabase, query, { collectionIds, matchCount: 5, minSimilarity: 0.25 })),
       );
       const merged = new Map<string, KnowledgeSearchResult>();
       let anySucceeded = false;
