@@ -41,14 +41,14 @@ const FILE_POLL_INTERVAL_MS = 2_000;
 const FILE_POLL_TIMEOUT_MS = 5 * 60_000;
 
 /**
- * Per-attempt HTTP deadline. Without it a generateContent call is one bare
- * fetch the provider may hold open for MINUTES before answering 503 (measured:
- * 293s for a 4-minute audio) — colliding with the route's own maxDuration so
- * the terminal failure update never ran and the row stranded in 'processing'.
- * Generous, because a long consultation legitimately takes a while to
- * transcribe; bounded, because unbounded is what broke.
+ * Per-CALL ceiling. Congestion on Gemini OSCILLATES minute to minute — the same
+ * audio that hung past the whole budget in the 17:08 production attempt
+ * answered in 35s on a probe at 17:14. Good runs measure 35–70s, so a call
+ * still silent at 90s is almost certainly parked in a congested window:
+ * cutting it leaves room for a SECOND fresh call inside the same invocation,
+ * which may land in a clear window. One hung call must never eat the budget.
  */
-const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 140_000;
+const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 90_000;
 /**
  * Overall budget across every attempt. The pipeline passes a tighter SHARED
  * deadline, which always wins — this is only the ceiling when called directly.
@@ -228,6 +228,16 @@ function modelChain(): { model: string; retryOnce: boolean }[] {
   return [{ model: primary, retryOnce: true }, ...fallbacks.map((model) => ({ model, retryOnce: false }))];
 }
 
+/** A failed run may still carry PROGRESS — the caller persists it for resume. */
+interface PartialCarrier {
+  partialTranscript?: TranscriptResult;
+}
+
+function withPartial(error: Error, partial: TranscriptResult | null): Error {
+  if (partial && partial.segments.length > 0) (error as Error & PartialCarrier).partialTranscript = partial;
+  return error;
+}
+
 async function transcribeAudio(
   mime: string,
   bytes: Uint8Array,
@@ -235,6 +245,14 @@ async function transcribeAudio(
   expectedSeconds?: number | null,
   /** Shared pipeline deadline (epoch ms) — wins over the local budget. */
   deadlineAt?: number,
+  /**
+   * PARTIAL transcript persisted by a previous attempt. Every retry is a fresh
+   * invocation with a fresh time budget — resuming means the new session asks
+   * only for the REMAINING window instead of re-transcribing from zero, so
+   * progress accumulates across congestion waves instead of being discarded by
+   * each one.
+   */
+  resumeFrom?: TranscriptResult | null,
 ): Promise<TranscriptResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set — transcription uses Gemini.");
@@ -371,8 +389,41 @@ async function transcribeAudio(
   try {
     // One uploaded file serves every attempt — switching models is free.
     let lastError: unknown = new Error("Transcription attempts exhausted.");
+    /** Context of the last failure, so the persisted error names a CAUSE. */
+    let lastFailure: { model: string; elapsedS: number; status: number | null } | null = null;
     /** Best INCOMPLETE result seen, kept as a floor rather than thrown away. */
     let bestPartial: { result: TranscriptResult; coverage: number; model: string } | null = null;
+
+    // ---- Resume: a previous session already transcribed part of this audio.
+    // Do not start over — verify what exists and ask only for the rest.
+    if (resumeFrom?.segments?.length) {
+      let base = normalizeTimestamps(resumeFrom, expectedSeconds);
+      const startCoverage = transcriptCoverage(base, expectedSeconds);
+      if (startCoverage >= MIN_COVERAGE) return base;
+      console.warn(`[transcribe] resuming from a persisted partial at ${Math.round(startCoverage * 100)}% coverage`);
+      for (const step of modelChain()) {
+        if (remaining() < CONTINUATION_MIN_BUDGET_MS) break;
+        try {
+          base = await completeTail(step.model, base);
+          if (transcriptCoverage(base, expectedSeconds) >= MIN_COVERAGE) {
+            console.warn(`[transcribe] resumed partial completed by ${step.model}`);
+            return base;
+          }
+        } catch (error) {
+          const failure = classifyProviderError(error);
+          if (!failure.transient && failure.scope === "account") throw error;
+          console.warn(`[transcribe] resume continuation on ${step.model} failed (status ${failure.status ?? "?"})`);
+        }
+      }
+      // Still short: persist whatever we EXTENDED so the next session starts
+      // even further ahead, and let the caller retry later.
+      throw withPartial(
+        new Error(
+          `Transcription resumed but the budget ran out at ${Math.round(transcriptCoverage(base, expectedSeconds) * 100)}% coverage — will resume again on the next attempt.`,
+        ),
+        base,
+      );
+    }
 
     for (const step of modelChain()) {
       const tries = step.retryOnce ? 2 : 1;
@@ -381,6 +432,7 @@ async function transcribeAudio(
           if (bestPartial) break;
           throw lastError;
         }
+        const attemptStartedAt = Date.now();
         try {
           let result = await attemptOnce(step.model);
           let coverage = transcriptCoverage(result, expectedSeconds);
@@ -410,6 +462,7 @@ async function transcribeAudio(
         } catch (error) {
           lastError = error;
           const failure = classifyProviderError(error);
+          lastFailure = { model: step.model, elapsedS: Math.round((Date.now() - attemptStartedAt) / 1000), status: failure.status };
           // An ACCOUNT failure (bad key, credits depleted) reads the same from
           // every model — stop now rather than burn the chain proving it.
           if (!failure.transient && failure.scope === "account") throw error;
@@ -425,16 +478,26 @@ async function transcribeAudio(
         }
       }
     }
-    // Every model truncated. Returning the fullest attempt beats losing the
-    // consultation entirely — but it is logged loudly, because the missing
-    // tail is clinical content nobody was told about.
+    // Exhausted. An incomplete transcript is no longer ACCEPTED as ready (that
+    // hid a missing tail of tongue/pulse findings behind a green status) — it
+    // is PERSISTED as a partial, so the next session resumes from it instead of
+    // starting over. And the error names its cause: "This operation was
+    // aborted" alone made it impossible to tell our budget cut from a provider
+    // outage without reading the code.
+    const cause = lastFailure
+      ? `last attempt: ${lastFailure.model} ${lastFailure.status === null ? "aborted by our budget" : `failed with status ${lastFailure.status}`} after ${lastFailure.elapsedS}s`
+      : "no attempt completed";
     if (bestPartial) {
-      console.error(
-        `[transcribe] INCOMPLETE transcript kept: ${Math.round(bestPartial.coverage * 100)}% coverage from ${bestPartial.model}`,
+      throw withPartial(
+        new Error(
+          `Transcription incomplete at ${Math.round(bestPartial.coverage * 100)}% coverage (${cause}) — partial saved; the next attempt resumes from it.`,
+        ),
+        bestPartial.result,
       );
-      return bestPartial.result;
     }
-    throw lastError;
+    throw lastError instanceof Error && !(lastError as Error & PartialCarrier).partialTranscript
+      ? new Error(`Transcription failed (${cause}): ${lastError.message}`)
+      : lastError;
   } finally {
     // Uploaded files auto-expire in 48h; deleting sooner is hygiene, not
     // correctness — never let cleanup mask the transcription result. It is also
@@ -482,11 +545,18 @@ export async function processTranscription(
 ): Promise<TranscriptionRunResult> {
   const { data: row, error: loadError } = await supabase
     .from("transcriptions")
-    .select("id, audio_path, mime")
+    .select("id, audio_path, mime, result")
     .eq("id", transcriptionId)
     .maybeSingle();
   if (loadError || !row) return { ok: false, error: loadError?.message ?? "Transcription not found." };
   if (!row.audio_path) return { ok: false, error: "Transcription has no source audio (already deleted?)." };
+
+  // A previous session may have gotten PART of the way before its budget ran
+  // out — that partial is persisted in `result` alongside status='error'.
+  // Resuming from it means each retry extends the work instead of redoing it,
+  // which is what lets a long consultation cross congestion waves at all.
+  const raw = row.result as TranscriptResult | null;
+  const resumeFrom = raw && Array.isArray(raw.segments) && raw.segments.length > 0 ? raw : null;
 
   await supabase.from("transcriptions").update({ status: "processing", error: null }).eq("id", transcriptionId);
 
@@ -495,16 +565,21 @@ export async function processTranscription(
     if (downloadError || !blob) throw new Error(downloadError?.message ?? "Audio download failed.");
 
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    const result = await transcribeAudio(row.mime, bytes, expectedSeconds, deadlineAt);
+    const result = await transcribeAudio(row.mime, bytes, expectedSeconds, deadlineAt, resumeFrom);
 
     await supabase.from("transcriptions").update({ status: "ready", result }).eq("id", transcriptionId);
 
     return { ok: true, segments: result.segments.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // The RAW provider message is persisted — it is the diagnosis (/admin/audit
-    // reads it); the transient flag is how the pipeline decides retry-vs-stop.
-    await supabase.from("transcriptions").update({ status: "error", error: message }).eq("id", transcriptionId);
+    // The error now NAMES its cause (model, elapsed, our-abort vs provider
+    // status) — "This operation was aborted" alone was undiagnosable from
+    // /admin/audit. Any partial progress rides along in `result` for resume.
+    const partial = (error as Error & { partialTranscript?: TranscriptResult }).partialTranscript;
+    await supabase
+      .from("transcriptions")
+      .update({ status: "error", error: message, ...(partial ? { result: partial } : {}) })
+      .eq("id", transcriptionId);
     return { ok: false, error: message, transient: classifyProviderError(error).transient };
   }
 }
