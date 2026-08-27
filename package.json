@@ -21,7 +21,7 @@
     "test:clinical": "npm test -w @flyee/clinical",
     "test:whatsapp": "npm test -w @flyee/whatsapp",
     "test:ai": "npm test -w @flyee/ai",
-    "test": "npm run test:clinical && npm run test:knowledge && npm run test:web && npm run test:mobile",
+    "test": "npm run test:clinical && npm run test:transcribe && npm run test:knowledge && npm run test:web && npm run test:mobile",
     "test:web": "npm run test -w @flyee/web",
     "test:mobile": "npm run test -w @flyee/mobile",
     "test:browser": "npm run test:browser -w @flyee/web",
@@ -45,7 +45,8 @@
     "typecheck": "npm run typecheck -w @flyee/clinical && npm run typecheck -w @flyee/web && npm run typecheck -w @flyee/mobile",
     "test:knowledge": "npm test -w @flyee/knowledge",
     "eval:retrieval": "tsx scripts/eval-retrieval.mts",
-    "knowledge:reindex": "tsx scripts/reindex-knowledge.mts"
+    "knowledge:reindex": "tsx scripts/reindex-knowledge.mts",
+    "test:transcribe": "npm test -w @flyee/transcribe"
   },
   "devDependencies": {
     "husky": "9.1.7",

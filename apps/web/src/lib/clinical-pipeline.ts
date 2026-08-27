@@ -173,7 +173,7 @@ export async function processRecording(
     .maybeSingle();
 
   if (beforeTranscription?.status !== "ready") {
-    const transcribed = await processTranscription(supabase, transcriptionId);
+    const transcribed = await processTranscription(supabase, transcriptionId, recording.duration_seconds);
     if (!transcribed.ok) {
       // The real provider error (model unavailable, quota, bad key) is also
       // persisted to transcriptions.error, but log it here so a failure is

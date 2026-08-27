@@ -21,13 +21,19 @@ Speaker labels are generic (`Speaker 1`, `Speaker 2`); projects relabel them in 
 ## Configuration
 
 - `GEMINI_API_KEY` — required (clear error without it; nothing else breaks).
-- `TRANSCRIBE_MODEL` — optional, defaults to `gemini-flash-latest`.
+- `TRANSCRIBE_MODEL` — optional, defaults to `gemini-3.6-flash`. Use a PINNED version, never a `-latest` alias: the alias tracks the newest generation, which is the most congested pool (measured: `gemini-flash-latest` and `gemini-3.7-flash` both 503 while 3.6/3.5/2.5 answered).
 - `TRANSCRIBE_MODEL_FALLBACKS` — optional, comma-separated models tried in order when the primary fails
-  TRANSIENTLY (503 overload, rate limit). Defaults to `gemini-2.0-flash`; set empty to disable. Fatal
-  provider errors (bad key, model gone, depleted credits) are never retried on any model.
-- `TRANSCRIBE_ATTEMPT_TIMEOUT_MS` / `TRANSCRIBE_TOTAL_BUDGET_MS` — optional per-attempt HTTP deadline
-  (default 180000) and overall retry budget (default 250000); keeps a hung provider request from
-  outliving the serverless function.
+  TRANSIENTLY (503 overload, rate limit) or is retired (404). Defaults to `gemini-3.5-flash,gemini-2.5-flash` —
+  deliberately spanning generations so one overloaded pool cannot take the chain down. Set empty to disable. Account-level
+  failures (bad key, depleted credits) stop the chain immediately; a model-level 404/400 advances to the next model.
+- `TRANSCRIBE_ATTEMPT_TIMEOUT_MS` / `TRANSCRIBE_TOTAL_BUDGET_MS` — per-attempt HTTP deadline (default 240000)
+  and overall budget (default 285000); keeps a hung provider request from outliving the serverless function.
+  MEASURED 2026-08-27: a 16m36s consultation took 197s (3.5-flash) / 53s (2.5-flash), so a 45–60 min audio does
+  NOT fit in a single invocation — long consultations need an async (submit + callback) provider.
+- `TRANSCRIBE_MIN_COVERAGE` (default 0.85) / `TRANSCRIBE_MAX_OUTPUT_TOKENS` (default 32768) — a model can return
+  a well-formed transcript that silently STOPS EARLY (measured: both models stopped near 12:00 on a 16:26 audio,
+  losing the practitioner's dictated tongue/pulse/palpation). Coverage is verified against the recorded duration:
+  a short transcript makes the chain try the next model, and the fullest result is kept with a loud log.
 - Migration: `packages/db/migrations/0007_transcriptions.sql`.
 
 This also unlocks audio for Anthropic-backed assistants: transcribe first, send the text.

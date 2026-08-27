@@ -1970,7 +1970,7 @@
     "consultation-gaps-dismiss": "Dispensar sugestão",
     "consultation-gap-dismiss-error": "Não foi possível dispensar a sugestão. Tente novamente.",
     "recordings-title": "Gravações",
-    "recordings-process": "Processar com IA",
+    "recordings-process": "Reprocessar áudio",
     "recordings-process-error": "Não foi possível processar a gravação.",
     "recordings-load-error": "Não foi possível carregar as gravações. Tente novamente.",
     "recordings-error-consent": "O consentimento necessário não está vigente. Revise os consentimentos da paciente.",
