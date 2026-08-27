@@ -55,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const idempotencyKey = headerKey && UUID_PATTERN.test(headerKey) ? headerKey : randomUUID();
   const { data: versions, error: versionsError } = await supabase
     .from("documents")
-    .select("id, version, status, idempotency_key")
+    .select("id, version, status, idempotency_key, issue_lease_expires_at")
     .eq("org_id", consultation.org_id)
     .eq("kind", DOCUMENT_KINDS.attendance)
     .eq("source_type", "consultation")
@@ -105,7 +105,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     },
     (context) => renderAttendancePdf(makeDocumentData(context.version), t, context),
   );
-  if (!result.ok) return clinicalError("document_issue_conflict");
+  if (!result.ok) {
+    // The real reason (render, storage, publish fence) was swallowed into one
+    // generic conflict — undiagnosable from the UI and absent from the audit
+    // trail. Name it in both places operators actually look.
+    console.error("[documents] issue failed", { kind: DOCUMENT_KINDS.attendance, error: result.error });
+    await recordAudit(supabase, "document.issue_failed", {
+      orgId: consultation.org_id,
+      entityType: "consultation",
+      entityId: id,
+      metadata: { kind: DOCUMENT_KINDS.attendance, error: result.error },
+    });
+    return clinicalError("document_issue_conflict");
+  }
 
   if (existingRequest?.status !== "issued") {
     await recordAudit(supabase, "consultation.attendance.issued", {

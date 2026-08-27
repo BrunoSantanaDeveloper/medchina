@@ -89,6 +89,12 @@ export const recoverClinicalDeliveryFunction = inngest.createFunction(
   async () => {
     const service = createServiceClient();
     const now = new Date().toISOString();
+    // ONE deadline for the whole sweep: this cron runs in a single 300s
+    // invocation, and every loop below must stop while there is still time to
+    // return — a recovery mechanism that gets killed mid-flight strands state
+    // exactly like the failures it exists to recover.
+    const sweepStartedAt = Date.now();
+    const sweepExpired = () => Date.now() - sweepStartedAt > 240_000;
     const { data: stuck } = await service
       .from("recordings")
       .select("id, processing_attempts")
@@ -123,7 +129,9 @@ export const recoverClinicalDeliveryFunction = inngest.createFunction(
       await notifyRecordingStatus(service, recordingId, "recording_failed");
     };
 
+    let ranInline = false;
     for (const row of stuck ?? []) {
+      if (sweepExpired()) break;
       if (Number(row.processing_attempts ?? 0) >= MAX_PROCESSING_ATTEMPTS) {
         await failStuckRecording(row.id, "processing_attempts_exhausted");
         continue;
@@ -138,6 +146,13 @@ export const recoverClinicalDeliveryFunction = inngest.createFunction(
       }
       const queued = await sendEvent("medchina/recording.process", { recordingId: row.id, claimId: claim.claimId });
       if (!queued.sent) {
+        // Inline is the no-Inngest fallback and it runs the WHOLE pipeline —
+        // at most ONE per sweep, and only with room to finish. The other
+        // reclaimed rows keep their fresh lease and the next sweep (5 minutes)
+        // picks them up; slower than looping here, but the loop was 5 full
+        // pipelines inside one 300s invocation, which never fit.
+        if (ranInline || sweepExpired()) continue;
+        ranInline = true;
         const result = await processRecording(service, row.id, claim.claimId);
         await notifyRecordingStatus(service, row.id, result.ok ? "recording_ready" : "recording_failed");
       }
@@ -150,11 +165,12 @@ export const recoverClinicalDeliveryFunction = inngest.createFunction(
       .order("created_at", { ascending: true })
       .limit(25);
     for (const item of outbox ?? []) {
+      if (sweepExpired()) break;
       if (item.status === "processing" && item.lease_expires_at && item.lease_expires_at > now) continue;
       await notifyRecordingStatus(service, item.recording_id, item.kind as "recording_ready" | "recording_failed");
     }
 
-    const retention = await deleteDueRetainedAudio();
+    const retention = sweepExpired() ? { deleted: 0, failed: 0 } : await deleteDueRetainedAudio();
 
     return {
       processingRecovered: stuck?.length ?? 0,

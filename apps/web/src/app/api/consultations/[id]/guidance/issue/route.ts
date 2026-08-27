@@ -72,10 +72,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const headerKey = request.headers.get("idempotency-key");
-  const idempotencyKey = headerKey && UUID_PATTERN.test(headerKey) ? headerKey : randomUUID();
+  let idempotencyKey = headerKey && UUID_PATTERN.test(headerKey) ? headerKey : randomUUID();
   const { data: documentVersions, error: versionsError } = await supabase
     .from("documents")
-    .select("id, version, status, idempotency_key")
+    .select("id, version, status, idempotency_key, issue_lease_expires_at")
     .eq("org_id", consultation.org_id)
     .eq("kind", DOCUMENT_KIND)
     .eq("source_type", "consultation_plan")
@@ -83,11 +83,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .order("version", { ascending: false });
   if (versionsError) return clinicalError("document_issue_conflict");
 
-  const existingRequest = documentVersions?.find((document) => document.idempotency_key === idempotencyKey);
   const foreignDraft = documentVersions?.find(
     (document) => document.status === "draft" && document.idempotency_key !== idempotencyKey,
   );
-  if (foreignDraft) return clinicalError("document_issue_conflict");
+  if (foreignDraft) {
+    // A reserved draft whose issue attempt DIED (render/upload failure, killed
+    // invocation) used to block issuance FOREVER: the idempotency key lives in
+    // the page's memory, so after a reload every retry looked like a different
+    // request and hit this conflict. If nothing holds the issue lease, the
+    // draft is abandoned — ADOPT its key and resume that exact reserved
+    // version; the claim RPC still fences a concurrent worker.
+    const leaseLive = foreignDraft.issue_lease_expires_at && new Date(foreignDraft.issue_lease_expires_at) > new Date();
+    if (leaseLive) return clinicalError("document_issue_conflict");
+    if (foreignDraft.idempotency_key) idempotencyKey = foreignDraft.idempotency_key;
+  }
+  const existingRequest = documentVersions?.find((document) => document.idempotency_key === idempotencyKey);
 
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "product" });
@@ -134,7 +144,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     },
     (context) => renderHomeGuidancePdf(makeDocumentData(context.version, context.sourceSnapshot), t, context),
   );
-  if (!result.ok) return clinicalError("document_issue_conflict");
+  if (!result.ok) {
+    // The real reason (render, storage, publish fence) was swallowed into one
+    // generic conflict — undiagnosable from the UI and absent from the audit
+    // trail. Name it in both places operators actually look.
+    console.error("[documents] issue failed", { kind: DOCUMENT_KIND, error: result.error });
+    await recordAudit(supabase, "document.issue_failed", {
+      orgId: consultation.org_id,
+      entityType: "consultation",
+      entityId: id,
+      metadata: { kind: DOCUMENT_KIND, error: result.error },
+    });
+    return clinicalError("document_issue_conflict");
+  }
 
   if (existingRequest?.status !== "issued") {
     await recordAudit(supabase, "consultation.guidance.issued", {

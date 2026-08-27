@@ -33,7 +33,9 @@ export class AnthropicProvider implements ChatProvider {
   async *streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string> {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
-    const client = new Anthropic({ apiKey: key });
+    // Without these the SDK defaults to 600s per attempt x 3 attempts — half an
+    // hour of a serverless invocation that is capped at 120-300s.
+    const client = new Anthropic({ apiKey: key, timeout: 90_000, maxRetries: 1 });
 
     const stream = client.messages.stream({
       model: config.model,
@@ -57,7 +59,9 @@ export class AnthropicProvider implements ChatProvider {
   ): Promise<unknown> {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
-    const client = new Anthropic({ apiKey: key });
+    // Without these the SDK defaults to 600s per attempt x 3 attempts — half an
+    // hour of a serverless invocation that is capped at 120-300s.
+    const client = new Anthropic({ apiKey: key, timeout: 90_000, maxRetries: 1 });
 
     // Forced tool use: the reply IS the tool input, validated against the schema.
     const response = await client.messages.create({

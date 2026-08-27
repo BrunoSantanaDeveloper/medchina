@@ -45,6 +45,9 @@ export class OpenRouterProvider implements ChatProvider {
     if (!key) throw new Error("OPENROUTER_API_KEY is not set");
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      // A bare fetch has NO timeout: a hung provider held the serverless
+      // invocation open until the platform killed it mid-flight.
+      signal: AbortSignal.timeout(90_000),
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -100,6 +103,9 @@ export class OpenRouterProvider implements ChatProvider {
     if (!key) throw new Error("OPENROUTER_API_KEY is not set");
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      // A bare fetch has NO timeout: a hung provider held the serverless
+      // invocation open until the platform killed it mid-flight.
+      signal: AbortSignal.timeout(90_000),
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,

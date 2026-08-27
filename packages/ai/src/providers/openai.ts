@@ -93,6 +93,9 @@ export class OpenAiProvider implements ChatProvider {
     const { url, key } = this.endpoint();
 
     const response = await fetch(url, {
+      // A bare fetch has NO timeout: a hung provider held the serverless
+      // invocation open until the platform killed it mid-flight.
+      signal: AbortSignal.timeout(90_000),
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ ...this.baseBody(config, messages), stream: true }),
@@ -139,6 +142,9 @@ export class OpenAiProvider implements ChatProvider {
     const { url, key } = this.endpoint();
 
     const response = await fetch(url, {
+      // A bare fetch has NO timeout: a hung provider held the serverless
+      // invocation open until the platform killed it mid-flight.
+      signal: AbortSignal.timeout(90_000),
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({

@@ -27,7 +27,10 @@ async function embed(texts: string[], taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVA
   if (!key) {
     throw new Error("GEMINI_API_KEY is not set — the knowledge base uses Gemini for embeddings.");
   }
-  const client = new GoogleGenAI({ apiKey: key });
+  // Without httpOptions the SDK never arms an AbortController — an embeddings
+  // hang took the library chat, the hypotheses AND the plan down with it,
+  // because retrieval runs before every one of them.
+  const client = new GoogleGenAI({ apiKey: key, httpOptions: { timeout: 60_000, retryOptions: { attempts: 2 } } });
 
   const vectors: number[][] = [];
   for (let start = 0; start < texts.length; start += BATCH_SIZE) {

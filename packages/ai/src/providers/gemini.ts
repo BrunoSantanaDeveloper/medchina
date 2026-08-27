@@ -8,7 +8,11 @@ import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } fro
  * fails the request outright, and a hung connection blocks until the platform
  * kills the function.
  */
-const HTTP_OPTIONS = { timeout: 120_000, retryOptions: { attempts: 3 } };
+// 90s, not 120: several callers run under routes capped at maxDuration = 120,
+// and a 120s provider timeout guarantees the PLATFORM kills the route before
+// the provider gives up — the caller then sees a dead connection instead of an
+// error it can name. The SDK arms this timer once per request; retries share it.
+const HTTP_OPTIONS = { timeout: 90_000, retryOptions: { attempts: 3 } };
 
 function toGeminiContents(messages: ChatMessage[]) {
   return messages.map((message) => ({

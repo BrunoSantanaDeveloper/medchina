@@ -64,6 +64,9 @@ export async function sendMobileStatusPush(
     try {
       const batch = messages.slice(offset, offset + 100);
       const response = await fetch("https://exp.host/--/api/v2/push/send", {
+        // The recovery cron loops over up to 25 outbox items; one hung push
+        // with no timeout could hold the whole invocation hostage.
+        signal: AbortSignal.timeout(15_000),
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(batch),

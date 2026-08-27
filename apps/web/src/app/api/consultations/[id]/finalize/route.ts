@@ -5,6 +5,10 @@ import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { getAudioAllowance } from "@/lib/usage";
 
+// Finalizing must never hang on the AI summary: the summary is best-effort
+// and time-boxed below; this cap is for everything else in the route.
+export const maxDuration = 120;
+
 type FinalizeBody = { expectedRevision?: number | null; acknowledgedWarnings?: string[] };
 
 /**
@@ -40,10 +44,19 @@ async function generateFinalSummary(
       .eq("consultation_id", consultationId);
     if ((answers ?? []).length === 0 && !consultation.chief_complaint) return;
 
-    const suggested = await buildClinicalSummary({
-      chiefComplaint: consultation.chief_complaint,
-      answers: (answers ?? []).map((row) => ({ blockKey: row.block_key, fieldKey: row.field_key, value: row.value })),
-    });
+    // TIME-BOXED: the professional clicked "finalize" — closing the record is
+    // the job, the suggested summary is a bonus. A hung provider used to hold
+    // this route open until the platform killed it, which read as "the
+    // consultation will not finalize".
+    const suggested = await Promise.race([
+      buildClinicalSummary({
+        chiefComplaint: consultation.chief_complaint,
+        answers: (answers ?? []).map((row) => ({ blockKey: row.block_key, fieldKey: row.field_key, value: row.value })),
+      }),
+      new Promise<never>((_, rejectRace) =>
+        setTimeout(() => rejectRace(new Error("final summary timed out — finalization proceeds without it")), 45_000),
+      ),
+    ]);
     if (!suggested.summary) return;
 
     await supabase.rpc("save_consultation_ai_summary", {
