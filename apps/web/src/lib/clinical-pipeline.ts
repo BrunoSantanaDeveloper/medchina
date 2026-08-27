@@ -22,6 +22,29 @@ const RETRYABLE_PIPELINE_ERRORS = new Set<ClinicalErrorCode>([
 
 export const isRetryablePipelineError = (code: ClinicalErrorCode) => RETRYABLE_PIPELINE_ERRORS.has(code);
 
+/**
+ * How long the WHOLE pipeline may spend inside one invocation.
+ *
+ * The stages — download, transcribe, extract, apply — share a single
+ * serverless invocation capped at maxDuration = 300s. Budgeting them
+ * independently is what broke production: transcription allowed 200s and
+ * extraction up to 360s (120s x 3 SDK retries), so the platform killed the
+ * process before the terminal fail() below could run. The row then kept
+ * status='processing' with a live lease, the professional saw "Processando..."
+ * for hours, and the 5-minute recovery cron re-claimed it in a loop.
+ *
+ * This deadline is the ONE authority every stage reads, and it stops well short
+ * of the platform's cap so that WE end the work and record why.
+ */
+const PIPELINE_BUDGET_MS = Number(process.env.CLINICAL_PIPELINE_BUDGET_MS) || 240_000;
+/**
+ * Time held back from transcription so the EXTRACTION stage still has room.
+ * Without this reservation transcription would spend the whole budget and
+ * extraction would be squeezed into whatever was left — turning a good
+ * transcript into a failed consultation at the very last step.
+ */
+const EXTRACTION_RESERVE_MS = Number(process.env.CLINICAL_EXTRACTION_RESERVE_MS) || 90_000;
+
 type RecordingClaimOutcome = { claimId: string } | { result: PipelineResult };
 
 async function acquireRecordingClaim(supabase: SupabaseClient, recordingId: string): Promise<RecordingClaimOutcome> {
@@ -122,6 +145,10 @@ export async function processRecording(
   }
 
   const activeClaimId = claimId;
+  // Everything below shares this deadline; each stage takes what is left, and
+  // transcription stops early enough for extraction to still run.
+  const deadlineAt = Date.now() + PIPELINE_BUDGET_MS;
+  const transcriptionDeadlineAt = deadlineAt - EXTRACTION_RESERVE_MS;
   const reject = (code: ClinicalErrorCode, stage: FailureStage) =>
     fail(supabase, recordingId, activeClaimId, code, stage, finalAttempt || !isRetryablePipelineError(code));
 
@@ -173,7 +200,12 @@ export async function processRecording(
     .maybeSingle();
 
   if (beforeTranscription?.status !== "ready") {
-    const transcribed = await processTranscription(supabase, transcriptionId, recording.duration_seconds);
+    const transcribed = await processTranscription(
+      supabase,
+      transcriptionId,
+      recording.duration_seconds,
+      transcriptionDeadlineAt,
+    );
     if (!transcribed.ok) {
       // The real provider error (model unavailable, quota, bad key) is also
       // persisted to transcriptions.error, but log it here so a failure is
@@ -211,7 +243,7 @@ export async function processRecording(
   // ---- 2. Extract ---------------------------------------------------------
   let extraction;
   try {
-    extraction = await extractAnamnesis(transcript);
+    extraction = await extractAnamnesis(transcript, deadlineAt);
   } catch {
     return reject("provider_unavailable", "extraction");
   }

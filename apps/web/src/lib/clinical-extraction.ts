@@ -23,6 +23,9 @@ import { GoogleGenAI } from "@google/genai";
 
 const DEFAULT_MODEL = "gemini-3.6-flash";
 
+/** Ceiling for this stage even when the pipeline leaves more room. */
+const EXTRACTION_MAX_MS = Number(process.env.EXTRACTION_TIMEOUT_MS) || 90_000;
+
 /** Bump when the prompt or the verification changes — recorded per answer. */
 export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-08-02";
 
@@ -257,7 +260,19 @@ function buildPrompt(transcript: TranscriptResult): string {
  * value that asserts absence is refused, and every quote is located in the
  * transcript before it is shown to anyone as evidence.
  */
-export async function extractAnamnesis(transcript: TranscriptResult): Promise<ExtractionResult> {
+export async function extractAnamnesis(
+  transcript: TranscriptResult,
+  /**
+   * Absolute epoch-ms deadline shared with the rest of the pipeline.
+   *
+   * MEASURED: with a fixed 120s timeout and 3 SDK retries this stage could take
+   * 360s on its own, on top of transcription, inside a 300s invocation. The
+   * platform then killed the process before the pipeline's terminal fail()
+   * could run, leaving the recording in 'processing' with a live lease — the
+   * UI said "Processando..." for hours while the recovery cron re-ran it.
+   */
+  deadlineAt?: number,
+): Promise<ExtractionResult> {
   const key = process.env.GEMINI_API_KEY;
   const model = process.env.EXTRACTION_MODEL || process.env.TRANSCRIBE_MODEL || DEFAULT_MODEL;
   const empty: ExtractionResult = {
@@ -272,17 +287,27 @@ export async function extractAnamnesis(transcript: TranscriptResult): Promise<Ex
   if (!key) throw new Error("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
   if (!transcript.segments?.length) return empty;
 
-  // Bounded per-attempt deadline + the SDK's own retry on transient statuses
-  // (408/429/5xx): a "model overloaded" 503 gets in-process second chances
-  // instead of failing the whole pipeline run on one bad minute.
+  // The budget is what REMAINS of the invocation, never a fixed timeout: this
+  // stage runs LAST, after transcription, inside the same serverless call.
+  // Measured, that overshoot is what stranded recordings in 'processing' — the
+  // platform killed the process before the pipeline's terminal fail() could run.
+  // The SDK arms its abort timer once per request (retries share it), so the
+  // ceiling below is the real wall-clock cost, retries included.
+  const remainingMs = deadlineAt ? deadlineAt - Date.now() : EXTRACTION_MAX_MS;
+  const budgetMs = Math.max(20_000, Math.min(EXTRACTION_MAX_MS, remainingMs));
   const client = new GoogleGenAI({
     apiKey: key,
-    httpOptions: { timeout: 120_000, retryOptions: { attempts: 3 } },
+    httpOptions: { timeout: budgetMs, retryOptions: { attempts: 3 } },
   });
   const response = await client.models.generateContent({
     model,
     contents: [{ role: "user", parts: [{ text: buildPrompt(transcript) }] }],
-    config: { responseMimeType: "application/json", responseJsonSchema: RESULT_SCHEMA, temperature: 0 },
+    config: {
+      responseMimeType: "application/json",
+      responseJsonSchema: RESULT_SCHEMA,
+      temperature: 0,
+      abortSignal: AbortSignal.timeout(budgetMs),
+    },
   });
 
   const text = response.text;

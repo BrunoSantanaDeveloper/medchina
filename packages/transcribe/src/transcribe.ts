@@ -186,6 +186,8 @@ async function uploadAudioFile(
   client: GoogleGenAI,
   mime: string,
   bytes: Uint8Array,
+  /** Milliseconds still available — the poll must not outlive the invocation. */
+  remaining: () => number,
 ): Promise<{ part: Part; name: string }> {
   const uploaded = await client.files.upload({
     file: new Blob([bytes as BlobPart], { type: mime }),
@@ -193,10 +195,14 @@ async function uploadAudioFile(
   });
   if (!uploaded.name || !uploaded.uri) throw new Error("Gemini file upload returned no reference.");
 
-  const deadline = Date.now() + FILE_POLL_TIMEOUT_MS;
+  // Bounded by whichever runs out first: this poll's own ceiling or the time
+  // left in the invocation. It used to watch only its own 5-minute deadline, so
+  // on a long consultation it could still be polling when the platform pulled
+  // the plug — and a killed invocation records nothing.
+  const deadline = Date.now() + Math.min(FILE_POLL_TIMEOUT_MS, Math.max(0, remaining()));
   let state = uploaded.state as string | undefined;
   while (state === "PROCESSING") {
-    if (Date.now() > deadline) throw new Error("Gemini file processing timed out.");
+    if (Date.now() > deadline || remaining() <= 0) throw new Error("Gemini file processing timed out.");
     await sleep(FILE_POLL_INTERVAL_MS);
     const current = await client.files.get({ name: uploaded.name });
     state = current.state as string | undefined;
@@ -221,6 +227,8 @@ async function transcribeAudio(
   bytes: Uint8Array,
   /** Recorded duration, used to verify the transcript reaches the end. */
   expectedSeconds?: number | null,
+  /** Shared pipeline deadline (epoch ms) — wins over the local budget. */
+  deadlineAt?: number,
 ): Promise<TranscriptResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set — transcription uses Gemini.");
@@ -229,18 +237,30 @@ async function transcribeAudio(
   // fatal 404/credits-depleted is never blindly re-sent.
   const client = new GoogleGenAI({ apiKey: key, httpOptions: { timeout: ATTEMPT_TIMEOUT_MS } });
 
+  // The clock starts BEFORE the upload, not after it. Starting it later left
+  // the Files API upload and its ACTIVE-state poll — the most expensive part of
+  // a long consultation — outside every budget: a large audio could spend
+  // minutes there and still enter the generate loop with a full allowance,
+  // guaranteeing the invocation died before anything was recorded.
+  const startedAt = Date.now();
+  // The SHARED deadline wins whenever it is tighter: this invocation's time
+  // belongs to the whole pipeline, and extraction still has to run after this.
+  // Budgeting the stages independently is what stranded recordings in
+  // 'processing' — together they asked for more than the invocation allows.
+  const remaining = () => {
+    const local = TOTAL_BUDGET_MS - (Date.now() - startedAt);
+    return deadlineAt ? Math.min(local, deadlineAt - Date.now()) : local;
+  };
+
   let audioPart: Part;
   let uploadedName: string | undefined;
   if (bytes.byteLength > INLINE_LIMIT_BYTES) {
-    const uploaded = await uploadAudioFile(client, mime, bytes);
+    const uploaded = await uploadAudioFile(client, mime, bytes, remaining);
     audioPart = uploaded.part;
     uploadedName = uploaded.name;
   } else {
     audioPart = { inlineData: { mimeType: mime, data: Buffer.from(bytes).toString("base64") } };
   }
-
-  const startedAt = Date.now();
-  const remaining = () => TOTAL_BUDGET_MS - (Date.now() - startedAt);
 
   const askModel = async (model: string, instruction: string): Promise<TranscriptResult> => {
     // The deadline is whatever is LEFT of the budget, never a fixed per-call
@@ -411,13 +431,12 @@ async function transcribeAudio(
     throw lastError;
   } finally {
     // Uploaded files auto-expire in 48h; deleting sooner is hygiene, not
-    // correctness — never let cleanup mask the transcription result.
+    // correctness — never let cleanup mask the transcription result. It is also
+    // not AWAITED: this runs when the budget is nearly spent, and spending the
+    // invocation's last seconds on housekeeping instead of returning the
+    // transcript we already have is how a good result gets thrown away.
     if (uploadedName) {
-      try {
-        await client.files.delete({ name: uploadedName });
-      } catch {
-        /* best effort */
-      }
+      void client.files.delete({ name: uploadedName }).catch(() => undefined);
     }
   }
 }
@@ -448,6 +467,12 @@ export async function processTranscription(
   transcriptionId: string,
   /** Recorded duration in seconds — lets the run verify the transcript is complete. */
   expectedSeconds?: number | null,
+  /**
+   * Absolute epoch-ms deadline SHARED with the rest of the pipeline. The caller
+   * owns the invocation's time: transcription is only the first stage, and
+   * extraction still has to run after it in the SAME invocation.
+   */
+  deadlineAt?: number,
 ): Promise<TranscriptionRunResult> {
   const { data: row, error: loadError } = await supabase
     .from("transcriptions")
@@ -464,7 +489,7 @@ export async function processTranscription(
     if (downloadError || !blob) throw new Error(downloadError?.message ?? "Audio download failed.");
 
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    const result = await transcribeAudio(row.mime, bytes, expectedSeconds);
+    const result = await transcribeAudio(row.mime, bytes, expectedSeconds, deadlineAt);
 
     await supabase.from("transcriptions").update({ status: "ready", result }).eq("id", transcriptionId);
 
