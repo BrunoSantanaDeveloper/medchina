@@ -48,7 +48,7 @@ const FILE_POLL_TIMEOUT_MS = 5 * 60_000;
  * Generous, because a long consultation legitimately takes a while to
  * transcribe; bounded, because unbounded is what broke.
  */
-const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 300_000;
+const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 140_000;
 /**
  * Overall budget across every attempt. The pipeline passes a tighter SHARED
  * deadline, which always wins — this is only the ceiling when called directly.
@@ -58,12 +58,15 @@ const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 
  * ~4x faster AND produced clean speaker labels, while 3.5 emitted a bogus
  * "Speaker 08:57" as a third voice on a two-voice consultation.
  *
- * The invocation ceiling is 800s (Vercel Pro/Enterprise, nodejs24.x), not the
- * 300s this file used to assume — 300 is merely the platform DEFAULT. Treating
- * it as a hard limit is what squeezed transcription into a budget SMALLER than
- * the work, aborting otherwise-good runs with "This operation was aborted".
+ * The invocation ceiling really is 300s: this project is on the Vercel HOBBY
+ * plan, which REFUSES a deploy declaring anything higher. So this budget is
+ * deliberately smaller than what some models need — 3.5-flash at 197s does not
+ * fit alongside extraction — and that is the point. 2.5 leads because it FITS
+ * (53s measured), and a model that cannot is cut off by us, with a recorded
+ * reason, rather than by the platform killing the whole invocation and leaving
+ * the recording stranded in 'processing'.
  */
-const TOTAL_BUDGET_MS = Number(process.env.TRANSCRIBE_TOTAL_BUDGET_MS) || 540_000;
+const TOTAL_BUDGET_MS = Number(process.env.TRANSCRIBE_TOTAL_BUDGET_MS) || 140_000;
 /**
  * Safety margin subtracted from the remaining budget when arming each call's
  * abort signal, so the deadline is reached by US and not by the platform.
