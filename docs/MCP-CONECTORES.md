@@ -364,9 +364,15 @@ Notas que divergem ou refinam o plano acima:
   `app/.well-known/*`, `app/api/oauth/*`, `app/api/mcp/route.ts`,
   `settings/connections/*`, `admin/ai/components/mcp-admin.tsx`.
 
+- **0089 (correção do 1º teste real)**: `org_entitlements` não tinha o ramo
+  `service_role` no guard (as irmãs `org_audio_allowance`/`org_message_allowance`
+  sempre tiveram) — sob o service client do gate MCP a função levantava
+  'not a member' e toda tool morria em "Não foi possível verificar a assinatura".
+  A 0089 recria a definição vigente (0054) mudando só o guard.
+
 Checklist pós-deploy (na ordem):
 
-1. `npm run db:plan:remote` (revisar) → `npm run db:migrate:remote` (aplica a 0088).
+1. `npm run db:plan:remote` (revisar) → `npm run db:migrate:remote` (aplica 0088 + 0089).
 2. Conferir `NEXT_PUBLIC_SITE_URL` no ambiente Vercel (o issuer OAuth deriva dele).
 3. Publicar o artigo de ajuda (apêndice abaixo) em `/admin/help` — conteúdo de
    ajuda é DB-managed por decisão da 0014, nunca semeado por migração.
