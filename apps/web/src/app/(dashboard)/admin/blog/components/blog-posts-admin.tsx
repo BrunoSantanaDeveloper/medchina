@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Alert, Box, Button, Chip, FormControl, FormLabel, Input, Switch, Tooltip, Typography } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { Field, RowLine, RowText, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import { Field, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
 import { slugify } from "@/app/(dashboard)/admin/help/components/help-categories-admin";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { LOCALES } from "@/constants";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
+import NiPen from "@/icons/nexture/ni-pen";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -56,9 +59,9 @@ const EMPTY_FORM: FormState = {
 export default function BlogPostsAdmin() {
   const [rows, setRows] = useState<PostRow[]>([]);
   const [form, setForm] = useState<FormState | null>(null);
-  const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -69,6 +72,7 @@ export default function BlogPostsAdmin() {
       .limit(200);
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
@@ -87,6 +91,7 @@ export default function BlogPostsAdmin() {
         publishedAt: row.published_at,
       })),
     );
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -142,30 +147,152 @@ export default function BlogPostsAdmin() {
     refresh();
   };
 
-  const togglePublished = async (row: PostRow) => {
-    setError(null);
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("blog_posts")
-      .update({ is_published: !row.isPublished })
-      .eq("id", row.id);
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-    recordAudit(supabase, row.isPublished ? "admin.blog.post.unpublished" : "admin.blog.post.published", {
-      entityType: "blog_post",
-      entityId: row.id,
-      metadata: { title: row.title },
-    });
-    refresh();
-  };
+  const togglePublished = useCallback(
+    async (row: PostRow) => {
+      setError(null);
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from("blog_posts")
+        .update({ is_published: !row.isPublished })
+        .eq("id", row.id);
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      recordAudit(supabase, row.isPublished ? "admin.blog.post.unpublished" : "admin.blog.post.published", {
+        entityType: "blog_post",
+        entityId: row.id,
+        metadata: { title: row.title },
+      });
+      refresh();
+    },
+    [refresh],
+  );
 
-  const visible = rows.filter(
-    (row) =>
-      !filter ||
-      row.title.toLowerCase().includes(filter.toLowerCase()) ||
-      row.slug.toLowerCase().includes(filter.toLowerCase()),
+  const openEdit = useCallback((row: PostRow) => {
+    setForm({
+      id: row.id,
+      locale: row.locale,
+      slug: row.slug,
+      title: row.title,
+      excerpt: row.excerpt ?? "",
+      bodyMd: row.bodyMd,
+      coverUrl: row.coverUrl ?? "",
+      authorName: row.authorName ?? "",
+      tags: row.tags.join(", "),
+      isPublished: row.isPublished,
+    });
+  }, []);
+
+  const columns = useMemo<GridColDef<PostRow>[]>(
+    () => [
+      {
+        field: "title",
+        headerName: "Title",
+        flex: 2,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<PostRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        // The old row let the operator filter by slug — keep the slug the
+        // cell's VALUE so the quick filter still reaches it.
+        field: "slug",
+        headerName: "Slug",
+        flex: 1.5,
+        minWidth: 180,
+        renderCell: (params: GridRenderCellParams<PostRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              /blog/{params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "locale",
+        headerName: "Locale",
+        minWidth: 110,
+        renderCell: (params: GridRenderCellParams<PostRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip label={params.row.locale} size="small" variant="outlined" />
+          </Box>
+        ),
+      },
+      {
+        field: "authorName",
+        headerName: "Author",
+        minWidth: 150,
+        valueGetter: (_, row) => row.authorName ?? "—",
+      },
+      {
+        field: "publishedAt",
+        headerName: "Published at",
+        minWidth: 150,
+        valueGetter: (_, row) => (row.publishedAt ? new Date(row.publishedAt).toLocaleDateString() : "—"),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        minWidth: 120,
+        valueGetter: (_, row) => (row.isPublished ? "published" : "draft"),
+        renderCell: (params: GridRenderCellParams<PostRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip
+              label={params.value}
+              size="small"
+              color={params.row.isPublished ? "success" : "default"}
+              variant="outlined"
+            />
+          </Box>
+        ),
+      },
+      {
+        // Publish/unpublish is a kill switch: it stays visible on the row,
+        // never buried in the kebab.
+        field: "isPublished",
+        headerName: "Published",
+        minWidth: 110,
+        type: "boolean",
+        renderCell: (params: GridRenderCellParams<PostRow, boolean>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.row.isPublished ? "Unpublish" : "Publish"}>
+              <Switch
+                checked={params.row.isPublished}
+                onChange={() => togglePublished(params.row)}
+                size="small"
+                slotProps={{
+                  input: { "aria-label": params.row.isPublished ? "Unpublish post" : "Publish post" },
+                }}
+              />
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openEdit, togglePublished],
   );
 
   return (
@@ -174,17 +301,6 @@ export default function BlogPostsAdmin() {
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
-      )}
-
-      {!form && (
-        <Box className="flex flex-row items-center gap-3">
-          <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-            New post
-          </Button>
-          <FormControl className="outlined w-72" variant="standard" size="small">
-            <Input placeholder="Filter by title or slug" value={filter} onChange={(e) => setFilter(e.target.value)} />
-          </FormControl>
-        </Box>
       )}
 
       {form && (
@@ -259,58 +375,42 @@ export default function BlogPostsAdmin() {
         </Box>
       )}
 
-      {loaded && rows.length === 0 && !form && (
-        <EmptyState
-          icon={<NiDocumentFull size="medium" />}
-          title="No blog posts yet"
-          description="Posts published here appear on the public /blog page — announcements, guides, product thinking."
-          action={{ label: "New post", onClick: () => setForm(EMPTY_FORM) }}
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<PostRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            form ? undefined : (
+              <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
+                New post
+              </Button>
+            )
+          }
+          noRowsOverlay={
+            form ? (
+              <Typography variant="body2" className="text-text-secondary">
+                No blog posts yet.
+              </Typography>
+            ) : (
+              <EmptyState
+                icon={<NiDocumentFull size="medium" />}
+                title="No blog posts yet"
+                description="Posts published here appear on the public /blog page — announcements, guides, product thinking."
+                action={{ label: "New post", onClick: () => setForm(EMPTY_FORM) }}
+                className="border-none"
+              />
+            )
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No posts match your search.
+            </Typography>
+          }
+          pageSize={20}
+          pageSizeOptions={[10, 20, 50]}
         />
-      )}
-
-      {visible.map((row) => (
-        <RowLine key={row.id}>
-          <RowText
-            primary={row.title}
-            secondary={`/blog/${row.slug}${row.publishedAt ? ` · ${new Date(row.publishedAt).toLocaleDateString()}` : ""}${row.authorName ? ` · ${row.authorName}` : ""}`}
-          />
-          <Chip label={row.locale} size="small" variant="outlined" />
-          <Chip
-            label={row.isPublished ? "published" : "draft"}
-            size="small"
-            color={row.isPublished ? "success" : "default"}
-            variant="outlined"
-          />
-          <Tooltip title={row.isPublished ? "Unpublish" : "Publish"}>
-            <Switch checked={row.isPublished} onChange={() => togglePublished(row)} size="small" />
-          </Tooltip>
-          <Button
-            size="small"
-            variant="text"
-            color="grey"
-            onClick={() =>
-              setForm({
-                id: row.id,
-                locale: row.locale,
-                slug: row.slug,
-                title: row.title,
-                excerpt: row.excerpt ?? "",
-                bodyMd: row.bodyMd,
-                coverUrl: row.coverUrl ?? "",
-                authorName: row.authorName ?? "",
-                tags: row.tags.join(", "),
-                isPublished: row.isPublished,
-              })
-            }
-          >
-            Edit
-          </Button>
-        </RowLine>
-      ))}
-      {loaded && visible.length === 0 && rows.length > 0 && (
-        <Typography variant="body2" className="text-text-secondary">
-          No posts match the filter.
-        </Typography>
       )}
     </Box>
   );

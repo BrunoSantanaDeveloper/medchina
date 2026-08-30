@@ -1,8 +1,8 @@
 "use client";
 
-import { Field, RowLine, RowText, SelectField } from "../../billing/components/catalog-shared";
+import { Field, SelectField } from "../../billing/components/catalog-shared";
 import { ingestDocument } from "../actions";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
@@ -13,17 +13,20 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Divider,
   FormControl,
-  FormControlLabel,
   FormLabel,
   Switch,
   TextareaAutosize,
   Tooltip,
   Typography,
 } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
+import DataTable from "@/components/data-grid/data-table";
+import EmptyState from "@/components/product/empty-state";
 import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
+import NiBook from "@/icons/nexture/ni-book";
+import NiDocumentFull from "@/icons/nexture/ni-document-full";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import NiRefresh from "@/icons/nexture/ni-refresh";
@@ -58,6 +61,9 @@ const STATUS_COLOR: Record<string, "default" | "success" | "warning" | "error"> 
   error: "error",
 };
 
+/** The old row's secondary line kept the trust level readable, not just numeric. */
+const trustLabel = (level: number) => `${level} — ${TRUST_LEVEL_LABELS[level as 1 | 2 | 3 | 4 | 5]}`;
+
 export default function KnowledgeAdmin() {
   const [collections, setCollections] = useState<CollectionRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -66,31 +72,55 @@ export default function KnowledgeAdmin() {
   const [documentForm, setDocumentForm] = useState<DocumentForm | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [collectionsLoaded, setCollectionsLoaded] = useState(false);
+  const [collectionsFailed, setCollectionsFailed] = useState(false);
+  const [documentsLoaded, setDocumentsLoaded] = useState(false);
+  const [documentsFailed, setDocumentsFailed] = useState(false);
 
   const refreshCollections = useCallback(async () => {
     const supabase = createClient();
     // Superadmin console manages global collections (org_id null).
-    const { data } = await supabase
+    const { data, error: readError } = await supabase
       .from("knowledge_collections")
       .select("id, slug, name, description, browsable")
       .is("org_id", null)
       .order("name");
+    if (readError) {
+      // A failed read is an error, never an empty-looking table.
+      setError(readError.message);
+      setCollectionsFailed(true);
+      setCollectionsLoaded(true);
+      return;
+    }
     setCollections(data ?? []);
     setSelectedId((current) => current ?? data?.[0]?.id ?? null);
+    setCollectionsFailed(false);
+    setCollectionsLoaded(true);
   }, []);
 
   const refreshDocuments = useCallback(async (collectionId: string | null) => {
     if (!collectionId) {
       setDocuments([]);
+      setDocumentsFailed(false);
+      setDocumentsLoaded(true);
       return;
     }
+    setDocumentsLoaded(false);
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error: readError } = await supabase
       .from("knowledge_documents")
       .select("id, title, source, trust_level, status, error")
       .eq("collection_id", collectionId)
       .order("created_at");
+    if (readError) {
+      setError(readError.message);
+      setDocumentsFailed(true);
+      setDocumentsLoaded(true);
+      return;
+    }
     setDocuments(data ?? []);
+    setDocumentsFailed(false);
+    setDocumentsLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -166,22 +196,28 @@ export default function KnowledgeAdmin() {
     }
   };
 
-  const reindexDocument = async (id: string) => {
-    setError(null);
-    const result = await ingestDocument(id);
-    if (!result.ok) setError(result.error);
-    refreshDocuments(selectedId);
-  };
+  const reindexDocument = useCallback(
+    async (id: string) => {
+      setError(null);
+      const result = await ingestDocument(id);
+      if (!result.ok) setError(result.error);
+      refreshDocuments(selectedId);
+    },
+    [refreshDocuments, selectedId],
+  );
 
-  const deleteDocument = async (id: string) => {
-    setError(null);
-    const supabase = createClient();
-    const { error: deleteError } = await supabase.from("knowledge_documents").delete().eq("id", id);
-    if (deleteError) setError(deleteError.message);
-    refreshDocuments(selectedId);
-  };
+  const deleteDocument = useCallback(
+    async (id: string) => {
+      setError(null);
+      const supabase = createClient();
+      const { error: deleteError } = await supabase.from("knowledge_documents").delete().eq("id", id);
+      if (deleteError) setError(deleteError.message);
+      refreshDocuments(selectedId);
+    },
+    [refreshDocuments, selectedId],
+  );
 
-  const editDocument = async (row: DocumentRow) => {
+  const editDocument = useCallback(async (row: DocumentRow) => {
     const supabase = createClient();
     const { data } = await supabase.from("knowledge_documents").select("content").eq("id", row.id).maybeSingle();
     setDocumentForm({
@@ -191,66 +227,301 @@ export default function KnowledgeAdmin() {
       trust_level: row.trust_level,
       content: data?.content ?? "",
     });
-  };
+  }, []);
+
+  const editCollection = useCallback((row: CollectionRow) => {
+    setCollectionForm({ ...row, description: row.description ?? "" });
+  }, []);
+
+  const toggleBrowsable = useCallback(
+    async (row: CollectionRow) => {
+      await createClient().from("knowledge_collections").update({ browsable: !row.browsable }).eq("id", row.id);
+      await refreshCollections();
+    },
+    [refreshCollections],
+  );
+
+  const collectionColumns = useMemo<GridColDef<CollectionRow>[]>(
+    () => [
+      {
+        field: "name",
+        headerName: "Collection",
+        flex: 1.5,
+        minWidth: 200,
+        renderCell: (params: GridRenderCellParams<CollectionRow, string>) => (
+          <Box className="flex h-full items-center gap-2">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.row.name}
+            </Typography>
+            {params.row.id === selectedId && (
+              <span className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light flex-none rounded-full px-2 py-0.5 text-xs font-semibold">
+                Selected
+              </span>
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "slug",
+        headerName: "Slug",
+        flex: 1,
+        minWidth: 160,
+        renderCell: (params: GridRenderCellParams<CollectionRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.row.slug}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "description",
+        headerName: "Description",
+        flex: 1.5,
+        minWidth: 200,
+        // The searched text must be reachable as the cell value, not only in
+        // the rendered node.
+        valueGetter: (_, row) => row.description ?? "",
+        renderCell: (params: GridRenderCellParams<CollectionRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        // Licensing kill-switch (docs/LICENSING-LIBRARY.md): unlisting a
+        // collection hides it from the member acervo without touching RAG. It
+        // stays visible on the row, never buried in the kebab.
+        field: "browsable",
+        headerName: "Browsable",
+        minWidth: 120,
+        type: "boolean",
+        renderCell: (params: GridRenderCellParams<CollectionRow, boolean>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.row.browsable ? "Unlist from the acervo" : "List in the acervo"}>
+              <Switch
+                checked={params.row.browsable}
+                onClick={(event) => event.stopPropagation()}
+                onChange={() => toggleBrowsable(params.row)}
+                size="small"
+                slotProps={{
+                  input: {
+                    "aria-label": params.row.browsable
+                      ? `Unlist ${params.row.name} from the acervo`
+                      : `List ${params.row.name} in the acervo`,
+                  },
+                }}
+              />
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit collection"
+            onClick={() => editCollection(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [editCollection, selectedId, toggleBrowsable],
+  );
+
+  const documentColumns = useMemo<GridColDef<DocumentRow>[]>(
+    () => [
+      {
+        field: "title",
+        headerName: "Title",
+        flex: 2,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<DocumentRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "source",
+        headerName: "Source",
+        flex: 1,
+        minWidth: 160,
+        valueGetter: (_, row) => row.source ?? "",
+        renderCell: (params: GridRenderCellParams<DocumentRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "trust_level",
+        headerName: "Trust",
+        minWidth: 150,
+        valueGetter: (_, row) => trustLabel(row.trust_level),
+        renderCell: (params: GridRenderCellParams<DocumentRow, string>) => (
+          <Box className="flex h-full items-center">
+            <span className="bg-grey-100 text-text-secondary truncate rounded-full px-2 py-0.5 text-xs font-semibold">
+              {params.value}
+            </span>
+          </Box>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        minWidth: 120,
+        renderCell: (params: GridRenderCellParams<DocumentRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip
+              label={params.row.status}
+              size="small"
+              variant="outlined"
+              color={STATUS_COLOR[params.row.status] ?? "default"}
+            />
+          </Box>
+        ),
+      },
+      {
+        // The old row put the ingestion failure in its secondary line — it is
+        // the reason the operator scans this list, so it keeps a column.
+        field: "error",
+        headerName: "Error",
+        flex: 1.5,
+        minWidth: 180,
+        valueGetter: (_, row) => row.error ?? "",
+        renderCell: (params: GridRenderCellParams<DocumentRow, string>) =>
+          params.value ? (
+            <Box className="flex h-full items-center">
+              <Tooltip title={params.value}>
+                <Typography variant="body2" className="text-text-secondary truncate">
+                  {params.value}
+                </Typography>
+              </Tooltip>
+            </Box>
+          ) : null,
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="reindex"
+            icon={<NiRefresh size="medium" />}
+            label="Re-index"
+            onClick={() => reindexDocument(params.row.id)}
+            showInMenu
+          />,
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => editDocument(params.row)}
+            showInMenu
+          />,
+          <GridActionsCellItem
+            key="delete"
+            icon={<NiBinEmpty size="medium" />}
+            label="Delete"
+            onClick={() => deleteDocument(params.row.id)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [deleteDocument, editDocument, reindexDocument],
+  );
+
+  const selectedCollection = collections.find((item) => item.id === selectedId) ?? null;
 
   return (
-    <Box className="flex flex-col gap-3">
-      <Box className="flex flex-row flex-wrap items-center gap-2">
-        {collections.map((collection) => (
-          <Chip
-            key={collection.id}
-            label={collection.name}
-            variant={collection.id === selectedId ? "filled" : "outlined"}
-            color={collection.id === selectedId ? "primary" : "default"}
-            onClick={() => setSelectedId(collection.id)}
-          />
-        ))}
-        <Button
-          variant="outlined"
-          size="small"
-          color="grey"
-          startIcon={<NiPlus size="small" />}
-          onClick={() => setCollectionForm(EMPTY_COLLECTION)}
-        >
-          New collection
-        </Button>
-      </Box>
+    <Box className="flex flex-col gap-4">
+      {error && (
+        <Alert severity="error" className="neutral bg-background-paper/60!">
+          {error}
+        </Alert>
+      )}
 
-      {selectedId && (
-        <>
-          <Divider className="my-1" />
-          <Box className="flex flex-row flex-wrap items-center gap-2">
-            <Typography variant="h6" className="flex-1">
-              Documents
-            </Typography>
-            {/* Licensing kill-switch (docs/LICENSING-LIBRARY.md): unlisting a
-                collection hides it from the member acervo without touching RAG. */}
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={collections.find((item) => item.id === selectedId)?.browsable ?? false}
-                  onChange={async (event) => {
-                    const browsable = event.target.checked;
-                    await createClient().from("knowledge_collections").update({ browsable }).eq("id", selectedId);
-                    await refreshCollections();
-                  }}
-                />
-              }
-              label="Browsable"
-            />
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!collectionsFailed && (
+        <DataTable<CollectionRow>
+          rows={collections}
+          columns={collectionColumns}
+          loading={!collectionsLoaded}
+          onRowClick={(row) => setSelectedId(row.id)}
+          mainClassName="min-h-[320px]!"
+          header={
+            <Box>
+              <Typography variant="h5" component="h2" className="card-title mb-1">
+                Collections
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary">
+                Global collections, referenced by assistants through their slug. Select one to manage its documents.
+              </Typography>
+            </Box>
+          }
+          actions={
             <Button
               variant="outlined"
               size="small"
               color="grey"
-              startIcon={<NiPen size="small" />}
-              onClick={() => {
-                const collection = collections.find((item) => item.id === selectedId);
-                if (collection) setCollectionForm({ ...collection, description: collection.description ?? "" });
-              }}
+              startIcon={<NiPlus size="small" />}
+              onClick={() => setCollectionForm(EMPTY_COLLECTION)}
             >
-              Edit collection
+              New collection
             </Button>
+          }
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiBook size="medium" />}
+              title="No collections yet"
+              description="A collection groups the documents an assistant retrieves from. Create one, then add documents — they are chunked and embedded automatically."
+              action={{ label: "New collection", onClick: () => setCollectionForm(EMPTY_COLLECTION) }}
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No collections match your search.
+            </Typography>
+          }
+        />
+      )}
+
+      {selectedId && !documentsFailed && (
+        <DataTable<DocumentRow>
+          rows={documents}
+          columns={documentColumns}
+          loading={!documentsLoaded}
+          header={
+            <Box>
+              <Typography variant="h5" component="h2" className="card-title mb-1">
+                Documents
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary">
+                {selectedCollection ? selectedCollection.name : "Selected collection"}
+              </Typography>
+            </Box>
+          }
+          actions={
             <Button
               variant="outlined"
               size="small"
@@ -260,62 +531,22 @@ export default function KnowledgeAdmin() {
             >
               New document
             </Button>
-          </Box>
-
-          {documents.map((row) => (
-            <RowLine key={row.id}>
-              <RowText
-                primary={row.title}
-                secondary={`trust ${row.trust_level} — ${TRUST_LEVEL_LABELS[row.trust_level as 1 | 2 | 3 | 4 | 5]}${row.source ? ` · ${row.source}` : ""}${row.error ? ` · ${row.error}` : ""}`}
-              />
-              <Chip label={row.status} size="small" variant="outlined" color={STATUS_COLOR[row.status] ?? "default"} />
-              <Tooltip title="Re-index">
-                <Button
-                  className="icon-only"
-                  size="small"
-                  color="grey"
-                  variant="text"
-                  onClick={() => reindexDocument(row.id)}
-                >
-                  <NiRefresh size="medium" />
-                </Button>
-              </Tooltip>
-              <Tooltip title="Edit">
-                <Button
-                  className="icon-only"
-                  size="small"
-                  color="grey"
-                  variant="text"
-                  onClick={() => editDocument(row)}
-                >
-                  <NiPen size="medium" />
-                </Button>
-              </Tooltip>
-              <Tooltip title="Delete">
-                <Button
-                  className="icon-only"
-                  size="small"
-                  color="grey"
-                  variant="text"
-                  onClick={() => deleteDocument(row.id)}
-                >
-                  <NiBinEmpty size="medium" />
-                </Button>
-              </Tooltip>
-            </RowLine>
-          ))}
-          {documents.length === 0 && (
+          }
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiDocumentFull size="medium" />}
+              title="No documents yet"
+              description="Add content and it will be chunked + embedded automatically."
+              action={{ label: "New document", onClick: () => setDocumentForm(EMPTY_DOCUMENT) }}
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No documents yet. Add content and it will be chunked + embedded automatically.
+              No documents match your search.
             </Typography>
-          )}
-        </>
-      )}
-
-      {error && (
-        <Alert severity="error" className="neutral bg-background-paper/60!">
-          {error}
-        </Alert>
+          }
+        />
       )}
 
       {/* Collection dialog */}

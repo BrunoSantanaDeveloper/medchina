@@ -1,11 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Alert, Box, Chip, Collapse, FormControl, Input, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { RowLine, RowText } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import NiBug from "@/icons/nexture/ni-bug";
 import NiExclamationHexagon from "@/icons/nexture/ni-exclamation-hexagon";
 import { createClient } from "@flyee/auth/client";
 
@@ -35,20 +48,22 @@ type FailureRow = {
  */
 export default function ProcessingFailuresAdmin() {
   const [rows, setRows] = useState<FailureRow[]>([]);
-  const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [detail, setDetail] = useState<FailureRow | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
     const { data, error: readError } = await supabase.rpc("admin_processing_failures", { limit_count: 200 });
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
     setRows(Array.isArray(data) ? (data as FailureRow[]) : []);
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -56,93 +71,212 @@ export default function ProcessingFailuresAdmin() {
     refresh();
   }, [refresh]);
 
-  const visible = rows.filter((row) => {
-    if (!filter) return true;
-    const query = filter.toLowerCase();
-    return [
-      row.patient_name,
-      row.org_name,
-      row.failure_stage,
-      row.error_code,
-      row.provider_error,
-      row.consultation_id,
-      row.recording_id,
-    ]
-      .filter(Boolean)
-      .some((value) => (value as string).toLowerCase().includes(query));
-  });
-
-  if (loaded && rows.length === 0 && !error) {
-    return (
-      <EmptyState
-        icon={<NiExclamationHexagon size="medium" />}
-        title="No processing failures"
-        description="Recordings whose AI pipeline failed (transcription, extraction or apply) appear here with the raw provider error — nothing to investigate right now."
-      />
-    );
-  }
+  const columns = useMemo<GridColDef<FailureRow>[]>(
+    () => [
+      {
+        field: "created_at",
+        headerName: "When",
+        flex: 1,
+        minWidth: 180,
+        renderCell: (params: GridRenderCellParams<FailureRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {new Date(params.row.created_at).toLocaleString()}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "patient_name",
+        headerName: "Patient",
+        flex: 1,
+        minWidth: 160,
+        renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value ?? "—"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "org_name",
+        headerName: "Workspace",
+        flex: 1,
+        minWidth: 160,
+        renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value ?? "—"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "failure_stage",
+        headerName: "Stage",
+        minWidth: 150,
+        renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            {params.value ? (
+              <Chip label={params.value} size="small" color="error" variant="outlined" />
+            ) : (
+              <Typography variant="body2" className="text-text-secondary">
+                —
+              </Typography>
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "error_code",
+        headerName: "Code",
+        minWidth: 160,
+        renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            {params.value ? (
+              <Chip label={params.value} size="small" variant="outlined" />
+            ) : (
+              <Typography variant="body2" className="text-text-secondary">
+                —
+              </Typography>
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "provider_error",
+        headerName: "Provider error",
+        flex: 2,
+        minWidth: 260,
+        // Truncated in the cell, full text in the tooltip — and reachable by
+        // the quick filter, exactly as the old plain-text filter allowed.
+        renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => {
+          const message = params.value?.trim();
+          return (
+            <Box className="flex h-full items-center">
+              <Tooltip title={message ?? ""}>
+                <Typography variant="body2" className="text-text-secondary truncate font-mono">
+                  {message || "— no raw message stored"}
+                </Typography>
+              </Tooltip>
+            </Box>
+          );
+        },
+      },
+      {
+        // Both identifiers stay in the cell VALUE so a support request quoting
+        // either id still finds its row through the quick filter.
+        field: "recording_id",
+        headerName: "IDs",
+        minWidth: 160,
+        valueGetter: (_, row) => [row.recording_id, row.consultation_id].filter(Boolean).join(" "),
+        renderCell: (params: GridRenderCellParams<FailureRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip
+              title={`recording_id: ${params.row.recording_id} · consultation_id: ${params.row.consultation_id ?? "—"}`}
+            >
+              <Typography variant="body2" className="text-text-secondary truncate font-mono">
+                {params.row.recording_id.slice(0, 8)}…
+              </Typography>
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="detail"
+            icon={<NiBug size="medium" />}
+            label="View failure detail"
+            onClick={() => setDetail(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [],
+  );
 
   return (
     <Box className="flex flex-col gap-3">
-      <FormControl className="outlined w-72" variant="standard" size="small">
-        <Input
-          placeholder="Filter by patient, org, stage, code or error"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-      </FormControl>
-
       {error && (
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
       )}
 
-      {visible.map((row) => (
-        <Box key={row.recording_id} className="flex flex-col">
-          <Box
-            className="cursor-pointer"
-            onClick={() => setExpanded((current) => (current === row.recording_id ? null : row.recording_id))}
-          >
-            <RowLine>
-              {row.failure_stage && <Chip label={row.failure_stage} size="small" color="error" variant="outlined" />}
-              {row.error_code && <Chip label={row.error_code} size="small" variant="outlined" />}
-              <RowText
-                primary={[row.patient_name, row.org_name].filter(Boolean).join(" · ") || "—"}
-                secondary={[
-                  new Date(row.created_at).toLocaleString(),
-                  row.mode,
-                  row.captured_on ? `via ${row.captured_on}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              />
-            </RowLine>
-          </Box>
-          <Collapse in={expanded === row.recording_id}>
-            <Box className="bg-background-default/50 my-2 flex flex-col gap-2 rounded-lg p-3">
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<FailureRow>
+          rows={rows}
+          columns={columns}
+          getRowId={(row) => row.recording_id}
+          loading={!loaded}
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiExclamationHexagon size="medium" />}
+              title="No processing failures"
+              description="Recordings whose AI pipeline failed (transcription, extraction or apply) appear here with the raw provider error — nothing to investigate right now."
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No failures match your search.
+            </Typography>
+          }
+        />
+      )}
+
+      <Dialog open={Boolean(detail)} onClose={() => setDetail(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {[detail?.patient_name, detail?.org_name].filter(Boolean).join(" · ") || "Failure detail"}
+        </DialogTitle>
+        <DialogContent>
+          <Box className="flex flex-col gap-3 pt-1">
+            <Typography variant="body2" className="text-text-secondary">
+              {detail
+                ? [
+                    new Date(detail.created_at).toLocaleString(),
+                    detail.mode,
+                    detail.captured_on ? `via ${detail.captured_on}` : null,
+                    detail.status,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : ""}
+            </Typography>
+            <Box className="bg-background-default/50 flex flex-col gap-2 rounded-lg p-3">
               <Box>
                 <Typography variant="body2" className="text-text-secondary text-xs font-semibold">
-                  Provider error {row.transcription_status ? `(transcription: ${row.transcription_status})` : ""}
+                  Provider error {detail?.transcription_status ? `(transcription: ${detail.transcription_status})` : ""}
                 </Typography>
                 <Typography component="pre" variant="body2" className="font-mono break-words whitespace-pre-wrap">
-                  {row.provider_error?.trim() || "— no raw message stored (check Vercel / Inngest logs for this time)"}
+                  {detail?.provider_error?.trim() ||
+                    "— no raw message stored (check Vercel / Inngest logs for this time)"}
                 </Typography>
               </Box>
               <Box className="text-text-secondary flex flex-col gap-0.5 font-mono text-xs">
-                <span>recording_id: {row.recording_id}</span>
-                <span>consultation_id: {row.consultation_id ?? "—"}</span>
-                <span>org_id: {row.org_id ?? "—"}</span>
+                <span>recording_id: {detail?.recording_id ?? "—"}</span>
+                <span>consultation_id: {detail?.consultation_id ?? "—"}</span>
+                <span>org_id: {detail?.org_id ?? "—"}</span>
               </Box>
             </Box>
-          </Collapse>
-        </Box>
-      ))}
-      {loaded && visible.length === 0 && rows.length > 0 && (
-        <Typography variant="body2" className="text-text-secondary">
-          No failures match the filter.
-        </Typography>
-      )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" color="grey" onClick={() => setDetail(null)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

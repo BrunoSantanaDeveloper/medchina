@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Alert, Box, Chip, FormControl, Input, Typography } from "@mui/material";
+import { Alert, Box, Chip, Tooltip, Typography } from "@mui/material";
+import { type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { RowLine, RowText } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import NiFingerprint from "@/icons/nexture/ni-fingerprint";
 import { createClient } from "@flyee/auth/client";
@@ -51,9 +52,9 @@ export const describeAgent = (agent: string | null) => {
  */
 export default function AccessEventsAdmin() {
   const [rows, setRows] = useState<AccessRow[]>([]);
-  const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -64,6 +65,7 @@ export default function AccessEventsAdmin() {
       .limit(200);
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
@@ -77,6 +79,7 @@ export default function AccessEventsAdmin() {
         createdAt: row.created_at,
       })),
     );
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -84,58 +87,112 @@ export default function AccessEventsAdmin() {
     refresh();
   }, [refresh]);
 
-  const visible = rows.filter((row) => {
-    if (!filter) return true;
-    const query = filter.toLowerCase();
-    return (
-      (row.userName ?? "").toLowerCase().includes(query) ||
-      (row.ip ?? "").toLowerCase().includes(query) ||
-      (row.userAgent ?? "").toLowerCase().includes(query)
-    );
-  });
-
-  if (loaded && rows.length === 0 && !error) {
-    return (
-      <EmptyState
-        icon={<NiFingerprint size="medium" />}
-        title="No sign-ins recorded yet"
-        description="Every new session lands here automatically (trigger on auth.sessions, migration 0016). If sign-ins are happening but nothing shows, apply the migration."
-      />
-    );
-  }
+  const columns = useMemo<GridColDef<AccessRow>[]>(
+    () => [
+      {
+        field: "createdAt",
+        headerName: "When",
+        flex: 1,
+        minWidth: 180,
+        renderCell: (params: GridRenderCellParams<AccessRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {new Date(params.row.createdAt).toLocaleString()}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "userName",
+        headerName: "User",
+        flex: 1.2,
+        minWidth: 180,
+        renderCell: (params: GridRenderCellParams<AccessRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value ?? "Unknown user"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "ip",
+        headerName: "IP",
+        flex: 0.8,
+        minWidth: 140,
+        renderCell: (params: GridRenderCellParams<AccessRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate font-mono">
+              {params.value ?? "—"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        // The full user-agent stays the cell VALUE so the quick filter still
+        // reaches it (the old plain-text filter searched the raw string); the
+        // cell shows the scannable summary, with the raw string in a tooltip.
+        field: "userAgent",
+        headerName: "Device",
+        flex: 1.2,
+        minWidth: 180,
+        renderCell: (params: GridRenderCellParams<AccessRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.value ?? ""}>
+              <Typography variant="body2" className="text-text-secondary truncate">
+                {describeAgent(params.value ?? null) ?? "—"}
+              </Typography>
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        field: "aal",
+        headerName: "Assurance",
+        minWidth: 130,
+        renderCell: (params: GridRenderCellParams<AccessRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Chip
+              label={params.row.aal === "aal2" ? "2FA" : "password"}
+              size="small"
+              color={params.row.aal === "aal2" ? "success" : "default"}
+              variant="outlined"
+            />
+          </Box>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <Box className="flex flex-col gap-3">
-      <FormControl className="outlined w-72" variant="standard" size="small">
-        <Input placeholder="Filter by user, IP or device" value={filter} onChange={(e) => setFilter(e.target.value)} />
-      </FormControl>
-
       {error && (
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
       )}
 
-      {visible.map((row) => (
-        <RowLine key={row.id}>
-          <RowText
-            primary={row.userName ?? "Unknown user"}
-            secondary={[row.ip, describeAgent(row.userAgent), new Date(row.createdAt).toLocaleString()]
-              .filter(Boolean)
-              .join(" · ")}
-          />
-          <Chip
-            label={row.aal === "aal2" ? "2FA" : "password"}
-            size="small"
-            color={row.aal === "aal2" ? "success" : "default"}
-            variant="outlined"
-          />
-        </RowLine>
-      ))}
-      {loaded && visible.length === 0 && rows.length > 0 && (
-        <Typography variant="body2" className="text-text-secondary">
-          No sign-ins match the filter.
-        </Typography>
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<AccessRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiFingerprint size="medium" />}
+              title="No sign-ins recorded yet"
+              description="Every new session lands here automatically (trigger on auth.sessions, migration 0016). If sign-ins are happening but nothing shows, apply the migration."
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No sign-ins match your search.
+            </Typography>
+          }
+        />
       )}
     </Box>
   );

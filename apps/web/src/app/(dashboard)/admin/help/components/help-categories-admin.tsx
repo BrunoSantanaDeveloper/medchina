@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Alert, Box, Button, Chip, Switch, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, Switch, Typography } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { Field, RowLine, RowText, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import { Field, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { LOCALES } from "@/constants";
+import NiPen from "@/icons/nexture/ni-pen";
 import NiQuestionHexagon from "@/icons/nexture/ni-question-hexagon";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
@@ -55,6 +58,7 @@ export default function HelpCategoriesAdmin() {
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -65,6 +69,7 @@ export default function HelpCategoriesAdmin() {
       .order("sort");
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
@@ -79,6 +84,7 @@ export default function HelpCategoriesAdmin() {
         isPublished: row.is_published,
       })),
     );
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -128,20 +134,121 @@ export default function HelpCategoriesAdmin() {
     refresh();
   };
 
+  const openEdit = useCallback((row: HelpCategoryRow) => {
+    setForm({
+      id: row.id,
+      locale: row.locale,
+      slug: row.slug,
+      name: row.name,
+      description: row.description ?? "",
+      sort: row.sort,
+      isPublished: row.isPublished,
+    });
+  }, []);
+
+  const columns = useMemo<GridColDef<HelpCategoryRow>[]>(
+    () => [
+      {
+        field: "name",
+        headerName: "Name",
+        flex: 2,
+        minWidth: 200,
+        renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "slug",
+        headerName: "Slug",
+        flex: 1,
+        minWidth: 150,
+        renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "description",
+        headerName: "Description",
+        flex: 2,
+        minWidth: 220,
+        // The searched text must be reachable as the cell value, not only in
+        // the rendered node — description was part of the old row's line.
+        valueGetter: (_, row) => row.description ?? "",
+        renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "locale",
+        headerName: "Locale",
+        minWidth: 100,
+        renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip label={params.row.locale} size="small" variant="outlined" />
+          </Box>
+        ),
+      },
+      {
+        field: "sort",
+        headerName: "Sort",
+        type: "number",
+        minWidth: 90,
+      },
+      {
+        field: "isPublished",
+        headerName: "Status",
+        minWidth: 120,
+        valueGetter: (_, row) => (row.isPublished ? "published" : "hidden"),
+        renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip
+              label={params.value}
+              size="small"
+              color={params.row.isPublished ? "success" : "warning"}
+              variant="outlined"
+            />
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openEdit],
+  );
+
   return (
     <Box className="flex flex-col gap-3">
       {error && (
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
-      )}
-
-      {!form && (
-        <Box>
-          <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-            New category
-          </Button>
-        </Box>
       )}
 
       {form && (
@@ -198,42 +305,41 @@ export default function HelpCategoriesAdmin() {
         </Box>
       )}
 
-      {loaded && rows.length === 0 && !form && (
-        <EmptyState
-          icon={<NiQuestionHexagon size="medium" />}
-          title="No help categories yet"
-          description="Categories group the articles on the public /help page. Start with the two or three topics customers ask about most."
-          action={{ label: "New category", onClick: () => setForm(EMPTY_FORM) }}
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<HelpCategoryRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            form ? undefined : (
+              <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
+                New category
+              </Button>
+            )
+          }
+          noRowsOverlay={
+            form ? (
+              <Typography variant="body2" className="text-text-secondary">
+                No help categories yet.
+              </Typography>
+            ) : (
+              <EmptyState
+                icon={<NiQuestionHexagon size="medium" />}
+                title="No help categories yet"
+                description="Categories group the articles on the public /help page. Start with the two or three topics customers ask about most."
+                action={{ label: "New category", onClick: () => setForm(EMPTY_FORM) }}
+                className="border-none"
+              />
+            )
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No categories match your search.
+            </Typography>
+          }
         />
       )}
-
-      {rows.map((row) => (
-        <RowLine key={row.id}>
-          <RowText primary={row.name} secondary={`${row.slug}${row.description ? ` · ${row.description}` : ""}`} />
-          <Chip label={row.locale} size="small" variant="outlined" />
-          {!row.isPublished && <Chip label="hidden" size="small" color="warning" variant="outlined" />}
-          <Tooltip title="Edit">
-            <Button
-              size="small"
-              variant="text"
-              color="grey"
-              onClick={() =>
-                setForm({
-                  id: row.id,
-                  locale: row.locale,
-                  slug: row.slug,
-                  name: row.name,
-                  description: row.description ?? "",
-                  sort: row.sort,
-                  isPublished: row.isPublished,
-                })
-              }
-            >
-              Edit
-            </Button>
-          </Tooltip>
-        </RowLine>
-      ))}
     </Box>
   );
 }

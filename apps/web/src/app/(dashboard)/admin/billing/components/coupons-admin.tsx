@@ -1,7 +1,7 @@
 "use client";
 
-import { Field, RowLine, RowText, SelectField } from "./catalog-shared";
-import { useCallback, useEffect, useState } from "react";
+import { Field, SelectField } from "./catalog-shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
@@ -14,11 +14,15 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  Tooltip,
+  Typography,
 } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
+import DataTable from "@/components/data-grid/data-table";
+import EmptyState from "@/components/product/empty-state";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
+import NiTicket from "@/icons/nexture/ni-ticket";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -31,6 +35,18 @@ type CouponForm = {
   max_redemptions: number | "";
   valid_until: string;
   is_active: boolean;
+};
+
+/** One coupon row, flattened for the grid; `raw` is what the edit dialog reads. */
+type CouponRow = {
+  id: string;
+  code: string;
+  description: string;
+  discount: string;
+  redeemed: string;
+  validUntil: string;
+  isActive: boolean;
+  raw: Record<string, unknown>;
 };
 
 const EMPTY: CouponForm = {
@@ -47,18 +63,30 @@ export default function CouponsAdmin() {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [form, setForm] = useState<CouponForm | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase.from("coupons").select("*").order("created_at", { ascending: false });
+    const { data, error: readError } = await supabase
+      .from("coupons")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (readError) {
+      setLoadError(readError.message);
+      setLoaded(true);
+      return;
+    }
     setRows(data ?? []);
+    setLoadError(null);
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const openEdit = (row?: Record<string, unknown>) => {
+  const openEdit = useCallback((row?: Record<string, unknown>) => {
     setError(null);
     setForm(
       row
@@ -74,7 +102,7 @@ export default function CouponsAdmin() {
           }
         : EMPTY,
     );
-  };
+  }, []);
 
   const save = async () => {
     if (!form) return;
@@ -103,33 +131,129 @@ export default function CouponsAdmin() {
     refresh();
   };
 
+  const gridRows = useMemo<CouponRow[]>(
+    () =>
+      rows.map((row) => ({
+        id: row.id as string,
+        code: row.code as string,
+        description: (row.description as string) ?? "",
+        discount:
+          row.discount_type === "percent"
+            ? `${row.discount_value}%`
+            : `${((row.discount_value as number) / 100).toFixed(2)} fixed`,
+        redeemed: `${row.redeemed_count}${row.max_redemptions ? `/${row.max_redemptions}` : ""}`,
+        validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : "no expiry",
+        isActive: Boolean(row.is_active),
+        raw: row,
+      })),
+    [rows],
+  );
+
+  const columns = useMemo<GridColDef<CouponRow>[]>(
+    () => [
+      {
+        field: "code",
+        headerName: "Code",
+        flex: 2,
+        minWidth: 220,
+        // The description is searched and exported with the code, even though
+        // the cell renders it on its own line.
+        valueGetter: (_, row) => (row.description ? `${row.code} — ${row.description}` : row.code),
+        renderCell: (params: GridRenderCellParams<CouponRow, string>) => (
+          <Box className="flex h-full min-w-0 flex-col justify-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.row.code}
+            </Typography>
+            {params.row.description && (
+              <Typography variant="body2" className="text-text-secondary truncate">
+                {params.row.description}
+              </Typography>
+            )}
+          </Box>
+        ),
+      },
+      { field: "discount", headerName: "Discount", minWidth: 140 },
+      { field: "redeemed", headerName: "Redeemed", minWidth: 130 },
+      { field: "validUntil", headerName: "Valid until", minWidth: 150 },
+      {
+        field: "isActive",
+        headerName: "Status",
+        minWidth: 130,
+        type: "boolean",
+        renderCell: (params: GridRenderCellParams<CouponRow, boolean>) => (
+          <Box className="flex h-full items-center">
+            {params.row.isActive ? (
+              <Typography variant="body2" className="text-text-secondary">
+                —
+              </Typography>
+            ) : (
+              <Chip label="inactive" size="small" variant="outlined" />
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row.raw)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openEdit],
+  );
+
   return (
     <Box className="flex flex-col gap-3">
-      <Box>
-        <Button
-          variant="outlined"
-          size="small"
-          color="grey"
-          startIcon={<NiPlus size="small" />}
-          onClick={() => openEdit()}
-        >
-          New coupon
-        </Button>
-      </Box>
-      {rows.map((row) => (
-        <RowLine key={row.id as string}>
-          <RowText
-            primary={row.code as string}
-            secondary={`${row.discount_type === "percent" ? `${row.discount_value}%` : `${((row.discount_value as number) / 100).toFixed(2)} fixed`} · redeemed ${row.redeemed_count}${row.max_redemptions ? `/${row.max_redemptions}` : ""}${row.valid_until ? ` · until ${String(row.valid_until).slice(0, 10)}` : ""}`}
-          />
-          {!(row.is_active as boolean) && <Chip label="inactive" size="small" variant="outlined" />}
-          <Tooltip title="Edit">
-            <Button className="icon-only" size="small" color="grey" variant="text" onClick={() => openEdit(row)}>
-              <NiPen size="medium" />
+      {/* A failed load is an error, never an empty-looking table. */}
+      {loadError && (
+        <Alert severity="error" className="neutral bg-background-paper/60!">
+          {loadError}
+        </Alert>
+      )}
+
+      {!loadError && (
+        <DataTable<CouponRow>
+          rows={gridRows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            <Button
+              variant="outlined"
+              size="small"
+              color="grey"
+              startIcon={<NiPlus size="small" />}
+              onClick={() => openEdit()}
+            >
+              New coupon
             </Button>
-          </Tooltip>
-        </RowLine>
-      ))}
+          }
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiTicket size="medium" />}
+              title="No coupons yet"
+              description="A coupon discounts a plan at checkout — percent or fixed amount, with an optional redemption cap and expiry date."
+              action={{ label: "New coupon", onClick: () => openEdit() }}
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No coupons match your search.
+            </Typography>
+          }
+        />
+      )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="sm" fullWidth>
         <DialogTitle>{form?.id ? "Edit coupon" : "New coupon"}</DialogTitle>

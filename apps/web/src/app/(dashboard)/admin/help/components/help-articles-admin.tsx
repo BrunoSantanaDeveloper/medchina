@@ -1,14 +1,17 @@
 "use client";
 
 import { slugify } from "./help-categories-admin";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Alert, Box, Button, Chip, FormControl, FormLabel, Input, Switch, Tooltip, Typography } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { Field, RowLine, RowText, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import { Field, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { LOCALES } from "@/constants";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
+import NiPen from "@/icons/nexture/ni-pen";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -59,9 +62,9 @@ export default function HelpArticlesAdmin() {
   const [rows, setRows] = useState<ArticleRow[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [form, setForm] = useState<FormState | null>(null);
-  const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -75,6 +78,7 @@ export default function HelpArticlesAdmin() {
     ]);
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
@@ -93,6 +97,7 @@ export default function HelpArticlesAdmin() {
       })),
     );
     setCategories((cats ?? []).map((cat) => ({ id: cat.id, locale: cat.locale, name: cat.name })));
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -144,34 +149,149 @@ export default function HelpArticlesAdmin() {
     refresh();
   };
 
-  const togglePublished = async (row: ArticleRow) => {
-    setError(null);
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("help_articles")
-      .update({ is_published: !row.isPublished })
-      .eq("id", row.id);
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-    recordAudit(supabase, row.isPublished ? "admin.help.article.unpublished" : "admin.help.article.published", {
-      entityType: "help_article",
-      entityId: row.id,
-      metadata: { title: row.title },
-    });
-    refresh();
-  };
+  const togglePublished = useCallback(
+    async (row: ArticleRow) => {
+      setError(null);
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from("help_articles")
+        .update({ is_published: !row.isPublished })
+        .eq("id", row.id);
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      recordAudit(supabase, row.isPublished ? "admin.help.article.unpublished" : "admin.help.article.published", {
+        entityType: "help_article",
+        entityId: row.id,
+        metadata: { title: row.title },
+      });
+      refresh();
+    },
+    [refresh],
+  );
 
-  const categoryName = (id: string) => categories.find((cat) => cat.id === id)?.name ?? "?";
+  const openEdit = useCallback((row: ArticleRow) => {
+    setForm({
+      id: row.id,
+      categoryId: row.categoryId,
+      locale: row.locale,
+      slug: row.slug,
+      title: row.title,
+      excerpt: row.excerpt ?? "",
+      bodyMd: row.bodyMd,
+      sort: row.sort,
+      isPublished: row.isPublished,
+    });
+  }, []);
+
   const formCategories = form ? categories.filter((cat) => cat.locale === form.locale) : [];
 
-  const visible = rows.filter(
-    (row) =>
-      !filter ||
-      row.title.toLowerCase().includes(filter.toLowerCase()) ||
-      row.slug.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const columns = useMemo<GridColDef<ArticleRow>[]>(() => {
+    const categoryName = (id: string) => categories.find((cat) => cat.id === id)?.name ?? "?";
+    return [
+      {
+        field: "title",
+        headerName: "Title",
+        flex: 2,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<ArticleRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "categoryId",
+        headerName: "Category",
+        flex: 1,
+        minWidth: 150,
+        // The searched text must be reachable as the cell value: the category
+        // name lives in another table, not on the row.
+        valueGetter: (_, row) => categoryName(row.categoryId),
+        renderCell: (params: GridRenderCellParams<ArticleRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "slug",
+        headerName: "Path",
+        flex: 1,
+        minWidth: 170,
+        valueGetter: (_, row) => `/help/${row.slug}`,
+        renderCell: (params: GridRenderCellParams<ArticleRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "locale",
+        headerName: "Locale",
+        minWidth: 100,
+        renderCell: (params: GridRenderCellParams<ArticleRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip label={params.row.locale} size="small" variant="outlined" />
+          </Box>
+        ),
+      },
+      {
+        field: "updatedAt",
+        headerName: "Updated",
+        minWidth: 130,
+        valueFormatter: (value: string) => new Date(value).toLocaleDateString(),
+      },
+      {
+        // Publish/unpublish is a kill switch for public content: it stays
+        // visible on the row, never buried in the kebab.
+        field: "isPublished",
+        headerName: "Published",
+        minWidth: 110,
+        type: "boolean",
+        renderCell: (params: GridRenderCellParams<ArticleRow, boolean>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.row.isPublished ? "Unpublish" : "Publish"}>
+              <Switch
+                checked={params.row.isPublished}
+                onChange={() => togglePublished(params.row)}
+                size="small"
+                slotProps={{
+                  input: {
+                    "aria-label": params.row.isPublished ? "Unpublish article" : "Publish article",
+                  },
+                }}
+              />
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ];
+  }, [categories, openEdit, togglePublished]);
 
   return (
     <Box className="flex flex-col gap-3">
@@ -179,17 +299,6 @@ export default function HelpArticlesAdmin() {
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
-      )}
-
-      {!form && (
-        <Box className="flex flex-row items-center gap-3">
-          <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-            New article
-          </Button>
-          <FormControl className="outlined w-72" variant="standard" size="small">
-            <Input placeholder="Filter by title or slug" value={filter} onChange={(e) => setFilter(e.target.value)} />
-          </FormControl>
-        </Box>
       )}
 
       {form && (
@@ -267,57 +376,40 @@ export default function HelpArticlesAdmin() {
         </Box>
       )}
 
-      {loaded && rows.length === 0 && !form && (
-        <EmptyState
-          icon={<NiDocumentFull size="medium" />}
-          title="No help articles yet"
-          description="Write the first article customers will find at /help — start with the question your support inbox answers most often."
-          action={{ label: "New article", onClick: () => setForm(EMPTY_FORM) }}
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<ArticleRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            form ? undefined : (
+              <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
+                New article
+              </Button>
+            )
+          }
+          noRowsOverlay={
+            form ? (
+              <Typography variant="body2" className="text-text-secondary">
+                No help articles yet.
+              </Typography>
+            ) : (
+              <EmptyState
+                icon={<NiDocumentFull size="medium" />}
+                title="No help articles yet"
+                description="Write the first article customers will find at /help — start with the question your support inbox answers most often."
+                action={{ label: "New article", onClick: () => setForm(EMPTY_FORM) }}
+                className="border-none"
+              />
+            )
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No articles match your search.
+            </Typography>
+          }
         />
-      )}
-
-      {visible.map((row) => (
-        <RowLine key={row.id}>
-          <RowText
-            primary={row.title}
-            secondary={`${categoryName(row.categoryId)} · /help/${row.slug} · updated ${new Date(row.updatedAt).toLocaleDateString()}`}
-          />
-          <Chip label={row.locale} size="small" variant="outlined" />
-          <Chip
-            label={row.isPublished ? "published" : "draft"}
-            size="small"
-            color={row.isPublished ? "success" : "default"}
-            variant="outlined"
-          />
-          <Tooltip title={row.isPublished ? "Unpublish" : "Publish"}>
-            <Switch checked={row.isPublished} onChange={() => togglePublished(row)} size="small" />
-          </Tooltip>
-          <Button
-            size="small"
-            variant="text"
-            color="grey"
-            onClick={() =>
-              setForm({
-                id: row.id,
-                categoryId: row.categoryId,
-                locale: row.locale,
-                slug: row.slug,
-                title: row.title,
-                excerpt: row.excerpt ?? "",
-                bodyMd: row.bodyMd,
-                sort: row.sort,
-                isPublished: row.isPublished,
-              })
-            }
-          >
-            Edit
-          </Button>
-        </RowLine>
-      ))}
-      {loaded && visible.length === 0 && rows.length > 0 && (
-        <Typography variant="body2" className="text-text-secondary">
-          No articles match the filter.
-        </Typography>
       )}
     </Box>
   );

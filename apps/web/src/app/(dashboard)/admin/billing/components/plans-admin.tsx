@@ -1,7 +1,7 @@
 "use client";
 
-import { CURRENCY_SYMBOLS, Field, RowLine, RowText, SelectField } from "./catalog-shared";
-import { useCallback, useEffect, useState } from "react";
+import { CURRENCY_SYMBOLS, Field, SelectField } from "./catalog-shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
@@ -14,10 +14,14 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  Tooltip,
+  Typography,
 } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
+import DataTable from "@/components/data-grid/data-table";
+import EmptyState from "@/components/product/empty-state";
 import { CurrencyField } from "@/components/product/fields";
+import NiMoney from "@/icons/nexture/ni-money";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
@@ -43,6 +47,21 @@ type PlanForm = {
   sort: number;
 };
 
+/** One catalog row, flattened for the grid; `raw` is what the edit dialog reads. */
+type PlanRow = {
+  id: string;
+  name: string;
+  slug: string;
+  kind: string;
+  period: string;
+  price: string;
+  trialDays: number;
+  isFree: boolean;
+  isActive: boolean;
+  isPublic: boolean;
+  raw: Record<string, unknown>;
+};
+
 const EMPTY: PlanForm = {
   slug: "",
   name: "",
@@ -61,22 +80,37 @@ const EMPTY: PlanForm = {
   sort: 0,
 };
 
+/** The catalog flags a row carries, as searchable text (the chips render them). */
+const flagsOf = (row: PlanRow) =>
+  [row.isFree ? "free default" : null, row.isActive ? null : "inactive", row.isPublic ? null : "unlisted"]
+    .filter(Boolean)
+    .join(" ");
+
 export default function PlansAdmin() {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [form, setForm] = useState<PlanForm | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase.from("plans").select("*").order("sort");
+    const { data, error: readError } = await supabase.from("plans").select("*").order("sort");
+    if (readError) {
+      setLoadError(readError.message);
+      setLoaded(true);
+      return;
+    }
     setRows(data ?? []);
+    setLoadError(null);
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const openEdit = (row?: Record<string, unknown>) => {
+  const openEdit = useCallback((row?: Record<string, unknown>) => {
     setError(null);
     if (!row) {
       setForm(EMPTY);
@@ -100,7 +134,7 @@ export default function PlansAdmin() {
       limits: JSON.stringify(row.limits ?? {}, null, 2),
       sort: row.sort as number,
     });
-  };
+  }, []);
 
   const save = async () => {
     if (!form) return;
@@ -145,38 +179,139 @@ export default function PlansAdmin() {
     refresh();
   };
 
+  const gridRows = useMemo<PlanRow[]>(
+    () =>
+      rows.map((row) => ({
+        id: row.id as string,
+        name: row.name as string,
+        slug: row.slug as string,
+        kind: row.kind as string,
+        period: (row.period as string) ?? "one-time",
+        price: `${((row.price_cents as number) / 100).toFixed(2)} ${row.currency as string}`,
+        trialDays: (row.trial_days as number) ?? 0,
+        isFree: Boolean(row.is_free),
+        isActive: Boolean(row.is_active),
+        isPublic: row.is_public !== false,
+        raw: row,
+      })),
+    [rows],
+  );
+
+  const columns = useMemo<GridColDef<PlanRow>[]>(
+    () => [
+      {
+        field: "name",
+        headerName: "Plan",
+        flex: 2,
+        minWidth: 240,
+        // The slug is searched and exported as part of the cell's value, even
+        // though the cell renders it on its own line.
+        valueGetter: (_, row) => `${row.name} (${row.slug})`,
+        renderCell: (params: GridRenderCellParams<PlanRow, string>) => (
+          <Box className="flex h-full min-w-0 flex-col justify-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.row.name}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.row.slug}
+            </Typography>
+          </Box>
+        ),
+      },
+      { field: "kind", headerName: "Kind", minWidth: 120 },
+      { field: "period", headerName: "Period", minWidth: 120 },
+      { field: "price", headerName: "Price", minWidth: 140 },
+      {
+        field: "trialDays",
+        headerName: "Trial",
+        type: "number",
+        minWidth: 100,
+        valueFormatter: (value: number) => `${value ?? 0}d`,
+      },
+      {
+        // "Unlisted" is sellable but off the catalog — a founders/partner offer
+        // reached by /settings/billing?plan=<slug>. Not the same as inactive,
+        // which is not sellable at all.
+        field: "flags",
+        headerName: "Catalog",
+        minWidth: 220,
+        sortable: false,
+        valueGetter: (_, row) => flagsOf(row),
+        renderCell: (params: GridRenderCellParams<PlanRow, string>) => (
+          <Box className="flex h-full flex-row items-center gap-1">
+            {params.row.isFree && <Chip label="free default" size="small" color="success" variant="outlined" />}
+            {!params.row.isActive && <Chip label="inactive" size="small" variant="outlined" />}
+            {!params.row.isPublic && <Chip label="unlisted" size="small" color="primary" variant="outlined" />}
+            {params.value === "" && (
+              <Typography variant="body2" className="text-text-secondary">
+                —
+              </Typography>
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row.raw)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openEdit],
+  );
+
   return (
     <Box className="flex flex-col gap-3">
-      <Box>
-        <Button
-          variant="outlined"
-          size="small"
-          color="grey"
-          startIcon={<NiPlus size="small" />}
-          onClick={() => openEdit()}
-        >
-          New plan
-        </Button>
-      </Box>
-      {rows.map((row) => (
-        <RowLine key={row.id as string}>
-          <RowText
-            primary={`${row.name} (${row.slug})`}
-            secondary={`${row.kind} · ${row.period ?? "one-time"} · ${((row.price_cents as number) / 100).toFixed(2)} ${row.currency} · trial ${row.trial_days}d`}
-          />
-          {(row.is_free as boolean) && <Chip label="free default" size="small" color="success" variant="outlined" />}
-          {!(row.is_active as boolean) && <Chip label="inactive" size="small" variant="outlined" />}
-          {/* Sellable but off the catalog — a founders/partner offer reached by
-              /settings/billing?plan=<slug>. Not the same as inactive, which is
-              not sellable at all. */}
-          {row.is_public === false && <Chip label="unlisted" size="small" color="primary" variant="outlined" />}
-          <Tooltip title="Edit">
-            <Button className="icon-only" size="small" color="grey" variant="text" onClick={() => openEdit(row)}>
-              <NiPen size="medium" />
+      {/* A failed load is an error, never an empty-looking table. */}
+      {loadError && (
+        <Alert severity="error" className="neutral bg-background-paper/60!">
+          {loadError}
+        </Alert>
+      )}
+
+      {!loadError && (
+        <DataTable<PlanRow>
+          rows={gridRows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            <Button
+              variant="outlined"
+              size="small"
+              color="grey"
+              startIcon={<NiPlus size="small" />}
+              onClick={() => openEdit()}
+            >
+              New plan
             </Button>
-          </Tooltip>
-        </RowLine>
-      ))}
+          }
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiMoney size="medium" />}
+              title="No plans yet"
+              description="The plan catalog is what a workspace can buy — price, period, trial and the limits each tier unlocks."
+              action={{ label: "New plan", onClick: () => openEdit() }}
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No plans match your search.
+            </Typography>
+          }
+        />
+      )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="sm" fullWidth>
         <DialogTitle>{form?.id ? "Edit plan" : "New plan"}</DialogTitle>

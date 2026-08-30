@@ -1,7 +1,7 @@
 "use client";
 
-import { CURRENCY_SYMBOLS, Field, RowLine, RowText, SelectField } from "./catalog-shared";
-import { useCallback, useEffect, useState } from "react";
+import { CURRENCY_SYMBOLS, Field, SelectField } from "./catalog-shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
@@ -14,12 +14,16 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  Tooltip,
+  Typography,
 } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
+import DataTable from "@/components/data-grid/data-table";
+import EmptyState from "@/components/product/empty-state";
 import { CurrencyField } from "@/components/product/fields";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
+import NiPuzzle from "@/icons/nexture/ni-puzzle";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -34,6 +38,17 @@ type ModuleForm = {
   limits: string;
   is_active: boolean;
   sort: number;
+};
+
+/** One module row, flattened for the grid; `raw` is what the edit dialog reads. */
+type ModuleRow = {
+  id: string;
+  name: string;
+  slug: string;
+  kind: string;
+  price: string;
+  isActive: boolean;
+  raw: Record<string, unknown>;
 };
 
 const EMPTY: ModuleForm = {
@@ -51,18 +66,27 @@ export default function ModulesAdmin() {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [form, setForm] = useState<ModuleForm | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase.from("modules").select("*").order("sort");
+    const { data, error: readError } = await supabase.from("modules").select("*").order("sort");
+    if (readError) {
+      setLoadError(readError.message);
+      setLoaded(true);
+      return;
+    }
     setRows(data ?? []);
+    setLoadError(null);
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const openEdit = (row?: Record<string, unknown>) => {
+  const openEdit = useCallback((row?: Record<string, unknown>) => {
     setError(null);
     setForm(
       row
@@ -79,7 +103,7 @@ export default function ModulesAdmin() {
           }
         : EMPTY,
     );
-  };
+  }, []);
 
   const save = async () => {
     if (!form) return;
@@ -116,33 +140,122 @@ export default function ModulesAdmin() {
     refresh();
   };
 
+  const gridRows = useMemo<ModuleRow[]>(
+    () =>
+      rows.map((row) => ({
+        id: row.id as string,
+        name: row.name as string,
+        slug: row.slug as string,
+        kind: row.kind as string,
+        price: `${((row.price_cents as number) / 100).toFixed(2)} ${row.currency as string}`,
+        isActive: Boolean(row.is_active),
+        raw: row,
+      })),
+    [rows],
+  );
+
+  const columns = useMemo<GridColDef<ModuleRow>[]>(
+    () => [
+      {
+        field: "name",
+        headerName: "Module",
+        flex: 2,
+        minWidth: 240,
+        // The slug is searched and exported as part of the cell's value, even
+        // though the cell renders it on its own line.
+        valueGetter: (_, row) => `${row.name} (${row.slug})`,
+        renderCell: (params: GridRenderCellParams<ModuleRow, string>) => (
+          <Box className="flex h-full min-w-0 flex-col justify-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.row.name}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.row.slug}
+            </Typography>
+          </Box>
+        ),
+      },
+      { field: "kind", headerName: "Kind", minWidth: 140 },
+      { field: "price", headerName: "Price", minWidth: 140 },
+      {
+        field: "isActive",
+        headerName: "Status",
+        minWidth: 140,
+        type: "boolean",
+        renderCell: (params: GridRenderCellParams<ModuleRow, boolean>) => (
+          <Box className="flex h-full items-center">
+            {params.row.isActive ? (
+              <Typography variant="body2" className="text-text-secondary">
+                —
+              </Typography>
+            ) : (
+              <Chip label="inactive" size="small" variant="outlined" />
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row.raw)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openEdit],
+  );
+
   return (
     <Box className="flex flex-col gap-3">
-      <Box>
-        <Button
-          variant="outlined"
-          size="small"
-          color="grey"
-          startIcon={<NiPlus size="small" />}
-          onClick={() => openEdit()}
-        >
-          New module
-        </Button>
-      </Box>
-      {rows.map((row) => (
-        <RowLine key={row.id as string}>
-          <RowText
-            primary={`${row.name} (${row.slug})`}
-            secondary={`${row.kind} · ${((row.price_cents as number) / 100).toFixed(2)} ${row.currency}`}
-          />
-          {!(row.is_active as boolean) && <Chip label="inactive" size="small" variant="outlined" />}
-          <Tooltip title="Edit">
-            <Button className="icon-only" size="small" color="grey" variant="text" onClick={() => openEdit(row)}>
-              <NiPen size="medium" />
+      {/* A failed load is an error, never an empty-looking table. */}
+      {loadError && (
+        <Alert severity="error" className="neutral bg-background-paper/60!">
+          {loadError}
+        </Alert>
+      )}
+
+      {!loadError && (
+        <DataTable<ModuleRow>
+          rows={gridRows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            <Button
+              variant="outlined"
+              size="small"
+              color="grey"
+              startIcon={<NiPlus size="small" />}
+              onClick={() => openEdit()}
+            >
+              New module
             </Button>
-          </Tooltip>
-        </RowLine>
-      ))}
+          }
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiPuzzle size="medium" />}
+              title="No modules yet"
+              description="A module is an add-on sold on top of a plan — extra capability a workspace switches on without changing tier."
+              action={{ label: "New module", onClick: () => openEdit() }}
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No modules match your search.
+            </Typography>
+          }
+        />
+      )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="sm" fullWidth>
         <DialogTitle>{form?.id ? "Edit module" : "New module"}</DialogTitle>

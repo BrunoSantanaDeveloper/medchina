@@ -1,12 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Alert, Box, Button, Chip, Collapse, FormControl, Input, Switch, Tooltip, Typography } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Switch,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { RowLine, RowText } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import NiBuilding from "@/icons/nexture/ni-building";
+import NiUsers from "@/icons/nexture/ni-users";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -31,17 +45,25 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
 
 const LIVE_STATUSES = ["trialing", "active", "past_due"];
 
+/** The searched text must be reachable as a cell value, not only in the node. */
+const statusTextOf = (row: OrgRow) =>
+  row.liveSub
+    ? `${row.liveSub.status.replace("_", " ")}${row.liveSub.adminSuspended ? " suspended" : ""}`
+    : "no subscription";
+
 /**
  * The operator's job here really is scan/manage many tenants: find an org,
  * see its plan health and roster, and act (suspend / reactivate access).
  */
 export default function OrgsAdmin() {
   const [rows, setRows] = useState<OrgRow[]>([]);
-  const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [membersOrg, setMembersOrg] = useState<OrgRow | null>(null);
   const [members, setMembers] = useState<Record<string, MemberRow[]>>({});
+  // Mirrors which rosters were already fetched so the column defs stay stable.
+  const fetchedMembers = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -54,6 +76,7 @@ export default function OrgsAdmin() {
       .limit(200);
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
@@ -87,6 +110,7 @@ export default function OrgsAdmin() {
         };
       }),
     );
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -94,138 +118,252 @@ export default function OrgsAdmin() {
     refresh();
   }, [refresh]);
 
-  const toggleExpanded = async (orgId: string) => {
-    if (expanded === orgId) {
-      setExpanded(null);
-      return;
-    }
-    setExpanded(orgId);
-    if (!members[orgId]) {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("memberships")
-        .select("user_id, role, created_at, profiles(display_name)")
-        .eq("org_id", orgId)
-        .order("created_at");
-      setMembers((current) => ({
-        ...current,
-        [orgId]: (data ?? []).map((row) => ({
-          userId: row.user_id,
-          role: row.role,
-          displayName:
-            (row.profiles as unknown as { display_name: string | null } | null)?.display_name ?? "Unnamed user",
-          joinedAt: row.created_at,
-        })),
-      }));
-    }
-  };
+  // The roster is still fetched lazily — now when the dialog opens instead of
+  // when the row expanded.
+  const openMembers = useCallback(async (org: OrgRow) => {
+    setMembersOrg(org);
+    if (fetchedMembers.current.has(org.id)) return;
+    fetchedMembers.current.add(org.id);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("memberships")
+      .select("user_id, role, created_at, profiles(display_name)")
+      .eq("org_id", org.id)
+      .order("created_at");
+    setMembers((current) => ({
+      ...current,
+      [org.id]: (data ?? []).map((row) => ({
+        userId: row.user_id,
+        role: row.role,
+        displayName:
+          (row.profiles as unknown as { display_name: string | null } | null)?.display_name ?? "Unnamed user",
+        joinedAt: row.created_at,
+      })),
+    }));
+  }, []);
 
   // Superadmin kill-switch on the live subscription, same semantics as the
   // Billing console (access suspension independent of the provider state).
-  const toggleSuspended = async (org: OrgRow) => {
-    if (!org.liveSub) return;
-    setError(null);
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("subscriptions")
-      .update({ admin_suspended: !org.liveSub.adminSuspended })
-      .eq("id", org.liveSub.id);
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-    recordAudit(supabase, org.liveSub.adminSuspended ? "admin.org.reactivated" : "admin.org.suspended", {
-      orgId: org.id,
-      entityType: "subscription",
-      entityId: org.liveSub.id,
-      metadata: { org: org.name },
-    });
-    refresh();
-  };
-
-  const visible = rows.filter(
-    (row) =>
-      !filter ||
-      row.name.toLowerCase().includes(filter.toLowerCase()) ||
-      row.slug.toLowerCase().includes(filter.toLowerCase()),
+  const toggleSuspended = useCallback(
+    async (org: OrgRow) => {
+      if (!org.liveSub) return;
+      setError(null);
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from("subscriptions")
+        .update({ admin_suspended: !org.liveSub.adminSuspended })
+        .eq("id", org.liveSub.id);
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      recordAudit(supabase, org.liveSub.adminSuspended ? "admin.org.reactivated" : "admin.org.suspended", {
+        orgId: org.id,
+        entityType: "subscription",
+        entityId: org.liveSub.id,
+        metadata: { org: org.name },
+      });
+      refresh();
+    },
+    [refresh],
   );
 
-  if (loaded && rows.length === 0 && !error) {
-    return (
-      <EmptyState
-        icon={<NiBuilding size="medium" />}
-        title="No organizations yet"
-        description="Organizations appear here as soon as users sign up. Each one starts on the free plan automatically."
-      />
-    );
-  }
+  const columns = useMemo<GridColDef<OrgRow>[]>(
+    () => [
+      {
+        field: "name",
+        headerName: "Organization",
+        flex: 2,
+        minWidth: 200,
+        renderCell: (params: GridRenderCellParams<OrgRow, string>) => (
+          <Box className="flex h-full flex-col justify-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.row.name}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary truncate">
+              since {new Date(params.row.createdAt).toLocaleDateString()}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "slug",
+        headerName: "Slug",
+        flex: 1,
+        minWidth: 150,
+        renderCell: (params: GridRenderCellParams<OrgRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.row.slug}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "plan",
+        headerName: "Plan",
+        flex: 1,
+        minWidth: 140,
+        valueGetter: (_, row) => row.liveSub?.planName ?? "no subscription",
+        renderCell: (params: GridRenderCellParams<OrgRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip label={params.value} size="small" variant="outlined" />
+          </Box>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        minWidth: 170,
+        valueGetter: (_, row) => statusTextOf(row),
+        renderCell: (params: GridRenderCellParams<OrgRow, string>) => {
+          const sub = params.row.liveSub;
+          if (!sub) {
+            return (
+              <Box className="flex h-full items-center">
+                <Chip label="no subscription" size="small" variant="outlined" />
+              </Box>
+            );
+          }
+          return (
+            <Box className="flex h-full flex-row items-center gap-1">
+              <Chip
+                label={sub.status.replace("_", " ")}
+                size="small"
+                color={STATUS_COLOR[sub.status] ?? "default"}
+                variant="outlined"
+                className="capitalize"
+              />
+              {sub.adminSuspended && <Chip label="suspended" size="small" color="error" variant="outlined" />}
+            </Box>
+          );
+        },
+      },
+      {
+        field: "memberCount",
+        headerName: "Members",
+        type: "number",
+        minWidth: 110,
+      },
+      {
+        // Suspend/reactivate is the audited kill-switch: it stays visible on
+        // the row, never buried in the kebab.
+        field: "access",
+        headerName: "Access",
+        minWidth: 110,
+        type: "boolean",
+        valueGetter: (_, row) => Boolean(row.liveSub && !row.liveSub.adminSuspended),
+        renderCell: (params: GridRenderCellParams<OrgRow, boolean>) => {
+          const sub = params.row.liveSub;
+          if (!sub) return null;
+          return (
+            <Box className="flex h-full items-center">
+              <Tooltip title={sub.adminSuspended ? "Reactivate access" : "Suspend access"}>
+                <Switch
+                  checked={!sub.adminSuspended}
+                  onChange={() => toggleSuspended(params.row)}
+                  size="small"
+                  slotProps={{
+                    input: {
+                      "aria-label": sub.adminSuspended
+                        ? `Reactivate access for ${params.row.name}`
+                        : `Suspend access for ${params.row.name}`,
+                    },
+                  }}
+                />
+              </Tooltip>
+            </Box>
+          );
+        },
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="members"
+            icon={<NiUsers size="medium" />}
+            label="View members"
+            onClick={() => openMembers(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openMembers, toggleSuspended],
+  );
+
+  const roster = membersOrg ? members[membersOrg.id] : undefined;
 
   return (
     <Box className="flex flex-col gap-3">
-      <FormControl className="outlined w-72" variant="standard" size="small">
-        <Input placeholder="Filter by name or slug" value={filter} onChange={(e) => setFilter(e.target.value)} />
-      </FormControl>
-
       {error && (
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
       )}
 
-      {visible.map((org) => (
-        <Box key={org.id} className="flex flex-col">
-          <RowLine>
-            <RowText
-              primary={org.name}
-              secondary={`${org.slug} · ${org.memberCount} member${org.memberCount === 1 ? "" : "s"} · since ${new Date(org.createdAt).toLocaleDateString()}`}
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<OrgRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiBuilding size="medium" />}
+              title="No organizations yet"
+              description="Organizations appear here as soon as users sign up. Each one starts on the free plan automatically."
+              className="border-none"
             />
-            {org.liveSub ? (
-              <>
-                <Chip label={org.liveSub.planName} size="small" variant="outlined" />
-                <Chip
-                  label={org.liveSub.status.replace("_", " ")}
-                  size="small"
-                  color={STATUS_COLOR[org.liveSub.status] ?? "default"}
-                  variant="outlined"
-                  className="capitalize"
-                />
-                {org.liveSub.adminSuspended && <Chip label="suspended" size="small" color="error" variant="outlined" />}
-                <Tooltip title={org.liveSub.adminSuspended ? "Reactivate access" : "Suspend access"}>
-                  <Switch checked={!org.liveSub.adminSuspended} onChange={() => toggleSuspended(org)} size="small" />
-                </Tooltip>
-              </>
-            ) : (
-              <Chip label="no subscription" size="small" variant="outlined" />
-            )}
-            <Button size="small" variant="text" color="grey" onClick={() => toggleExpanded(org.id)}>
-              {expanded === org.id ? "Hide members" : "Members"}
-            </Button>
-          </RowLine>
-          <Collapse in={expanded === org.id}>
-            <Box className="flex flex-col gap-2 py-3 pl-6">
-              {(members[org.id] ?? []).map((member) => (
-                <Box key={member.userId} className="flex flex-row items-center gap-3">
-                  <RowText
-                    primary={member.displayName}
-                    secondary={`joined ${new Date(member.joinedAt).toLocaleDateString()}`}
-                  />
-                  <Chip label={member.role} size="small" variant="outlined" className="capitalize" />
-                </Box>
-              ))}
-              {expanded === org.id && !members[org.id] && (
-                <Typography variant="body2" className="text-text-secondary">
-                  Loading members…
-                </Typography>
-              )}
-            </Box>
-          </Collapse>
-        </Box>
-      ))}
-      {loaded && visible.length === 0 && rows.length > 0 && (
-        <Typography variant="body2" className="text-text-secondary">
-          No organizations match the filter.
-        </Typography>
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No organizations match your search.
+            </Typography>
+          }
+        />
       )}
+
+      <Dialog open={Boolean(membersOrg)} onClose={() => setMembersOrg(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Members of {membersOrg?.name}</DialogTitle>
+        <DialogContent>
+          <Box className="flex flex-col gap-3 pt-1">
+            {!roster && (
+              <Typography variant="body2" className="text-text-secondary">
+                Loading members…
+              </Typography>
+            )}
+            {roster && roster.length === 0 && (
+              <Typography variant="body2" className="text-text-secondary">
+                This organization has no members.
+              </Typography>
+            )}
+            {(roster ?? []).map((member) => (
+              <Box key={member.userId} className="flex flex-row items-center gap-3">
+                <Box className="flex min-w-0 flex-1 flex-col">
+                  <Typography variant="body1" className="text-text-primary truncate font-medium">
+                    {member.displayName}
+                  </Typography>
+                  <Typography variant="body2" className="text-text-secondary truncate">
+                    joined {new Date(member.joinedAt).toLocaleDateString()}
+                  </Typography>
+                </Box>
+                <Chip label={member.role} size="small" variant="outlined" className="capitalize" />
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="text" color="grey" onClick={() => setMembersOrg(null)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

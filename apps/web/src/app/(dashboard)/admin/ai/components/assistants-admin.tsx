@@ -1,7 +1,7 @@
 "use client";
 
-import { Field, RowLine, RowText, SelectField } from "../../billing/components/catalog-shared";
-import { useCallback, useEffect, useState } from "react";
+import { Field, SelectField } from "../../billing/components/catalog-shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   Alert,
@@ -17,14 +17,20 @@ import {
   FormControlLabel,
   FormLabel,
   TextareaAutosize,
-  Tooltip,
   Typography,
 } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
+import DataTable from "@/components/data-grid/data-table";
+import EmptyState from "@/components/product/empty-state";
+import NiAi from "@/icons/nexture/ni-ai";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
+
+/** Rows stay the raw assistant records — the edit dialog reads every column. */
+type AssistantRow = Record<string, unknown>;
 
 type AssistantForm = {
   id?: string;
@@ -73,16 +79,28 @@ const PROVIDER_KEY_ENV: Record<string, string> = {
 };
 
 export default function AssistantsAdmin() {
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [rows, setRows] = useState<AssistantRow[]>([]);
   const [form, setForm] = useState<AssistantForm | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   /** Which providers hold a key here; null until the check answers. */
   const [configured, setConfigured] = useState<Record<string, boolean> | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase.from("assistants").select("*").order("sort");
+    const { data, error: readError } = await supabase.from("assistants").select("*").order("sort");
+    if (readError) {
+      setLoadError(readError.message);
+      setLoadFailed(true);
+      setLoaded(true);
+      return;
+    }
     setRows(data ?? []);
+    setLoadError(null);
+    setLoadFailed(false);
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -98,7 +116,7 @@ export default function AssistantsAdmin() {
       .catch(() => setConfigured(null));
   }, []);
 
-  const openEdit = (row?: Record<string, unknown>) => {
+  const openEdit = useCallback((row?: AssistantRow) => {
     setError(null);
     setForm(
       row
@@ -118,7 +136,7 @@ export default function AssistantsAdmin() {
           }
         : EMPTY,
     );
-  };
+  }, []);
 
   const save = async () => {
     if (!form) return;
@@ -159,33 +177,139 @@ export default function AssistantsAdmin() {
     refresh();
   };
 
+  const columns = useMemo<GridColDef<AssistantRow>[]>(
+    () => [
+      {
+        field: "name",
+        headerName: "Assistant",
+        flex: 2,
+        minWidth: 220,
+        // The slug is a second line in the cell, so keep both halves reachable
+        // as the cell VALUE — that is what the quick filter searches.
+        valueGetter: (_, row) => `${row.name ?? ""} (${row.slug ?? ""})`,
+        renderCell: (params: GridRenderCellParams<AssistantRow, string>) => (
+          <Box className="flex h-full flex-col justify-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {String(params.row.name ?? "")}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {String(params.row.slug ?? "")}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "provider",
+        headerName: "Provider",
+        minWidth: 140,
+        renderCell: (params: GridRenderCellParams<AssistantRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip label={String(params.row.provider ?? "")} size="small" variant="outlined" />
+          </Box>
+        ),
+      },
+      {
+        field: "model",
+        headerName: "Model",
+        flex: 1.5,
+        minWidth: 200,
+        renderCell: (params: GridRenderCellParams<AssistantRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {String(params.row.model ?? "")}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "credits_per_message",
+        headerName: "Credits/msg",
+        type: "number",
+        minWidth: 130,
+      },
+      {
+        // Read-only report of the flag: activation is edited in the dialog,
+        // never inline — there is no in-table write path here.
+        field: "is_active",
+        headerName: "Status",
+        minWidth: 120,
+        valueGetter: (_, row) => (row.is_active ? "active" : "inactive"),
+        renderCell: (params: GridRenderCellParams<AssistantRow, string>) => {
+          const active = Boolean(params.row.is_active);
+          return (
+            <Box className="flex h-full items-center">
+              <Chip
+                label={active ? "active" : "inactive"}
+                size="small"
+                color={active ? "success" : "default"}
+                variant="outlined"
+              />
+            </Box>
+          );
+        },
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openEdit],
+  );
+
   return (
     <Box className="flex flex-col gap-3">
-      <Box>
-        <Button
-          variant="outlined"
-          size="small"
-          color="grey"
-          startIcon={<NiPlus size="small" />}
-          onClick={() => openEdit()}
-        >
-          New assistant
-        </Button>
-      </Box>
-      {rows.map((row) => (
-        <RowLine key={row.id as string}>
-          <RowText
-            primary={`${row.name} (${row.slug})`}
-            secondary={`${row.provider} · ${row.model} · ${row.credits_per_message} credits/message`}
-          />
-          {!(row.is_active as boolean) && <Chip label="inactive" size="small" variant="outlined" />}
-          <Tooltip title="Edit">
-            <Button className="icon-only" size="small" color="grey" variant="text" onClick={() => openEdit(row)}>
-              <NiPen size="medium" />
+      {loadError && (
+        <Alert severity="error" className="neutral bg-background-paper/60!">
+          {loadError}
+        </Alert>
+      )}
+
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<AssistantRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            <Button
+              variant="outlined"
+              size="small"
+              color="grey"
+              startIcon={<NiPlus size="small" />}
+              onClick={() => openEdit()}
+            >
+              New assistant
             </Button>
-          </Tooltip>
-        </RowLine>
-      ))}
+          }
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiAi size="medium" />}
+              title="No assistants yet"
+              description="An assistant is a model plus its system instructions — the behavior contract every chat with it obeys. Create one to make it available in the app."
+              action={{ label: "New assistant", onClick: () => openEdit() }}
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No assistants match your search.
+            </Typography>
+          }
+        />
+      )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="md" fullWidth>
         <DialogTitle>{form?.id ? "Edit assistant" : "New assistant"}</DialogTitle>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Alert, Box, Chip, FormControl, Input, Typography } from "@mui/material";
+import { Alert, Box, Chip, Tooltip, Typography } from "@mui/material";
+import { type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { RowLine, RowText } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import NiMessages from "@/icons/nexture/ni-messages";
 import { createClient } from "@flyee/auth/client";
@@ -33,12 +34,15 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
   failed: "error",
 };
 
+/** The old row's primary line: what was actually sent. */
+const messageOf = (row: WaRow) => row.text ?? (row.template ? `template: ${row.template}` : row.kind);
+
 /** Cross-tenant log of every WhatsApp message the dispatcher handled. */
 export default function WaLogAdmin() {
   const [rows, setRows] = useState<WaRow[]>([]);
-  const [filter, setFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -51,6 +55,7 @@ export default function WaLogAdmin() {
       .limit(200);
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
@@ -70,6 +75,7 @@ export default function WaLogAdmin() {
         createdAt: row.created_at,
       })),
     );
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -77,77 +83,171 @@ export default function WaLogAdmin() {
     refresh();
   }, [refresh]);
 
-  const visible = rows.filter((row) => {
-    if (!filter) return true;
-    const query = filter.toLowerCase();
-    return (
-      (row.toNumber ?? "").includes(query) ||
-      (row.fromNumber ?? "").includes(query) ||
-      (row.text ?? "").toLowerCase().includes(query) ||
-      (row.orgName ?? "").toLowerCase().includes(query) ||
-      row.status.toLowerCase().includes(query)
-    );
-  });
-
-  if (loaded && rows.length === 0 && !error) {
-    return (
-      <EmptyState
-        icon={<NiMessages size="medium" />}
-        title="No WhatsApp messages yet"
-        description="Every message sent or received through the WhatsApp dispatcher (packages/whatsapp) is logged here with its delivery status."
-      />
-    );
-  }
+  const columns = useMemo<GridColDef<WaRow>[]>(
+    () => [
+      {
+        field: "createdAt",
+        headerName: "When",
+        flex: 1,
+        minWidth: 180,
+        renderCell: (params: GridRenderCellParams<WaRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {new Date(params.row.createdAt).toLocaleString()}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "direction",
+        headerName: "Direction",
+        minWidth: 120,
+        renderCell: (params: GridRenderCellParams<WaRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Chip
+              label={params.row.direction === "inbound" ? "in" : "out"}
+              size="small"
+              color={params.row.direction === "inbound" ? "secondary" : "primary"}
+              variant="outlined"
+            />
+          </Box>
+        ),
+      },
+      {
+        field: "message",
+        headerName: "Message",
+        flex: 2,
+        minWidth: 260,
+        // The body must stay reachable by the quick filter, as it was by the
+        // old plain-text filter — truncated here, full text in the tooltip.
+        valueGetter: (_, row) => messageOf(row),
+        renderCell: (params: GridRenderCellParams<WaRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.value ?? ""}>
+              <Typography variant="body2" className="text-text-secondary truncate">
+                {params.value}
+              </Typography>
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        field: "fromNumber",
+        headerName: "From",
+        minWidth: 150,
+        renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate font-mono">
+              {params.value ?? "—"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "toNumber",
+        headerName: "To",
+        minWidth: 150,
+        renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate font-mono">
+              {params.value ?? "—"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "orgName",
+        headerName: "Workspace",
+        flex: 1,
+        minWidth: 150,
+        renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value ?? "—"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "provider",
+        headerName: "Provider",
+        minWidth: 130,
+        renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.value ?? "—"}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        minWidth: 130,
+        renderCell: (params: GridRenderCellParams<WaRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.row.error ?? ""}>
+              <Chip
+                label={params.row.status}
+                size="small"
+                color={STATUS_COLOR[params.row.status] ?? "default"}
+                variant="outlined"
+                className="capitalize"
+              />
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        // The delivery error was a fragment of the old secondary line; kept as
+        // its own column (hidden by default) so it stays readable/exportable.
+        field: "error",
+        headerName: "Error",
+        flex: 1.5,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.value ?? ""}>
+              <Typography variant="body2" className="text-text-secondary truncate font-mono">
+                {params.value ?? "—"}
+              </Typography>
+            </Tooltip>
+          </Box>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <Box className="flex flex-col gap-3">
-      <FormControl className="outlined w-72" variant="standard" size="small">
-        <Input
-          placeholder="Filter by number, text, org or status"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-      </FormControl>
-
       {error && (
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
       )}
 
-      {visible.map((row) => (
-        <RowLine key={row.id}>
-          <Chip
-            label={row.direction === "inbound" ? "in" : "out"}
-            size="small"
-            color={row.direction === "inbound" ? "secondary" : "primary"}
-            variant="outlined"
-          />
-          <RowText
-            primary={row.text ?? (row.template ? `template: ${row.template}` : row.kind)}
-            secondary={[
-              row.direction === "inbound" ? `from ${row.fromNumber ?? "?"}` : `to ${row.toNumber ?? "?"}`,
-              row.orgName,
-              row.provider,
-              new Date(row.createdAt).toLocaleString(),
-              row.error,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          />
-          <Chip
-            label={row.status}
-            size="small"
-            color={STATUS_COLOR[row.status] ?? "default"}
-            variant="outlined"
-            className="capitalize"
-          />
-        </RowLine>
-      ))}
-      {loaded && visible.length === 0 && rows.length > 0 && (
-        <Typography variant="body2" className="text-text-secondary">
-          No messages match the filter.
-        </Typography>
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<WaRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          initialColumnVisibility={{ error: false }}
+          noRowsOverlay={
+            <EmptyState
+              icon={<NiMessages size="medium" />}
+              title="No WhatsApp messages yet"
+              description="Every message sent or received through the WhatsApp dispatcher (packages/whatsapp) is logged here with its delivery status."
+              className="border-none"
+            />
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No messages match your search.
+            </Typography>
+          }
+        />
       )}
     </Box>
   );
