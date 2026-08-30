@@ -123,6 +123,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const foreignDraft = documentVersions?.find(
     (document) => document.status === "draft" && document.idempotency_key !== idempotencyKey,
   );
+  let adoptedKey = false;
   if (foreignDraft) {
     // A reserved draft whose issue attempt DIED (render/upload failure, killed
     // invocation) used to block issuance FOREVER: the idempotency key lives in
@@ -132,12 +133,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // version; the claim RPC still fences a concurrent worker.
     const leaseLive = foreignDraft.issue_lease_expires_at && new Date(foreignDraft.issue_lease_expires_at) > new Date();
     if (leaseLive) return clinicalError("document_issue_conflict");
-    if (foreignDraft.idempotency_key) idempotencyKey = foreignDraft.idempotency_key;
+    if (foreignDraft.idempotency_key) {
+      idempotencyKey = foreignDraft.idempotency_key;
+      adoptedKey = true;
+    }
   }
   const existingRequest = documentVersions?.find((document) => document.idempotency_key === idempotencyKey);
 
+  // Confirmation is about REPLACING something the professional already issued
+  // (revoking a visible version). A stranded draft is invisible housekeeping —
+  // requiring a confirm header for it turns every recovery into a dead end.
   const latestDocument = documentVersions?.[0];
-  if (!existingRequest && latestDocument) {
+  const latestIssued = documentVersions?.find((document) => document.status === "issued");
+  if (!existingRequest && latestIssued && latestDocument) {
     const expectedVersion = latestDocument.version + 1;
     if (Number(request.headers.get("confirm-version")) !== expectedVersion) {
       return clinicalError("document_reissue_confirmation_required", { expectedVersion });
@@ -166,27 +174,36 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     };
   };
 
-  const result = await issueDocument(
-    createServiceClient(),
-    {
-      orgId: consultation.org_id,
-      kind: DOCUMENT_KIND,
-      title: t("prescription-title"),
-      payload: ({ version, sourceSnapshot }) => ({
-        prescriptionId,
-        consultationId: id,
-        snapshot: makeDocumentData(version, sourceSnapshot),
-      }),
-      issuedBy: user.id,
-      sourceType: SOURCE_TYPE,
-      sourceId: prescriptionId,
-      subjectType: "patient",
-      subjectId: consultation.patient_id,
-      idempotencyKey,
-      verifyBaseUrl: new URL(request.url).origin,
-    },
-    (context) => renderPrescriptionPdf(makeDocumentData(context.version, context.sourceSnapshot), t, context),
-  );
+  const issueWithKey = (key: string) =>
+    issueDocument(
+      createServiceClient(),
+      {
+        orgId: consultation.org_id,
+        kind: DOCUMENT_KIND,
+        title: t("prescription-title"),
+        payload: ({ version, sourceSnapshot }) => ({
+          prescriptionId,
+          consultationId: id,
+          snapshot: makeDocumentData(version, sourceSnapshot),
+        }),
+        issuedBy: user.id,
+        sourceType: SOURCE_TYPE,
+        sourceId: prescriptionId,
+        subjectType: "patient",
+        subjectId: consultation.patient_id,
+        idempotencyKey: key,
+        verifyBaseUrl: new URL(request.url).origin,
+      },
+      (context) => renderPrescriptionPdf(makeDocumentData(context.version, context.sourceSnapshot), t, context),
+    );
+
+  let result = await issueWithKey(idempotencyKey);
+  if (!result.ok && adoptedKey && result.error === "prescription_stale" && !latestIssued) {
+    // The adopted draft was reserved against an older prescription snapshot,
+    // so its idempotency key is pinned to a reservation that can never
+    // publish. With nothing issued to protect, reserve the next version fresh.
+    result = await issueWithKey(randomUUID());
+  }
   if (!result.ok) {
     // The real reason (render, storage, publish fence) was swallowed into one
     // generic conflict — undiagnosable from the UI and absent from the audit

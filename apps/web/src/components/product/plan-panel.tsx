@@ -16,15 +16,21 @@ import {
   DialogActions,
   DialogContent,
   FormControlLabel,
+  IconButton,
   MenuItem,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
+import NiDocumentFull from "@/icons/nexture/ni-document-full";
+import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
 import NiListCheck from "@/icons/nexture/ni-list-check";
+import NiPrinter from "@/icons/nexture/ni-printer";
+import NiSendUpRight from "@/icons/nexture/ni-send-up-right";
 import { hasHomeGuidance } from "@/lib/home-guidance";
 import { type FieldDescriptor, type FieldKind, PLAN_MODALITIES, PLAN_STRATEGIES } from "@/lib/plan-modalities";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -56,6 +62,8 @@ type Plan = {
   updatedAt: string;
   model: string | null;
   staleAt: string | null;
+  /** When she signed this content — what decides if an issued PDF is current. */
+  validatedAt: string | null;
 };
 type PlanData = { plan: Plan; documents: IssuedDocument[] };
 
@@ -107,8 +115,8 @@ export default function PlanPanel({
   const [practiceScope, setPracticeScope] = useState<string[] | null>(null);
   /** Set when the last preparation ran WITHOUT the library, because it failed. */
   const [retrievalFailed, setRetrievalFailed] = useState(false);
-  /** Reissuing revokes the signed PDF that is already in the patient's hands. */
-  const [confirmReissue, setConfirmReissue] = useState(false);
+  /** Which document action is in flight, as `${kind}` — one spinner per row. */
+  const [docBusy, setDocBusy] = useState<string | null>(null);
   /** Generating with AI over a MANUAL draft replaces what she typed — confirmed. */
   const [confirmReplaceManual, setConfirmReplaceManual] = useState(false);
   /** The issued document she is handing to the patient (PRD §9.8). */
@@ -122,7 +130,6 @@ export default function PlanPanel({
     reason?: string;
   } | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
-  const issueKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -154,7 +161,9 @@ export default function PlanPanel({
       const supabase = createClient();
       const { data, error: planError } = await supabase
         .from("consultation_plans")
-        .select("id, objective, modalities, safety_flags, sources, status, origin, updated_at, model, stale_at")
+        .select(
+          "id, objective, modalities, safety_flags, sources, status, origin, updated_at, model, stale_at, validated_at",
+        )
         .eq("consultation_id", consultationId)
         .maybeSingle();
       if (planError) {
@@ -177,6 +186,7 @@ export default function PlanPanel({
         updatedAt: data.updated_at,
         model: data.model,
         staleAt: data.stale_at,
+        validatedAt: data.validated_at,
       };
 
       // Documents already issued from this plan (PRD §9.8) — newest first.
@@ -330,102 +340,150 @@ export default function PlanPanel({
     }
   };
 
-  const issue = async () => {
-    const nextVersion = (planDocuments[0]?.version ?? 0) + 1;
-    // Reissuing REVOKES the version already handed to the patient — its QR
-    // starts reporting "substituído". An act with that consequence gets a real
-    // dialog that names it, like every other irreversible act on this screen.
-    if (planDocuments.length > 0 && !confirmReissue) {
-      setConfirmReissue(true);
-      return;
-    }
-    setConfirmReissue(false);
-    setBusy(true);
-    setActionError(null);
-    try {
-      issueKey.current ??= crypto.randomUUID();
-      const response = await fetch(`/api/consultations/${consultationId}/plan/issue`, {
+  /**
+   * The signed, current PDF for one of the plan's two documents (PRD §9.8) —
+   * the receituário concept: the icons just WORK, issuing (or re-issuing after
+   * she re-validated an edited plan) only when nothing current is on file.
+   * A re-issue supersedes the previous version — her re-validation was the
+   * deliberate act that authorized it, exactly as in the receituário.
+   */
+  const ensureCurrentDocument = async (kind: "therapeutic-plan" | "home-guidance"): Promise<IssuedDocument | null> => {
+    const kindDocuments = documents.filter((doc) => doc.kind === kind);
+    const latest = kindDocuments[0];
+    const current =
+      latest &&
+      latest.status === "issued" &&
+      latest.storagePath &&
+      latest.issuedAt &&
+      (!plan?.validatedAt || new Date(latest.issuedAt) >= new Date(plan.validatedAt));
+    if (current) return latest;
+
+    const endpoint = kind === "home-guidance" ? "guidance/issue" : "plan/issue";
+    const issueOnce = (confirmVersion?: number) =>
+      fetch(`/api/consultations/${consultationId}/${endpoint}`, {
         method: "POST",
         headers: {
-          "idempotency-key": issueKey.current,
-          ...(planDocuments.length > 0 ? { "confirm-version": String(nextVersion) } : {}),
+          "idempotency-key": crypto.randomUUID(),
+          ...(confirmVersion ? { "confirm-version": String(confirmVersion) } : {}),
         },
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const code = body?.error?.code ?? body?.error;
-        setActionError(
-          code === "plan_not_validated"
-            ? t("plan-issue-need-validate")
-            : code === "document_profile_incomplete"
-              ? t("plan-issue-profile-incomplete")
-              : code === "document_reissue_confirmation_required"
-                ? t("plan-issue-version-conflict")
-                : t("plan-issue-error"),
-        );
-        return;
-      }
-      issueKey.current = null;
-      await load(true);
+
+    let response = await issueOnce(latest ? latest.version + 1 : undefined);
+    let body = (await response.json().catch(() => ({}))) as {
+      ok?: boolean;
+      documentId?: string;
+      error?: { code?: string; details?: { expectedVersion?: number } };
+    };
+    if (!response.ok && body.error?.code === "document_reissue_confirmation_required") {
+      response = await issueOnce(body.error.details?.expectedVersion);
+      body = (await response.json().catch(() => ({}))) as typeof body;
+    }
+    if (!response.ok || !body.documentId) {
+      const code = body.error?.code;
+      setActionError(
+        code === "plan_not_validated"
+          ? t("plan-issue-need-validate")
+          : code === "document_profile_incomplete"
+            ? t("plan-issue-profile-incomplete")
+            : code === "nothing_recorded"
+              ? t("guidance-issue-empty")
+              : t("plan-issue-error"),
+      );
+      return null;
+    }
+    const supabase = createClient();
+    const { data: issued } = await supabase
+      .from("documents")
+      .select("id, kind, version, verify_code, status, issued_at, storage_path")
+      .eq("id", body.documentId)
+      .maybeSingle();
+    void load(true);
+    if (!issued?.storage_path) {
+      setActionError(t("plan-issue-error"));
+      return null;
+    }
+    return {
+      id: issued.id,
+      kind: issued.kind,
+      version: issued.version,
+      verifyCode: issued.verify_code,
+      status: issued.status,
+      issuedAt: issued.issued_at,
+      storagePath: issued.storage_path,
+    };
+  };
+
+  const fetchPdfBlobUrl = async (kind: "therapeutic-plan" | "home-guidance"): Promise<string | null> => {
+    const doc = await ensureCurrentDocument(kind);
+    if (!doc?.storagePath) return null;
+    const supabase = createClient();
+    // The documents bucket is private; a short-lived signed URL is RLS-gated to
+    // members (migration 0006), so this never exposes another org's file.
+    const { data: signed } = await supabase.storage.from("documents").createSignedUrl(doc.storagePath, 120);
+    if (!signed?.signedUrl) {
+      setActionError(t("plan-download-error"));
+      return null;
+    }
+    const pdf = await fetch(signed.signedUrl);
+    if (!pdf.ok) {
+      setActionError(t("plan-download-error"));
+      return null;
+    }
+    return URL.createObjectURL(await pdf.blob());
+  };
+
+  const downloadDoc = async (kind: "therapeutic-plan" | "home-guidance") => {
+    setDocBusy(kind);
+    setActionError(null);
+    try {
+      const url = await fetchPdfBlobUrl(kind);
+      if (!url) return;
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = kind === "home-guidance" ? "orientacoes.pdf" : "plano-terapeutico.pdf";
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      setActionError(t("plan-download-error"));
+    } finally {
+      setDocBusy(null);
+    }
+  };
+
+  const printDoc = async (kind: "therapeutic-plan" | "home-guidance") => {
+    setDocBusy(kind);
+    setActionError(null);
+    try {
+      const url = await fetchPdfBlobUrl(kind);
+      if (!url) return;
+      const viewer = window.open(url, "_blank", "noopener");
+      // Best effort: the browser's PDF viewer keeps its own print control when
+      // the programmatic call is refused for a blob document.
+      window.setTimeout(() => {
+        try {
+          viewer?.print();
+        } catch {
+          /* viewer stays open for a manual print */
+        }
+      }, 800);
+    } catch {
+      setActionError(t("plan-download-error"));
+    } finally {
+      setDocBusy(null);
+    }
+  };
+
+  /** Hand it to the patient: make sure a current version exists, then share. */
+  const shareDoc = async (kind: "therapeutic-plan" | "home-guidance") => {
+    setDocBusy(kind);
+    setActionError(null);
+    try {
+      const doc = await ensureCurrentDocument(kind);
+      if (doc) setSharingDoc(doc);
     } catch {
       setActionError(t("plan-issue-error"));
     } finally {
-      setBusy(false);
-    }
-  };
-
-  const download = async (doc: IssuedDocument) => {
-    if (!doc.storagePath) return;
-    setActionError(null);
-    try {
-      const supabase = createClient();
-      // The documents bucket is private; a short-lived signed URL is RLS-gated to
-      // members (migration 0006), so this never exposes another org's file.
-      const { data, error: downloadError } = await supabase.storage
-        .from("documents")
-        .createSignedUrl(doc.storagePath, 120);
-      if (downloadError || !data?.signedUrl) {
-        setActionError(t("plan-download-error"));
-        return;
-      }
-      window.open(data.signedUrl, "_blank", "noopener");
-    } catch {
-      setActionError(t("plan-download-error"));
-    }
-  };
-
-  /**
-   * Issue the patient's home-guidance sheet — the plan's other half, in her
-   * language (PRD §9.8). Same pipeline as the clinical document (versioned,
-   * hashed, QR-verifiable); different audience.
-   */
-  const issueGuidance = async () => {
-    setBusy(true);
-    setActionError(null);
-    try {
-      const response = await fetch(`/api/consultations/${consultationId}/guidance/issue`, {
-        method: "POST",
-        headers: { "idempotency-key": crypto.randomUUID() },
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const code = body?.error?.code ?? body?.error;
-        setActionError(
-          code === "nothing_recorded"
-            ? t("guidance-issue-empty")
-            : code === "plan_not_validated"
-              ? t("plan-issue-need-validate")
-              : code === "document_profile_incomplete"
-                ? t("plan-issue-profile-incomplete")
-                : t("guidance-issue-error"),
-        );
-        return;
-      }
-      await load(true);
-    } catch {
-      setActionError(t("guidance-issue-error"));
-    } finally {
-      setBusy(false);
+      setDocBusy(null);
     }
   };
 
@@ -484,7 +542,6 @@ export default function PlanPanel({
   const documents = resource?.documents ?? [];
   // Versioning is per KIND: reissuing the clinical plan must not be confused
   // by the guidance sheet's own version line, and vice versa.
-  const planDocuments = documents.filter((doc) => doc.kind === "therapeutic-plan");
   const guidanceDocuments = documents.filter((doc) => doc.kind === "home-guidance");
   const initialLoading = planState.status === "loading" && !resource;
   const loadFailed = planState.status === "error";
@@ -808,75 +865,49 @@ export default function PlanPanel({
                         {t("plan-validate")}
                       </Button>
                     )}
-                    {/* A validated plan can become a signed document (PRD §9.8).
-                        Issuing again supersedes the previous version. */}
-                    {!isFinalized && plan.status === "validated" && (
-                      <Button variant="contained" color="primary" onClick={issue} disabled={busy}>
-                        {busy ? (
-                          <CircularProgress size={16} />
-                        ) : planDocuments.some((doc) => doc.status === "issued") ? (
-                          t("plan-reissue")
-                        ) : (
-                          t("plan-issue")
-                        )}
-                      </Button>
-                    )}
-                    {/* The patient's half of the same validated plan (PRD §9.8).
-                        Offered only when the plan actually contains homework -
-                        an empty handout wastes her attention. */}
-                    {!isFinalized && plan.status === "validated" && hasHomeGuidance(plan.modalities) && (
-                      <Button variant="outlined" color="primary" onClick={issueGuidance} disabled={busy}>
-                        {guidanceDocuments.some((doc) => doc.status === "issued")
-                          ? t("guidance-reissue")
-                          : t("guidance-issue")}
-                      </Button>
-                    )}
+                    {/* Issuing the signed documents (PRD §9.8) is no longer a
+                        footer act: the document rows on the card download,
+                        print and send — issuing the current version under the
+                        hood, exactly like the receituário. */}
                   </>
                 )}
               </DialogActions>
             </Dialog>
 
-            {/* Issued documents — viewable and verifiable even after the record
-                is finalized (the plan freezes, the documents remain). */}
-            {documents.length > 0 && (
+            {/* The plan's two documents, receituário-style: one row per kind,
+                actions as icons that just work (auto-issuing the current
+                version under the hood). Versions and verify codes stay
+                INTERNAL — the QR printed on the paper is the public proof.
+                Viewable even after the record is finalized (the plan freezes,
+                the documents remain). */}
+            {(plan.status === "validated" || documents.length > 0) && (
               <Box className="flex flex-col gap-1.5">
                 <Typography variant="body2" className="text-text-primary text-xs font-semibold">
                   {t("plan-documents-title")}
                 </Typography>
-                {documents.map((doc) => (
-                  <Box
-                    key={doc.id}
-                    className="border-grey-100 flex flex-row flex-wrap items-center gap-2 rounded-2xl border px-3 py-2"
-                  >
-                    <Box className="min-w-0 flex-1">
-                      <Typography variant="body2" className="text-text-primary text-xs font-medium">
-                        {/* Two kinds share this list now, so each names itself —
-                            "versão 2" alone would be ambiguous. */}
-                        {doc.kind === "home-guidance" ? t("guidance-title") : t("plan-title")} · {t("plan-doc-version")}{" "}
-                        {doc.version}
-                        {doc.status === "revoked" ? ` · ${t("plan-doc-superseded")}` : ""}
-                      </Typography>
-                      <Typography variant="body2" className="text-text-secondary font-mono text-xs">
-                        {doc.verifyCode}
-                      </Typography>
-                    </Box>
-                    <Button size="small" variant="text" color="grey" onClick={() => download(doc)}>
-                      {t("plan-doc-download")}
-                    </Button>
-                    {/* The point of issuing it is that the PATIENT gets it. A
-                        download alone ends the cycle inside the practitioner's
-                        computer (PRD §9.8). Only for the CURRENT version — a
-                        superseded document must not be handed out again. */}
-                    {doc.status === "issued" && (
-                      <Button size="small" variant="text" color="primary" onClick={() => setSharingDoc(doc)}>
-                        {t("plan-doc-send")}
-                      </Button>
-                    )}
-                    <Button size="small" variant="text" color="grey" href={`/verify/${doc.verifyCode}`} target="_blank">
-                      {t("plan-doc-verify-link")}
-                    </Button>
-                  </Box>
-                ))}
+                <DocumentRow
+                  label={t("plan-title")}
+                  ready={plan.status === "validated"}
+                  busy={docBusy === "therapeutic-plan"}
+                  t={t}
+                  onDownload={() => void downloadDoc("therapeutic-plan")}
+                  onPrint={() => void printDoc("therapeutic-plan")}
+                  onShare={() => void shareDoc("therapeutic-plan")}
+                />
+                {/* The patient's half of the same validated plan (PRD §9.8).
+                    Offered only when the plan actually contains homework — an
+                    empty handout wastes her attention. */}
+                {(hasHomeGuidance(plan.modalities) || guidanceDocuments.length > 0) && (
+                  <DocumentRow
+                    label={t("guidance-title")}
+                    ready={plan.status === "validated"}
+                    busy={docBusy === "home-guidance"}
+                    t={t}
+                    onDownload={() => void downloadDoc("home-guidance")}
+                    onPrint={() => void printDoc("home-guidance")}
+                    onShare={() => void shareDoc("home-guidance")}
+                  />
+                )}
               </Box>
             )}
           </>
@@ -887,25 +918,6 @@ export default function PlanPanel({
           {t("plan-disclaimer")}
         </Typography>
       </CardContent>
-
-      {/* Reissuing revokes the version already in the patient's hands — its own
-          dialog, naming the consequence, never a browser popup. */}
-      <Dialog open={confirmReissue} onClose={() => setConfirmReissue(false)} maxWidth="xs" fullWidth>
-        <DialogHeader title={t("plan-reissue")} closeLabel={t("close")} onClose={() => setConfirmReissue(false)} />
-        <DialogContent className="py-5!">
-          <Typography variant="body2" className="text-text-secondary leading-6">
-            {t("plan-reissue-confirm", { version: (planDocuments[0]?.version ?? 0) + 1 })}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button color="grey" onClick={() => setConfirmReissue(false)}>
-            {t("cancel")}
-          </Button>
-          <Button variant="contained" color="primary" onClick={() => void issue()} disabled={busy}>
-            {t("plan-reissue")}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Generating with AI over a manual DRAFT replaces what she typed — an
           act with that consequence gets a dialog that names it. */}
@@ -1034,6 +1046,70 @@ export default function PlanPanel({
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+/**
+ * One of the plan's documents as a single row: name on the left, actions as
+ * icons on the right (the receituário concept — no "issue" ceremony, the
+ * icons produce the current signed version on demand). Until the plan is
+ * validated the icons stay visible but disabled, with the reason as tooltip:
+ * the affordance teaches what validating unlocks.
+ */
+function DocumentRow({
+  label,
+  ready,
+  busy,
+  t,
+  onDownload,
+  onPrint,
+  onShare,
+}: {
+  label: string;
+  ready: boolean;
+  busy: boolean;
+  t: (key: string) => string;
+  onDownload: () => void;
+  onPrint: () => void;
+  onShare: () => void;
+}) {
+  const gate = (title: string) => (ready ? title : t("plan-issue-need-validate"));
+  return (
+    <Box className="border-grey-100 flex flex-row items-center gap-2 rounded-2xl border px-3 py-1.5">
+      <NiDocumentFull size="tiny" className="text-text-secondary flex-none" aria-hidden />
+      <Typography variant="body2" className="text-text-primary min-w-0 flex-1 text-xs font-medium">
+        {label}
+      </Typography>
+      {busy ? (
+        <CircularProgress size={18} aria-label={t("loading")} className="flex-none" />
+      ) : (
+        <Box className="-mr-1 flex flex-none flex-row items-center">
+          <Tooltip title={gate(t("plan-doc-download"))}>
+            <span>
+              <IconButton size="small" aria-label={t("plan-doc-download")} disabled={!ready} onClick={onDownload}>
+                <NiDownloadCloud size="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={gate(t("plan-doc-print"))}>
+            <span>
+              <IconButton size="small" aria-label={t("plan-doc-print")} disabled={!ready} onClick={onPrint}>
+                <NiPrinter size="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          {/* The point of issuing it is that the PATIENT gets it — a download
+              alone ends the cycle inside the practitioner's computer (PRD §9.8). */}
+          <Tooltip title={gate(t("plan-doc-send"))}>
+            <span>
+              <IconButton size="small" aria-label={t("plan-doc-send")} disabled={!ready} onClick={onShare}>
+                <NiSendUpRight size="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
+      )}
+    </Box>
   );
 }
 

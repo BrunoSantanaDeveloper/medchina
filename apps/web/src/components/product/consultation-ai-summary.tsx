@@ -134,10 +134,6 @@ export default function ConsultationAiSummary({
           </Button>
         </>
       )}
-
-      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-        {t("ai-summary-disclaimer")}
-      </Typography>
     </Box>
   );
 }

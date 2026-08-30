@@ -52,7 +52,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const headerKey = request.headers.get("idempotency-key");
-  const idempotencyKey = headerKey && UUID_PATTERN.test(headerKey) ? headerKey : randomUUID();
+  let idempotencyKey = headerKey && UUID_PATTERN.test(headerKey) ? headerKey : randomUUID();
   const { data: versions, error: versionsError } = await supabase
     .from("documents")
     .select("id, version, status, idempotency_key, issue_lease_expires_at")
@@ -63,11 +63,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .order("version", { ascending: false });
   if (versionsError) return clinicalError("document_issue_conflict");
 
-  const existingRequest = versions?.find((document) => document.idempotency_key === idempotencyKey);
   const foreignDraft = versions?.find(
     (document) => document.status === "draft" && document.idempotency_key !== idempotencyKey,
   );
-  if (foreignDraft) return clinicalError("document_issue_conflict");
+  if (foreignDraft) {
+    // A reserved draft whose issue attempt DIED (render/upload failure, killed
+    // invocation) used to block issuance FOREVER: the idempotency key lives in
+    // the page's memory, so after a reload every retry looked like a different
+    // request and hit this conflict. If nothing holds the issue lease, the
+    // draft is abandoned — ADOPT its key and resume that exact reserved
+    // version; the claim RPC still fences a concurrent worker.
+    const leaseLive = foreignDraft.issue_lease_expires_at && new Date(foreignDraft.issue_lease_expires_at) > new Date();
+    if (leaseLive) return clinicalError("document_issue_conflict");
+    if (foreignDraft.idempotency_key) idempotencyKey = foreignDraft.idempotency_key;
+  }
+  const existingRequest = versions?.find((document) => document.idempotency_key === idempotencyKey);
 
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: "product" });
