@@ -115,6 +115,8 @@ export default function Agenda() {
   const [cancelCategory, setCancelCategory] = useState<CancellationCategory>("patient");
   const [cancelling, setCancelling] = useState(false);
   const [overdueState, setOverdueState] = useState<RemoteState<Appointment[], string>>(() => remoteLoading());
+  /** The next upcoming scheduled appointment, pinned at the top of the page. */
+  const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   /** Tomorrow's reminder run — the assisted WhatsApp handoff against no-show. */
   const [remindersOpen, setRemindersOpen] = useState(false);
@@ -198,7 +200,21 @@ export default function Agenda() {
       .lt("scheduled_for", overdueRange.end.toISOString())
       .order("scheduled_for", { ascending: true });
 
-    const [{ data, error }, { data: overdueData, error: overdueError }] = await Promise.all([query, overdueQuery]);
+    // The NEXT upcoming appointment is fetched on its own, not derived from the
+    // visible period: it must answer "what's next?" even while she browses last
+    // month or an empty week.
+    const nextQuery = supabase
+      .from("consultations")
+      .select(APPOINTMENT_FIELDS)
+      .eq("org_id", orgId)
+      .eq("status", "scheduled")
+      .gte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const [{ data, error }, { data: overdueData, error: overdueError }, { data: nextData, error: nextError }] =
+      await Promise.all([query, overdueQuery, nextQuery]);
 
     if (currentRequest !== requestId.current) return;
     if (error) {
@@ -210,6 +226,9 @@ export default function Agenda() {
     // A failed overdue check must say so — silence would read as "nothing pending".
     if (overdueError) setOverdueState(remoteError(t("agenda-overdue-load-error")));
     else setOverdueState(remoteSuccess(mapAppointmentRows(overdueData)));
+    // The pin is an extra; a failed lookup silently defers to the plain list
+    // rather than blocking the agenda (the list itself reports its own errors).
+    setNextAppointment(nextError || !nextData ? null : mapAppointmentRows([nextData])[0]);
   }, [day, mapAppointmentRows, orgId, orgLoading, showCancelled, t, timezone, view]);
 
   useEffect(() => {
@@ -351,10 +370,19 @@ export default function Agenda() {
     `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 
   const query = patientFilter.trim().toLowerCase();
+  // The pinned next appointment falls inside the visible period when browsing
+  // the present — drop it from the flow so it never appears twice on screen.
+  const pinnedInPeriod = Boolean(
+    nextAppointment &&
+      appointmentsState.status === "success" &&
+      appointmentsState.data.some((appointment) => appointment.id === nextAppointment.id),
+  );
   const visibleAppointments =
     appointmentsState.status === "success"
       ? appointmentsState.data.filter(
-          (appointment) => view === "day" || !query || appointment.patientName.toLowerCase().includes(query),
+          (appointment) =>
+            appointment.id !== nextAppointment?.id &&
+            (view === "day" || !query || appointment.patientName.toLowerCase().includes(query)),
         )
       : [];
 
@@ -617,6 +645,35 @@ export default function Agenda() {
         </ToggleButtonGroup>
       </Grid>
 
+      {/* "What's next?" is the first question the agenda answers, so the next
+          upcoming appointment is pinned at the very top — independent of the
+          period being browsed. Left-behind appointments moved to the bottom:
+          pending housekeeping, not the start of the day. */}
+      {nextAppointment && (
+        <Grid size={12}>
+          <Box component="section" aria-label={t("agenda-next-title")} className="flex flex-col gap-1.5">
+            <Box className="flex flex-row flex-wrap items-baseline gap-2">
+              <Typography
+                variant="body2"
+                component="h2"
+                className="text-primary mb-0 text-xs font-semibold tracking-wide uppercase"
+              >
+                {t("agenda-next-title")}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary text-xs capitalize">
+                {new Date(nextAppointment.scheduledFor).toLocaleDateString(locale, {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  timeZone: timezone,
+                })}
+              </Typography>
+            </Box>
+            <Box className="border-primary/40 rounded-3xl border-2">{renderAppointment(nextAppointment)}</Box>
+          </Box>
+        </Grid>
+      )}
+
       <Grid size={12}>
         <Card component="section" aria-label={t("agenda-period-navigation")}>
           <CardContent className="flex flex-row items-center justify-between gap-2 py-3!">
@@ -680,8 +737,97 @@ export default function Agenda() {
         </Grid>
       )}
 
+      {view === "day" && (
+        <Grid size={12} className="flex justify-end">
+          <Button variant="text" color="grey" size="small" onClick={() => setShowCancelled((current) => !current)}>
+            {showCancelled ? t("agenda-show-active") : t("agenda-show-cancelled")}
+          </Button>
+        </Grid>
+      )}
+
+      <Grid size={12}>
+        {appointmentsState.status === "error" ? (
+          <Alert
+            severity="error"
+            action={
+              <Button color="inherit" size="small" onClick={load}>
+                {t("retry")}
+              </Button>
+            }
+          >
+            {appointmentsState.error}
+          </Alert>
+        ) : appointmentsState.status === "idle" || appointmentsState.status === "loading" ? (
+          <Box className="flex flex-col gap-3" aria-label={t("loading")}>
+            {[0, 1, 2].map((index) => (
+              <Skeleton key={index} variant="rounded" height={92} className="rounded-3xl" />
+            ))}
+          </Box>
+        ) : (appointmentsState.status === "empty" || visibleAppointments.length === 0) && !pinnedInPeriod ? (
+          <Card component="section">
+            <CardContent>
+              {/* A search that matches nothing is a different answer from an empty agenda:
+                  it must offer a way back, never the "schedule one" nudge. */}
+              {(view === "week" || view === "month") && query ? (
+                <EmptyState
+                  icon={<NiCalendarClock />}
+                  title={t("agenda-upcoming-no-match-title")}
+                  description={t("agenda-upcoming-no-match-body", { patient: patientFilter.trim() })}
+                  action={{ label: t("agenda-upcoming-clear-filter"), onClick: () => setPatientFilter("") }}
+                />
+              ) : view === "week" || view === "month" ? (
+                <EmptyState
+                  icon={<NiCalendarClock />}
+                  title={t(view === "week" ? "agenda-week-empty-title" : "agenda-month-empty-title")}
+                  description={t(view === "week" ? "agenda-week-empty-body" : "agenda-month-empty-body")}
+                  action={{ label: t("agenda-schedule"), onClick: openNewSchedule }}
+                />
+              ) : (
+                <EmptyState
+                  icon={<NiCalendarClock />}
+                  title={showCancelled ? t("agenda-no-cancelled-title") : t("agenda-empty-title")}
+                  description={
+                    showCancelled
+                      ? t("agenda-no-cancelled-body")
+                      : periodHasToday
+                        ? t("agenda-empty-today")
+                        : t("agenda-empty-day")
+                  }
+                  action={
+                    showCancelled
+                      ? { label: t("agenda-show-active"), onClick: () => setShowCancelled(false) }
+                      : { label: t("agenda-schedule"), onClick: openNewSchedule }
+                  }
+                />
+              )}
+            </CardContent>
+          </Card>
+        ) : view === "week" || view === "month" ? (
+          <Box className="flex flex-col gap-6" aria-live="polite">
+            {dayGroups().map(([key, appointments]) => (
+              <Box key={key} className="flex flex-col gap-3">
+                <Typography
+                  variant="body2"
+                  component="h2"
+                  className="text-text-secondary mb-0 text-xs font-semibold tracking-wide uppercase"
+                >
+                  {groupLabel(key)}
+                </Typography>
+                {appointments.map(renderAppointment)}
+              </Box>
+            ))}
+          </Box>
+        ) : (
+          <Box className="flex flex-col gap-3" aria-live="polite">
+            {visibleAppointments.map(renderAppointment)}
+          </Box>
+        )}
+      </Grid>
+
       {/* Appointments that stayed "scheduled" on a past day vanish from every
-          forward-looking view — this block is where they get resolved. */}
+          forward-looking view — this block is where they get resolved. It sits
+          LAST on purpose: pending housekeeping must not push today's schedule
+          (and the pinned next appointment) below the fold. */}
       {view === "day" && overdueState.status === "error" && (
         <Grid size={12}>
           <Alert severity="warning" className="neutral bg-background-paper/60!">
@@ -771,93 +917,6 @@ export default function Agenda() {
           </Alert>
         </Grid>
       )}
-
-      {view === "day" && (
-        <Grid size={12} className="flex justify-end">
-          <Button variant="text" color="grey" size="small" onClick={() => setShowCancelled((current) => !current)}>
-            {showCancelled ? t("agenda-show-active") : t("agenda-show-cancelled")}
-          </Button>
-        </Grid>
-      )}
-
-      <Grid size={12}>
-        {appointmentsState.status === "error" ? (
-          <Alert
-            severity="error"
-            action={
-              <Button color="inherit" size="small" onClick={load}>
-                {t("retry")}
-              </Button>
-            }
-          >
-            {appointmentsState.error}
-          </Alert>
-        ) : appointmentsState.status === "idle" || appointmentsState.status === "loading" ? (
-          <Box className="flex flex-col gap-3" aria-label={t("loading")}>
-            {[0, 1, 2].map((index) => (
-              <Skeleton key={index} variant="rounded" height={92} className="rounded-3xl" />
-            ))}
-          </Box>
-        ) : appointmentsState.status === "empty" || visibleAppointments.length === 0 ? (
-          <Card component="section">
-            <CardContent>
-              {/* A search that matches nothing is a different answer from an empty agenda:
-                  it must offer a way back, never the "schedule one" nudge. */}
-              {(view === "week" || view === "month") && query ? (
-                <EmptyState
-                  icon={<NiCalendarClock />}
-                  title={t("agenda-upcoming-no-match-title")}
-                  description={t("agenda-upcoming-no-match-body", { patient: patientFilter.trim() })}
-                  action={{ label: t("agenda-upcoming-clear-filter"), onClick: () => setPatientFilter("") }}
-                />
-              ) : view === "week" || view === "month" ? (
-                <EmptyState
-                  icon={<NiCalendarClock />}
-                  title={t(view === "week" ? "agenda-week-empty-title" : "agenda-month-empty-title")}
-                  description={t(view === "week" ? "agenda-week-empty-body" : "agenda-month-empty-body")}
-                  action={{ label: t("agenda-schedule"), onClick: openNewSchedule }}
-                />
-              ) : (
-                <EmptyState
-                  icon={<NiCalendarClock />}
-                  title={showCancelled ? t("agenda-no-cancelled-title") : t("agenda-empty-title")}
-                  description={
-                    showCancelled
-                      ? t("agenda-no-cancelled-body")
-                      : periodHasToday
-                        ? t("agenda-empty-today")
-                        : t("agenda-empty-day")
-                  }
-                  action={
-                    showCancelled
-                      ? { label: t("agenda-show-active"), onClick: () => setShowCancelled(false) }
-                      : { label: t("agenda-schedule"), onClick: openNewSchedule }
-                  }
-                />
-              )}
-            </CardContent>
-          </Card>
-        ) : view === "week" || view === "month" ? (
-          <Box className="flex flex-col gap-6" aria-live="polite">
-            {dayGroups().map(([key, appointments]) => (
-              <Box key={key} className="flex flex-col gap-3">
-                <Typography
-                  variant="body2"
-                  component="h2"
-                  className="text-text-secondary mb-0 text-xs font-semibold tracking-wide uppercase"
-                >
-                  {groupLabel(key)}
-                </Typography>
-                {appointments.map(renderAppointment)}
-              </Box>
-            ))}
-          </Box>
-        ) : (
-          <Box className="flex flex-col gap-3" aria-live="polite">
-            {visibleAppointments.map(renderAppointment)}
-          </Box>
-        )}
-      </Grid>
 
       {orgId && (
         <ScheduleDialog

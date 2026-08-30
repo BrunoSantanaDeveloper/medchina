@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Alert, Box, Button, Chip, FormControl, FormLabel, Input, Switch, Tooltip, Typography } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
-import { Field, RowLine, RowText, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import { Field, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import NiAnnouncement from "@/icons/nexture/ni-announcement";
+import NiPen from "@/icons/nexture/ni-pen";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -73,6 +76,9 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "default"> = {
   off: "default",
 };
 
+const formatWindow = (row: AnnouncementRow) =>
+  `${new Date(row.startsAt).toLocaleString()}${row.endsAt ? ` → ${new Date(row.endsAt).toLocaleString()}` : ""}`;
+
 /**
  * Publish and manage system-wide messages: write one, choose severity and
  * window, and it reaches every signed-in user until they dismiss it.
@@ -82,6 +88,7 @@ export default function AnnouncementsAdmin() {
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -92,6 +99,7 @@ export default function AnnouncementsAdmin() {
       .limit(100);
     if (readError) {
       setError(readError.message);
+      setLoadFailed(true);
       setLoaded(true);
       return;
     }
@@ -107,6 +115,7 @@ export default function AnnouncementsAdmin() {
         isActive: row.is_active,
       })),
     );
+    setLoadFailed(false);
     setLoaded(true);
   }, []);
 
@@ -144,24 +153,143 @@ export default function AnnouncementsAdmin() {
     refresh();
   };
 
-  const toggleActive = async (row: AnnouncementRow) => {
-    setError(null);
-    const supabase = createClient();
-    const { error: updateError } = await supabase
-      .from("announcements")
-      .update({ is_active: !row.isActive })
-      .eq("id", row.id);
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-    recordAudit(supabase, row.isActive ? "admin.announcement.deactivated" : "admin.announcement.activated", {
-      entityType: "announcement",
-      entityId: row.id,
-      metadata: { title: row.title },
+  const toggleActive = useCallback(
+    async (row: AnnouncementRow) => {
+      setError(null);
+      const supabase = createClient();
+      const { error: updateError } = await supabase
+        .from("announcements")
+        .update({ is_active: !row.isActive })
+        .eq("id", row.id);
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      recordAudit(supabase, row.isActive ? "admin.announcement.deactivated" : "admin.announcement.activated", {
+        entityType: "announcement",
+        entityId: row.id,
+        metadata: { title: row.title },
+      });
+      refresh();
+    },
+    [refresh],
+  );
+
+  const openEdit = useCallback((row: AnnouncementRow) => {
+    setForm({
+      id: row.id,
+      title: row.title,
+      body: row.body ?? "",
+      level: row.level,
+      href: row.href ?? "",
+      startsAt: toLocalInput(row.startsAt),
+      endsAt: toLocalInput(row.endsAt),
+      isActive: row.isActive,
     });
-    refresh();
-  };
+  }, []);
+
+  const columns = useMemo<GridColDef<AnnouncementRow>[]>(
+    () => [
+      {
+        field: "title",
+        headerName: "Title",
+        flex: 2,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<AnnouncementRow, string>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "startsAt",
+        headerName: "Window",
+        flex: 1.5,
+        minWidth: 200,
+        valueFormatter: (_value: string, row: AnnouncementRow) => formatWindow(row),
+      },
+      {
+        field: "level",
+        headerName: "Level",
+        minWidth: 110,
+        renderCell: (params: GridRenderCellParams<AnnouncementRow, AnnouncementRow["level"]>) => (
+          <Box className="flex h-full items-center">
+            <Chip
+              label={params.row.level}
+              size="small"
+              color={LEVEL_COLOR[params.row.level]}
+              variant="outlined"
+              className="capitalize"
+            />
+          </Box>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        minWidth: 120,
+        valueGetter: (_, row) => statusOf(row),
+        renderCell: (params: GridRenderCellParams<AnnouncementRow, string>) => {
+          const status = params.value ?? "off";
+          return (
+            <Box className="flex h-full items-center">
+              <Chip
+                label={status}
+                size="small"
+                color={STATUS_COLOR[status]}
+                variant="outlined"
+                className="capitalize"
+              />
+            </Box>
+          );
+        },
+      },
+      {
+        // Publish/unpublish is a kill switch: it stays visible on the row,
+        // never buried in the kebab.
+        field: "isActive",
+        headerName: "Active",
+        minWidth: 100,
+        type: "boolean",
+        renderCell: (params: GridRenderCellParams<AnnouncementRow, boolean>) => (
+          <Box className="flex h-full items-center">
+            <Tooltip title={params.row.isActive ? "Deactivate" : "Activate"}>
+              <Switch
+                checked={params.row.isActive}
+                onChange={() => toggleActive(params.row)}
+                size="small"
+                slotProps={{
+                  input: {
+                    "aria-label": params.row.isActive ? "Deactivate announcement" : "Activate announcement",
+                  },
+                }}
+              />
+            </Tooltip>
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="edit"
+            icon={<NiPen size="medium" />}
+            label="Edit"
+            onClick={() => openEdit(params.row)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [openEdit, toggleActive],
+  );
 
   return (
     <Box className="flex flex-col gap-3">
@@ -169,14 +297,6 @@ export default function AnnouncementsAdmin() {
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
-      )}
-
-      {!form && (
-        <Box>
-          <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-            New announcement
-          </Button>
-        </Box>
       )}
 
       {form && (
@@ -234,56 +354,41 @@ export default function AnnouncementsAdmin() {
         </Box>
       )}
 
-      {loaded && rows.length === 0 && !form && (
-        <EmptyState
-          icon={<NiAnnouncement size="medium" />}
-          title="No announcements yet"
-          description="Publish a message and every signed-in user sees it as a banner until they dismiss it — maintenance windows, new features, policy changes."
-          action={{ label: "New announcement", onClick: () => setForm(EMPTY_FORM) }}
+      {/* A failed load is an error, never an empty-looking table. */}
+      {!loadFailed && (
+        <DataTable<AnnouncementRow>
+          rows={rows}
+          columns={columns}
+          loading={!loaded}
+          actions={
+            form ? undefined : (
+              <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
+                New announcement
+              </Button>
+            )
+          }
+          noRowsOverlay={
+            form ? (
+              <Typography variant="body2" className="text-text-secondary">
+                No announcements yet.
+              </Typography>
+            ) : (
+              <EmptyState
+                icon={<NiAnnouncement size="medium" />}
+                title="No announcements yet"
+                description="Publish a message and every signed-in user sees it as a banner until they dismiss it — maintenance windows, new features, policy changes."
+                action={{ label: "New announcement", onClick: () => setForm(EMPTY_FORM) }}
+                className="border-none"
+              />
+            )
+          }
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary">
+              No announcements match your search.
+            </Typography>
+          }
         />
       )}
-
-      {rows.map((row) => {
-        const status = statusOf(row);
-        return (
-          <RowLine key={row.id}>
-            <RowText
-              primary={row.title}
-              secondary={`${new Date(row.startsAt).toLocaleString()}${row.endsAt ? ` → ${new Date(row.endsAt).toLocaleString()}` : ""}`}
-            />
-            <Chip
-              label={row.level}
-              size="small"
-              color={LEVEL_COLOR[row.level]}
-              variant="outlined"
-              className="capitalize"
-            />
-            <Chip label={status} size="small" color={STATUS_COLOR[status]} variant="outlined" className="capitalize" />
-            <Tooltip title={row.isActive ? "Deactivate" : "Activate"}>
-              <Switch checked={row.isActive} onChange={() => toggleActive(row)} size="small" />
-            </Tooltip>
-            <Button
-              size="small"
-              variant="text"
-              color="grey"
-              onClick={() =>
-                setForm({
-                  id: row.id,
-                  title: row.title,
-                  body: row.body ?? "",
-                  level: row.level,
-                  href: row.href ?? "",
-                  startsAt: toLocalInput(row.startsAt),
-                  endsAt: toLocalInput(row.endsAt),
-                  isActive: row.isActive,
-                })
-              }
-            >
-              Edit
-            </Button>
-          </RowLine>
-        );
-      })}
     </Box>
   );
 }

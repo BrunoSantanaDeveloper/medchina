@@ -1,27 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Alert,
-  Box,
-  Breadcrumbs,
-  Button,
-  Card,
-  CardContent,
-  Grid,
-  Input,
-  Skeleton,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Breadcrumbs, Button, Grid, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
+import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import NiArchive from "@/icons/nexture/ni-archive";
-import NiSearch from "@/icons/nexture/ni-search";
+import NiCalendar from "@/icons/nexture/ni-calendar";
+import NiUser from "@/icons/nexture/ni-user";
 import NiUsers from "@/icons/nexture/ni-users";
 import { getProductAction } from "@/lib/product-actions";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -40,14 +31,20 @@ const NEW_PATIENT_HREF = getProductAction("new-patient").href;
 const IMPORT_PATIENTS_HREF = getProductAction("import-patients").href;
 
 /**
- * Patients (PRD §9.4). The job is "find the person I'm about to see and open
- * her record" — so this is a searchable list of PEOPLE with their clinical
- * alerts and last visit, not a data grid of columns. Zero data leads straight
- * to the first-patient action (the first activation step).
+ * Patients (PRD §9.4) on the app's standard table model: the job here really
+ * is scan/search/manage many rows — find the person, check her alerts and last
+ * visit at a glance, open the record in one click. Clinical alerts stay
+ * visible on the row BEFORE the consultation (PRD §8.1).
+ *
+ * The three zero-row answers stay distinct: no patients at all (path to the
+ * first activation step), an empty archive (way back to the active list), and
+ * a search that matched nothing (named after the query). An error is an error
+ * — the table is not rendered at all, never an empty-looking grid.
  */
 export default function Pacientes() {
   const t = useTranslations("product");
   const locale = useLocale();
+  const router = useRouter();
   const [patientsState, setPatientsState] = useState<RemoteState<PatientRow[], string>>(() => remoteLoading());
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -96,33 +93,162 @@ export default function Pacientes() {
     if ("previous" in patientsState) return patientsState.previous ?? [];
     return [];
   }, [patientsState]);
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return patients.filter(
-      (patient) => Boolean(patient.archivedAt) === showArchived && (!q || patient.fullName.toLowerCase().includes(q)),
-    );
-  }, [patients, query, showArchived]);
 
-  const activeCount = patients.filter((patient) => !patient.archivedAt).length;
-  const archivedCount = patients.filter((patient) => patient.archivedAt).length;
+  // The active/archived split is a TAB, not a search: the grid receives only
+  // the chosen slice, and the quick filter searches within it.
+  const rows = useMemo(
+    () => patients.filter((patient) => Boolean(patient.archivedAt) === showArchived),
+    [patients, showArchived],
+  );
+  const activeCount = patients.length - patients.filter((patient) => patient.archivedAt).length;
+  const archivedCount = patients.length - activeCount;
+
+  const openRecord = useCallback((id: string) => router.push(`/pacientes/${id}`), [router]);
+
+  const columns = useMemo<GridColDef<PatientRow>[]>(
+    () => [
+      {
+        field: "fullName",
+        headerName: t("patients-col-name"),
+        flex: 2,
+        minWidth: 220,
+        renderCell: (params: GridRenderCellParams<PatientRow, string>) => (
+          <Box className="flex h-full items-center gap-3">
+            <span className="bg-primary/10 text-primary flex h-9 w-9 flex-none items-center justify-center rounded-full font-semibold">
+              {(params.value ?? "?").charAt(0).toUpperCase()}
+            </span>
+            <Typography variant="body1" className="text-text-primary truncate font-medium">
+              {params.value}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "lastConsultation",
+        headerName: t("patients-col-last-visit"),
+        flex: 1,
+        minWidth: 150,
+        // The app's locale, not the browser's: a pt-BR chart was showing 3/13/2019.
+        valueFormatter: (value: string | null) =>
+          value ? new Intl.DateTimeFormat(locale).format(new Date(value)) : t("patients-no-visit"),
+      },
+      {
+        field: "alerts",
+        headerName: t("patients-col-alerts"),
+        flex: 1.5,
+        minWidth: 160,
+        sortable: false,
+        // Joined labels as the value, so the quick filter also finds patients
+        // by alert text (e.g. "gestante").
+        valueGetter: (_, row) => row.alerts.map((alert) => alert.label).join(", "),
+        renderCell: (params: GridRenderCellParams<PatientRow>) => (
+          // Clinical alerts must be visible BEFORE the consultation (PRD §8.1).
+          <Box className="flex h-full flex-wrap items-center gap-1">
+            {params.row.alerts.slice(0, 2).map((alert) => (
+              <span
+                key={alert.label}
+                className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light flex-none rounded-full px-2.5 py-1 text-xs font-semibold"
+              >
+                {alert.label}
+              </span>
+            ))}
+            {params.row.alerts.length > 2 && (
+              <span className="bg-grey-100 text-text-secondary flex-none rounded-full px-2 py-1 text-xs font-semibold">
+                +{params.row.alerts.length - 2}
+              </span>
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "actions",
+        headerName: "",
+        type: "actions",
+        minWidth: 70,
+        align: "right",
+        headerAlign: "right",
+        getActions: (params) => [
+          <GridActionsCellItem
+            key="open"
+            icon={<NiUser size="medium" />}
+            label={t("patients-open-record")}
+            onClick={() => openRecord(String(params.id))}
+            showInMenu
+          />,
+          <GridActionsCellItem
+            key="schedule"
+            icon={<NiCalendar size="medium" />}
+            label={t("agenda-schedule")}
+            onClick={() => router.push(`/agenda?new=1&patientId=${params.id}`)}
+            showInMenu
+          />,
+        ],
+      },
+    ],
+    [locale, openRecord, router, t],
+  );
+
+  const header = (
+    <Box>
+      <Typography variant="h1" component="h1" className="mb-0">
+        {t("patients-title")}
+      </Typography>
+      <Breadcrumbs>
+        <Link color="inherit" href="/inicio">
+          {t("home-breadcrumb")}
+        </Link>
+        <Typography variant="body2">{t("patients-title")}</Typography>
+      </Breadcrumbs>
+    </Box>
+  );
+
+  // An error is an error: the table never renders looking like an empty list.
+  if (patientsState.status === "error") {
+    return (
+      <Grid container spacing={5}>
+        <Grid size={12}>{header}</Grid>
+        <Grid size={12}>
+          <Alert severity="error" action={<Button onClick={load}>{t("retry")}</Button>}>
+            {patientsState.error}
+          </Alert>
+        </Grid>
+      </Grid>
+    );
+  }
+
+  const loading = patientsState.status === "idle" || patientsState.status === "loading";
+
+  const noRowsOverlay = !showArchived ? (
+    // Active tab with zero rows: either a brand-new workspace or everyone was
+    // archived — both lead to the first-patient action (activation step 2).
+    <EmptyState
+      icon={<NiUsers />}
+      title={t("patients-empty-title")}
+      description={t("patients-empty-body")}
+      action={{ label: t("patients-empty-cta"), href: NEW_PATIENT_HREF }}
+      secondaryAction={{ label: t("patients-import-cta"), href: IMPORT_PATIENTS_HREF }}
+      className="border-none"
+    />
+  ) : (
+    <EmptyState
+      icon={<NiArchive />}
+      title={t("patients-archived-empty-title")}
+      description={t("patients-archived-empty-body")}
+      action={{ label: t("patients-show-active"), onClick: () => setShowArchived(false) }}
+      className="border-none"
+    />
+  );
 
   return (
     <Grid container spacing={5}>
       <Grid size={12}>
-        <Box className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <Box>
-            <Typography variant="h1" component="h1" className="mb-0">
-              {t("patients-title")}
-            </Typography>
-            <Breadcrumbs>
-              <Link color="inherit" href="/inicio">
-                {t("home-breadcrumb")}
-              </Link>
-              <Typography variant="body2">{t("patients-title")}</Typography>
-            </Breadcrumbs>
-          </Box>
-          {patientsState.status === "success" && (
-            <Box className="flex flex-row flex-wrap items-center gap-2">
+        <DataTable<PatientRow>
+          rows={rows}
+          columns={columns}
+          loading={loading}
+          header={header}
+          actions={
+            <>
               {/* Migrating stays secondary: the primary job here is still to
                   open a chart, and only a newcomer imports — once. */}
               <Button variant="text" color="grey" href={IMPORT_PATIENTS_HREF} LinkComponent={Link}>
@@ -131,116 +257,39 @@ export default function Pacientes() {
               <Button variant="contained" color="primary" href={NEW_PATIENT_HREF} LinkComponent={Link}>
                 {t("patients-new")}
               </Button>
-            </Box>
-          )}
-        </Box>
-      </Grid>
-
-      <Grid size={12}>
-        <Card component="section">
-          <CardContent className="flex flex-col gap-4">
-            {patientsState.status === "error" ? (
-              <Alert severity="error" action={<Button onClick={load}>{t("retry")}</Button>}>
-                {patientsState.error}
-              </Alert>
-            ) : patientsState.status === "idle" || patientsState.status === "loading" ? (
-              <Skeleton variant="rounded" height={220} className="rounded-3xl" />
-            ) : patientsState.status === "empty" ? (
-              <EmptyState
-                icon={<NiUsers />}
-                title={t("patients-empty-title")}
-                description={t("patients-empty-body")}
-                action={{ label: t("patients-empty-cta"), href: NEW_PATIENT_HREF }}
-                secondaryAction={{ label: t("patients-import-cta"), href: IMPORT_PATIENTS_HREF }}
-              />
-            ) : (
-              <>
-                <ToggleButtonGroup
-                  exclusive
-                  size="small"
-                  value={showArchived ? "archived" : "active"}
-                  onChange={(_, value) => value && setShowArchived(value === "archived")}
-                  aria-label={t("patients-filter-label")}
-                  className="self-start"
-                >
-                  <ToggleButton value="active">{t("patients-active", { count: activeCount })}</ToggleButton>
-                  <ToggleButton value="archived">{t("patients-archived", { count: archivedCount })}</ToggleButton>
-                </ToggleButtonGroup>
-
-                <Box className="border-grey-100 flex flex-row items-center gap-2 rounded-2xl border px-3 py-1.5">
-                  <NiSearch size="small" className="text-text-secondary flex-none" />
-                  <Input
-                    disableUnderline
-                    fullWidth
-                    placeholder={t("patients-search")}
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                  />
-                </Box>
-
-                {filtered.length === 0 && !showArchived && !query && activeCount === 0 ? (
-                  <EmptyState
-                    icon={<NiUsers />}
-                    title={t("patients-empty-title")}
-                    description={t("patients-empty-body")}
-                    action={{ label: t("patients-empty-cta"), href: NEW_PATIENT_HREF }}
-                    secondaryAction={{ label: t("patients-import-cta"), href: IMPORT_PATIENTS_HREF }}
-                    className="border-none py-8"
-                  />
-                ) : filtered.length === 0 && showArchived && !query ? (
-                  <EmptyState
-                    icon={<NiArchive />}
-                    title={t("patients-archived-empty-title")}
-                    description={t("patients-archived-empty-body")}
-                    action={{ label: t("patients-show-active"), onClick: () => setShowArchived(false) }}
-                    className="border-none py-8"
-                  />
-                ) : filtered.length === 0 ? (
-                  <Typography variant="body2" className="text-text-secondary py-8 text-center">
-                    {t("patients-search-empty", { query })}
-                  </Typography>
-                ) : (
-                  <Box className="flex flex-col gap-1">
-                    {filtered.map((patient) => (
-                      <Link
-                        key={patient.id}
-                        href={`/pacientes/${patient.id}`}
-                        className="hover:bg-grey-25 flex flex-row items-center gap-3 rounded-2xl px-3 py-3 transition-colors"
-                      >
-                        <span className="bg-primary/10 text-primary flex h-10 w-10 flex-none items-center justify-center rounded-full font-semibold">
-                          {patient.fullName.charAt(0).toUpperCase()}
-                        </span>
-                        <Box className="min-w-0 flex-1">
-                          <Typography variant="body1" className="text-text-primary truncate font-medium">
-                            {patient.fullName}
-                          </Typography>
-                          <Typography variant="body2" className="text-text-secondary">
-                            {patient.lastConsultation
-                              ? t("patients-last-visit", {
-                                  // The app's locale, not the browser's: a
-                                  // pt-BR chart was showing 3/13/2019.
-                                  date: new Intl.DateTimeFormat(locale).format(new Date(patient.lastConsultation)),
-                                })
-                              : t("patients-no-visit")}
-                          </Typography>
-                        </Box>
-                        {/* Clinical alerts must be visible BEFORE the consultation (PRD §8.1). */}
-                        {patient.alerts.slice(0, 2).map((alert) => (
-                          <span
-                            key={alert.label}
-                            className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light hidden flex-none rounded-full px-2.5 py-1 text-xs font-semibold sm:inline"
-                          >
-                            {alert.label}
-                          </span>
-                        ))}
-                      </Link>
-                    ))}
-                  </Box>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+            </>
+          }
+          filters={
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={showArchived ? "archived" : "active"}
+              onChange={(_, value) => value && setShowArchived(value === "archived")}
+              aria-label={t("patients-filter-label")}
+            >
+              <ToggleButton value="active">{t("patients-active", { count: activeCount })}</ToggleButton>
+              <ToggleButton value="archived">{t("patients-archived", { count: archivedCount })}</ToggleButton>
+            </ToggleButtonGroup>
+          }
+          labels={{
+            search: t("patients-search"),
+            columns: t("table-columns"),
+            filters: t("table-filters"),
+            export: t("table-export"),
+            print: t("table-print"),
+            exportCsv: t("table-export-csv"),
+          }}
+          noRowsOverlay={noRowsOverlay}
+          noResultsOverlay={
+            <Typography variant="body2" className="text-text-secondary text-center">
+              {t("patients-search-empty", { query })}
+            </Typography>
+          }
+          onRowClick={(row) => openRecord(row.id)}
+          onQuickFilterChange={setQuery}
+          pageSize={20}
+          pageSizeOptions={[10, 20, 50]}
+        />
       </Grid>
     </Grid>
   );
