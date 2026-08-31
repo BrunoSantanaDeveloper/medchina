@@ -13,6 +13,7 @@ import { sanitizeInternalNext } from "@flyee/clinical";
 // whole template stays browsable). Every route under app/(marketing) must
 // be listed here.
 const PUBLIC_PREFIXES = [
+  "/assets/medir-shell",
   "/auth",
   "/consentir",
   "/api/public/consent",

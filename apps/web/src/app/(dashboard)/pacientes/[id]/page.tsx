@@ -4,8 +4,15 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useSnackbar } from "notistack";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
+import Timeline from "@mui/lab/Timeline";
+import TimelineConnector from "@mui/lab/TimelineConnector";
+import TimelineContent from "@mui/lab/TimelineContent";
+import TimelineDot from "@mui/lab/TimelineDot";
+import TimelineItem from "@mui/lab/TimelineItem";
+import TimelineOppositeContent from "@mui/lab/TimelineOppositeContent";
+import TimelineSeparator from "@mui/lab/TimelineSeparator";
 import {
   Alert,
   Box,
@@ -30,11 +37,20 @@ import ScheduleDialog from "@/components/product/schedule-dialog";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiArchive from "@/icons/nexture/ni-archive";
+import NiArrowHistory from "@/icons/nexture/ni-arrow-history";
+import NiBadgeCheck from "@/icons/nexture/ni-badge-check";
 import NiBook from "@/icons/nexture/ni-book";
 import NiCalendar from "@/icons/nexture/ni-calendar";
+import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
+import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
+import NiEyeOpen from "@/icons/nexture/ni-eye-open";
+import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiPen from "@/icons/nexture/ni-pen";
+import NiPulse from "@/icons/nexture/ni-pulse";
+import NiSlashHexagon from "@/icons/nexture/ni-slash-hexagon";
+import NiSwap from "@/icons/nexture/ni-swap";
 import { defaultAppointmentStart, startAppointment } from "@/lib/agenda";
 import { recordAudit } from "@/lib/audit";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -101,6 +117,47 @@ type PatientTimelineItem =
 
 type Confirmation = "archive" | "deletion" | null;
 const ACTIVE_STATUSES = ["in_progress", "awaiting_review", "draft"];
+
+/** One tone per kind of event, reusing the correspondence the rest of the app
+ *  already fixed (agenda and início): teal for what is happening now or was
+ *  produced here, jade for what is closed, slate-blue for what is scheduled or
+ *  waiting on her, camel for material that came from another system, grey for a
+ *  draft and for what never happened. Red stays reserved for risk — a cancelled
+ *  visit is not a failure. */
+const EVENT_TONE = {
+  active: "bg-primary-light/10 text-primary",
+  done: "bg-accent-1-light/10 text-accent-1",
+  pending: "bg-accent-2-light/10 text-accent-2",
+  imported: "bg-secondary-light/10 text-secondary-dark dark:text-secondary",
+  inert: "bg-grey-100 text-text-secondary",
+};
+
+type EventVisual = { tone: string; icon: ReactNode };
+
+const STATUS_VISUAL: Record<string, EventVisual> = {
+  scheduled: { tone: EVENT_TONE.pending, icon: <NiCalendarClock /> },
+  in_progress: { tone: EVENT_TONE.active, icon: <NiPulse /> },
+  awaiting_review: { tone: EVENT_TONE.pending, icon: <NiEyeOpen /> },
+  draft: { tone: EVENT_TONE.inert, icon: <NiPen /> },
+  finalized: { tone: EVENT_TONE.done, icon: <NiCheckSquare /> },
+  cancelled: { tone: EVENT_TONE.inert, icon: <NiSlashHexagon /> },
+};
+
+/** The marker states what the event IS — never what it means clinically. */
+function eventVisual(item: PatientTimelineItem): EventVisual {
+  if (item.kind === "artifact") {
+    if (item.artifact.kind === "transcription") return { tone: EVENT_TONE.active, icon: <NiMicrophone /> };
+    // Issued documents are revoked, never deleted: a replaced document is a
+    // swap, not a loss, and must not read as a destructive event.
+    return item.artifact.status === "revoked"
+      ? { tone: EVENT_TONE.inert, icon: <NiSwap /> }
+      : { tone: EVENT_TONE.active, icon: <NiBadgeCheck /> };
+  }
+  // Where a record came from outranks its status: she has to know she is
+  // looking at material this app did not capture before she reads it.
+  if (item.visit.legacyBody) return { tone: EVENT_TONE.imported, icon: <NiArrowHistory /> };
+  return STATUS_VISUAL[item.visit.status] ?? { tone: EVENT_TONE.inert, icon: <NiClipboard /> };
+}
 
 /** A patient record is a continuity surface: resume unfinished work first,
  * then offer the next useful action without making the practitioner hunt
@@ -266,6 +323,18 @@ export default function PacienteFicha() {
         ...artifacts.map((artifact) => ({ kind: "artifact" as const, occurredAt: artifact.occurredAt, artifact })),
       ].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
     [artifacts, visits],
+  );
+
+  /** Clinical dates follow the app locale and the CLINIC timezone, as in
+   *  /consultas and /início — a consultation must not drift a day because she
+   *  opened the record from somewhere else. */
+  const dateFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: "short", timeZone: timezone }),
+    [locale, timezone],
+  );
+  const timeFormat = useMemo(
+    () => new Intl.DateTimeFormat(locale, { timeStyle: "short", timeZone: timezone }),
+    [locale, timezone],
   );
 
   const recoverActiveConsultation = async () => {
@@ -552,13 +621,25 @@ export default function PacienteFicha() {
                 className="border-none py-8"
               />
             ) : (
-              <Box className="flex flex-col gap-1">
-                {timelineItems.map((item) => {
+              <Timeline>
+                {timelineItems.map((item, index) => {
+                  const visual = eventVisual(item);
+                  const first = index === 0;
+                  const last = index === timelineItems.length - 1;
+                  const occurredAt = new Date(item.occurredAt);
+                  const dateLabel = dateFormat.format(occurredAt);
+                  const timeLabel =
+                    item.kind === "artifact" || item.visit.scheduledFor ? timeFormat.format(occurredAt) : null;
+                  // Shown inside the row on a narrow screen and read by a screen
+                  // reader everywhere: the rail column is aria-hidden, so without
+                  // this twelve weekly "Dor lombar, Finalizada" links sound alike.
+                  const whenLabel = timeLabel ? `${dateLabel} ${timeLabel}` : dateLabel;
+
                   if (item.kind === "artifact") {
                     const artifact = item.artifact;
                     const content = (
                       <>
-                        <Box className="min-w-0 flex-1">
+                        <Box className="w-full min-w-0 flex-1">
                           <Typography variant="body1" className="text-text-primary truncate font-medium">
                             {artifact.kind === "transcription"
                               ? t("patient-timeline-transcription")
@@ -567,13 +648,11 @@ export default function PacienteFicha() {
                                   version: artifact.version,
                                 })}
                           </Typography>
-                          <Typography variant="body2" className="text-text-secondary">
-                            {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(
-                              new Date(artifact.occurredAt),
-                            )}
+                          <Typography variant="caption" className="text-text-secondary block sm:sr-only">
+                            {whenLabel}
                           </Typography>
                         </Box>
-                        <span className="bg-primary/10 text-primary-dark dark:text-primary-light rounded-full px-2.5 py-1 text-xs font-semibold">
+                        <span className="bg-primary/10 text-primary-dark dark:text-primary-light flex-none rounded-full px-2.5 py-1 text-xs font-semibold">
                           {artifact.kind === "transcription"
                             ? t("patient-timeline-transcription-chip")
                             : t(`patient-timeline-document-${artifact.status}`)}
@@ -581,29 +660,34 @@ export default function PacienteFicha() {
                       </>
                     );
 
-                    return artifact.kind === "transcription" ? (
-                      <Link
-                        key={`transcription-${artifact.id}`}
-                        href={`/consultas/${artifact.consultationId}#transcription-${artifact.id}`}
-                        className="hover:bg-grey-25 flex flex-row items-center gap-3 rounded-2xl px-3 py-3 transition-colors"
+                    return (
+                      <TimelineEvent
+                        key={`${artifact.kind}-${artifact.id}`}
+                        dateLabel={dateLabel}
+                        timeLabel={timeLabel}
+                        tone={visual.tone}
+                        icon={visual.icon}
+                        first={first}
+                        last={last}
                       >
-                        {content}
-                      </Link>
-                    ) : (
-                      <Link
-                        key={`document-${artifact.id}`}
-                        href={`/verify/${artifact.verifyCode}`}
-                        className="hover:bg-grey-25 flex flex-row items-center gap-3 rounded-2xl px-3 py-3 transition-colors"
-                      >
-                        {content}
-                      </Link>
+                        <Link
+                          href={
+                            artifact.kind === "transcription"
+                              ? `/consultas/${artifact.consultationId}#transcription-${artifact.id}`
+                              : `/verify/${artifact.verifyCode}`
+                          }
+                          className="hover:bg-grey-25 flex flex-col items-start gap-1 rounded-2xl px-3 py-2.5 transition-colors sm:flex-row sm:items-center sm:gap-3"
+                        >
+                          {content}
+                        </Link>
+                      </TimelineEvent>
                     );
                   }
 
                   const visit = item.visit;
                   const content = (
                     <>
-                      <Box className="min-w-0 flex-1">
+                      <Box className="w-full min-w-0 flex-1">
                         <Typography variant="body1" className="text-text-primary truncate font-medium">
                           {/* An imported record has no complaint field — showing
                               "sem queixa registrada" would describe it as an
@@ -613,57 +697,65 @@ export default function PacienteFicha() {
                             ? visit.legacyBody.split("\n")[0]
                             : visit.appointmentNote || visit.chiefComplaint || t("consultation-no-complaint")}
                         </Typography>
-                        <Typography variant="body2" className="text-text-secondary">
-                          {new Intl.DateTimeFormat(locale, {
-                            dateStyle: "medium",
-                            timeStyle: visit.scheduledFor ? "short" : undefined,
-                          }).format(new Date(visitDate(visit)))}
-                          {visit.legacyBody
-                            ? ` · ${
-                                visit.legacySource
-                                  ? t("legacy-record-from", { source: visit.legacySource })
-                                  : t("legacy-record-unknown-source")
-                              }`
-                            : ""}
+                        <Typography variant="caption" className="text-text-secondary block sm:sr-only">
+                          {whenLabel}
                         </Typography>
+                        {/* The rail already carries the date on a wide screen, so this
+                            line says only what the date cannot: the record came from
+                            somewhere else. */}
+                        {visit.legacyBody && (
+                          <Typography variant="body2" className="text-text-secondary">
+                            {visit.legacySource
+                              ? t("legacy-record-from", { source: visit.legacySource })
+                              : t("legacy-record-unknown-source")}
+                          </Typography>
+                        )}
                       </Box>
                       <StatusChip status={visit.status} label={t(`status-${visit.status}`)} />
                     </>
                   );
 
-                  if (visit.status === "scheduled") {
-                    return (
-                      <Box
-                        key={visit.id}
-                        className="hover:bg-grey-25 flex flex-row flex-wrap items-center gap-3 rounded-2xl px-3 py-3 transition-colors"
-                      >
-                        {content}
-                        <Button size="small" onClick={() => startScheduledVisit(visit)} disabled={busy}>
-                          {t("agenda-start")}
-                        </Button>
-                      </Box>
-                    );
-                  }
-
-                  if (visit.status === "cancelled") {
-                    return (
-                      <Box key={visit.id} className="flex flex-row items-center gap-3 rounded-2xl px-3 py-3">
-                        {content}
-                      </Box>
-                    );
-                  }
-
                   return (
-                    <Link
+                    <TimelineEvent
                       key={visit.id}
-                      href={`/consultas/${visit.id}`}
-                      className="hover:bg-grey-25 flex flex-row items-center gap-3 rounded-2xl px-3 py-3 transition-colors"
+                      dateLabel={dateLabel}
+                      timeLabel={timeLabel}
+                      tone={visual.tone}
+                      icon={visual.icon}
+                      first={first}
+                      last={last}
                     >
-                      {content}
-                    </Link>
+                      {visit.status === "scheduled" ? (
+                        // A row that carries its own action cannot be a link: a
+                        // <button> inside an <a> is invalid and traps the keyboard.
+                        <Box className="hover:bg-grey-25 flex flex-col items-start gap-1 rounded-2xl px-3 py-2.5 transition-colors md:flex-row md:flex-wrap md:items-center md:gap-3">
+                          {content}
+                          <Button
+                            size="small"
+                            aria-label={`${t("agenda-start")} ${whenLabel}`}
+                            onClick={() => startScheduledVisit(visit)}
+                            disabled={busy}
+                          >
+                            {t("agenda-start")}
+                          </Button>
+                        </Box>
+                      ) : visit.status === "cancelled" ? (
+                        // A cancelled visit leads nowhere — no hover, no affordance.
+                        <Box className="flex flex-col items-start gap-1 rounded-2xl px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+                          {content}
+                        </Box>
+                      ) : (
+                        <Link
+                          href={`/consultas/${visit.id}`}
+                          className="hover:bg-grey-25 flex flex-col items-start gap-1 rounded-2xl px-3 py-2.5 transition-colors sm:flex-row sm:items-center sm:gap-3"
+                        >
+                          {content}
+                        </Link>
+                      )}
+                    </TimelineEvent>
                   );
                 })}
-              </Box>
+              </Timeline>
             )}
           </CardContent>
         </Card>
@@ -840,6 +932,56 @@ function Field({ label, value }: { label: string; value: string | null }) {
         {value || "—"}
       </Typography>
     </Box>
+  );
+}
+
+/** The rail of the record: when it happened on the left, what it was on the
+ *  marker, the event itself on the right. The row content belongs to the caller,
+ *  so an event that carries its own action is never wrapped in a link. */
+function TimelineEvent({
+  dateLabel,
+  timeLabel,
+  tone,
+  icon,
+  first,
+  last,
+  children,
+}: {
+  dateLabel: string;
+  timeLabel: string | null;
+  tone: string;
+  icon: ReactNode;
+  first: boolean;
+  last: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <TimelineItem>
+      <TimelineOppositeContent
+        aria-hidden
+        className="m-auto hidden shrink-0 grow-0 basis-20 pr-2 pl-0 whitespace-nowrap sm:block"
+      >
+        <Typography variant="body2" className="text-text-primary font-medium">
+          {dateLabel}
+        </Typography>
+        {timeLabel && (
+          <Typography variant="caption" className="text-text-secondary block">
+            {timeLabel}
+          </Typography>
+        )}
+      </TimelineOppositeContent>
+      <TimelineSeparator>
+        {/* The rail stops at the ends: a stub above the newest event would
+            promise history that is not there. It stays in the layout, just not
+            painted, so every marker sits at the same height. */}
+        <TimelineConnector className={first ? "invisible" : undefined} />
+        <TimelineDot aria-hidden className={`my-1 rounded-lg p-2 ${tone}`}>
+          {icon}
+        </TimelineDot>
+        <TimelineConnector className={last ? "invisible" : undefined} />
+      </TimelineSeparator>
+      <TimelineContent className="my-auto min-w-0 py-0 pr-0 pl-2">{children}</TimelineContent>
+    </TimelineItem>
   );
 }
 
