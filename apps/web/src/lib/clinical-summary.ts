@@ -8,14 +8,20 @@ import { type AiProviderName, getChatProvider } from "@flyee/ai";
  * Built from the same recorded data as the reasoning/plan (chief complaint +
  * anamnesis answers), so it stays consistent with what she is looking at.
  */
-export const SUMMARY_PROMPT_VERSION = "clinical-summary-2026-08-01";
+export const SUMMARY_PROMPT_VERSION = "clinical-summary-2026-09-02";
 
 const DEFAULT_PROVIDER: AiProviderName = "gemini";
 const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export interface SummaryInput {
   chiefComplaint: string | null;
-  answers: { blockKey: string; fieldKey: string; value: string }[];
+  answers: {
+    blockKey: string;
+    fieldKey: string;
+    value: string;
+    /** `attention` = the extraction flagged it as ambiguous or clinically sensitive. */
+    state?: string;
+  }[];
 }
 
 export interface SummaryResult {
@@ -38,7 +44,13 @@ const RESULT_SCHEMA = {
 function describeCase(input: SummaryInput): string {
   const lines: string[] = [];
   if (input.chiefComplaint) lines.push(`Queixa principal: ${input.chiefComplaint}`);
-  for (const answer of input.answers) lines.push(`- ${answer.blockKey}.${answer.fieldKey}: ${answer.value}`);
+  for (const answer of input.answers) {
+    // A value the extraction itself flagged as ambiguous, contradictory or
+    // clinically sensitive must not reach the model dressed like a reviewed
+    // one — that is how a doubt becomes settled prose in her chart.
+    const pending = answer.state === "attention" ? " [requer atenção — não revisado]" : "";
+    lines.push(`- ${answer.blockKey}.${answer.fieldKey}${pending}: ${answer.value}`);
+  }
   return lines.join("\n");
 }
 
@@ -55,6 +67,9 @@ export async function buildClinicalSummary(input: SummaryInput): Promise<Summary
     "2. Absence is not a negative finding: a field with no value was simply not recorded.",
     "3. One or two short paragraphs, in the language of the recorded data (Brazilian Portuguese unless clearly not).",
     "4. Neutral clinical prose — no diagnosis, no pattern name, no treatment.",
+    '5. A value marked "[requer atenção — não revisado]" has NOT been reviewed by the practitioner.',
+    "   Carry that uncertainty into the summary (say it was reported/noted and still needs confirming);",
+    "   never state it as an established finding.",
     "",
     "RECORDED DATA:",
     describeCase(input) || "(nothing recorded)",

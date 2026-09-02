@@ -18,6 +18,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 import DialogHeader from "@/components/product/dialog-header";
@@ -52,6 +54,11 @@ export default function PrescriptionPanel({
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
+  const theme = useTheme();
+  // The densest reading in the product — a 50-minute transcript, a plan, a
+  // prescription — happened in a shrunken window with its own scrollbar, while
+  // scheduling (a far shorter task) already got the full screen.
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [row, setRow] = useState<Row | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -467,7 +474,14 @@ export default function PrescriptionPanel({
       </CardContent>
 
       {/* Author / edit: ONE descriptive field, written by her. */}
-      <Dialog open={Boolean(draft)} onClose={() => setDraft(null)} maxWidth="sm" fullWidth scroll="paper">
+      <Dialog
+        fullScreen={fullScreen}
+        open={Boolean(draft)}
+        onClose={() => setDraft(null)}
+        maxWidth="sm"
+        fullWidth
+        scroll="paper"
+      >
         <DialogHeader title={t("prescription-title")} closeLabel={t("close")} onClose={() => setDraft(null)} />
         {draft && (
           <DialogContent dividers className="flex flex-col gap-3 py-5!">

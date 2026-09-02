@@ -104,61 +104,196 @@ export const TCM_VOCABULARY: Record<string, VocabularyGroup[]> = {
 
 /** Terms already present in the text, so a chip can show as selected. */
 export function activeTerms(value: string, groups: VocabularyGroup[]): Set<string> {
-  const haystack = value.toLowerCase();
   const active = new Set<string>();
   for (const group of groups) {
     for (const term of group.terms) {
-      if (containsTerm(haystack, term.toLowerCase())) active.add(term);
+      if (locateTerm(value, term)) active.add(term);
     }
   }
   return active;
 }
 
 /**
- * Whole-ITEM match against a comma-separated value.
- *
- * A space is NOT a boundary here: "saburra fina" must not light up the
- * separate "fina" chip, and "profundo e fraco" must not light up "profundo".
- * Only a comma, a semicolon or the ends of the text separate one term from the
- * next — surrounding spaces are skipped on the way to them.
- */
-function containsTerm(haystack: string, term: string): boolean {
-  const isSeparator = (char: string) => char === "," || char === ";";
-  let from = 0;
-  for (;;) {
-    const at = haystack.indexOf(term, from);
-    if (at === -1) return false;
-
-    let before = at - 1;
-    while (before >= 0 && haystack[before] === " ") before -= 1;
-    let after = at + term.length;
-    while (after < haystack.length && haystack[after] === " ") after += 1;
-
-    const startsClean = before < 0 || isSeparator(haystack[before]);
-    const endsClean = after >= haystack.length || isSeparator(haystack[after]) || haystack[after] === ".";
-    if (startsClean && endsClean) return true;
-    from = at + 1;
-  }
-}
-
-/**
  * Adds or removes a term, keeping everything she typed by hand.
  *
  * Composition is comma-separated because that is how the phrase reads back in
- * the record ("pálida, saburra branca espessa"). Removing a term takes its
- * separator with it so the text never degrades into ", ,".
+ * the record ("pálida, saburra branca espessa"), but the value is NOT a list:
+ * the AI draft arrives as prose ("Língua pálida com saburra branca e fina") and
+ * she dictates in prose too. So a term is found wherever it stands as a whole
+ * phrase, and the chip toggles THAT occurrence — matching only whole
+ * comma-items is what used to append a second "pálida" to a sentence that
+ * already said it.
  */
 export function toggleTerm(value: string, term: string): string {
-  const parts = value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  const index = parts.findIndex((part) => part.toLowerCase() === term.toLowerCase());
-  if (index >= 0) {
-    parts.splice(index, 1);
-    return parts.join(", ");
+  const found = locateTerm(value, term);
+  return found ? removeSpan(value, found) : appendTerm(value, term);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Finding a term inside her text                                              */
+/* -------------------------------------------------------------------------- */
+
+interface TermSpan {
+  start: number;
+  /** Exclusive. */
+  end: number;
+}
+
+/**
+ * A word character for boundary purposes. `\b` is ASCII-only, which would cut
+ * "pálida" at the accent and refuse "à esquerda" outright — every term here is
+ * Portuguese.
+ */
+const WORD_CHARACTER = /[\p{L}\p{N}]/u;
+
+function isWordCharacter(char: string | undefined): boolean {
+  return char !== undefined && WORD_CHARACTER.test(char);
+}
+
+/** Punctuation that may sit against a term without being part of it. */
+function isSeparator(char: string | undefined): boolean {
+  return char === "," || char === ";";
+}
+
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Matches the term as a whole phrase, tolerating any run of whitespace between
+ * its words — a transcript-fed draft may wrap "saburra\nbranca" across a line.
+ */
+function termPattern(term: string): RegExp {
+  const words = term.trim().split(/\s+/u).map(escapeForRegExp);
+  return new RegExp(words.join("\\s+"), "giu");
+}
+
+/** Every occurrence of the term standing on its own word boundaries, in any case. */
+function locateAll(text: string, term: string): TermSpan[] {
+  if (!term.trim()) return [];
+  const spans: TermSpan[] = [];
+  const pattern = termPattern(term);
+  for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
+    const start = match.index;
+    const end = start + match[0].length;
+    // "fina" is a tongue shape; inside "afinada" it is nothing at all.
+    if (!isWordCharacter(text[start - 1]) && !isWordCharacter(text[end])) spans.push({ start, end });
   }
-  // A term typed inside a longer sentence is left alone — removing it would
-  // mean rewriting her words; the chip simply appends.
-  return parts.length > 0 ? `${parts.join(", ")}, ${term}` : term;
+  return spans;
+}
+
+/** Every term the vocabulary offers, across all three fields. */
+const ALL_TERMS: readonly string[] = Array.from(
+  new Set(Object.values(TCM_VOCABULARY).flatMap((groups) => groups.flatMap((group) => group.terms))),
+);
+
+/**
+ * For each term, the LONGER vocabulary phrases that contain it.
+ *
+ * A word boundary alone would read "saburra fina" as the coating AND the
+ * separate "fina" shape chip, and "profundo e fraco" as three pulse qualities.
+ * The longest phrase present is the one she meant, so a shorter term is only
+ * active where no longer term covers it. The map spans all three fields on
+ * purpose: it is built from the vocabulary, so it cannot drift from it.
+ */
+const COVERING_TERMS: ReadonlyMap<string, readonly string[]> = new Map(
+  ALL_TERMS.map((term) => [
+    term.toLowerCase(),
+    ALL_TERMS.filter((other) => other.length > term.length && locateAll(other, term).length > 0),
+  ]),
+);
+
+/** The first occurrence of the term that no longer term is spelling out. */
+function locateTerm(text: string, term: string): TermSpan | null {
+  const spans = locateAll(text, term);
+  if (spans.length === 0) return null;
+  const covered = (COVERING_TERMS.get(term.toLowerCase()) ?? []).flatMap((longer) => locateAll(text, longer));
+  return spans.find((span) => !covered.some((other) => other.start <= span.start && other.end >= span.end)) ?? null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Editing her text around it                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Cuts the term out and closes the gap.
+ *
+ * Whatever comes back is autosaved immediately, so this repairs only what the
+ * cut broke — the spacing and the punctuation that were holding the removed
+ * term. Her grammar is left as she wrote it (removing "fina" from "branca e
+ * fina" leaves the "e" standing): guessing at words is how a record gets
+ * rewritten, and a stray conjunction she can see is better than a word she
+ * cannot get back.
+ */
+function removeSpan(value: string, span: TermSpan): string {
+  // Trim only HORIZONTAL space. Tongue, pulse and palpation are multiline
+  // fields (lib/anamnesis.ts) and she writes findings on separate lines; a
+  // `\s` trim eats the newlines, so removing one chip collapsed
+  // "pálida\nsaburra branca\nfissurada" into "pálida fissurada" — two lines
+  // gone and two findings run together. Autosave persists that instantly.
+  let head = value.slice(0, span.start).replace(TRAILING_BLANK, "");
+  let tail = value.slice(span.end).replace(LEADING_BLANK, "");
+
+  // The term sat between two marks; exactly one of them may survive, or the
+  // text reads "branca, , seca" — or "Pulso:, tenso." when the mark before it
+  // was not itself a list separator.
+  if (isSeparator(head.at(-1)) && isClosingPunctuation(tail[0])) {
+    head = head.slice(0, -1).replace(TRAILING_BLANK, "");
+  } else if (isPhrasePunctuation(head.at(-1)) && isSeparator(tail[0])) {
+    tail = tail.slice(1).replace(LEADING_BLANK, "");
+  }
+
+  if (head === "") return tail.replace(/^[,;.\s]+/u, "");
+  if (tail === "") return head.replace(TRAILING_BLANK, "").replace(/[,;]+$/u, "");
+
+  const headEndsLine = /[\r\n]$/u.test(head);
+  const tailStartsLine = /^[\r\n]/u.test(tail);
+  // Both halves kept the break that surrounded the removed term — together
+  // they would leave a blank line she never wrote.
+  if (headEndsLine && tailStartsLine) return head + tail.replace(/^[\r\n]+/u, "");
+  // Already on separate lines, or the tail opens with punctuation that binds to
+  // the word before it: nothing goes between them.
+  if (headEndsLine || tailStartsLine || isClosingPunctuation(tail[0])) return head + tail;
+  return `${head} ${tail}`;
+}
+
+/** Marks after which a list separator opening the tail is left orphaned. */
+function isPhrasePunctuation(character: string | undefined): boolean {
+  return character !== undefined && ",;:".includes(character);
+}
+
+/**
+ * Punctuation that closes what came before it, so it must stay glued to the
+ * previous word instead of being pushed away by a reinserted space. Limiting
+ * this to `,;.` left every other mark stranded: removing "fino" from
+ * "Pulso: fino, tenso." produced "Pulso:, tenso.".
+ */
+function isClosingPunctuation(character: string | undefined): boolean {
+  return character !== undefined && ".,;:!?…)]}»".includes(character);
+}
+
+/** Horizontal whitespace only — never a line break. */
+const TRAILING_BLANK = /[^\S\r\n]+$/u;
+const LEADING_BLANK = /^[^\S\r\n]+/u;
+
+/**
+ * Appends the term the way the phrase reads back in the record.
+ *
+ * A sentence that was already closed stays closed — the term goes inside it,
+ * not after the full stop.
+ */
+function appendTerm(value: string, term: string): string {
+  // Horizontal-only, for the same reason as removeSpan: "pálida\n" + a chip
+  // must not silently swallow the line she was about to write on.
+  const written = value.replace(TRAILING_BLANK, "");
+  const terminator = /[.!?…]+$/u.exec(written)?.[0] ?? "";
+  const base = written
+    .slice(0, written.length - terminator.length)
+    .replace(TRAILING_BLANK, "")
+    .replace(/[,;][^\S\r\n]*$/u, "");
+  if (base === "") return `${term}${terminator}`;
+  // A term added after a line break belongs on that line, not comma-joined to
+  // the previous one.
+  if (/[\r\n]$/u.test(base)) return `${base}${term}${terminator}`;
+  return `${base}, ${term}${terminator}`;
 }

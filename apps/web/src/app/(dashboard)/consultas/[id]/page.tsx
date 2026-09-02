@@ -52,7 +52,7 @@ import NiLock from "@/icons/nexture/ni-lock";
 import NiPlay from "@/icons/nexture/ni-play";
 import NiProgress from "@/icons/nexture/ni-progress";
 import NiSearch from "@/icons/nexture/ni-search";
-import { calendarDateInTimeZone, defaultAppointmentStart, weeklyOccurrences } from "@/lib/agenda";
+import { calendarDateInTimeZone, defaultAppointmentStart, startAppointment, weeklyOccurrences } from "@/lib/agenda";
 import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
 import {
@@ -216,6 +216,19 @@ export default function ConsultaPage() {
   } | null>(null);
   const revisionRef = useRef(0);
 
+  /**
+   * The patient timeline links a transcript as `/consultas/<id>#transcription-<id>`
+   * and nothing ever read that hash — no element carried the anchor either, so
+   * the link landed at the top of the page and looked like a broken feature.
+   * The transcript is not an anchor on this page; it is a dialog the recordings
+   * panel owns, so honour the hash by ASKING for it.
+   */
+  useEffect(() => {
+    const match = /^#transcription-([0-9a-fA-F-]{36})$/.exec(window.location.hash);
+    if (!match) return;
+    setTranscriptSeek({ start: "", transcriptionId: match[1], nonce: Date.now() });
+  }, []);
+
   const { isPrimary, takeOver } = useConsultationTabGuard(params.id);
   const saveCoordinator = useMemo(
     () =>
@@ -317,9 +330,39 @@ export default function ConsultaPage() {
       };
     }
     if (!saveCoordinator.hasUnsavedChanges()) {
-      setFields(map);
+      // Never overwrite the field she is typing in. The value is stored
+      // TRIMMED, so once the debounce flushed there are no pending changes and
+      // the next sync would hand back "paciente relata" over "paciente relata "
+      // — the trailing space vanishing mid-sentence, and the next word landing
+      // glued to the last one. Pauses of a few seconds are the rule here, not
+      // the exception: her attention is on the patient.
+      const focused = document.activeElement?.id ?? "";
+      const editingField = focused.startsWith("consultation-field-") ? focused : null;
+      setFields((current) => {
+        if (!editingField) return map;
+        const preserved = { ...map };
+        for (const [composite, meta] of Object.entries(current)) {
+          const [blockKey, fieldKey] = composite.split(".");
+          if (`consultation-field-${blockKey}-${fieldKey}` !== editingField) continue;
+          if ((meta.value ?? "").trim() === (map[composite]?.value ?? "").trim()) preserved[composite] = meta;
+        }
+        return preserved;
+      });
       const nextHeader = { chiefComplaint: row.chief_complaint ?? "", summary: row.summary ?? "" };
-      setHeaderDraft(nextHeader);
+      setHeaderDraft((current) => {
+        if (focused !== "consultation-summary" && focused !== "consultation-chief-complaint") return nextHeader;
+        return {
+          chiefComplaint:
+            focused === "consultation-chief-complaint" &&
+            current.chiefComplaint.trim() === nextHeader.chiefComplaint.trim()
+              ? current.chiefComplaint
+              : nextHeader.chiefComplaint,
+          summary:
+            focused === "consultation-summary" && current.summary.trim() === nextHeader.summary.trim()
+              ? current.summary
+              : nextHeader.summary,
+        };
+      });
     }
 
     setAddenda(
@@ -548,6 +591,30 @@ export default function ConsultaPage() {
     Object.values(fields).every((meta) => !meta.value.trim()) &&
     !headerDraft.chiefComplaint.trim() &&
     !headerDraft.summary.trim();
+
+  /**
+   * Start the scheduled appointment from the record itself. Same RPC the agenda
+   * uses; reloading in place is the point — she is standing with the patient,
+   * not navigating.
+   */
+  const beginAppointment = async () => {
+    if (!consultation || busy) return;
+    setBusy(true);
+    setErrorKey(null);
+    try {
+      const result = await startAppointment(createClient(), consultation.orgId, consultation.id);
+      if (!result.ok) {
+        setErrorKey("consultation-start-error");
+        return;
+      }
+      await load();
+      router.refresh();
+    } catch {
+      setErrorKey("consultation-start-error");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const prepareFinalize = () => {
     if (!consultation || !capabilities?.canFinalize) return;
@@ -909,7 +976,12 @@ export default function ConsultaPage() {
         </Box>
       </Grid>
 
-      <Grid size={12} className="sticky top-20 z-20">
+      {/* Pinned only where there is room for it. On a phone the bar is ~280px
+          under an 80px fixed header — over half a 667px viewport spent on
+          permanent chrome before the keyboard opens, which turned filling the
+          anamnesis into typing through a slot. It scrolls with the page there
+          and stays pinned from `md` up, where it costs nothing. */}
+      <Grid size={12} className="z-20 md:sticky md:top-20">
         <ClinicalContextBar
           patientId={consultation.patientId}
           patientName={consultation.patientName}
@@ -918,6 +990,11 @@ export default function ConsultaPage() {
           scheduledFor={consultation.scheduledFor ?? consultation.startedAt}
           experience={experience}
           consents={context?.consents ?? { audio: false, ai: false }}
+          // A failed context fetch leaves `context` null, and the fallbacks
+          // above then read as facts: no alerts, nothing consented. The bar has
+          // to know the difference between "nothing there" and "could not ask".
+          contextUnavailable={!context && errorKey === "consultation-context-load-error"}
+          timezone={timezone}
           saveState={saveSnapshot.state}
           recordingStatus={recordingStatus}
           nextAction={nextAction}
@@ -994,10 +1071,21 @@ export default function ConsultaPage() {
           <Alert
             severity="info"
             className="neutral bg-background-paper/60!"
+            // Starting the appointment used to live ONLY in the agenda, so
+            // arriving here from the patient's timeline or a direct link meant
+            // leaving the screen, finding the slot, pressing "Começar" and
+            // coming back — three navigations for the most frequent action of
+            // the day, with the patient already on the table.
             action={
-              <Button component={Link} href="/agenda">
-                {t("consultation-open-agenda")}
-              </Button>
+              capabilities?.canStart ? (
+                <Button variant="contained" color="primary" onClick={() => void beginAppointment()} disabled={busy}>
+                  {t("consultation-start-appointment")}
+                </Button>
+              ) : (
+                <Button component={Link} href="/agenda">
+                  {t("consultation-open-agenda")}
+                </Button>
+              )
             }
           >
             {t("consultation-scheduled-readonly")}
@@ -1027,7 +1115,17 @@ export default function ConsultaPage() {
 
       {errorKey && (
         <Grid size={12}>
-          <Alert severity="error" className="neutral bg-background-paper/60!">
+          <Alert
+            severity="error"
+            className="neutral bg-background-paper/60!"
+            // "Recarregue antes de continuar" without a way to reload is an
+            // instruction, not a recovery. The load is right here.
+            action={
+              errorKey === "consultation-context-load-error" ? (
+                <Button onClick={() => void load()}>{t("retry")}</Button>
+              ) : undefined
+            }
+          >
             {t(errorKey)}
           </Alert>
         </Grid>
@@ -1046,11 +1144,14 @@ export default function ConsultaPage() {
               of scrolling and each one silently clipped its own footer (the
               recorder lost its last button). Refusing to shrink is what makes
               overflow-y-auto actually scroll. */}
-          {/* When the record is read-only (finalized/cancelled/scheduled) there
-              is no capture surface here — render NOTHING rather than an empty
-              column, which left a large blank at the top of the tools column.
-              The tools column then moves up to row 1 (see order-3 below). */}
-          {capabilities?.canEditClinicalRecord && (
+          {/* A read-only record (cancelled/scheduled) has no capture surface —
+              render NOTHING rather than an empty column, which left a large
+              blank at the top of the tools column. A FINALIZED one is
+              different: it has no capture surface either, but it does have the
+              evidence. The transcript is what every AI-filled field points back
+              to (PRD §13.1), and it used to disappear at exactly the moment
+              review, audit or a challenge would need it. */}
+          {(capabilities?.canEditClinicalRecord || isFinalized) && (
             <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[&>*]:shrink-0">
               {/* This is the only capture surface and remains first in DOM order
                 so mobile visual order and keyboard focus order stay aligned.
@@ -1091,12 +1192,16 @@ export default function ConsultaPage() {
                   </Card>
                 ))}
 
-              {canEdit && (
+              {/* Read-only once the record is closed: the transcript and its
+                  audio stay readable, while processing and discarding — which
+                  would change a frozen record — do not. */}
+              {(canEdit || isFinalized) && (
                 <RecordingsPanel
                   consultationId={consultation.id}
                   onProcessed={load}
                   refreshSignal={recordingsRefresh}
                   seekTo={transcriptSeek ?? undefined}
+                  readOnly={isFinalized}
                 />
               )}
 
@@ -1129,6 +1234,26 @@ export default function ConsultaPage() {
                       : t("consultation-anamnesis-subtitle")}
                   </Typography>
                 </Box>
+
+                {/* The one line that names the case. It drives the patient
+                    timeline and every AI prompt, and it had become unwritable:
+                    the header editor was removed as a duplicate of the block
+                    below, and the extraction catalog excludes it by design — so
+                    `chief_complaint` was null for every consultation and each
+                    reader silently degraded. One short field, not the block. */}
+                <FormControl className="outlined" variant="standard" size="small">
+                  <FormLabel component="label" htmlFor="consultation-chief-complaint">
+                    {t("consultation-chief-complaint")}
+                  </FormLabel>
+                  <Input
+                    id="consultation-chief-complaint"
+                    value={headerDraft.chiefComplaint}
+                    placeholder={t("consultation-chief-complaint-placeholder")}
+                    readOnly={isReadOnly}
+                    onChange={(event) => queueHeaderSave("chiefComplaint", event.target.value)}
+                    onBlur={() => void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))}
+                  />
+                </FormControl>
 
                 {/* A RETURN answers a different question than a first visit:
                     "what changed?". Stated once here, and per field below, so
@@ -1165,10 +1290,6 @@ export default function ConsultaPage() {
               </CardContent>
             </Card>
 
-            {/* Queixa principal was a separate header field that duplicated the
-                "Queixa principal e história atual" block — removed. Its column
-                (chief_complaint) still exists for the timeline, which falls back
-                to the appointment note when it is empty. */}
             {/* A record from another system is shown as what it is — the text
                 as it was written, labelled with its origin — and REPLACES the
                 anamnesis blocks. Rendering forty empty fields next to it would
@@ -1246,19 +1367,27 @@ export default function ConsultaPage() {
                                   {meta?.value && (
                                     <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
                                   )}
-                                  {meta?.provenance?.quote && (
-                                    <button
-                                      type="button"
-                                      className="text-secondary-dark dark:text-secondary-light inline-flex items-center gap-1 text-xs font-semibold"
-                                      onClick={(event) =>
-                                        setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
-                                      }
-                                    >
-                                      <NiPlay size="tiny" />
-                                      {t("field-provenance")}
-                                    </button>
-                                  )}
                                 </FormLabel>
+                                {/* Moved OUT of the field label above. A button
+                                    nested inside a label bound to this input is
+                                    invalid markup, it inflates the field's
+                                    accessible name with every badge and chip,
+                                    and pressing it also focuses the input. On
+                                    its own row it finally gets a real touch
+                                    target — this is the control that answers
+                                    "where did this value come from?". */}
+                                {meta?.provenance?.quote && (
+                                  <button
+                                    type="button"
+                                    className="text-secondary-dark dark:text-secondary-light -mt-0.5 mb-0.5 inline-flex min-h-9 items-center gap-1 self-start px-1 text-xs font-semibold"
+                                    onClick={(event) =>
+                                      setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
+                                    }
+                                  >
+                                    <NiPlay size="tiny" />
+                                    {t("field-provenance")}
+                                  </button>
+                                )}
                                 <Input
                                   id={`consultation-field-${block.key}-${field.key}`}
                                   multiline={field.multiline}
@@ -1726,7 +1855,7 @@ function VocabularyChips({
   return (
     <Box className="mt-1.5 flex flex-col gap-1.5">
       {groups.map((group) => (
-        <Box key={group.label} className="flex flex-row flex-wrap items-center gap-1">
+        <Box key={group.label} className="flex flex-row flex-wrap items-center gap-1.5">
           <Typography variant="body2" className="text-text-secondary mr-1 text-xs leading-5">
             {t(group.label)}
           </Typography>
@@ -1738,7 +1867,12 @@ function VocabularyChips({
                 type="button"
                 aria-pressed={selected}
                 className={cn(
-                  "rounded-full border px-2 py-0.5 text-xs transition-colors",
+                  // These exist because tongue and pulse are dictated with the
+                  // patient on the table and tapping beats typing — which only
+                  // holds if the tap lands. At ~22px with 4px between them,
+                  // hitting the neighbour writes the wrong clinical term and
+                  // autosave persists it immediately.
+                  "min-h-9 rounded-full border px-3 py-1.5 text-xs transition-colors",
                   selected
                     ? "border-primary bg-primary/12 text-primary font-semibold"
                     : "border-grey-100 text-text-secondary hover:border-primary/40",
@@ -1792,7 +1926,7 @@ function PreviousFieldValue({
       {canEdit && change === "missing" && (
         <button
           type="button"
-          className="text-secondary-dark dark:text-secondary-light text-xs font-semibold"
+          className="text-secondary-dark dark:text-secondary-light min-h-9 px-1 text-xs font-semibold"
           onClick={() => onKeep(previous)}
         >
           {t("previous-field-keep")}

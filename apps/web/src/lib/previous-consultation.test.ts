@@ -6,6 +6,7 @@ const previous: PreviousConsultation = {
   when: "2026-06-01T10:00:00Z",
   chiefComplaint: "Insônia",
   summary: null,
+  legacyBody: null,
   answers: {
     "sleep.quality": { key: "sleep.quality", value: "Acorda 3x por noite", source: "ai" },
     "complaint.intensity": { key: "complaint.intensity", value: "8", source: "professional" },

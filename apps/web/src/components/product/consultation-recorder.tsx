@@ -38,6 +38,7 @@ import {
 } from "@/lib/capture-alert";
 import { getProductAction } from "@/lib/product-actions";
 import { trackCommercialEvent } from "@/lib/product-events";
+import { ChunkBatcher } from "@/lib/recording-buffer";
 import { cn } from "@/lib/utils";
 import { clearWebRecordingRequest, getOrCreateWebRecordingRequest } from "@/lib/web-recording-request";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -55,6 +56,42 @@ const responseCode = (body: unknown): string | undefined => {
   if (typeof error === "string") return error;
   return error && typeof error === "object" ? String((error as { code?: unknown }).code ?? "") : undefined;
 };
+
+/**
+ * A post-upload failure that carries WHY it failed. A bare `Error` collapsed
+ * every cause into the same "temporary unavailability", so a provider that
+ * definitively refused and a consent that is no longer valid both invited a
+ * retry that could never succeed.
+ */
+class ProcessingError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = "ProcessingError";
+  }
+}
+
+const processingErrorCode = (cause: unknown) => (cause instanceof ProcessingError ? cause.code : "processing_failed");
+
+/** Blocked by consent: resolved by registering it, never by trying again. */
+const isConsentFailure = (code: string) =>
+  code === "consent_required" || code === "audio_consent_required" || code === "ai_consent_required";
+/**
+ * Only offer a retry when a retry can actually work — an ALLOW-list, because a
+ * deny-list silently lets every unlisted code promise a new attempt. The codes
+ * left out are the structural ones the rest of the product already treats as
+ * unrecoverable (`invalid_consultation_transition`, `recording_not_uploaded`,
+ * `recording_invalid_state` — see UNRECOVERABLE_CLAIM_CODES in
+ * lib/clinical-jobs.ts, which the recovery sweep stamps on `error_code`), plus
+ * the allowance and authorization refusals. Pressing "tentar novamente" against
+ * any of those fails every single time.
+ */
+const RETRYABLE_PROCESSING_FAILURES = new Set([
+  "provider_unavailable",
+  "clinical_revision_conflict",
+  "internal_error",
+  "processing_failed",
+]);
+const isRetryableFailure = (code: string) => RETRYABLE_PROCESSING_FAILURES.has(code);
 
 const bestMime = () => {
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
@@ -106,6 +143,7 @@ export default function ConsultationRecorder({
   const {
     setActive: setSessionActive,
     persist: persistSession,
+    appendChunk,
     recover: recoverSession,
     remove: removeSession,
     uploadTus,
@@ -137,10 +175,21 @@ export default function ConsultationRecorder({
   const [level, setLevel] = useState(0);
   /** Silence watchdog: the mic is open but nothing is reaching it. */
   const [silent, setSilent] = useState(false);
-  // The audio uploaded fine but the AI prep step failed (e.g. the provider is
-  // unavailable). This is NOT a lost recording — it is retryable — so it must
-  // never render as a capture failure that invites re-recording.
-  const [processingFailed, setProcessingFailed] = useState(false);
+  // The audio uploaded fine but the AI prep step failed. This is NOT a lost
+  // recording, so it must never render as a capture failure that invites
+  // re-recording. The CAUSE is kept, not just the fact: a busy provider, a
+  // definitive refusal and a missing consent lead to three different next
+  // steps, and only one of them is "tentar novamente".
+  const [processingFailure, setProcessingFailure] = useState<string | null>(null);
+  /**
+   * The microphone was lost mid-take. Survives the upload (which clears
+   * `error`) so the end of the flow can say the audio is PARTIAL instead of
+   * announcing a complete success over half a consultation.
+   */
+  const [captureInterrupted, setCaptureInterrupted] = useState(false);
+  /** The status poll gave up before the job settled — informative, not a failure. */
+  const [pollTimedOut, setPollTimedOut] = useState(false);
+  const [confirmFinish, setConfirmFinish] = useState(false);
   const upgradePromptViewed = useRef(false);
 
   const mediaRecorder = useRef<MediaRecorder | null>(null);
@@ -164,9 +213,64 @@ export default function ConsultationRecorder({
   // A dead capture row is salvaged into a fresh one at most once per capture,
   // so a persistent server rejection can never become an upload loop.
   const salvageAttemptedRef = useRef(false);
+  /** Groups timeslices into the batches written to IndexedDB during capture. */
+  const batcher = useRef(new ChunkBatcher());
+  /**
+   * Serializes those writes. `ondataavailable` is not async, so without a chain
+   * two batches could be encrypted concurrently and land out of order — and the
+   * assembly refuses a sequence with a hole, which would turn a recoverable
+   * capture into a lost one.
+   */
+  const chunkChain = useRef<Promise<void>>(Promise.resolve());
+
+  /**
+   * Hand the open batch to storage, if there is one. Fire-and-forget on
+   * purpose: a failed local write must never interrupt the capture in progress
+   * — the in-memory copy is still the primary, this is the safety net.
+   */
+  const flushChunks = useCallback(
+    (mimeType: string) => {
+      const id = recordingId.current;
+      // The microphone is opened BEFORE the server row exists (no device, no
+      // row), so the first timeslices can arrive with no id yet. Keep them in
+      // the batcher instead of draining it: taking a batch we cannot store
+      // would advance `seq` past a gap, and the assembly rightly refuses a
+      // sequence with a hole — the header lives in seq 0.
+      if (!id) return;
+      const batch = batcher.current.take();
+      if (!batch) return;
+      const meta = {
+        recordingId: id,
+        consultationId,
+        orgId,
+        mime: mimeType,
+        mode: recordingMode.current,
+        elapsedSeconds: secondsRef.current,
+        createdAt: chunkStartedAtRef.current,
+        updatedAt: new Date().toISOString(),
+      };
+      chunkChain.current = chunkChain.current
+        .then(() => appendChunk(meta, batch.seq, batch.parts))
+        .catch(() => undefined);
+    },
+    [appendChunk, consultationId, orgId],
+  );
+  /** Stamped once per capture so recovery can tell takes apart. */
+  const chunkStartedAtRef = useRef(new Date(0).toISOString());
+
+  /**
+   * The audio is uploaded and safe; only the AI prep failed. Keeps the server's
+   * cause, which is what decides the copy and whether a retry is offered at all.
+   */
+  const failProcessing = useCallback((code: string) => {
+    setError(null);
+    setProcessingFailure(code);
+    setPhase("error");
+  }, []);
 
   const pollUntilSettled = useCallback(
     async (id: string) => {
+      setPollTimedOut(false);
       setPhase("processing");
       for (let attempt = 0; attempt < 100; attempt += 1) {
         const { data } = await createClient().from("recordings").select("status,error_code").eq("id", id).maybeSingle();
@@ -176,17 +280,22 @@ export default function ConsultationRecorder({
           return;
         }
         if (data?.status === "failed") {
-          setError(t("recorder-processing-error"));
-          setPhase("error");
+          // A job that failed in the background reports its cause on the row —
+          // the request itself succeeded, so this is the only place it exists.
+          failProcessing(typeof data.error_code === "string" ? data.error_code : "processing_failed");
           onChanged?.();
           return;
         }
         await new Promise((resolve) => window.setTimeout(resolve, 3_000));
       }
-      setError(t("recorder-processing-later"));
+      // Not an error: the job legitimately outlives this poll when the provider
+      // is congested and Inngest spreads its retries over minutes. Red is
+      // reserved for risk and failure, and the recordings panel below keeps
+      // tracking the real state.
+      setPollTimedOut(true);
       setPhase("processing");
     },
-    [onChanged, t],
+    [failProcessing, onChanged],
   );
 
   const requestProcessing = useCallback(
@@ -196,12 +305,33 @@ export default function ConsultationRecorder({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         const code = responseCode(body);
-        if (!code || !["processing_already_claimed"].includes(code)) throw new Error(code ?? "processing_failed");
+        if (!code || !["processing_already_claimed"].includes(code)) {
+          throw new ProcessingError(code ?? "processing_failed");
+        }
       }
       await pollUntilSettled(id);
     },
     [pollUntilSettled],
   );
+
+  /**
+   * Resume polling when she comes back to the tab.
+   *
+   * The poll gives up after ~5 minutes, and until now it never restarted: from
+   * then on the card showed "Preparando…" forever, whatever the job had
+   * actually done. Returning to the tab is exactly the moment she wants the
+   * current answer.
+   */
+  useEffect(() => {
+    if (!pollTimedOut || phase !== "processing") return;
+    const onVisible = () => {
+      const id = recordingId.current;
+      if (!id || document.visibilityState !== "visible") return;
+      void pollUntilSettled(id);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [pollTimedOut, phase, pollUntilSettled]);
 
   useEffect(() => {
     let current = true;
@@ -250,20 +380,27 @@ export default function ConsultationRecorder({
           setPhase("ready");
           return;
         }
-        void requestProcessing(recovered.recordingId).catch(() => {
-          setError(t("recorder-processing-error"));
-          setPhase("error");
+        void requestProcessing(recovered.recordingId).catch((cause) => {
+          failProcessing(processingErrorCode(cause));
         });
         return;
       }
       pendingBlob.current = { blob: recovered.blob, duration: recovered.duration, mime: recovered.mime };
-      setError(t("recorder-recovered"));
+      // Assembled from the batches written during the capture: the take never
+      // reached its end, so say how much was saved instead of implying the
+      // whole consultation is here.
+      if (recovered.partial) setCaptureInterrupted(true);
+      setError(
+        recovered.partial
+          ? t("recorder-recovered-partial", { minutes: Math.max(1, Math.round(recovered.duration / 60)) })
+          : t("recorder-recovered"),
+      );
       setPhase("error");
     });
     return () => {
       current = false;
     };
-  }, [consultationId, recoverSession, removeSession, requestProcessing, t]);
+  }, [consultationId, failProcessing, recoverSession, removeSession, requestProcessing, t]);
 
   useEffect(() => {
     if (audioConsent !== undefined && aiConsent !== undefined) {
@@ -463,6 +600,12 @@ export default function ConsultationRecorder({
     stopLevelMeter();
     setSessionActive(false);
     setError(t("recorder-device-lost"));
+    // `error` is cleared by the upload that this stop() triggers, so the fact
+    // that the take was CUT SHORT has to survive somewhere the happy path does
+    // not touch. Without it the flow ended on a green "pronta para revisão"
+    // over an audio that may cover half the appointment, and the gap surfaced
+    // only during clinical review — or never.
+    setCaptureInterrupted(true);
     markTabAlert(document, t("recorder-alert-tab"));
     notifyCaptureFailure(t("recorder-alert-title"), t("recorder-alert-body"));
   }, [setSessionActive, stopLevelMeter, t]);
@@ -475,7 +618,7 @@ export default function ConsultationRecorder({
       setPhase("uploading");
       setUploadProgress(0);
       setError(null);
-      setProcessingFailed(false);
+      setProcessingFailure(null);
       let uploadConfirmed = false;
       try {
         const checksum = await sha256(blob);
@@ -527,13 +670,12 @@ export default function ConsultationRecorder({
         if (recordingMode.current === "ai") {
           try {
             await requestProcessing(id);
-          } catch {
-            // The audio is uploaded and safe — only the AI prep failed. Say so
-            // plainly and offer to retry it, instead of an error that reads as
-            // a lost recording and invites re-recording over the saved audio.
-            setError(null);
-            setProcessingFailed(true);
-            setPhase("error");
+          } catch (cause) {
+            // The audio is uploaded and safe — only the AI prep failed. Name
+            // the CAUSE instead of an error that reads as a lost recording and
+            // invites re-recording over the saved audio; the cause is also what
+            // decides whether "tentar novamente" is an honest offer.
+            failProcessing(processingErrorCode(cause));
           }
         } else {
           setPhase("ready");
@@ -573,6 +715,7 @@ export default function ConsultationRecorder({
     [
       beginServerRecording,
       consultationId,
+      failProcessing,
       mintFreshUploadId,
       onChanged,
       orgId,
@@ -594,7 +737,7 @@ export default function ConsultationRecorder({
   const start = async (startTrial = false) => {
     setError(null);
     setMicBlocked(false);
-    setProcessingFailed(false);
+    setProcessingFailure(null);
     setNearSizeLimit(false);
     setCaptureLimit(null);
     clearTabAlert(document);
@@ -674,6 +817,10 @@ export default function ConsultationRecorder({
       stream.current = media;
       chunks.current = [];
       bytesRef.current = 0;
+      // A fresh take starts its own sequence at seq 0.
+      batcher.current = new ChunkBatcher();
+      chunkChain.current = Promise.resolve();
+      chunkStartedAtRef.current = new Date().toISOString();
       const mime = bestMime();
       // Speech needs little: a fixed ~32 kbps mono keeps an hour of consultation
       // near ~14 MB — protecting the upload on clinic wifi and the transcription
@@ -685,6 +832,12 @@ export default function ConsultationRecorder({
         if (event.data.size > 0) {
           chunks.current.push(event.data);
           bytesRef.current += event.data.size;
+          // Persist as we go. In memory, this array WAS the consultation until
+          // the take ended — a crashed tab at minute 50 took all of it.
+          batcher.current.add(event.data, Date.now());
+          if (batcher.current.ready(Date.now())) {
+            flushChunks(recorder.mimeType || mime || "audio/webm");
+          }
           if (bytesRef.current >= MAX_SIZE_BYTES * 0.9) setNearSizeLimit(true);
           if (bytesRef.current >= MAX_SIZE_BYTES) {
             setCaptureLimit("size");
@@ -698,6 +851,9 @@ export default function ConsultationRecorder({
         releaseStream();
         setSessionActive(false);
         const effectiveMime = recorder.mimeType || mime || "audio/webm";
+        // Whatever is still held goes down before the final blob is assembled,
+        // so a crash between stop() and a completed upload still recovers.
+        flushChunks(effectiveMime);
         const blob = new Blob(chunks.current, { type: effectiveMime });
         void upload(blob, secondsRef.current, effectiveMime);
       };
@@ -796,7 +952,17 @@ export default function ConsultationRecorder({
     }, 1000);
     setPhase("recording");
   };
-  const finish = () => {
+  /**
+   * Ask before ending. A take cannot be resumed once stopped — anything after
+   * it becomes a SECOND recording, with the merge cost that carries — so a
+   * mistap on the floating bar ends the capture of an appointment still in the
+   * room. Every other consequential action here confirms; this one, the most
+   * expensive, did not.
+   */
+  const finish = () => setConfirmFinish(true);
+
+  const confirmFinishCapture = () => {
+    setConfirmFinish(false);
     stopTimer();
     setSessionActive(false);
     clearTabAlert(document);
@@ -810,10 +976,9 @@ export default function ConsultationRecorder({
   const retryProcessing = () => {
     const id = recordingId.current;
     if (!id) return;
-    setProcessingFailed(false);
-    void requestProcessing(id).catch(() => {
-      setProcessingFailed(true);
-      setPhase("error");
+    setProcessingFailure(null);
+    void requestProcessing(id).catch((cause) => {
+      failProcessing(processingErrorCode(cause));
     });
   };
   const confirmTrial = async () => {
@@ -843,6 +1008,33 @@ export default function ConsultationRecorder({
     allowance.minutesLimit > 0 &&
     seconds > allowance.minutesRemaining * 60;
   const nearingCaptureLimit = phase === "recording" && (seconds >= MAX_DURATION_SECONDS - 10 * 60 || nearSizeLimit);
+  const processingFailed = processingFailure !== null;
+  // Every post-upload failure used to read as a temporary outage with a retry
+  // button. Two of them are definitive: the provider refused (a retry hits the
+  // same wall) and the consent is no longer valid (it needs a different action
+  // entirely), so each one states its own cause and its own way out.
+  const processingRetryable = processingFailure !== null && isRetryableFailure(processingFailure);
+  const processingNeedsConsent = processingFailure !== null && isConsentFailure(processingFailure);
+  const processingFailureText =
+    processingFailure === null
+      ? null
+      : processingFailure === "provider_rejected"
+        ? t("recordings-error-provider-rejected")
+        : isConsentFailure(processingFailure)
+          ? t("recordings-error-consent")
+          : processingFailure === "provider_unavailable"
+            ? t("recordings-error-provider-unavailable")
+            : processingFailure === "clinical_revision_conflict"
+              ? t("recordings-error-revision")
+              : processingFailure === "allowance_unavailable" || processingFailure === "audio_allowance_exhausted"
+                ? t("recordings-error-allowance")
+                : // `recorder-ai-failed` is the only copy that promises a new
+                  // attempt, so it belongs ONLY to causes a new attempt can fix.
+                  // A structural refusal gets the neutral wording the recordings
+                  // panel already uses for the same bucket.
+                  isRetryableFailure(processingFailure)
+                  ? t("recorder-ai-failed")
+                  : t("recordings-process-error");
   // Capture always feeds the AI, so both consents are required.
   const hasRequiredConsent = consents?.audio === true && consents.ai;
 
@@ -1095,17 +1287,30 @@ export default function ConsultationRecorder({
                   <LinearProgress />
                 </Box>
               )}
-              {phase === "ready" && (
-                <Alert severity="success" icon={<NiCheckSquare />}>
-                  {t("recorder-ready")}
+              {/* Processing finished either way — but "pronta para revisão"
+                  over a take that was cut short is a complete state reported
+                  for a partial one, and only she can judge what the audio
+                  actually covers. */}
+              {phase === "ready" &&
+                (captureInterrupted ? (
+                  <Alert severity="warning" icon={<NiCheckSquare />}>
+                    {t("recorder-ready-interrupted")}
+                  </Alert>
+                ) : (
+                  <Alert severity="success" icon={<NiCheckSquare />}>
+                    {t("recorder-ready")}
+                  </Alert>
+                ))}
+              {/* The capture succeeded; only the AI prep failed. A warning, not an
+                  error — nothing was lost. The text is the server's cause, so a
+                  definitive refusal never poses as a passing outage. */}
+              {processingFailureText && (
+                <Alert severity="warning" icon={<NiCheckSquare />}>
+                  {processingFailureText}
                 </Alert>
               )}
-              {/* The capture succeeded; only the AI prep failed. A warning, not an
-                  error — nothing was lost, and it is retryable. */}
-              {processingFailed && (
-                <Alert severity="warning" icon={<NiCheckSquare />}>
-                  {t("recorder-ai-failed")}
-                </Alert>
+              {pollTimedOut && phase === "processing" && (
+                <Alert severity="info">{t("recorder-processing-later")}</Alert>
               )}
               {error && (
                 <Alert severity="error">
@@ -1134,8 +1339,11 @@ export default function ConsultationRecorder({
                   </Button>
                 )}
                 {/* AI prep failed but the audio is saved: offer to retry the prep,
-                    never a "record again" that would abandon the saved audio. */}
-                {processingFailed && (
+                    never a "record again" that would abandon the saved audio.
+                    Only when a retry can actually resolve it — against a refused
+                    processing or a revoked consent it is a button that fails
+                    every time she presses it. */}
+                {processingRetryable && (
                   <Button
                     variant="contained"
                     size="large"
@@ -1145,6 +1353,13 @@ export default function ConsultationRecorder({
                     onClick={retryProcessing}
                   >
                     {t("recorder-ai-retry")}
+                  </Button>
+                )}
+                {/* Consent is the only thing that unblocks this one, so that is
+                    the action offered — not a retry into the same refusal. */}
+                {processingNeedsConsent && onRequestConsent && (
+                  <Button variant="contained" size="large" fullWidth color="primary" onClick={onRequestConsent}>
+                    {t("recorder-grant-consent")}
                   </Button>
                 )}
                 {phase === "error" && !processingFailed && pendingBlob.current && (
@@ -1330,6 +1545,29 @@ export default function ConsultationRecorder({
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Names what ending actually costs: the take cannot be resumed, so a
+            mistap here ends the recording of an appointment still in progress. */}
+        <Dialog open={confirmFinish} onClose={() => setConfirmFinish(false)} maxWidth="xs" fullWidth>
+          <DialogHeader
+            title={t("recorder-finish-confirm-title")}
+            closeLabel={t("close")}
+            onClose={() => setConfirmFinish(false)}
+          />
+          <DialogContent className="flex flex-col gap-2 py-5!">
+            <Typography variant="body2" className="text-text-secondary leading-6">
+              {t("recorder-finish-confirm-body", { elapsed: mmss })}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button color="grey" onClick={() => setConfirmFinish(false)}>
+              {t("recorder-finish-confirm-cancel")}
+            </Button>
+            <Button variant="contained" color="primary" onClick={confirmFinishCapture}>
+              {t("recorder-finish-confirm-ok")}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Card>
 
       {/* Capture state follows her down the page. The sidebar card scrolls away
@@ -1337,7 +1575,12 @@ export default function ConsultationRecorder({
         exactly how a consultation goes unrecorded. */}
       {(phase === "recording" || phase === "paused") && (
         <Box
-          className="bg-background-paper border-grey-100 fixed inset-x-3 bottom-3 z-50 flex flex-row flex-wrap items-center gap-3 rounded-2xl border px-4 py-2.5 shadow-lg sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-auto"
+          // `sm:w-auto` sizes the pill to its content, and a `basis-full` chip
+          // still contributes its full text to that intrinsic width — measured
+          // at 380px without the warning and 854px with it, so the pill more
+          // than doubled across the consultation. Capping the width keeps the
+          // chip on its own line without letting it stretch the bar.
+          className="bg-background-paper border-grey-100 fixed inset-x-3 bottom-3 z-50 flex flex-row flex-wrap items-center gap-3 rounded-2xl border px-4 py-2.5 shadow-lg sm:inset-x-auto sm:right-5 sm:bottom-5 sm:w-auto sm:max-w-96"
           role="status"
           aria-live="polite"
           aria-label={t("recorder-floating-label")}
@@ -1362,6 +1605,20 @@ export default function ConsultationRecorder({
                 style={{ width: `${Math.max(2, Math.round(level * 100))}%` }}
               />
             </Box>
+          )}
+          {/* The card these warnings live in is out of the viewport during a
+              50-minute consultation, so the automatic cut at the technical limit
+              used to arrive unannounced. A short version travels with the pill —
+              the full explanation stays in the card, this only has to be seen.
+              Never red: neither warning interrupts the capture in progress
+              (PRD §5.8); the nearer, harder ceiling wins when both apply. */}
+          {(nearingCaptureLimit || overrunning) && (
+            <Typography
+              variant="body2"
+              className="bg-accent-3/12 text-accent-3-dark dark:text-accent-3-light basis-full rounded-lg px-2 py-1 text-xs leading-5 font-medium"
+            >
+              {nearingCaptureLimit ? t("recorder-capture-limit-short") : t("recorder-overrun-short")}
+            </Typography>
           )}
           <Box className="flex flex-row gap-1">
             <Button

@@ -21,6 +21,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
@@ -100,6 +102,11 @@ export default function PlanPanel({
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
+  const theme = useTheme();
+  // The densest reading in the product — a 50-minute transcript, a plan, a
+  // prescription — happened in a shrunken window with its own scrollbar, while
+  // scheduling (a far shorter task) already got the full screen.
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [planState, setPlanState] = useState<RemoteState<PlanData, "load_failed">>(() => remoteLoading());
   const planRef = useRef<PlanData | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -696,7 +703,14 @@ export default function PlanPanel({
               {t("plan-open")}
             </Button>
 
-            <Dialog open={planOpen} onClose={() => setPlanOpen(false)} maxWidth="md" fullWidth scroll="paper">
+            <Dialog
+              fullScreen={fullScreen}
+              open={planOpen}
+              onClose={() => setPlanOpen(false)}
+              maxWidth="md"
+              fullWidth
+              scroll="paper"
+            >
               <DialogHeader
                 title={t("plan-title")}
                 closeLabel={t("close")}

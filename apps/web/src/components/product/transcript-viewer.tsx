@@ -13,6 +13,8 @@ import {
   DialogActions,
   DialogContent,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 import DialogHeader from "@/components/product/dialog-header";
@@ -36,6 +38,8 @@ type TranscriptData = {
   linkedFields: Record<string, FieldLink[]>;
   validatedAt: string | null;
   audioUrl: string | null;
+  /** Which diarized label the extraction resolved as the practitioner. */
+  practitionerSpeaker: string | null;
 };
 
 type ApiTranscription = {
@@ -44,6 +48,7 @@ type ApiTranscription = {
   result: unknown;
   validated_at: string | null;
   audio_path: string | null;
+  metadata: { practitionerSpeaker?: unknown } | null;
 };
 
 const FIELD_LABELS: ReadonlyMap<string, string> = new Map(
@@ -75,6 +80,26 @@ function speakerInitials(speaker: string): string {
   if (words.length === 0) return "?";
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase();
+}
+
+/**
+ * Who actually spoke a turn.
+ *
+ * The extraction resolves the practitioner's diarized label and the pipeline
+ * stores it, precisely so this view stops showing opaque "Speaker 1 / Speaker
+ * 2" gutters — and nothing had ever read it back. Checking a draft against the
+ * audio means knowing whether a sentence came from the patient or from the
+ * professional, which is the same distinction the clinical rules turn on. With
+ * no resolved label the raw one is still the honest answer.
+ */
+function resolveSpeaker(
+  speaker: string,
+  practitionerSpeaker: string | null,
+  labels: { practitioner: string; patient: string },
+): { name: string; initials: string } {
+  if (!practitionerSpeaker) return { name: speaker, initials: speakerInitials(speaker) };
+  const name = speaker === practitionerSpeaker ? labels.practitioner : labels.patient;
+  return { name, initials: speakerInitials(name) };
 }
 
 function dataFromState(state: RemoteState<TranscriptData, "load_failed">) {
@@ -111,6 +136,11 @@ export default function TranscriptViewer({
   seekTo?: { start: string; nonce: number };
 }) {
   const t = useTranslations("product");
+  const theme = useTheme();
+  // The densest reading in the product — a 50-minute transcript, a plan, a
+  // prescription — happened in a shrunken window with its own scrollbar, while
+  // scheduling (a far shorter task) already got the full screen.
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const locale = useLocale();
   const audioRef = useRef<HTMLAudioElement>(null);
   const dataRef = useRef<TranscriptData | undefined>(undefined);
@@ -154,8 +184,15 @@ export default function TranscriptViewer({
 
         const linkedFields: Record<string, FieldLink[]> = {};
         for (const answer of answers ?? []) {
-          const provenance = answer.provenance as { start?: unknown } | null;
+          const provenance = answer.provenance as { start?: unknown; transcriptionId?: unknown } | null;
           if (typeof provenance?.start !== "string") continue;
+          // A consultation can hold more than one recording, and their opening
+          // timestamps collide constantly ("00:12", "00:20"). Indexing by the
+          // timestamp alone hung a field extracted from recording A on the
+          // identically-stamped segment of recording B — the provenance anchor
+          // pointing at a sentence that never produced it. The stamp that
+          // disambiguates is already on every row the pipeline writes.
+          if (provenance.transcriptionId && provenance.transcriptionId !== transcriptionId) continue;
           const composite = `${answer.block_key}.${answer.field_key}`;
           const labelKey = FIELD_LABELS.get(composite);
           if (!labelKey) continue;
@@ -181,6 +218,10 @@ export default function TranscriptViewer({
           linkedFields,
           validatedAt: body.transcription.validated_at,
           audioUrl,
+          practitionerSpeaker:
+            typeof body.transcription.metadata?.practitionerSpeaker === "string"
+              ? body.transcription.metadata.practitionerSpeaker
+              : null,
         };
         dataRef.current = next;
         setState(remoteSuccess(next));
@@ -214,6 +255,11 @@ export default function TranscriptViewer({
     const loaded = dataRef.current;
     if (!loaded) return;
     seekHandled.current = seekTo.nonce;
+    // An empty start means "open this transcript" with no segment in mind — the
+    // timeline's `#transcription-<id>` link, which asks for the document, not
+    // for a second of audio. Highlighting nothing and playing nothing is the
+    // right answer; seeking to an unparseable timestamp is not.
+    if (!seekTo.start) return;
     setHighlightedStart(seekTo.start);
     const index = loaded.segments.findIndex((segment) => segment.start === seekTo.start);
     if (index >= 0) {
@@ -268,7 +314,7 @@ export default function TranscriptViewer({
   const failed = state.status === "error";
 
   return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth scroll="paper">
+    <Dialog fullScreen={fullScreen} open onClose={onClose} maxWidth="md" fullWidth scroll="paper">
       <DialogHeader
         title={t("transcript-title")}
         closeLabel={t("close")}
@@ -375,10 +421,17 @@ export default function TranscriptViewer({
                             aria-hidden
                             className={cn(
                               "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold",
+                              // Tone stays keyed to the RAW label so a speaker
+                              // keeps one colour across the whole transcript.
                               speakerTone(segment.speaker),
                             )}
                           >
-                            {speakerInitials(segment.speaker)}
+                            {
+                              resolveSpeaker(segment.speaker, data.practitionerSpeaker, {
+                                practitioner: t("transcript-speaker-practitioner"),
+                                patient: t("transcript-speaker-patient"),
+                              }).initials
+                            }
                           </span>
                         ) : (
                           <span aria-hidden className="bg-grey-100 mt-1 h-full w-px flex-none rounded-full" />
@@ -388,7 +441,12 @@ export default function TranscriptViewer({
                       <Box className="flex min-w-0 flex-1 flex-col gap-1">
                         {startsTurn && (
                           <Typography variant="subtitle2" className="text-text-primary leading-tight">
-                            {segment.speaker}
+                            {
+                              resolveSpeaker(segment.speaker, data.practitionerSpeaker, {
+                                practitioner: t("transcript-speaker-practitioner"),
+                                patient: t("transcript-speaker-patient"),
+                              }).name
+                            }
                           </Typography>
                         )}
                         <Typography variant="body2" className="text-text-primary leading-6">

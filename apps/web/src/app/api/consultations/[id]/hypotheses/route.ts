@@ -17,7 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: consultation } = await supabase
     .from("consultations")
-    .select("id, org_id, patient_id, status, chief_complaint, clinical_revision")
+    .select("id, org_id, patient_id, status, chief_complaint, summary, clinical_revision")
     .eq("id", id)
     .maybeSingle();
   if (!consultation) return clinicalError("not_found");
@@ -43,14 +43,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // `patient` and the decided hypotheses were previously fetched only by the
   // PANEL, so the professional could read her own history while the model that
   // wrote the hypotheses could not.
-  const [answersResult, patientResult, decidedResult, priorResult] = await Promise.all([
+  const [answersResult, patientResult, decidedResult, priorResult, attachmentsResult] = await Promise.all([
     supabase
       .from("anamnesis_answers")
       .select("block_key, field_key, value, source, state")
       // A draft she rejected is not part of the record it was rejected from.
       .neq("state", "rejected")
       .eq("consultation_id", id),
-    supabase.from("patients").select("birth_date").eq("id", consultation.patient_id).maybeSingle(),
+    // `alerts` is what the context bar pins to the top of the very same screen
+    // — allergies, pregnancy, anticoagulants, a pacemaker. Fetching only the
+    // birth date is why a hypothesis could be prepared around a pregnancy the
+    // professional was looking at while she waited for it.
+    supabase.from("patients").select("birth_date, alerts").eq("id", consultation.patient_id).maybeSingle(),
     supabase
       .from("consultation_hypotheses")
       .select("pattern, status")
@@ -63,6 +67,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .neq("consultation_id", id)
       .in("status", ["accepted", "edited"])
       .limit(10),
+    // She attached an exam and asked the AI to read it. Leaving that reading
+    // out of the reasoning means the document she supplied influenced nothing.
+    supabase
+      .from("consultation_attachments")
+      .select("caption, analysis")
+      .eq("consultation_id", id)
+      .eq("analysis_status", "ready")
+      .is("deleted_at", null),
   ]);
 
   const birthDate = patientResult.data?.birth_date as string | null | undefined;
@@ -80,6 +92,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     ageYears: Number.isFinite(ageYears) ? ageYears : null,
     priorPatterns: [...new Set((priorResult.data ?? []).map((row) => row.pattern as string))],
     rejectedPatterns: [...new Set((decidedResult.data ?? []).map((row) => row.pattern as string))],
+    alerts: (Array.isArray(patientResult.data?.alerts) ? patientResult.data.alerts : [])
+      .map((alert) => (alert as { label?: string } | null)?.label)
+      .filter((label): label is string => Boolean(label)),
+    professionalSummary: consultation.summary,
+    attachmentFindings: (attachmentsResult.data ?? []).flatMap((row) => {
+      const analysis = row.analysis as { extractedValues?: { label?: string; value?: string }[] } | null;
+      return (analysis?.extractedValues ?? [])
+        .filter((finding) => finding?.label && finding?.value)
+        .map((finding) => ({
+          label: row.caption ? `${row.caption} — ${finding.label}` : (finding.label as string),
+          value: finding.value as string,
+        }));
+    }),
   };
   if (recorded.answers.length === 0 && !recorded.chiefComplaint) return clinicalError("nothing_recorded");
 
@@ -114,6 +139,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (replaceError) return clinicalError("internal_error");
   const replaced = replaceData as { ok?: boolean; count?: number; code?: string } | null;
   if (!replaced?.ok) return clinicalRpcResponse(replaced);
+
+  // Mark the rows that were reasoned WITHOUT the library. The panel used to
+  // hold this only in local state, so after a reload it said "nenhuma
+  // referência da biblioteca sustenta esta hipótese" — a claim that the library
+  // was consulted and found nothing, over an answer nothing had checked.
+  // Failing to stamp it degrades to the neutral wording, never to that claim.
+  if (result.retrievalFailed) {
+    await createServiceClient()
+      .from("consultation_hypotheses")
+      .update({ retrieval_failed: true })
+      .eq("consultation_id", id)
+      .eq("status", "draft");
+  }
 
   await recordAudit(supabase, "consultation.hypotheses.prepared", {
     orgId: consultation.org_id,

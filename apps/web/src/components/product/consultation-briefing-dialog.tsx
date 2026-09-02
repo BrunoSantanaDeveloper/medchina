@@ -65,7 +65,16 @@ export default function ConsultationBriefingDialog({
     }
     setState(remoteLoading());
     const result = await loadPatientBriefing(createClient(), patientId);
-    setState(result.ok ? remoteSuccess(result.data) : remoteError(result.error));
+    // The loader returns whatever the database said — a PostgREST message, in
+    // English, or the bare literal "patient_not_found". Rendering that verbatim
+    // is what `clinical-route.ts` forbids ("never send database/provider text
+    // to a clinical client"), and this is the glance she takes with the patient
+    // about to walk in.
+    setState(
+      result.ok
+        ? remoteSuccess(result.data)
+        : remoteError(result.error === "patient_not_found" ? t("briefing-error-not-found") : t("briefing-error")),
+    );
     // Does preparing before the visit become part of the routine?
     if (result.ok) trackProductEvent("briefing.opened");
   }, [patientId, t]);
@@ -139,6 +148,24 @@ export default function ConsultationBriefingDialog({
                         {briefing.lastFinalized.summary}
                       </Typography>
                     )}
+                    {/* A visit imported from another system has no complaint and
+                        no summary — its whole content is this text. Without it
+                        the card for a migrated patient reads as an empty visit,
+                        which is exactly what she migrated to avoid. */}
+                    {!briefing.lastFinalized.chiefComplaint &&
+                      !briefing.lastFinalized.summary &&
+                      briefing.lastFinalized.legacyBody && (
+                        <>
+                          <Typography variant="caption" className="text-text-secondary">
+                            {briefing.lastFinalized.legacySource
+                              ? t("briefing-legacy-record-from", { source: briefing.lastFinalized.legacySource })
+                              : t("briefing-legacy-record")}
+                          </Typography>
+                          <Typography variant="body2" className="text-text-primary leading-6 whitespace-pre-line">
+                            {briefing.lastFinalized.legacyBody}
+                          </Typography>
+                        </>
+                      )}
                     {briefing.lastFinalized.hypotheses.map((hypothesis) => (
                       <Typography key={hypothesis.pattern} variant="body2" className="text-text-primary">
                         {t("briefing-hypothesis", { pattern: hypothesis.pattern })}{" "}

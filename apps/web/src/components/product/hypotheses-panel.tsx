@@ -15,23 +15,75 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  Link as MuiLink,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
+import { ANAMNESIS_BLOCKS } from "@/lib/anamnesis";
 import { deriveHypothesesPanelMode } from "@/lib/hypotheses-access";
-import { trackCommercialEvent } from "@/lib/product-events";
+import { trackCommercialEvent, trackProductEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
 type Sign = { text: string; fieldKey?: string };
-type Source = { title: string; source: string | null; kind: string };
+type Source = {
+  title: string;
+  source: string | null;
+  kind: string;
+  /**
+   * The acervo page behind the citation (`/biblioteca/acervo/<id>`). The
+   * pipeline only keeps a source that resolved to a chunk it actually
+   * retrieved, so this id is normally present — optional because a row
+   * prepared before citations carried one must still render, as TEXT rather
+   * than as a link to a guessed page.
+   */
+  documentId?: string;
+};
+
+type FieldRef = { blockKey: string; fieldKey: string; labelKey: string };
+
+/**
+ * Anamnesis field → its readable label, keyed by the SAME composite the
+ * reasoning shows the model ("tcm.tongue"). Without it a sign is an assertion;
+ * with it she can go back to the line she herself recorded and weigh it.
+ */
+const FIELD_REFS: ReadonlyMap<string, FieldRef> = new Map(
+  ANAMNESIS_BLOCKS.flatMap((block) =>
+    block.fields.map(
+      (field) =>
+        [`${block.key}.${field.key}`, { blockKey: block.key, fieldKey: field.key, labelKey: field.label }] as const,
+    ),
+  ),
+);
+
+/**
+ * The model is prompted with composite keys but answers with a bare one
+ * ("tongue") often enough to matter. Resolved ONLY when a single block owns
+ * that key — pointing at the wrong field is worse than pointing at none.
+ */
+const FIELD_REFS_BY_BARE_KEY: ReadonlyMap<string, FieldRef> = (() => {
+  const owners = new Map<string, number>();
+  for (const ref of FIELD_REFS.values()) owners.set(ref.fieldKey, (owners.get(ref.fieldKey) ?? 0) + 1);
+  return new Map(
+    [...FIELD_REFS.values()].filter((ref) => owners.get(ref.fieldKey) === 1).map((ref) => [ref.fieldKey, ref] as const),
+  );
+})();
+
+/** An unknown or ambiguous key resolves to nothing: the sign renders as it always did. */
+function resolveSignField(fieldKey: string | undefined): FieldRef | undefined {
+  const key = fieldKey?.trim().toLowerCase();
+  if (!key) return undefined;
+  return FIELD_REFS.get(key) ?? FIELD_REFS_BY_BARE_KEY.get(key);
+}
 
 type Hypothesis = {
   id: string;
@@ -44,6 +96,8 @@ type Hypothesis = {
   sources: Source[];
   limitation: string | null;
   status: "draft" | "accepted" | "edited" | "rejected";
+  /** Prepared while the clinical library could not be reached (0094). */
+  retrievalFailed: boolean;
   reviewNote: string | null;
   model: string | null;
   updatedAt: string;
@@ -79,6 +133,7 @@ export default function HypothesesPanel({
   onRetryEntitlement,
   onDecisionChanged,
   onBeforePrepare,
+  onFocusField,
   isFinalized,
 }: {
   consultationId: string;
@@ -101,9 +156,23 @@ export default function HypothesesPanel({
    * "reprepare" over would be read stale — the hypotheses would not reflect it.
    */
   onBeforePrepare?: () => Promise<void>;
+  /**
+   * Take her to the anamnesis field a sign was read from. The chart lives on
+   * the consultation page, so only the page can expand the block and scroll to
+   * `consultation-field-<block>-<field>`; without this handler the field is
+   * still NAMED on the sign, just not clickable. The panel closes its review
+   * dialog before calling, so the handler must defer its own scroll (the field
+   * is behind the modal until it unmounts).
+   */
+  onFocusField?: (blockKey: string, fieldKey: string) => void;
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
+  const theme = useTheme();
+  // The densest reading in the product — a 50-minute transcript, a plan, a
+  // prescription — happened in a shrunken window with its own scrollbar, while
+  // scheduling (a far shorter task) already got the full screen.
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
   const [hypothesesState, setHypothesesState] = useState<RemoteState<HypothesesData, "load_failed">>(() =>
     remoteLoading(),
   );
@@ -135,7 +204,7 @@ export default function HypothesesPanel({
       const { data, error: hypothesesError } = await supabase
         .from("consultation_hypotheses")
         .select(
-          "id, pattern, rationale, correspondence, supporting_signs, contradicting_signs, missing_data, sources, limitation, status, review_note, model, updated_at, stale_at",
+          "id, pattern, rationale, correspondence, supporting_signs, contradicting_signs, missing_data, sources, limitation, status, review_note, model, updated_at, stale_at, retrieval_failed",
         )
         .eq("consultation_id", consultationId)
         .order("created_at", { ascending: true });
@@ -160,6 +229,7 @@ export default function HypothesesPanel({
         model: row.model,
         updatedAt: row.updated_at,
         staleAt: row.stale_at,
+        retrievalFailed: Boolean(row.retrieval_failed),
       }));
 
       // "Comparar hipótese atual com padrões anteriores" (PRD §10.8): what this
@@ -317,6 +387,15 @@ export default function HypothesesPanel({
       evidence: t("hypotheses-kind-evidence"),
     })[kind] ?? t("hypotheses-kind-unknown");
 
+  // Reading a sign means going back to the field that produced it — which sits
+  // behind this dialog. Close first, then let the page put it in view.
+  const focusField = onFocusField
+    ? (blockKey: string, fieldKey: string) => {
+        setReviewOpen(false);
+        onFocusField(blockKey, fieldKey);
+      }
+    : undefined;
+
   // Without the Pro layer there is nothing to show and nothing to sell here —
   // the consultation screen is not a place to advertise (PRD §7.4).
   if (!entitlementLoading && !entitlementError && panelMode === "hidden" && !loadFailed) return null;
@@ -325,8 +404,11 @@ export default function HypothesesPanel({
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
         {/* The title is prescribed by PRD §10.8, word for word. */}
+        {/* Without the Pro layer this card has nothing clinical in it, so it is
+            not step 2 of anything — numbering an upgrade prompt dressed it as
+            part of the appointment. */}
         <ConsultationStepHeader
-          step={2}
+          step={locked ? undefined : 2}
           icon={<NiClipboard size="medium" />}
           title={locked ? t("hypotheses-locked-title") : t("hypotheses-title")}
           hint={t("hypotheses-step-hint")}
@@ -374,12 +456,17 @@ export default function HypothesesPanel({
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("hypotheses-locked-body")}
             </Typography>
+            {/* Opens beside the consultation, never in place of it: this link
+                used to navigate the same tab, pulling her out of an open record
+                with the patient in the room. */}
             <Button
               variant="outlined"
               color="primary"
               fullWidth
               href="/settings/billing?source=consultation&feature=clinical_reasoning"
               LinkComponent={Link}
+              target="_blank"
+              rel="noopener"
               onClick={() => trackCommercialEvent("upgrade.prompt_clicked", "consultation", "clinical_reasoning")}
             >
               {t("hypotheses-locked-cta")}
@@ -424,7 +511,14 @@ export default function HypothesesPanel({
               {t("hypotheses-review-open", { count: hypotheses.length })}
             </Button>
 
-            <Dialog open={reviewOpen} onClose={() => setReviewOpen(false)} maxWidth="md" fullWidth scroll="paper">
+            <Dialog
+              fullScreen={fullScreen}
+              open={reviewOpen}
+              onClose={() => setReviewOpen(false)}
+              maxWidth="md"
+              fullWidth
+              scroll="paper"
+            >
               <DialogHeader
                 title={t("hypotheses-title")}
                 closeLabel={t("close")}
@@ -477,9 +571,17 @@ export default function HypothesesPanel({
                       </Typography>
                     )}
 
-                    <SignList title={t("hypotheses-supporting")} signs={hypothesis.supportingSigns} />
+                    <SignList
+                      title={t("hypotheses-supporting")}
+                      signs={hypothesis.supportingSigns}
+                      onFocusField={focusField}
+                    />
                     {/* Same visual weight as the supporting ones, on purpose. */}
-                    <SignList title={t("hypotheses-contradicting")} signs={hypothesis.contradictingSigns} />
+                    <SignList
+                      title={t("hypotheses-contradicting")}
+                      signs={hypothesis.contradictingSigns}
+                      onFocusField={focusField}
+                    />
 
                     {hypothesis.missingData.length > 0 && (
                       <Box className="flex flex-col gap-1">
@@ -499,14 +601,44 @@ export default function HypothesesPanel({
                         {t("hypotheses-sources")}
                       </Typography>
                       {hypothesis.sources.length === 0 ? (
-                        // Say it plainly rather than leave a confident-looking gap.
+                        // Say it plainly rather than leave a confident-looking gap
+                        // — but "nothing in the library covers this" and "the
+                        // library was never reached" are opposite facts, and only
+                        // the row knows which one happened.
                         <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                          {t("hypotheses-no-sources")}
+                          {t(hypothesis.retrievalFailed ? "hypotheses-sources-unchecked" : "hypotheses-no-sources")}
                         </Typography>
                       ) : (
                         hypothesis.sources.map((source, index) => (
                           <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-                            · {source.title}
+                            ·{" "}
+                            {source.documentId ? (
+                              // The pipeline already verified this citation
+                              // against a chunk it really retrieved; here is
+                              // where that check pays off for her — the card
+                              // itself, not just its name. It opens in another
+                              // tab on purpose: there is a patient on the
+                              // table and the record must stay where it is.
+                              <MuiLink
+                                component={Link}
+                                href={`/biblioteca/acervo/${source.documentId}`}
+                                target="_blank"
+                                rel="noopener"
+                                underline="hover"
+                                className="text-primary-dark dark:text-primary-light font-semibold"
+                                aria-label={t("hypotheses-source-open", { title: source.title })}
+                                // Are the references read, or trusted at face
+                                // value? Stamped with its surface: the library
+                                // chat fires the same event, and without an
+                                // origin the two would land in one bucket that
+                                // can never be separated again.
+                                onClick={() => trackProductEvent("citation.opened", { origin: "consultation" })}
+                              >
+                                {source.title}
+                              </MuiLink>
+                            ) : (
+                              source.title
+                            )}
                             {source.source ? ` — ${source.source}` : ""} ({kindLabel(source.kind)})
                           </Typography>
                         ))
@@ -678,7 +810,23 @@ export default function HypothesesPanel({
   );
 }
 
-function SignList({ title, signs }: { title: string; signs: Sign[] }) {
+/**
+ * The signs a hypothesis stands or falls on. Each one names the anamnesis field
+ * it was read from whenever the model reported it: "língua pálida" is a claim,
+ * "língua pálida — Língua" is a claim she can go and check against her own
+ * record. A sign with no (or an unrecognized) field renders exactly as before —
+ * a made-up provenance would be worse than none.
+ */
+function SignList({
+  title,
+  signs,
+  onFocusField,
+}: {
+  title: string;
+  signs: Sign[];
+  onFocusField?: (blockKey: string, fieldKey: string) => void;
+}) {
+  const t = useTranslations("product");
   return (
     <Box className="flex flex-col gap-1">
       <Typography variant="body2" className="text-text-primary text-xs font-semibold">
@@ -689,11 +837,27 @@ function SignList({ title, signs }: { title: string; signs: Sign[] }) {
           —
         </Typography>
       ) : (
-        signs.map((sign, index) => (
-          <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-            · {sign.text}
-          </Typography>
-        ))
+        signs.map((sign, index) => {
+          const field = resolveSignField(sign.fieldKey);
+          return (
+            <Box key={index} className="flex flex-row flex-wrap items-center gap-x-1.5 gap-y-1">
+              <Typography variant="body2" component="span" className="text-text-secondary text-xs leading-5">
+                · {sign.text}
+              </Typography>
+              {field && (
+                <Chip
+                  size="small"
+                  label={t(field.labelKey)}
+                  title={t("hypotheses-sign-field")}
+                  className="bg-primary/10 text-primary-dark dark:text-primary-light text-xs font-semibold"
+                  clickable={Boolean(onFocusField)}
+                  aria-label={onFocusField ? t("hypotheses-sign-field-go", { field: t(field.labelKey) }) : undefined}
+                  onClick={onFocusField ? () => onFocusField(field.blockKey, field.fieldKey) : undefined}
+                />
+              )}
+            </Box>
+          );
+        })
       )}
     </Box>
   );

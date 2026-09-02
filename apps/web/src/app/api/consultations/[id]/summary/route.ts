@@ -40,11 +40,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: answers } = await supabase
     .from("anamnesis_answers")
-    .select("block_key, field_key, value")
+    .select("block_key, field_key, value, state")
+    // A draft she REJECTED is not part of the record it was rejected from.
+    // Rejections since 0059 delete the row, but rows from before it survive
+    // with state='rejected' — reading without this filter is how discarded
+    // clinical content walks back into a summary she applies with one click.
+    .neq("state", "rejected")
     .eq("consultation_id", id);
   const input: SummaryInput = {
     chiefComplaint: consultation.chief_complaint,
-    answers: (answers ?? []).map((row) => ({ blockKey: row.block_key, fieldKey: row.field_key, value: row.value })),
+    answers: (answers ?? []).map((row) => ({
+      blockKey: row.block_key,
+      fieldKey: row.field_key,
+      value: row.value,
+      state: row.state,
+    })),
   };
   if (input.answers.length === 0 && !input.chiefComplaint) return clinicalError("nothing_recorded");
 

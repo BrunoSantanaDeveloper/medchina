@@ -158,6 +158,44 @@ export const recoverClinicalDeliveryFunction = inngest.createFunction(
       }
     }
 
+    // Audio the phone delivered that nothing ever picked up. It sits in
+    // 'uploaded' — never 'processing' — so the sweep above cannot see it, and
+    // its only trigger used to be a client-side effect in the consultation tab
+    // that suspends itself when the tab is hidden. The delivery route now
+    // starts the pipeline itself; this is the parachute for when that call did
+    // not survive (a cold start, a lost invocation), which is why the cutoff is
+    // generous: the hot path gets its chance first.
+    let strandedRecovered = 0;
+    const strandedBefore = new Date(sweepStartedAt - 10 * 60_000).toISOString();
+    const { data: stranded } = await service
+      .from("recordings")
+      .select("id")
+      .eq("status", "uploaded")
+      .eq("mode", "ai")
+      .lte("uploaded_at", strandedBefore)
+      .order("uploaded_at", { ascending: true })
+      .limit(3);
+
+    for (const row of stranded ?? []) {
+      if (sweepExpired()) break;
+      const { data } = await service.rpc("claim_recording_for_processing", { target_recording: row.id });
+      const claim = data as { ok?: boolean; code?: string; claimId?: string } | null;
+      // A row still in 'uploaded' is not a zombie of 'processing': a refused
+      // claim (revoked consent, a consultation that moved on) means there is
+      // nothing to do here, never that the capture should be marked failed.
+      if (!claim?.ok || claim.code !== "claimed" || !claim.claimId) continue;
+      strandedRecovered += 1;
+      const queued = await sendEvent("medchina/recording.process", { recordingId: row.id, claimId: claim.claimId });
+      if (!queued.sent) {
+        // Shares the single inline budget with the loop above — one full
+        // pipeline per invocation is all that fits.
+        if (ranInline || sweepExpired()) continue;
+        ranInline = true;
+        const result = await processRecording(service, row.id, claim.claimId);
+        await notifyRecordingStatus(service, row.id, result.ok ? "recording_ready" : "recording_failed");
+      }
+    }
+
     const { data: outbox } = await service
       .from("recording_notification_outbox")
       .select("recording_id, kind, status, lease_expires_at")
@@ -174,6 +212,7 @@ export const recoverClinicalDeliveryFunction = inngest.createFunction(
 
     return {
       processingRecovered: stuck?.length ?? 0,
+      strandedRecovered,
       notificationsRetried: outbox?.length ?? 0,
       retentionDeleted: retention.deleted,
       retentionFailed: retention.failed,

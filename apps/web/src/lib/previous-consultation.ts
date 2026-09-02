@@ -1,3 +1,4 @@
+import { consultationWhen, legacyExcerpt } from "@/lib/consultation-when";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -30,6 +31,12 @@ export interface PreviousConsultation {
   when: string;
   chiefComplaint: string | null;
   summary: string | null;
+  /**
+   * A consultation imported from another system keeps its whole text here and
+   * has NO anamnesis answers, so the field-by-field comparison below has
+   * nothing to compare. Showing the original text is the honest fallback.
+   */
+  legacyBody: string | null;
   answers: Record<string, PreviousAnswer>;
   /** Patterns she accepted or rewrote — her reading, not the model's draft. */
   patterns: string[];
@@ -49,10 +56,14 @@ export async function loadPreviousConsultation(
 ): Promise<PreviousConsultationResult> {
   const { data: previous, error } = await supabase
     .from("consultations")
-    .select("id, started_at, created_at, chief_complaint, summary, ai_gaps")
+    .select("id, started_at, scheduled_for, created_at, chief_complaint, summary, ai_gaps, legacy_body")
     .eq("patient_id", input.patientId)
     .eq("status", "finalized")
     .neq("id", input.excludeConsultationId)
+    // By when the visit HAPPENED. Ordering by created_at while displaying
+    // started_at made "a consulta anterior" point at an arbitrary row of an
+    // import batch and label it with another visit's real date.
+    .order("started_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -83,9 +94,14 @@ export async function loadPreviousConsultation(
     ok: true,
     data: {
       id: previous.id as string,
-      when: (previous.started_at as string | null) ?? (previous.created_at as string),
+      when: consultationWhen({
+        startedAt: previous.started_at as string | null,
+        scheduledFor: previous.scheduled_for as string | null,
+        createdAt: previous.created_at as string | null,
+      }) as string,
       chiefComplaint: (previous.chief_complaint as string | null) ?? null,
       summary: (previous.summary as string | null) ?? null,
+      legacyBody: legacyExcerpt(previous.legacy_body as string | null, 400),
       answers,
       patterns: (hypothesesResult.data ?? []).map((row) => row.pattern as string),
       gaps: Array.isArray(previous.ai_gaps) ? (previous.ai_gaps as string[]) : [],

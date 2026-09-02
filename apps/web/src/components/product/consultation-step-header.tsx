@@ -18,7 +18,13 @@ export default function ConsultationStepHeader({
   hint,
   trailing,
 }: {
-  step: number;
+  /**
+   * Position in the recommended sequence. OMIT it for a card that is not a step
+   * of the clinical reasoning — supporting material, or an upgrade prompt.
+   * Numbering something that is not a step is how two cards ended up both
+   * labelled "2", turning the guidance into noise.
+   */
+  step?: number;
   icon: ReactNode;
   title: string;
   /** One line: when to use this step and what it builds on. */
@@ -29,12 +35,14 @@ export default function ConsultationStepHeader({
   return (
     <Box className="flex flex-col gap-1">
       <Box className="flex flex-row items-center gap-2">
-        <Box
-          aria-hidden
-          className="bg-primary/12 text-primary flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-bold tabular-nums"
-        >
-          {step}
-        </Box>
+        {step !== undefined && (
+          <Box
+            aria-hidden
+            className="bg-primary/12 text-primary flex h-6 w-6 flex-none items-center justify-center rounded-full text-xs font-bold tabular-nums"
+          >
+            {step}
+          </Box>
+        )}
         <span aria-hidden className="text-primary inline-flex flex-none">
           {icon}
         </span>

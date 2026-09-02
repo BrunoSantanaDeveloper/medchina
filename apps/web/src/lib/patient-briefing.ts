@@ -1,3 +1,4 @@
+import { consultationWhen, legacyExcerpt } from "@/lib/consultation-when";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -16,6 +17,13 @@ export interface PatientBriefing {
     when: string;
     chiefComplaint: string | null;
     summary: string | null;
+    /**
+     * The opening of a record imported from another system. Those consultations
+     * carry their whole text here and no anamnesis answers at all, so without
+     * it the card for a migrated patient reads as an empty visit.
+     */
+    legacyBody: string | null;
+    legacySource: string | null;
     hypotheses: { pattern: string; correspondence: string; status: string }[];
     planModalities: string[];
   } | null;
@@ -31,9 +39,14 @@ export async function loadPatientBriefing(supabase: SupabaseClient, patientId: s
     supabase.from("patients").select("alerts").eq("id", patientId).maybeSingle(),
     supabase
       .from("consultations")
-      .select("id, started_at, scheduled_for, created_at, chief_complaint, summary, ai_gaps")
+      .select(
+        "id, started_at, scheduled_for, created_at, chief_complaint, summary, ai_gaps, legacy_body, legacy_source",
+      )
       .eq("patient_id", patientId)
       .eq("status", "finalized")
+      // Ordered by when the visit HAPPENED, not when the row was written — an
+      // imported history shares one created_at across the whole batch.
+      .order("started_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -90,9 +103,15 @@ export async function loadPatientBriefing(supabase: SupabaseClient, patientId: s
       lastFinalized: finalized
         ? {
             id: finalized.id as string,
-            when: (finalized.started_at ?? finalized.scheduled_for ?? finalized.created_at) as string,
+            when: consultationWhen({
+              startedAt: finalized.started_at as string | null,
+              scheduledFor: finalized.scheduled_for as string | null,
+              createdAt: finalized.created_at as string | null,
+            }) as string,
             chiefComplaint: (finalized.chief_complaint as string | null) ?? null,
             summary: (finalized.summary as string | null) ?? null,
+            legacyBody: legacyExcerpt(finalized.legacy_body as string | null, 400),
+            legacySource: (finalized.legacy_source as string | null) ?? null,
             hypotheses,
             planModalities,
           }

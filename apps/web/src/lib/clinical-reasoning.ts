@@ -29,7 +29,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 /** Bump when the prompt changes — it is recorded per hypothesis (PRD §10.10). */
-export const REASONING_PROMPT_VERSION = "hypotheses-2026-07-15";
+export const REASONING_PROMPT_VERSION = "hypotheses-2026-09-02";
 
 const DEFAULT_PROVIDER: AiProviderName = "gemini";
 const DEFAULT_MODEL = "gemini-3.6-flash";
@@ -91,6 +91,18 @@ export interface RecordedCase {
   priorPatterns?: string[];
   /** Patterns she rejected in THIS consultation — never propose them again. */
   rejectedPatterns?: string[];
+  /**
+   * The patient's standing clinical alerts (allergies, pregnancy,
+   * anticoagulants, pacemaker…). They are chips on the context bar of the SAME
+   * screen and part of the case-review prompt, and were the one thing the
+   * reasoning could not see — so a hypothesis could be prepared around a
+   * pregnancy visible two centimetres away.
+   */
+  alerts?: string[];
+  /** What SHE wrote in the consultation's summary field, in her own words. */
+  professionalSummary?: string | null;
+  /** Values the AI read out of documents she attached (exams, reports). */
+  attachmentFindings?: { label: string; value: string }[];
 }
 
 /**
@@ -207,10 +219,26 @@ function buildPrompt(recorded: RecordedCase, context: string, absent: string[]):
     "   recorded finding that distinguishes this pattern from the neighbouring ones you considered.",
     '10. A value marked "requer atenção — não revisado" was flagged as ambiguous by the extraction and the',
     "    professional has not reviewed it yet. You may use it, but never let it carry a hypothesis alone.",
+    "11. CLINICAL ALERTS are standing facts about this patient (pregnancy, anticoagulants, a pacemaker, an",
+    "    allergy). They are not complaints and never evidence FOR a pattern — but a hypothesis that ignores",
+    "    one is unusable, so weigh them and say so in `rationale` whenever they bear on the reading.",
+    "",
+    // Alerts lead the block on purpose: they are the constraint every other
+    // line is read under, and they are what the professional sees pinned at the
+    // top of her own screen while the model used to be blind to them.
+    (recorded.alerts?.length ?? 0) > 0 ? `ALERTAS CLÍNICOS DA PACIENTE: ${recorded.alerts!.join("; ")}` : "",
     "",
     "RECORDED DATA:",
     describeCase(recorded) || "(nothing recorded)",
     "",
+    recorded.professionalSummary?.trim()
+      ? `RESUMO ESCRITO PELA PROFISSIONAL (a leitura dela, com as palavras dela):\n${recorded.professionalSummary.trim()}\n`
+      : "",
+    (recorded.attachmentFindings?.length ?? 0) > 0
+      ? `EXAMES E DOCUMENTOS ANEXADOS (lidos por IA a pedido dela, ainda não validados):\n${recorded
+          .attachmentFindings!.map((finding) => `- ${finding.label}: ${finding.value}`)
+          .join("\n")}\n`
+      : "",
     absent.length > 0
       ? `NOT RECORDED (absent — never read as negative): ${absent.join(", ")}`
       : "Every anamnesis field has a recorded value.",

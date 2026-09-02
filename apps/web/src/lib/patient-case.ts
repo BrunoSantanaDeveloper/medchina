@@ -1,5 +1,6 @@
 import "server-only";
 
+import { consultationWhen, legacyExcerpt } from "@/lib/consultation-when";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -15,6 +16,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const CONSULTATION_LIMIT = 5;
 /** Rough prompt budget for the case block; oldest consultations are cut first. */
 const CASE_CHAR_BUDGET = 8000;
+/**
+ * Per-consultation ceiling for a migrated record. Without it one long import
+ * would spend the whole CASE_CHAR_BUDGET and push every other visit out.
+ */
+const LEGACY_CHAR_BUDGET = 1200;
 
 type PatientAlert = { label?: string; severity?: string };
 
@@ -26,9 +32,18 @@ export interface PatientCase {
   consultations: {
     id: string;
     status: string;
+    startedAt: string | null;
     scheduledFor: string | null;
     createdAt: string;
     chiefComplaint: string | null;
+    /**
+     * A consultation imported from another system keeps its original text here
+     * and is deliberately never parsed into anamnesis fields, so it has NO
+     * answers. Without it the model reads a migrated practice as a row of empty
+     * visits and reports that almost nothing is on record.
+     */
+    legacyBody: string | null;
+    legacySource: string | null;
     answers: { blockKey: string; fieldKey: string; value: string; source: string; state: string }[];
     acceptedHypotheses: { pattern: string; correspondence: string; status: string }[];
     validatedPlanModalities: string[];
@@ -54,9 +69,13 @@ export async function loadPatientCase(supabase: SupabaseClient, patientId: strin
 
   const { data: consultations } = await supabase
     .from("consultations")
-    .select("id, status, scheduled_for, created_at, chief_complaint, summary")
+    .select("id, status, started_at, scheduled_for, created_at, chief_complaint, summary, legacy_body, legacy_source")
     .eq("patient_id", patientId)
     .neq("status", "cancelled")
+    // By when the visit HAPPENED: an imported history shares one created_at
+    // across the whole batch, so ordering by it reasons over an arbitrary row
+    // and dates it with another visit's date.
+    .order("started_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(CONSULTATION_LIMIT);
 
@@ -92,8 +111,11 @@ export async function loadPatientCase(supabase: SupabaseClient, patientId: strin
     consultations: (consultations ?? []).map((row) => ({
       id: row.id as string,
       status: row.status as string,
+      startedAt: (row.started_at as string | null) ?? null,
       scheduledFor: (row.scheduled_for as string | null) ?? null,
       createdAt: row.created_at as string,
+      legacyBody: legacyExcerpt(row.legacy_body as string | null, LEGACY_CHAR_BUDGET),
+      legacySource: (row.legacy_source as string | null) ?? null,
       chiefComplaint: (row.chief_complaint as string | null) ?? null,
       summary: (row.summary as string | null) ?? null,
       answers: (answers.data ?? [])
@@ -137,10 +159,17 @@ const originLabel = (source: string) =>
 
 function describeConsultation(consultation: PatientCase["consultations"][number]): string {
   const lines: string[] = [];
-  const when = consultation.scheduledFor ?? consultation.createdAt;
+  const when = consultationWhen(consultation) ?? consultation.createdAt;
   lines.push(`Consulta de ${when.slice(0, 10)} (${STATUS_LABEL[consultation.status] ?? consultation.status}):`);
   if (consultation.chiefComplaint) lines.push(`  Queixa principal: ${consultation.chiefComplaint}`);
   if (consultation.summary) lines.push(`  Resumo da profissional: ${consultation.summary}`);
+  if (consultation.legacyBody) {
+    // Kept as the previous system wrote it and labelled as such: chart data to
+    // reason WITH, never a library source to cite.
+    const from = consultation.legacySource ? ` (${consultation.legacySource})` : "";
+    lines.push(`  Registro migrado do sistema anterior${from}, texto original:`);
+    lines.push(`  ${consultation.legacyBody.replace(/\s*\n+\s*/g, " ")}`);
+  }
   for (const answer of consultation.answers) {
     // A value the extraction itself flagged as ambiguous, contradictory or
     // sensitive must not reach the model wearing the same clothes as a reviewed

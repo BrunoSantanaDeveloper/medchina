@@ -230,8 +230,11 @@ export default function AttachmentsPanel({
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
+        {/* Documents and photos are supporting material, not a step of the
+            reasoning: numbering this "2" put it in a tie with Hipóteses and
+            made the sequence read as guidance that had lost count. The chain
+            the numbers describe is record → interpret → plan. */}
         <ConsultationStepHeader
-          step={2}
           icon={<NiPaperclip size="medium" />}
           title={t("attachments-title")}
           hint={t("attachments-hint")}

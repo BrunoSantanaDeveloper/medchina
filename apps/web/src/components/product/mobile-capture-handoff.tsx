@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import QRCode from "qrcode";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Alert, Box, Button, CircularProgress, Dialog, DialogContent, Typography } from "@mui/material";
 
@@ -69,7 +69,11 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
   const [inProgress, setInProgress] = useState(false);
   const [status, setStatus] = useState<LiveStatus>({ kind: "none" });
   const [elapsed, setElapsed] = useState<string | null>(null);
-  const watchSession = useRef(false);
+  // Armed while the phone's session is worth re-querying. It is state, not a
+  // ref, precisely so it can START and STOP the poll below: armed when a link
+  // is minted AND when any check lands on a live session (the reload case),
+  // disarmed as soon as the capture settles.
+  const [watching, setWatching] = useState(false);
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -96,7 +100,7 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
           // The phone is mid-capture on an earlier link — show its progress
           // instead of killing it with a new credential.
           setInProgress(true);
-          watchSession.current = true;
+          setWatching(true);
           return;
         }
         // A plan/minutes block is a commercial moment, not an error: it gets
@@ -128,7 +132,7 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
       setQrDataUrl(dataUrl);
       setLinkUrl(body.url);
       setExpiresAt(body.expiresAt ?? null);
-      watchSession.current = true;
+      setWatching(true);
     } catch {
       setErrorKey("capture-qr-error");
     } finally {
@@ -145,28 +149,46 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
   // uploading, delivered — without keeping a modal in front of the chart.
   const refreshStatus = useCallback(async () => {
     const supabase = createClient();
-    const { data: session } = await supabase
+    const { data: session, error: sessionError } = await supabase
       .from("capture_link_sessions")
       .select("id, mode, expires_at, recording_id")
       .eq("consultation_id", consultationId)
       .is("revoked_at", null)
       .gt("expires_at", new Date().toISOString())
       .maybeSingle();
+    // A failed query is not "no session": erasing a live capture from the
+    // screen (or disarming its watch) on a network hiccup would be a lie. Hold
+    // the last known status and let the next tick correct it.
+    if (sessionError) return;
     if (!session) {
       setStatus((current) => (current.kind === "delivered" || current.kind === "failed" ? current : { kind: "none" }));
-      if (!open) watchSession.current = false;
+      setWatching(false);
       return;
     }
     if (!session.recording_id) {
       setStatus({ kind: "waiting", expiresAt: session.expires_at });
+      setWatching(true);
       return;
     }
-    const { data: recording } = await supabase
+    const { data: recording, error: recordingError } = await supabase
       .from("recordings")
       .select("status, capture_started_at, audio_path")
       .eq("id", session.recording_id)
       .maybeSingle();
+    // The session is live, so the watch stays armed even when this read fails —
+    // it is bounded by the link's own expiry, which drops us into the branch
+    // above.
+    if (recordingError) {
+      setWatching(true);
+      return;
+    }
     const recordingStatus = recording?.status ?? null;
+    // 'ready' and 'failed' are the end of the line — what comes next is
+    // answered in Gravações, not by this poll — so the watch is disarmed
+    // instead of running for the life of the page. Everything else is still
+    // moving and must be re-queried, which is what keeps the mm:ss below from
+    // counting over a status nobody is checking.
+    setWatching(recordingStatus !== "ready" && recordingStatus !== "failed");
     if (recordingStatus === "recording") {
       setStatus({ kind: "recording", startedAt: recording?.capture_started_at ?? null });
     } else if (recordingStatus === "local" || recordingStatus === "uploading") {
@@ -181,19 +203,30 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
     } else {
       setStatus({ kind: "waiting", expiresAt: session.expires_at });
     }
-  }, [consultationId, open]);
+  }, [consultationId]);
 
   useEffect(() => {
-    // One check on mount picks up a session from an earlier dialog (page
-    // reload, second tab); then poll while there is something to watch.
+    // One check on mount picks up a session started before this page load — a
+    // reload, or the chart reopened in another tab — and arms the watch below
+    // when it finds one alive.
     void refreshStatus();
-    const interval = window.setInterval(() => {
-      if (watchSession.current || open) void refreshStatus();
-    }, 8000);
-    return () => window.clearInterval(interval);
-  }, [open, refreshStatus]);
+  }, [refreshStatus]);
 
-  // The "recording for mm:ss" readout, derived from the wall clock.
+  useEffect(() => {
+    // Poll only while there is something to watch: a live session, or the open
+    // dialog waiting for the phone to scan. Both ends are bounded — the watch
+    // is disarmed when the capture settles (or when the link expires and the
+    // session is gone) and the interval is cleared on unmount — so no poll,
+    // and no running mm:ss, outlives the capture it reports.
+    if (!watching && !open) return;
+    const interval = window.setInterval(() => void refreshStatus(), 8000);
+    return () => window.clearInterval(interval);
+  }, [watching, open, refreshStatus]);
+
+  // The "recording for mm:ss" readout, derived from the wall clock. It may only
+  // run over a status that is being re-queried: `recording` is written by the
+  // pass above that also arms `watching`, so a clock that keeps climbing is
+  // proof the phone was checked seconds ago, never a leftover of a dead state.
   useEffect(() => {
     if (status.kind !== "recording" || !status.startedAt) {
       setElapsed(null);

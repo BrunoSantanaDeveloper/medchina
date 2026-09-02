@@ -40,7 +40,10 @@ async function generateFinalSummary(
 
     const { data: answers } = await supabase
       .from("anamnesis_answers")
-      .select("block_key, field_key, value")
+      .select("block_key, field_key, value, state")
+      // Same filter as the on-demand summary: content she rejected is not part
+      // of the record, and this summary is the one that freezes with it.
+      .neq("state", "rejected")
       .eq("consultation_id", consultationId);
     if ((answers ?? []).length === 0 && !consultation.chief_complaint) return;
 
@@ -51,7 +54,12 @@ async function generateFinalSummary(
     const suggested = await Promise.race([
       buildClinicalSummary({
         chiefComplaint: consultation.chief_complaint,
-        answers: (answers ?? []).map((row) => ({ blockKey: row.block_key, fieldKey: row.field_key, value: row.value })),
+        answers: (answers ?? []).map((row) => ({
+          blockKey: row.block_key,
+          fieldKey: row.field_key,
+          value: row.value,
+          state: row.state,
+        })),
       }),
       new Promise<never>((_, rejectRace) =>
         setTimeout(() => rejectRace(new Error("final summary timed out — finalization proceeds without it")), 45_000),

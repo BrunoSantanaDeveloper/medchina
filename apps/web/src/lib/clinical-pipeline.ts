@@ -306,12 +306,23 @@ export async function processRecording(
       promptVersion: extraction.promptVersion,
     },
   }));
+  // Questions she already worked through and cleared. The apply replaces
+  // `ai_gaps` wholesale, so without this a reprocess — which is a routine
+  // outcome, not an exception — refills the checklist she had emptied and
+  // overrules a decision of hers with a retry.
+  const { data: dismissedRows } = await supabase
+    .from("consultation_gap_dismissals")
+    .select("gap")
+    .eq("consultation_id", recording.consultation_id);
+  const dismissed = new Set((dismissedRows ?? []).map((row) => String(row.gap).trim()));
+  const gaps = extraction.gaps.filter((gap) => !dismissed.has(gap.trim()));
+
   const { data: appliedData, error: applyError } = await supabase.rpc("apply_recording_result", {
     target_recording: recording.id,
     target_transcription: transcriptionId,
     target_claim_id: claimId,
     target_answers: answers,
-    target_gaps: extraction.gaps,
+    target_gaps: gaps,
     target_billable_seconds: consumedSeconds,
     // Fills consultations.chief_complaint only while it is still empty (0092).
     // It drives the patient timeline and every AI prompt, and until now nothing
@@ -331,7 +342,7 @@ export async function processRecording(
         ok: true,
         transcriptionId: recovered.transcription_id,
         answers: answers.length,
-        gaps: extraction.gaps.length,
+        gaps: gaps.length,
       };
     }
     const code = applyError.message.includes("usage_record_failed") ? "usage_record_failed" : "internal_error";
@@ -361,6 +372,6 @@ export async function processRecording(
     ok: true,
     transcriptionId,
     answers: applied.answers ?? answers.length,
-    gaps: applied.gaps ?? extraction.gaps.length,
+    gaps: applied.gaps ?? gaps.length,
   };
 }

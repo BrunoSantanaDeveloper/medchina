@@ -53,6 +53,16 @@ const STATUS_TONE: Record<string, string> = {
 /** A destructive confirmation that names its own consequence. */
 type Confirmation = { kind: "discard" | "delete-audio"; recordingId: string; status: string };
 
+/** A failure stamped at one of these stages happened INSIDE the pipeline: the
+ * audio is intact and running it again is meaningful. A capture/upload failure
+ * has no audio to reprocess. */
+const PROCESSING_FAILURE_STAGES = ["transcription", "extraction", "apply"];
+
+/** Capture statuses that are still OPEN — the microphone may be running right
+ * now. Discarding one of these can throw away audio being recorded, which is a
+ * different act (and a different loss) from clearing a failed attempt. */
+const OPEN_CAPTURE_STATUSES = ["recording", "local", "uploading"];
+
 /**
  * The recordings captured for this consultation and their processing state.
  * From here the professional sends a recording through the AI pipeline
@@ -65,6 +75,7 @@ export default function RecordingsPanel({
   onProcessed,
   refreshSignal,
   seekTo,
+  readOnly = false,
 }: {
   consultationId: string;
   onProcessed: () => void;
@@ -79,6 +90,14 @@ export default function RecordingsPanel({
    * transcription belongs to.
    */
   seekTo?: { start: string; transcriptionId?: string; nonce: number };
+  /**
+   * The consultation is finalized. The transcript and its audio stay READABLE —
+   * they are the evidence every AI-filled field points back to (PRD §13.1), and
+   * hiding them once the record closes removed the proof at exactly the moment
+   * an audit, a review or a challenge would ask for it. Everything that would
+   * CHANGE a frozen record is gone.
+   */
+  readOnly?: boolean;
 }) {
   const t = useTranslations("product");
   const [recordingsState, setRecordingsState] = useState<RemoteState<Recording[], "load_failed">>(() =>
@@ -223,7 +242,7 @@ export default function RecordingsPanel({
     }
   };
 
-  const discard = async (recordingId: string) => {
+  const discard = async (recordingId: string, status: string) => {
     setBusyId(recordingId);
     setActionError(null);
     setActionSuccess(null);
@@ -231,7 +250,13 @@ export default function RecordingsPanel({
       const response = await fetch(`/api/recordings/${recordingId}/state`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "cancel", errorCode: "discarded_after_failure" }),
+        body: JSON.stringify({
+          action: "cancel",
+          // The reason stays on the row for the audit, so it must name what
+          // actually happened: a capture abandoned while still open is not a
+          // failed attempt being cleared.
+          errorCode: OPEN_CAPTURE_STATUSES.includes(status) ? "discarded_open_capture" : "discarded_after_failure",
+        }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) setActionError(safeError(body?.error?.code ?? body?.code));
@@ -284,6 +309,14 @@ export default function RecordingsPanel({
   }
   if (!recordings || recordings.length === 0) return null;
 
+  /** Discarding an OPEN capture and clearing a failed attempt are different
+   * acts — the confirmation already distinguishes them, and the button that
+   * opens it must not name a failure that never happened. The open case reuses
+   * the recorder's own wording: it is the same act (free the consultation to
+   * capture again) on a different surface. */
+  const discardLabel = (status: string) =>
+    OPEN_CAPTURE_STATUSES.includes(status) ? t("recorder-orphan-discard") : t("recordings-discard");
+
   const statusLabel = (status: string) =>
     ({
       recording: t("recordings-status-recording"),
@@ -329,14 +362,22 @@ export default function RecordingsPanel({
           {refreshing && <CircularProgress size={18} aria-label={t("loading")} />}
           {recordings.map((recording) => {
             const canProcess =
+              !readOnly &&
               recording.mode === "ai" &&
               (recording.status === "uploaded" ||
-                (recording.status === "failed" &&
-                  ["transcription", "extraction", "apply"].includes(recording.failureStage ?? "")));
+                (recording.status === "failed" && PROCESSING_FAILURE_STAGES.includes(recording.failureStage ?? "")));
+            // "Reprocessar" asserts an attempt that already happened. Only a row
+            // that really went through the pipeline may say it — a stage the
+            // pipeline itself stamped, or a transcript from an earlier run. A
+            // freshly uploaded capture has never been processed, and offering
+            // to "reprocess" it invented a first attempt she never made.
+            const alreadyProcessed =
+              PROCESSING_FAILURE_STAGES.includes(recording.failureStage ?? "") || Boolean(recording.transcriptionId);
             // A capture interrupted by a reload or a closed tab stays in an open
             // status forever and blocks every new one at the server. Discarding
             // must be reachable from ANY stuck status, not only from 'failed'.
-            const canDiscard = ["failed", "recording", "local", "uploading"].includes(recording.status);
+            const canDiscard =
+              !readOnly && (recording.status === "failed" || OPEN_CAPTURE_STATUSES.includes(recording.status));
             const isProcessing = recording.status === "processing" || busyId === recording.id;
             // A non-terminal transient failure stamps error_code on a row that
             // STAYS 'processing' while the job waits to retry. Saying only
@@ -374,7 +415,7 @@ export default function RecordingsPanel({
                   <Box className="flex flex-wrap items-center gap-1">
                     {!isProcessing && canProcess && (
                       <Button size="small" variant="contained" color="primary" onClick={() => process(recording.id)}>
-                        {t("recordings-process")}
+                        {alreadyProcessed ? t("recordings-process") : t("recordings-process-first")}
                       </Button>
                     )}
                     {!isProcessing && canDiscard && (
@@ -386,7 +427,7 @@ export default function RecordingsPanel({
                           setConfirmation({ kind: "discard", recordingId: recording.id, status: recording.status })
                         }
                       >
-                        {t("recordings-discard")}
+                        {discardLabel(recording.status)}
                       </Button>
                     )}
                     {!isProcessing &&
@@ -448,7 +489,11 @@ export default function RecordingsPanel({
           which is a different loss from clearing a failed attempt. */}
       <Dialog open={confirmation !== null} onClose={() => setConfirmation(null)} maxWidth="xs" fullWidth>
         <DialogHeader
-          title={confirmation?.kind === "delete-audio" ? t("recordings-delete-audio") : t("recordings-discard")}
+          title={
+            confirmation?.kind === "delete-audio"
+              ? t("recordings-delete-audio")
+              : discardLabel(confirmation?.status ?? "")
+          }
           closeLabel={t("close")}
           onClose={() => setConfirmation(null)}
         />
@@ -456,7 +501,7 @@ export default function RecordingsPanel({
           <Typography variant="body2" className="text-text-secondary leading-6">
             {confirmation?.kind === "delete-audio"
               ? t("recordings-delete-audio-confirm")
-              : ["recording", "local", "uploading"].includes(confirmation?.status ?? "")
+              : OPEN_CAPTURE_STATUSES.includes(confirmation?.status ?? "")
                 ? t("recordings-discard-open-confirm")
                 : t("recordings-discard-confirm")}
           </Typography>
@@ -473,10 +518,12 @@ export default function RecordingsPanel({
               setConfirmation(null);
               if (!pending) return;
               if (pending.kind === "delete-audio") void deleteAudio(pending.recordingId);
-              else void discard(pending.recordingId);
+              else void discard(pending.recordingId, pending.status);
             }}
           >
-            {confirmation?.kind === "delete-audio" ? t("recordings-delete-audio") : t("recordings-discard")}
+            {confirmation?.kind === "delete-audio"
+              ? t("recordings-delete-audio")
+              : discardLabel(confirmation?.status ?? "")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -26,6 +26,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import { LocalizationProvider, MobileDatePicker } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -94,6 +96,9 @@ const mondayOf = (day: Date) => moveDay(day, -((day.getDay() + 6) % 7));
 
 export default function Agenda() {
   const t = useTranslations("product");
+  const theme = useTheme();
+  /** On a phone the four cancellation categories cannot sit on one line. */
+  const cancelStacked = useMediaQuery(theme.breakpoints.down("sm"));
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -989,9 +994,16 @@ export default function Agenda() {
               ? t("agenda-cancel-body", { patient: cancelTarget.patientName, time: timeRange(cancelTarget) })
               : ""}
           </Typography>
+          {/* Four labels that do not fit a phone. ToggleButtonGroup is
+              inline-flex and never wraps, so on a 360px screen the last two
+              categories sat outside the visible area — and "Faltou" is the
+              end-of-day ritual most likely to be done from a phone, feeding the
+              product's own no-show metric. Stacked below `sm`, inline above. */}
           <ToggleButtonGroup
             exclusive
             size="small"
+            orientation={cancelStacked ? "vertical" : "horizontal"}
+            fullWidth={cancelStacked}
             value={cancelCategory}
             aria-label={t("agenda-cancel-category-label")}
             onChange={(_, next: CancellationCategory | null) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
 
@@ -36,6 +36,25 @@ export default function ConsultationAiSummary({
   const [summary, setSummary] = useState<string | null>(initialSummary);
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+
+  /**
+   * The consultation page polls while a recording is processed, so a summary
+   * written by the pipeline arrives as a NEW `initialSummary`. Reading the prop
+   * only at mount meant the card kept its empty "generate" state next to an
+   * anamnesis that was visibly filling itself in — and she paid for a second AI
+   * call to produce what the database already held.
+   *
+   * Only a value that arrived from outside is adopted: once the card holds
+   * something the SERVER did not just send, that is her session and the poll
+   * must not overwrite it.
+   */
+  const lastAdopted = useRef<string | null>(initialSummary);
+  useEffect(() => {
+    if (initialSummary === lastAdopted.current) return;
+    lastAdopted.current = initialSummary;
+    // A null from the server means "nothing stored", not "clear the card".
+    if (initialSummary) setSummary(initialSummary);
+  }, [initialSummary]);
 
   const generate = async () => {
     setBusy(true);

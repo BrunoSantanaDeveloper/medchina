@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Box, Button, Card, CardContent, Chip, Typography } from "@mui/material";
@@ -22,6 +22,17 @@ export type ClinicalContextBarProps = {
   scheduledFor: string | null;
   experience: ConsultationExperienceState;
   consents: { audio: boolean; ai: boolean };
+  /**
+   * The clinical context could not be loaded — a network failure, not an empty
+   * patient. Without this the bar states the FALLBACKS as facts: "sem alertas
+   * clínicos cadastrados" over a patient who may be pregnant or on
+   * anticoagulants, and "não autorizado" over consents that are actually
+   * granted. Absence of data is never a negative answer (PRD §10.5), and an
+   * error is never rendered as an empty state.
+   */
+  contextUnavailable?: boolean;
+  /** The practice timezone, so a date near midnight is not the browser's day. */
+  timezone?: string | null;
   saveState: ConsultationSaveState;
   recordingStatus?: RecordingStatus | null;
   nextAction: string;
@@ -95,6 +106,8 @@ export default function ClinicalContextBar({
   scheduledFor,
   experience,
   consents,
+  contextUnavailable = false,
+  timezone,
   saveState,
   recordingStatus,
   nextAction,
@@ -103,7 +116,18 @@ export default function ClinicalContextBar({
 }: ClinicalContextBarProps) {
   const t = useTranslations("product");
   const [showDetails, setShowDetails] = useState(false);
-  const formatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+  // The consultation page fixes the rule and states why: a bare
+  // `toLocaleDateString()` formats in the BROWSER's locale and timezone, which
+  // shows the wrong day near midnight and can render this bar in a different
+  // language from the chart two centimetres below it. The practice's own locale
+  // and timezone are the authority, so they are passed in.
+  const locale = useLocale();
+  const formatter = new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: timezone ?? undefined,
+  });
+  const birthFormatter = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: timezone ?? undefined });
 
   return (
     <Card component="section" aria-label={t("context-title")} className="bg-background-paper/95 backdrop-blur">
@@ -125,12 +149,22 @@ export default function ClinicalContextBar({
               {patientName}
             </Typography>
             <Typography variant="caption" className="text-text-secondary block">
-              {patientBirthDate
-                ? t("context-birth-date", { date: new Date(`${patientBirthDate}T12:00:00`).toLocaleDateString() })
-                : t("context-birth-missing")}
+              {contextUnavailable
+                ? t("context-unavailable-short")
+                : patientBirthDate
+                  ? t("context-birth-date", { date: birthFormatter.format(new Date(`${patientBirthDate}T12:00:00`)) })
+                  : t("context-birth-missing")}
             </Typography>
             <Box className="mt-1 flex flex-wrap gap-1">
-              {alerts.length ? (
+              {/* "I could not read the alerts" and "this patient has none" are
+                  different facts, and the difference is allergy, pregnancy or
+                  an anticoagulant. Saying the second when the first is true is
+                  the most dangerous sentence this bar can produce. */}
+              {contextUnavailable ? (
+                <Typography variant="caption" className="text-warning-dark font-semibold">
+                  {t("context-alerts-unavailable")}
+                </Typography>
+              ) : alerts.length ? (
                 alerts.map((alert) => <Chip key={alert.label} size="small" color="warning" label={alert.label} />)
               ) : (
                 <Typography variant="caption" className="text-text-secondary">
@@ -181,28 +215,39 @@ export default function ClinicalContextBar({
                 {t("context-consents")}
               </Typography>
               <Box className="mt-1 flex flex-wrap gap-1">
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-semibold",
-                    consents.audio
-                      ? "bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light"
-                      : "bg-grey-100 text-text-secondary",
-                  )}
-                >
-                  {t(consents.audio ? "context-audio-granted" : "context-audio-missing")}
-                </span>
-                <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-semibold",
-                    consents.ai
-                      ? "bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light"
-                      : "bg-grey-100 text-text-secondary",
-                  )}
-                >
-                  {t(consents.ai ? "context-ai-granted" : "context-ai-missing")}
-                </span>
+                {/* Reporting a granted consent as "não autorizado" tells her the
+                    recording is blocked when it is not — and the recorder, which
+                    re-checks on its own, records anyway. */}
+                {contextUnavailable ? (
+                  <Typography variant="caption" className="text-text-secondary">
+                    {t("context-consents-unavailable")}
+                  </Typography>
+                ) : (
+                  <>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-xs font-semibold",
+                        consents.audio
+                          ? "bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light"
+                          : "bg-grey-100 text-text-secondary",
+                      )}
+                    >
+                      {t(consents.audio ? "context-audio-granted" : "context-audio-missing")}
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-xs font-semibold",
+                        consents.ai
+                          ? "bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light"
+                          : "bg-grey-100 text-text-secondary",
+                      )}
+                    >
+                      {t(consents.ai ? "context-ai-granted" : "context-ai-missing")}
+                    </span>
+                  </>
+                )}
               </Box>
-              {(!consents.audio || !consents.ai) && (
+              {!contextUnavailable && (!consents.audio || !consents.ai) && (
                 <Button
                   component={Link}
                   href={`/pacientes/${patientId}/consentimentos`}

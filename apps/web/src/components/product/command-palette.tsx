@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
@@ -22,6 +21,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import { useRecordingSession } from "@/components/product/recording-session-provider";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
@@ -54,7 +54,7 @@ function cleanTerm(value: string) {
 export default function CommandPalette() {
   const t = useTranslations("product");
   const locale = useLocale();
-  const router = useRouter();
+  const { navigate } = useRecordingSession();
   const { orgId } = useCurrentOrg();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -268,7 +268,11 @@ export default function CommandPalette() {
 
   const go = (result: PaletteResult) => {
     setOpen(false);
-    router.push(result.href);
+    // Guarded: the palette is reachable from the consultation screen WHILE a
+    // capture is running, and a programmatic push touches neither the link
+    // guard nor the browser's unload prompt — it was the one door that walked
+    // out of a recording without a word. Outside a capture this is a plain push.
+    navigate(result.href);
   };
 
   const groupLabel = (group: PaletteResult["group"]) =>
