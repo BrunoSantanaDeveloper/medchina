@@ -27,7 +27,7 @@ const DEFAULT_MODEL = "gemini-3.6-flash";
 const EXTRACTION_MAX_MS = Number(process.env.EXTRACTION_TIMEOUT_MS) || 90_000;
 
 /** Bump when the prompt or the verification changes — recorded per answer. */
-export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-08-02";
+export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-09-02";
 
 /** Below this share of the quote's words found in a segment, it is not a quote. */
 const QUOTE_MATCH_THRESHOLD = 0.7;
@@ -56,6 +56,13 @@ export interface ExtractedAnswer {
 
 export interface ExtractionResult {
   answers: ExtractedAnswer[];
+  /**
+   * The complaint that brought the patient in, in one line. It lives on the
+   * consultation row (it drives the patient timeline), not in a block, so the
+   * field catalog deliberately excludes it — which also meant nothing could
+   * ever fill it. Null when the transcript does not support one.
+   */
+  chiefComplaint: string | null;
   /** Relevant things NOT covered in the consultation (PRD §10.7) — suggestions, never invented answers. */
   gaps: string[];
   /** Which diarized label is the practitioner (the rest is the patient). */
@@ -66,6 +73,37 @@ export interface ExtractionResult {
   dropped: { unknownField: number; observationFromPatient: number; absenceAsValue: number };
   /** Answers kept whose quote could NOT be found in the transcript. */
   unverified: number;
+}
+
+/**
+ * An answer already on the chart that a LATER recording of the same
+ * consultation may still refine.
+ */
+export interface ExistingAnswer {
+  blockKey: string;
+  fieldKey: string;
+  value: string;
+  source: string;
+  state: string;
+  provenance?: { transcriptionId?: unknown } | null;
+}
+
+/**
+ * Whether the pipeline is allowed to update an answer that already exists —
+ * the TypeScript twin of the `on conflict … where` clause in migration 0092.
+ * Both must agree: this one decides what the model is even told about, the SQL
+ * one is the guard that cannot be talked around.
+ *
+ * What she typed is hers. What the pipeline dictated for her (tongue, pulse and
+ * palpation carry `professional_voice` even when the MODEL wrote them) may be
+ * refined by a second recording — the transcript stamp is what tells the two
+ * apart. `edited`/`rejected` are hers whatever the provenance says, because
+ * editing a dictated draft PRESERVES its stamp.
+ */
+export function isPipelineUpdatable(answer: ExistingAnswer): boolean {
+  if (answer.state === "edited" || answer.state === "rejected") return false;
+  if (answer.source !== "professional" && answer.source !== "professional_voice") return true;
+  return answer.source === "professional_voice" && Boolean(answer.provenance?.transcriptionId);
 }
 
 /** The field catalog the model may fill — nothing outside it is accepted. */
@@ -86,9 +124,43 @@ const fieldCatalog = () =>
  * Deliberately NOT matching "nega"/"denies": a patient who actually denied a
  * symptom produced a real clinical negative, and deleting that would be its own
  * falsification. Only the phrases that describe the ABSENCE OF DATA are dropped.
+ *
+ * The stems below are truncated ON PURPOSE (informad → informado/informada/
+ * informados), so each one must be followed by an OPTIONAL SUFFIX — never by
+ * `\b`. That `\b` is what the list used to end with, and it silently disabled
+ * the whole Portuguese half of the rule: a word boundary has to fall between
+ * two characters of different classes, and "informad|o" is letter-letter, so
+ * the match failed on exactly the phrases a pt-BR model writes most. Only the
+ * branches ending in a complete word ("não consta", "not reported", "unknown")
+ * ever fired — and "sem informação" fired by accident, because "ç" is not an
+ * ASCII word character, so a boundary happened to exist there.
  */
-const ABSENCE_AS_VALUE =
-  /^\s*[-–]?\s*(n[ãa]o\s+(informad|relatad|referid|mencionad|avaliad|investigad|questionad|abordad|discutid|consta|h[áa]\s+(informa|dados|registro))|sem\s+(informa|dados|registro|men[çc][ãa]o|relato\s+na\s+consulta)|n[ãa]o\s+se\s+aplica|nada\s+(consta|informado|registrado)|not\s+(reported|informed|assessed|discussed|mentioned|recorded)|no\s+(information|data|record)\b|unknown|desconhecid|n\/a)\b/i;
+const ABSENCE_STEMS = "informad|relatad|referid|mencionad|avaliad|investigad|questionad|abordad|discutid";
+
+const ABSENCE_AS_VALUE = new RegExp(
+  `^\\s*[-–]?\\s*(?:${[
+    `n[ãa]o\\s+(?:${ABSENCE_STEMS})[a-zà-ú]*`,
+    "n[ãa]o\\s+consta",
+    "n[ãa]o\\s+h[áa]\\s+(?:informa[çc][ãa]o|informa[çc][õo]es|dados|registro)",
+    "sem\\s+(?:informa[çc][ãa]o|informa[çc][õo]es|dados|registro|men[çc][ãa]o|relato\\s+na\\s+consulta)",
+    "n[ãa]o\\s+se\\s+aplica",
+    "nada\\s+(?:consta|informado|registrado)",
+    "desconhecid[a-zà-ú]*",
+    "not\\s+(?:reported|informed|assessed|discussed|mentioned|recorded)",
+    "no\\s+(?:information|data|record)\\b",
+    "unknown\\b",
+    "n\\/a\\b",
+  ].join("|")})`,
+  "i",
+);
+
+/**
+ * Whether a value asserts the ABSENCE OF DATA and must therefore not be stored
+ * (PRD §10.5). Exported so the rule can be tested directly — it is the kind of
+ * regression that is invisible in production until a chart says a symptom was
+ * ruled out when nobody asked about it.
+ */
+export const isAbsenceValue = (value: string) => ABSENCE_AS_VALUE.test(value);
 
 const normalizeForMatch = (text: string) =>
   text
@@ -210,18 +282,36 @@ const RESULT_SCHEMA = {
         required: ["field", "value", "source", "state", "quote", "start", "speaker"],
       },
     },
+    chiefComplaint: {
+      type: "object",
+      description: "The reason for the visit, in one short line. Empty strings if the transcript does not state one.",
+      properties: {
+        value: { type: "string", description: "One short line in the patient's own terms. Never a diagnosis." },
+        quote: { type: "string", description: "The transcript excerpt supporting it, verbatim." },
+        start: { type: "string", description: "mm:ss timestamp of that excerpt." },
+      },
+      required: ["value", "quote", "start"],
+    },
     gaps: {
       type: "array",
       items: { type: "string" },
       description: "Relevant topics not covered — questions to investigate. Never answers.",
     },
   },
-  required: ["practitionerSpeaker", "answers", "gaps"],
+  required: ["practitionerSpeaker", "answers", "chiefComplaint", "gaps"],
 };
 
-function buildPrompt(transcript: TranscriptResult): string {
+export function buildPrompt(transcript: TranscriptResult, existing: ExistingAnswer[] = []): string {
   const catalog = fieldCatalog();
   const observationOnly = catalog.filter((f) => f.observationOnly).map((f) => f.key);
+  // A second recording of the SAME consultation used to see only its own audio,
+  // so a field it mentioned replaced what the first one had captured. Telling
+  // the model what is already on the chart is what turns "replace" into
+  // "complete". Only entries the merge may actually update are listed —
+  // anything she typed stays out of the prompt entirely.
+  const alreadyFilled = existing
+    .filter(isPipelineUpdatable)
+    .map((answer) => `- ${answer.blockKey}.${answer.fieldKey}: ${answer.value.slice(0, 300)}`);
 
   return [
     "You are preparing a DRAFT anamnesis for a Traditional Chinese Medicine consultation.",
@@ -245,6 +335,20 @@ function buildPrompt(transcript: TranscriptResult): string {
     "7. gaps: AT MOST 5 short QUESTIONS, written to the practitioner in the language of the consultation,",
     "   about relevant things this case would need but that were not covered.",
     '   Write real questions ("Investigar sede e boca seca?"), NEVER field keys, never answers.',
+    "8. chiefComplaint: the reason for the visit in ONE short line, in the patient's own terms",
+    '   ("Dor lombar há 3 meses"). Never a diagnosis, never a disharmony pattern. Leave the',
+    "   strings empty when the transcript does not state a reason for the visit.",
+    ...(alreadyFilled.length > 0
+      ? [
+          "",
+          "ALREADY ON THE CHART from an earlier recording of this SAME consultation:",
+          alreadyFilled.join("\n"),
+          "Return one of these fields ONLY if THIS transcript adds something new to it.",
+          "When you do, return the MERGED text (what is there + what is new) as the value,",
+          "and let the quote support only the NEW part. If this transcript adds nothing to a",
+          "field, OMIT it — repeating it unchanged is not useful.",
+        ]
+      : []),
     "",
     "Keep values concise and in the language of the consultation.",
     "",
@@ -272,11 +376,18 @@ export async function extractAnamnesis(
    * UI said "Processando..." for hours while the recovery cron re-ran it.
    */
   deadlineAt?: number,
+  /**
+   * What a previous recording of this consultation already wrote, so this one
+   * completes the chart instead of overwriting it. Only entries the merge may
+   * update are used (see `isPipelineUpdatable`).
+   */
+  existing: ExistingAnswer[] = [],
 ): Promise<ExtractionResult> {
   const key = process.env.GEMINI_API_KEY;
   const model = process.env.EXTRACTION_MODEL || process.env.TRANSCRIBE_MODEL || DEFAULT_MODEL;
   const empty: ExtractionResult = {
     answers: [],
+    chiefComplaint: null,
     gaps: [],
     practitionerSpeaker: null,
     model,
@@ -301,7 +412,7 @@ export async function extractAnamnesis(
   });
   const response = await client.models.generateContent({
     model,
-    contents: [{ role: "user", parts: [{ text: buildPrompt(transcript) }] }],
+    contents: [{ role: "user", parts: [{ text: buildPrompt(transcript, existing) }] }],
     config: {
       responseMimeType: "application/json",
       responseJsonSchema: RESULT_SCHEMA,
@@ -323,6 +434,7 @@ export async function extractAnamnesis(
       start: string;
       speaker: string;
     }[];
+    chiefComplaint?: { value?: string; quote?: string; start?: string };
     gaps?: string[];
   };
 
@@ -400,8 +512,21 @@ export async function extractAnamnesis(
     });
   }
 
+  // The chief complaint is held to the same bar as any other value: absence is
+  // not an answer, and it is kept only when its quote is found in the
+  // transcript. Unlike a block answer it has no `attention` state to carry a
+  // doubt with it — it is a headline the timeline repeats everywhere — so an
+  // unverifiable one is dropped instead of shown.
+  const claimedComplaint = (raw.chiefComplaint?.value ?? "").trim();
+  const complaintAnchor = claimedComplaint
+    ? anchorQuote((raw.chiefComplaint?.quote ?? "").trim(), (raw.chiefComplaint?.start ?? "").trim(), segments)
+    : null;
+  const chiefComplaint =
+    claimedComplaint && !ABSENCE_AS_VALUE.test(claimedComplaint) && complaintAnchor ? claimedComplaint : null;
+
   return {
     answers,
+    chiefComplaint,
     // The prompt asks for at most 5; nothing enforced it, and gaps is the only
     // free-text channel the model has.
     gaps: (raw.gaps ?? [])

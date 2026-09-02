@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: consultation } = await supabase
     .from("consultations")
-    .select("id, org_id, status, chief_complaint, clinical_revision")
+    .select("id, org_id, patient_id, status, chief_complaint, clinical_revision")
     .eq("id", id)
     .maybeSingle();
   if (!consultation) return clinicalError("not_found");
@@ -42,6 +42,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const allowance = await getAudioAllowance(supabase, consultation.org_id);
   if (!allowance?.clinicalReasoning) return clinicalError("reasoning_not_available");
+
+  // Drafting a plan reads the whole recorded case, so it needs the patient's
+  // AI-processing consent exactly like the summary and the attachment analysis.
+  const { data: aiConsent } = await supabase.rpc("has_active_consent", {
+    target_org: consultation.org_id,
+    target_patient: consultation.patient_id,
+    term_slug: "ai-processing",
+  });
+  if (!aiConsent) return clinicalError("ai_consent_required");
 
   const { data: existing } = await supabase
     .from("consultation_plans")

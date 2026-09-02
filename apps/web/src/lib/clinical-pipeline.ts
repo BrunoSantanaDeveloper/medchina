@@ -1,4 +1,4 @@
-import { extractAnamnesis } from "@/lib/clinical-extraction";
+import { type ExistingAnswer, extractAnamnesis } from "@/lib/clinical-extraction";
 import { parseTranscriptResult } from "@/lib/transcript";
 import { alertAfterAudioUsage, billableSeconds } from "@/lib/usage";
 import type { ClinicalErrorCode } from "@flyee/clinical";
@@ -187,9 +187,11 @@ export async function processRecording(
   if (!consultation || !["draft", "in_progress", "awaiting_review"].includes(consultation.status)) {
     return reject("invalid_consultation_transition", "apply");
   }
-  if (String(consultation.clinical_revision) !== String(recording.processing_clinical_revision)) {
-    return reject("clinical_revision_conflict", "apply");
-  }
+  // The consultation's revision is deliberately NOT compared here. It moves
+  // whenever the professional saves a field, and she is invited to keep
+  // writing while the audio is processed — refusing the result over that
+  // threw away the whole transcription. What protects her work is the
+  // per-field merge inside `apply_recording_result` (0092), not a barrier.
 
   // ---- 1. Transcribe once -------------------------------------------------
   const transcriptionId = recording.transcription_id;
@@ -241,9 +243,27 @@ export async function processRecording(
   const consumedSeconds = billableSeconds(transcript, recording.duration_seconds);
 
   // ---- 2. Extract ---------------------------------------------------------
+  // What a previous recording of this same consultation already wrote. Without
+  // it the second capture only ever saw its own audio, so a field it touched
+  // REPLACED what the first one had captured; with it the model is asked to
+  // complete the chart instead. Only rows the merge may update are used, so
+  // nothing the professional typed is ever put in front of the model.
+  const { data: existingRows } = await supabase
+    .from("anamnesis_answers")
+    .select("block_key, field_key, value, source, state, provenance")
+    .eq("consultation_id", recording.consultation_id);
+  const existing: ExistingAnswer[] = (existingRows ?? []).map((row) => ({
+    blockKey: row.block_key as string,
+    fieldKey: row.field_key as string,
+    value: (row.value as string) ?? "",
+    source: (row.source as string) ?? "",
+    state: (row.state as string) ?? "",
+    provenance: (row.provenance as { transcriptionId?: unknown } | null) ?? null,
+  }));
+
   let extraction;
   try {
-    extraction = await extractAnamnesis(transcript, deadlineAt);
+    extraction = await extractAnamnesis(transcript, deadlineAt, existing);
   } catch {
     return reject("provider_unavailable", "extraction");
   }
@@ -293,6 +313,10 @@ export async function processRecording(
     target_answers: answers,
     target_gaps: extraction.gaps,
     target_billable_seconds: consumedSeconds,
+    // Fills consultations.chief_complaint only while it is still empty (0092).
+    // It drives the patient timeline and every AI prompt, and until now nothing
+    // could write it: the catalog excludes it and the header editor was removed.
+    target_chief_complaint: extraction.chiefComplaint,
   });
   if (applyError) {
     // The atomic RPC may have committed while its HTTP response was lost.

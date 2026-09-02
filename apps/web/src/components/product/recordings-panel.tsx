@@ -143,6 +143,11 @@ export default function RecordingsPanel({
     // again changes nothing and support is looking at it.
     if (code === "provider_unavailable") return t("recordings-error-provider-unavailable");
     if (code === "provider_rejected") return t("recordings-error-provider-rejected");
+    // Migration 0092 stopped the merge from refusing a chart that moved while
+    // the audio was processing, so this should no longer happen. A workspace on
+    // an older database still can, and blaming "a temporary service problem"
+    // for her own typing is exactly how the failure read before.
+    if (code === "clinical_revision_conflict") return t("recordings-error-revision");
     return t("recordings-process-error");
   };
 

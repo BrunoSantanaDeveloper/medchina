@@ -195,6 +195,9 @@ export default function ConsultaPage() {
   });
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [emptyConfirmed, setEmptyConfirmed] = useState(false);
+  /** Loose ends the database named when it refused to close the record. */
+  const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
+  const [warningsConfirmed, setWarningsConfirmed] = useState(false);
   const [addendumOpen, setAddendumOpen] = useState(false);
   const [consentCollectionOpen, setConsentCollectionOpen] = useState(false);
   const [addendumBody, setAddendumBody] = useState("");
@@ -548,12 +551,13 @@ export default function ConsultaPage() {
 
   const prepareFinalize = () => {
     if (!consultation || !capabilities?.canFinalize) return;
-    // The dialog no longer makes her tick off "review these" warnings (drafts
-    // and attention fields freeze WITH the record, they are not blockers). The
-    // server still surfaces them; finalize() acknowledges whatever comes back.
-    // Only the empty-record guard remains a real confirmation.
+    // Warnings are discovered by ASKING the server to close: it is the only
+    // place that can see every loose end at once (attention fields, drafts, an
+    // unsigned prescription). The dialog opens clean and shows what comes back.
     setErrorKey(null);
     setEmptyConfirmed(false);
+    setPendingWarnings([]);
+    setWarningsConfirmed(false);
     setFinalizeOpen(true);
   };
 
@@ -591,20 +595,27 @@ export default function ConsultaPage() {
         return { attempt, payload: (await attempt.json().catch(() => ({}))) as FinalizeResponse };
       };
 
-      // The empty-record guard is the only confirmation the professional still
-      // makes by hand. The soft warnings (attention fields, draft hypotheses/
-      // plan) are acknowledged automatically — they freeze with the record and
-      // are not blockers — so if the server surfaces them, tick them and retry.
-      let acknowledged = consultationIsEmpty && emptyConfirmed ? ["empty_consultation"] : [];
-      let { attempt: response, payload: body } = await attemptFinalize(acknowledged);
+      // The database refuses to close a record with loose ends and names them:
+      // fields marked for attention (medication, pregnancy, anticoagulants),
+      // hypotheses or a plan still in draft, an unsigned prescription. This used
+      // to tick every one of them and retry immediately, so she never saw any of
+      // it — the warning copy existed in five languages with no caller. Now the
+      // dialog shows what came back and waits for a deliberate confirmation.
+      const acknowledged = [
+        ...(consultationIsEmpty && emptyConfirmed ? ["empty_consultation"] : []),
+        ...(warningsConfirmed ? pendingWarnings : []),
+      ];
+      const { attempt: response, payload: body } = await attemptFinalize(acknowledged);
       if (!response.ok && body.error?.code === "finalization_confirmation_required") {
         const returned = Array.isArray(body.error?.details?.warnings)
           ? body.error.details.warnings.filter((warning: unknown): warning is string => typeof warning === "string")
           : [];
         const soft = returned.filter((warning) => warning !== "empty_consultation");
         if (soft.length > 0) {
-          acknowledged = [...new Set([...acknowledged, ...soft])];
-          ({ attempt: response, payload: body } = await attemptFinalize(acknowledged));
+          setPendingWarnings(soft);
+          setWarningsConfirmed(false);
+          setBusy(false);
+          return;
         }
       }
 
@@ -1554,6 +1565,32 @@ export default function ConsultaPage() {
               {t("consultation-finalize-summary-fields", { filled: filledCount, total: totalFieldCount })}
             </Typography>
           </Box>
+          {/* What the record still has open. Closing freezes all of it, and an
+              unsigned prescription in particular can never be signed from
+              scratch afterwards — so this is the last moment it can be said. */}
+          {pendingWarnings.length > 0 && (
+            <Alert severity="warning" className="neutral bg-background-paper/60!">
+              <Typography variant="body2" className="mb-1 font-semibold">
+                {t("consultation-finalize-warnings-title")}
+              </Typography>
+              <Box component="ul" className="mb-1 list-disc pl-5">
+                {pendingWarnings.map((warning) => (
+                  <Typography key={warning} component="li" variant="body2" className="text-text-secondary">
+                    {t(`consultation-finalize-warning-${warning}`)}
+                  </Typography>
+                ))}
+              </Box>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={warningsConfirmed}
+                    onChange={(event) => setWarningsConfirmed(event.target.checked)}
+                  />
+                }
+                label={t("consultation-finalize-warnings-confirm")}
+              />
+            </Alert>
+          )}
           {consultationIsEmpty && (
             <Alert severity="warning" className="neutral bg-background-paper/60!">
               <Typography variant="body2" className="mb-1 font-semibold">
@@ -1576,7 +1613,9 @@ export default function ConsultaPage() {
             variant="contained"
             color="primary"
             onClick={finalize}
-            disabled={busy || (consultationIsEmpty && !emptyConfirmed)}
+            disabled={
+              busy || (consultationIsEmpty && !emptyConfirmed) || (pendingWarnings.length > 0 && !warningsConfirmed)
+            }
           >
             {t("consultation-finalize-confirm")}
           </Button>

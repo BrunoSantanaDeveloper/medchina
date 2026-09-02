@@ -238,15 +238,17 @@ export default function PlanPanel({
         setActionError(
           code === "reasoning_not_available"
             ? t("plan-not-available")
-            : code === "plan_validated"
-              ? t("plan-already-validated")
-              : code === "nothing_recorded"
-                ? t("plan-nothing-recorded")
-                : code === "accepted_hypothesis_required"
-                  ? t("plan-accepted-hypothesis-required")
-                  : code === "manual_plan_exists"
-                    ? t("plan-manual-kept")
-                    : t("plan-error"),
+            : code === "ai_consent_required"
+              ? t("plan-consent")
+              : code === "plan_validated"
+                ? t("plan-already-validated")
+                : code === "nothing_recorded"
+                  ? t("plan-nothing-recorded")
+                  : code === "accepted_hypothesis_required"
+                    ? t("plan-accepted-hypothesis-required")
+                    : code === "manual_plan_exists"
+                      ? t("plan-manual-kept")
+                      : t("plan-error"),
         );
         return;
       }
@@ -783,7 +785,7 @@ export default function PlanPanel({
                 {/* The acknowledgement is a READING task about the content
                     above, so it stays in the content. The act it unlocks lives
                     in the footer with the other decisions. */}
-                {!isFinalized && !editing && plan.status === "draft" && mustAcknowledge && (
+                {!editing && plan.status === "draft" && mustAcknowledge && (
                   <FormControlLabel
                     control={<Checkbox checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} />}
                     label={
@@ -855,7 +857,11 @@ export default function PlanPanel({
                         {t("plan-edit")}
                       </Button>
                     )}
-                    {!isFinalized && plan.status === "draft" && (
+                    {/* Validating stays available after the record is closed —
+                        a signature attests what the plan already said, and
+                        without it a plan drafted at the end of the appointment
+                        could never become its signed document. */}
+                    {plan.status === "draft" && (
                       <Button
                         variant="contained"
                         color="primary"

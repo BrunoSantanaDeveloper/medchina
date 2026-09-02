@@ -426,27 +426,35 @@ export default function PrescriptionPanel({
             <Typography variant="body2" className="text-text-primary leading-6 whitespace-pre-line">
               {row.text}
             </Typography>
-            {!isFinalized && (
+            {/* Signing survives the freeze; rewriting and deleting do not.
+                A prescription is usually written at the very end of the
+                appointment, so closing the record first used to leave the
+                document the patient came for permanently unsignable. */}
+            {(!isFinalized || row.status === "draft") && (
               <Box className="flex flex-row flex-wrap gap-2">
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="grey"
-                  onClick={() => {
-                    setActionError(null);
-                    setDraft({ id: row.id, text: row.text });
-                  }}
-                >
-                  {t("prescription-edit")}
-                </Button>
+                {!isFinalized && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="grey"
+                    onClick={() => {
+                      setActionError(null);
+                      setDraft({ id: row.id, text: row.text });
+                    }}
+                  >
+                    {t("prescription-edit")}
+                  </Button>
+                )}
                 {row.status === "draft" && (
                   <Button size="small" variant="outlined" color="primary" onClick={() => setValidating(true)}>
                     {t("prescription-validate")}
                   </Button>
                 )}
-                <Button size="small" variant="text" color="grey" onClick={() => setConfirmDelete(true)}>
-                  {t("prescription-delete")}
-                </Button>
+                {!isFinalized && (
+                  <Button size="small" variant="text" color="grey" onClick={() => setConfirmDelete(true)}>
+                    {t("prescription-delete")}
+                  </Button>
+                )}
               </Box>
             )}
           </>

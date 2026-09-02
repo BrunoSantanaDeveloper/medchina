@@ -138,9 +138,9 @@ select ok(not has_function_privilege('service_role', 'public.publish_document_ve
 select ok(exists(select 1 from pg_constraint where conrelid = 'public.documents'::regclass and confrelid = 'public.patients'::regclass and confdeltype = 'r'), 'patient deletion cannot cascade-delete an immutable document');
 select ok(exists(select 1 from pg_constraint where conrelid = 'public.documents'::regclass and confrelid = 'public.consultations'::regclass and confdeltype = 'r'), 'consultation deletion cannot cascade-delete an immutable document');
 select ok(exists(select 1 from pg_constraint where conrelid = 'public.documents'::regclass and confrelid = 'public.consultation_plans'::regclass and confdeltype = 'r'), 'plan deletion cannot cascade-delete an immutable document');
-select ok(to_regprocedure('public.apply_recording_result(uuid,uuid,uuid,jsonb,jsonb,integer)') is not null, 'clinical apply accepts server-measured billable seconds');
+select ok(to_regprocedure('public.apply_recording_result(uuid,uuid,uuid,jsonb,jsonb,integer,text)') is not null, 'clinical apply accepts server-measured billable seconds');
 select ok(to_regprocedure('public.apply_recording_result(uuid,uuid,uuid,jsonb,jsonb)') is null, 'a worker cannot mark a recording ready outside the usage-ledger transaction');
-select ok(has_function_privilege('service_role', 'public.apply_recording_result(uuid,uuid,uuid,jsonb,jsonb,integer)', 'EXECUTE'), 'the fenced worker can atomically apply clinical data and usage');
+select ok(has_function_privilege('service_role', 'public.apply_recording_result(uuid,uuid,uuid,jsonb,jsonb,integer,text)', 'EXECUTE'), 'the fenced worker can atomically apply clinical data and usage');
 select ok(to_regprocedure('public.commit_billing_subscription_change(uuid,uuid,uuid,text,timestamptz)') is not null, 'billing cancellation state and claim completion share one transaction');
 select ok(has_function_privilege('service_role', 'public.commit_billing_subscription_change(uuid,uuid,uuid,text,timestamptz)', 'EXECUTE'), 'only the trusted billing path can commit a fenced subscription change');
 select ok(to_regprocedure('public.save_consultation_answer(uuid,bigint,text,text,text,text,text)') is not null, 'manual answer autosave compares the clinical revision');
@@ -185,7 +185,7 @@ select ok(
       to_regprocedure('public.claim_document_issue(uuid,uuid)'),
       to_regprocedure('public.release_document_issue(uuid,uuid)'),
       to_regprocedure('public.publish_document_version(uuid,uuid,text,text)'),
-      to_regprocedure('public.apply_recording_result(uuid,uuid,uuid,jsonb,jsonb,integer)'),
+      to_regprocedure('public.apply_recording_result(uuid,uuid,uuid,jsonb,jsonb,integer,text)'),
       to_regprocedure('public.commit_billing_subscription_change(uuid,uuid,uuid,text,timestamptz)')
     ]) as service_functions(function_oid)
   ),
