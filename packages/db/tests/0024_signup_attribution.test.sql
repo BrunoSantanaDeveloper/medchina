@@ -72,6 +72,11 @@ select throws_ok(
   $$insert into public.signup_attribution (org_id, onda)
     values ('a2000000-0000-4000-8000-000000000099', repeat('x', 65))$$,
   '23514',
+  -- `throws_ok(sql, errcode, errmsg, description)`: with three arguments the
+  -- last one is read as the expected MESSAGE, so this compared the constraint's
+  -- real text against a sentence written for a human. The description belongs
+  -- in the fourth slot, with the message left unchecked.
+  null,
   'an oversized value from a query string is refused by the database, not only by the app'
 );
 

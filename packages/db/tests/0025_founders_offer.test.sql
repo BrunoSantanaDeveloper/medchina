@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(12);
 
 -- ============================================================
 -- Migration 0087 — the founders offer counter and gate.
@@ -76,9 +76,15 @@ select is((public.founders_offer() ->> 'reason'), 'open', 'and is open for busin
 
 -- ---------- A seat is held by a LIVE subscription, not by an abandoned cart ----------
 
-insert into public.subscriptions (org_id, plan_id, status, period)
-values ('b2000000-0000-4000-8000-000000000001',
-        (select id from public.plans where slug = 'pro-fundador-t'), 'incomplete', 'yearly');
+-- UPDATE, never INSERT: creating an organization already leaves it with a live
+-- subscription row, and `subscriptions_org_live_unique` allows exactly one — so
+-- inserting a second one aborted the file here and took the five assertions
+-- below it with it.
+update public.subscriptions
+set plan_id = (select id from public.plans where slug = 'pro-fundador-t'),
+    status = 'incomplete',
+    period = 'yearly'
+where org_id = 'b2000000-0000-4000-8000-000000000001';
 
 select is(
   (public.founders_offer() ->> 'seats_taken'),
@@ -97,9 +103,12 @@ select is(
 
 -- ---------- Sold out stops the sale ----------
 
-insert into public.subscriptions (org_id, plan_id, status, period)
-values ('b2000000-0000-4000-8000-000000000002',
-        (select id from public.plans where slug = 'pro-fundador-t'), 'active', 'yearly');
+-- Same reason as above: the org already owns its one live subscription row.
+update public.subscriptions
+set plan_id = (select id from public.plans where slug = 'pro-fundador-t'),
+    status = 'active',
+    period = 'yearly'
+where org_id = 'b2000000-0000-4000-8000-000000000002';
 
 select is((public.founders_offer() ->> 'seats_left'), '0', 'the last seat leaves none');
 select is(

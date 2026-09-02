@@ -26,9 +26,19 @@ select ok(
   'but the workspace can read its own consumption'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.record_library_usage(uuid,text,uuid,uuid)', 'EXECUTE')
-  and not has_function_privilege('anon', 'public.record_library_usage(uuid,text,uuid,uuid)', 'EXECUTE')
-  and has_function_privilege('service_role', 'public.record_library_usage(uuid,text,uuid,uuid)', 'EXECUTE'),
+  -- The signature is pinned in full because `has_function_privilege` RAISES on
+  -- one that does not exist, which kills the whole file rather than failing one
+  -- assertion: the function grew its cost/model columns and this still named
+  -- the original four arguments, so every check below it stopped running.
+  not has_function_privilege(
+    'authenticated', 'public.record_library_usage(uuid,text,uuid,uuid,text,text,numeric)', 'EXECUTE'
+  )
+  and not has_function_privilege(
+    'anon', 'public.record_library_usage(uuid,text,uuid,uuid,text,text,numeric)', 'EXECUTE'
+  )
+  and has_function_privilege(
+    'service_role', 'public.record_library_usage(uuid,text,uuid,uuid,text,text,numeric)', 'EXECUTE'
+  ),
   'recording usage is a service-role act, not a client one'
 );
 select ok(

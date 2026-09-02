@@ -19,11 +19,21 @@ select plan(10);
 
 select has_column('public', 'plans', 'is_public', 'the catalog carries a visibility flag of its own');
 
--- The migration must not have quietly emptied the pricing page.
+-- The migration must not have quietly emptied the pricing page: the column
+-- defaults to true, so every row that predates it stayed listed.
+--
+-- Scoped to the CATALOG TIERS on purpose. Written as "no plan anywhere is
+-- unlisted" this passed forever on a fresh database and failed against every
+-- real one the moment the founders offer went live — forbidding the exact
+-- capability the rest of this file exercises. What must hold for good is that
+-- the grid still has its tiers, not that nothing may ever be hidden from it.
 select is(
-  (select count(*)::integer from public.plans where not is_public),
+  (
+    select count(*)::integer from public.plans
+    where slug in ('gratuito', 'assistente', 'pro') and not is_public
+  ),
   0,
-  'every plan that existed before the migration is still listed'
+  'the catalog tiers stayed listed — an offer may unlist itself, the pricing grid may not empty'
 );
 
 -- ---------- The offer: Pro limits at a founder price, off the catalog ----------
