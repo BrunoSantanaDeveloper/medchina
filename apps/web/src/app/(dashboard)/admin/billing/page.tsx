@@ -1,5 +1,6 @@
 "use client";
 
+import ConversionOffersAdmin from "./components/conversion-offers-admin";
 import CouponsAdmin from "./components/coupons-admin";
 import FoundersAdmin from "./components/founders-admin";
 import ModulesAdmin from "./components/modules-admin";
@@ -74,12 +75,14 @@ export default function AdminBilling() {
                 <Tab label="Coupons" />
                 <Tab label="Subscriptions" />
                 <Tab label="Founders offer" />
+                <Tab label="Trial offers" />
               </Tabs>
               <Box hidden={tab !== 0}>{tab === 0 && <PlansAdmin />}</Box>
               <Box hidden={tab !== 1}>{tab === 1 && <ModulesAdmin />}</Box>
               <Box hidden={tab !== 2}>{tab === 2 && <CouponsAdmin />}</Box>
               <Box hidden={tab !== 3}>{tab === 3 && <SubscriptionsAdmin />}</Box>
               <Box hidden={tab !== 4}>{tab === 4 && <FoundersAdmin />}</Box>
+              <Box hidden={tab !== 5}>{tab === 5 && <ConversionOffersAdmin />}</Box>
             </CardContent>
           </Card>
         </Grid>

@@ -45,7 +45,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const [{ data: patient }, { data: org }, { data: professional }] = await Promise.all([
     supabase.from("patients").select("full_name").eq("id", consultation.patient_id).maybeSingle(),
     supabase.from("organizations").select("name, timezone").eq("id", consultation.org_id).maybeSingle(),
-    supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("display_name, professional_registration, professional_title")
+      .eq("id", user.id)
+      .maybeSingle(),
   ]);
   if (!org?.name?.trim() || !professional?.display_name?.trim()) {
     return clinicalError("document_profile_incomplete");
@@ -89,6 +93,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     orgName: org.name,
     patientName: patient?.full_name ?? "—",
     professionalName: professional.display_name,
+    professionalRegistration: professional.professional_registration,
+    professionalTitle: professional.professional_title,
     attendanceDate: dateFmt.format(new Date(consultation.started_at as string)),
     startTime: timeFmt.format(new Date(consultation.started_at as string)),
     endTime: consultation.finalized_at ? timeFmt.format(new Date(consultation.finalized_at)) : null,

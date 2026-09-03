@@ -66,13 +66,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return clinicalError("provider_unavailable");
   }
 
-  const { data, error } = await createServiceClient().rpc("save_consultation_ai_summary", {
-    target_consultation: id,
-    target_summary: result.summary,
-    target_model: result.model,
-    target_prompt_version: result.promptVersion,
-  });
-  if (error) return clinicalError("internal_error");
+  // Inside a try: `createServiceClient()` THROWS when the service-role key is
+  // absent, and a throw here escaped as a bare 500 with no JSON body — which the
+  // panel could only render as its generic "tente novamente", hiding the cause
+  // from the professional AND from us.
+  let data;
+  try {
+    const saved = await createServiceClient().rpc("save_consultation_ai_summary", {
+      target_consultation: id,
+      target_summary: result.summary,
+      target_model: result.model,
+      target_prompt_version: result.promptVersion,
+    });
+    if (saved.error) {
+      console.error("[summary] save failed", saved.error);
+      return clinicalError("internal_error");
+    }
+    data = saved.data;
+  } catch (cause) {
+    console.error("[summary] service client unavailable", cause);
+    return clinicalError("internal_error");
+  }
   const saved = data as { ok?: boolean; code?: string } | null;
   if (!saved?.ok) return clinicalRpcResponse(saved);
 

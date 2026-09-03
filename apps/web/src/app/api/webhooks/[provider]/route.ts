@@ -368,6 +368,23 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
         if (moduleError) throw new Error("subscription_module_reconciliation_failed");
       }
 
+      // Did a time-boxed offer produce this sale? Stamped on first activation
+      // only, and only while the offer was still live — otherwise the report
+      // cannot tell "the offer worked" from "she subscribed months later"
+      // (migration 0088). Best-effort: never blocks reconciliation.
+      if (sub.status === "incomplete") {
+        try {
+          await supabase
+            .from("conversion_offers")
+            .update({ converted_at: new Date().toISOString() })
+            .eq("org_id", sub.org_id)
+            .is("converted_at", null)
+            .gt("expires_at", new Date().toISOString());
+        } catch {
+          // The subscription is active; a marketing timestamp is not worth a retry.
+        }
+      }
+
       // Count the coupon redemption once, on first activation.
       if (event.metadata.coupon_id && sub.status === "incomplete" && !sub.coupon_id) {
         const { error: subscriptionCouponError } = await supabase

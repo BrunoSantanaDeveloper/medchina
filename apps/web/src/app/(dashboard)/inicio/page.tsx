@@ -12,6 +12,7 @@ import { TONE } from "@/components/marketing/tone";
 import AssistantBand from "@/components/product/assistant-band";
 import AudioUsageCard from "@/components/product/audio-usage-card";
 import ConsultationBriefingDialog from "@/components/product/consultation-briefing-dialog";
+import ConversionOfferCard from "@/components/product/conversion-offer-card";
 import EmptyState from "@/components/product/empty-state";
 import OnboardingChecklistCard from "@/components/product/onboarding-checklist-card";
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -307,6 +308,13 @@ export default function Inicio() {
           </Alert>
         </Grid>
       )}
+
+      {/* Above the work, and only while a live offer exists (migration 0088):
+          it is time-boxed, so burying it under the day's list would waste the
+          window she was given. Renders nothing the rest of the time. */}
+      <Grid size={12} className="empty:hidden">
+        <ConversionOfferCard orgId={orgId} />
+      </Grid>
 
       {homeState.status === "error" ? null : homeState.status === "idle" || homeState.status === "loading" ? (
         <Grid size={12}>

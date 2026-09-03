@@ -648,7 +648,7 @@ export default function PacienteFicha() {
                                   version: artifact.version,
                                 })}
                           </Typography>
-                          <Typography variant="caption" className="text-text-secondary block sm:sr-only">
+                          <Typography variant="body2" className="text-text-secondary block sm:sr-only">
                             {whenLabel}
                           </Typography>
                         </Box>
@@ -697,7 +697,7 @@ export default function PacienteFicha() {
                             ? visit.legacyBody.split("\n")[0]
                             : visit.appointmentNote || visit.chiefComplaint || t("consultation-no-complaint")}
                         </Typography>
-                        <Typography variant="caption" className="text-text-secondary block sm:sr-only">
+                        <Typography variant="body2" className="text-text-secondary block sm:sr-only">
                           {whenLabel}
                         </Typography>
                         {/* The rail already carries the date on a wide screen, so this

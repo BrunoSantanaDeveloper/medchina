@@ -67,6 +67,9 @@ export default function ConsultationAiSummary({
         summary?: string;
       };
       if (!response.ok || !body.ok || typeof body.summary !== "string") {
+        // Every cause gets its own sentence. Collapsing them into one
+        // "tente novamente" told her to repeat an action that could not
+        // succeed, and left the real reason visible only in a server log.
         const code = body.error?.code;
         setErrorKey(
           code === "reasoning_not_available"
@@ -75,7 +78,11 @@ export default function ConsultationAiSummary({
               ? "ai-summary-consent"
               : code === "nothing_recorded"
                 ? "ai-summary-nothing"
-                : "ai-summary-error",
+                : code === "provider_unavailable"
+                  ? "ai-summary-provider"
+                  : code === "consultation_finalized"
+                    ? "ai-summary-finalized"
+                    : "ai-summary-error",
         );
         return;
       }

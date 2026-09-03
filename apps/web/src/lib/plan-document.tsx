@@ -9,6 +9,7 @@
 // runtime and harmless.
 import React from "react";
 
+import { credentialLines } from "@/lib/professional-credentials";
 import type { IssueContext } from "@flyee/documents";
 import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 
@@ -110,6 +111,10 @@ export type PlanDocumentData = {
   orgName: string;
   patientName: string;
   professionalName: string;
+  /** Registration as it appears on her own document ("CNAA 3086"). Optional. */
+  professionalRegistration?: string | null;
+  /** The title she signs under ("Acupunturista Especialista em Medicina Chinesa"). */
+  professionalTitle?: string | null;
   consultationDate: string;
   validatedAt: string;
   version: number;
@@ -209,7 +214,17 @@ function PlanDocument({ data, t, ctx }: { data: PlanDocumentData; t: Labels; ctx
           <View style={styles.signatureBlock}>
             <View style={styles.signatureLine}>
               <Text style={styles.signatureName}>{data.professionalName}</Text>
-              <Text style={styles.signatureMeta}>{t("plan-doc-professional")}</Text>
+              {credentialLines(
+                { registration: data.professionalRegistration, title: data.professionalTitle },
+                {
+                  fallbackTitle: t("plan-doc-professional"),
+                  registration: (value) => `${t("doc-registration")} ${value}`,
+                },
+              ).map((line) => (
+                <Text key={line} style={styles.signatureMeta}>
+                  {line}
+                </Text>
+              ))}
               <Text style={styles.signatureMeta}>
                 {t("plan-doc-validated-at")}: {data.validatedAt}
               </Text>

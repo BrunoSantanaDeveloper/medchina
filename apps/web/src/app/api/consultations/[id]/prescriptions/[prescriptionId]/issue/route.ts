@@ -100,7 +100,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     supabase.from("organizations").select("name, timezone").eq("id", consultation.org_id).maybeSingle(),
     supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, professional_registration, professional_title")
       .eq("id", prescription.validated_by ?? user.id)
       .maybeSingle(),
   ]);
@@ -164,6 +164,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       orgName: org.name,
       patientName: patient?.full_name ?? "—",
       professionalName: professional.display_name,
+      professionalRegistration: professional.professional_registration,
+      professionalTitle: professional.professional_title,
       consultationDate: dateFmt(consultation.started_at),
       validatedAt: dateFmt(source.validatedAt),
       issuedAt,

@@ -1,5 +1,6 @@
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 import { buildClinicalSummary } from "@/lib/clinical-summary";
+import { openConversionOffer } from "@/lib/conversion-offer";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
@@ -118,6 +119,12 @@ async function reportActivationIfFirst(
       ...metaContext,
     });
     await sendGa4Event({ clientId: gaClientId, eventName: "activated", eventId: `activated:${consult.org_id}` });
+
+    // The same instant, used commercially: she has just watched the product do
+    // the thing it promised, on a real patient. Waiting for the calendar drip
+    // to ask (day 11) means asking someone who has already moved on
+    // (migration 0088, docs/FUNIL.md).
+    await openConversionOffer(supabase, consult.org_id, "first_consultation");
   } catch {
     // Measurement is best-effort — a finalized consultation is already committed.
   }

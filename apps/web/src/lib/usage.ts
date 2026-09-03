@@ -1,6 +1,7 @@
 import "server-only";
 
 import { type AllowanceRow, type AudioAllowance, toAllowance } from "@/lib/audio-allowance";
+import { openConversionOffer } from "@/lib/conversion-offer";
 import { notifyUsers } from "@/lib/notifications";
 import type { TranscriptResult } from "@flyee/transcribe";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -102,6 +103,15 @@ async function alertOnConsumption(supabase: SupabaseClient, orgId: string, allow
       : `${allowance.cycleMinutesRemaining} de ${allowance.minutesLimit} minutos restantes.`;
 
   await notifyUsers(userIds, { type: "billing", title: reached, body, href: "/settings/billing" });
+
+  // 80% is the moment of highest NEED — roughly one consultation left — and the
+  // offer opens HERE rather than at 100% on purpose: blocking a clinical tool
+  // mid-work and then selling is the wrong trade when there is a patient in the
+  // room (migration 0088). The RPC decides eligibility; a paying workspace and a
+  // repeat crossing both come back as no-ops.
+  if (crossed === 80 && isTrial) {
+    await openConversionOffer(supabase, orgId, "usage_80");
+  }
 }
 
 /** Threshold delivery is intentionally best-effort after the atomic apply. */

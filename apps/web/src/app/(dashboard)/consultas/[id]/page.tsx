@@ -33,6 +33,7 @@ import {
 import AttachmentsPanel from "@/components/product/attachments-panel";
 import ClinicalContextBar from "@/components/product/clinical-context-bar";
 import ConsentCollectionDialog from "@/components/product/consent-collection-dialog";
+import ConsentSheet, { type ConsentTerm } from "@/components/product/consent-sheet";
 import ConsultationAiSummary from "@/components/product/consultation-ai-summary";
 import ConsultationRecorder from "@/components/product/consultation-recorder";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
@@ -55,6 +56,7 @@ import NiSearch from "@/icons/nexture/ni-search";
 import { calendarDateInTimeZone, defaultAppointmentStart, startAppointment, weeklyOccurrences } from "@/lib/agenda";
 import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
+import { CONSENT_KINDS } from "@/lib/consents";
 import {
   ConsultationSaveCoordinator,
   type ConsultationSaveSnapshot,
@@ -200,6 +202,21 @@ export default function ConsultaPage() {
   const [warningsConfirmed, setWarningsConfirmed] = useState(false);
   const [addendumOpen, setAddendumOpen] = useState(false);
   const [consentCollectionOpen, setConsentCollectionOpen] = useState(false);
+  /**
+   * The in-person consent path, opened from the QR dialog. A patient with no
+   * smartphone used to leave the professional either stuck waiting for a scan
+   * that would never happen, or navigating out of the open consultation to the
+   * patient's consent page and back. The full term is shown and the method is
+   * recorded as verbal/in-person, exactly as on that page — a consent record is
+   * never a shortcut.
+   */
+  const [inPersonConsent, setInPersonConsent] = useState<{
+    slug: string;
+    term: ConsentTerm | null;
+    label: string;
+    purpose: string;
+  } | null>(null);
+  const [consentBusy, setConsentBusy] = useState(false);
   const [addendumBody, setAddendumBody] = useState("");
   const [addendumReason, setAddendumReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -613,6 +630,53 @@ export default function ConsultaPage() {
       setErrorKey("consultation-start-error");
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Open the in-person sheet for the consent the recorder is missing. Audio
+   * comes first: without it there is no capture at all, and the AI consent is
+   * only meaningful once audio is allowed.
+   */
+  const collectConsentInPerson = async () => {
+    if (!consultation) return;
+    const slug = context?.consents.audio ? "ai-processing" : "audio-recording";
+    const kind = CONSENT_KINDS.find((candidate) => candidate.slug === slug);
+    const { data } = await createClient()
+      .from("consent_terms")
+      .select("id, slug, version, title, body")
+      .eq("slug", slug)
+      .eq("is_active", true)
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setInPersonConsent({
+      slug,
+      term: data ?? null,
+      label: kind ? t(kind.label) : slug,
+      purpose: kind ? t(kind.hint) : "",
+    });
+  };
+
+  const submitConsentInPerson = async (input: { granted: boolean; method: "verbal" | "in_person" }) => {
+    if (!inPersonConsent || consentBusy) return;
+    setConsentBusy(true);
+    try {
+      const response = await fetch(`/api/patients/${consultation?.patientId}/consents/${inPersonConsent.slug}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        setErrorKey("consent-save-error");
+        return;
+      }
+      setInPersonConsent(null);
+      await load();
+    } catch {
+      setErrorKey("consent-save-error");
+    } finally {
+      setConsentBusy(false);
     }
   };
 
@@ -1144,6 +1208,11 @@ export default function ConsultaPage() {
               of scrolling and each one silently clipped its own footer (the
               recorder lost its last button). Refusing to shrink is what makes
               overflow-y-auto actually scroll. */}
+          {/* The capture column is capped SHORT of the viewport on purpose. At
+              100vh it filled the screen by itself, and the tools column below it
+              (steps 2 and 3 of the same numbered sequence — Hipóteses, Plano)
+              began a full scroll down, so the guided flow ended where the fold
+              was. Capped, the next step is visible from the top of the page. */}
           {/* A read-only record (cancelled/scheduled) has no capture surface —
               render NOTHING rather than an empty column, which left a large
               blank at the top of the tools column. A FINALIZED one is
@@ -1152,7 +1221,7 @@ export default function ConsultaPage() {
               to (PRD §13.1), and it used to disappear at exactly the moment
               review, audit or a challenge would need it. */}
           {(capabilities?.canEditClinicalRecord || isFinalized) && (
-            <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1 lg:[&>*]:shrink-0">
+            <Box className="order-1 flex min-w-0 flex-col gap-5 lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:max-h-[68vh] lg:overflow-y-auto lg:pr-1 lg:[&>*]:shrink-0">
               {/* This is the only capture surface and remains first in DOM order
                 so mobile visual order and keyboard focus order stay aligned.
                 Mount on canEditClinicalRecord, NOT canRecord: canRecord means
@@ -1797,7 +1866,24 @@ export default function ConsultaPage() {
         consultationId={consultation.id}
         onClose={() => setConsentCollectionOpen(false)}
         onCompleted={load}
+        onCollectInPerson={() => void collectConsentInPerson()}
       />
+
+      {/* The in-person path, with the full term on screen and the method
+          recorded — a consent record is never a shortcut, even with the patient
+          sitting right there. */}
+      {inPersonConsent && (
+        <ConsentSheet
+          open
+          label={inPersonConsent.label}
+          purpose={inPersonConsent.purpose}
+          term={inPersonConsent.term}
+          active={false}
+          busy={consentBusy}
+          onClose={() => setInPersonConsent(null)}
+          onSubmit={submitConsentInPerson}
+        />
+      )}
 
       <ScheduleDialog
         open={returnDialogOpen}

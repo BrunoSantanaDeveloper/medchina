@@ -57,6 +57,16 @@ type ConsentCollectionDialogProps = {
   consultationId?: string | null;
   onClose: () => void;
   onCompleted: () => void | Promise<void>;
+  /**
+   * Record the consent RIGHT HERE instead, with the patient in the room.
+   *
+   * The QR was the only way out of this dialog, so a patient with no
+   * smartphone, no data, or simply unwilling to scan left the professional
+   * either waiting for a scan that would never come or navigating out of an
+   * open consultation and back. Optional: the patient's own consent screen
+   * already has the in-person flow beside it and needs no extra door.
+   */
+  onCollectInPerson?: () => void;
 };
 
 const responseCode = (body: { code?: string; error?: { code?: string } }) => body.code ?? body.error?.code;
@@ -90,6 +100,7 @@ export default function ConsentCollectionDialog({
   consultationId,
   onClose,
   onCompleted,
+  onCollectInPerson,
 }: ConsentCollectionDialogProps) {
   const t = useTranslations("product");
   const theme = useTheme();
@@ -386,6 +397,21 @@ export default function ConsentCollectionDialog({
         <Button color="grey" variant="text" onClick={close} className="min-h-11">
           {t("close")}
         </Button>
+        {/* Not a fallback for a failed scan — an equal path, offered before she
+            discovers the patient cannot use the QR at all. */}
+        {onCollectInPerson && state !== "completed" && (
+          <Button
+            color="primary"
+            variant="text"
+            className="min-h-11"
+            onClick={() => {
+              close();
+              onCollectInPerson();
+            }}
+          >
+            {t("consent-qr-in-person")}
+          </Button>
+        )}
         {(state === "expired" || state === "error") && (
           <Button
             variant="contained"

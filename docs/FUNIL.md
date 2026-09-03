@@ -86,6 +86,33 @@
 - Preços hardcoded da home religados ao banco (T7.2/D12) — antes de qualquer mudança de preço.
 - Termos da garantia publicados (T1.5, a página; o fluxo de reembolso no painel pode vir depois).
 
+## A.4.1 Ofertas de conversão no trial — ENTREGUE (2026-08-11)
+
+⚠️ **Defeito encontrado ao avaliar a ideia**: o drip do trial (`lib/trial-jobs.ts`) é 100% ancorado no **calendário** — welcome, T+2d, `ends_at−3d`, `ends_at`. O próprio comentário do código admite a lacuna ("the minutes dimension is handled in-app by the allowance"). Consequência: quem adota de verdade queima os 300 minutos (~6 consultas) em 2-3 dias, é bloqueada no dia 3, ouve silêncio até o dia 11 — e então recebe um e-mail dizendo que o trial "está expirando", **oito dias depois de ter acabado**. O texto é falso para ela. A melhor prospect era a pior servida.
+
+**Solução (migração `0088_conversion_offers.sql`)**: a oferta passa a ser disparada por **momento de intenção**, não por data. Dois gatilhos, escolhidos por razões diferentes:
+
+| Gatilho | Quando | Por quê |
+|---|---|---|
+| `first_consultation` | 1º prontuário finalizado (`api/consultations/[id]/finalize`, mesmo instante do evento `Activated`) | **Pico emocional** — ela acabou de ver a consulta virar anamnese estruturada. O produto deixou de ser promessa. |
+| `usage_80` | 80% dos minutos do trial (`lib/usage.ts`, junto do alerta que já existia) | **Pico de necessidade**, e deliberadamente **antes da parede**: para ferramenta clínica, bloquear no meio do trabalho e então vender é a troca errada — há paciente na sala. |
+
+**O que separa isso de um cronômetro fake** (tudo fixado em `packages/db/tests/0026_conversion_offers.test.sql`, 12 asserções):
+- `expires_at` é carimbado **uma vez**, no servidor. A UI lê aquele instante — recarregar a página não compra tempo.
+- `unique (org_id, trigger)`: cada momento acontece **uma vez por workspace, para sempre**. Oferta que reaparece depois de expirar não é oferta, é o preço com um relógio desenhado em cima.
+- Nunca duas ao mesmo tempo: cruzar os 80% com a oferta de ativação ainda viva não empilha um segundo prazo sobre a mesma decisão.
+- Quem já paga **nunca** vê — dar desconto a quem comprou a preço cheio é como um lançamento perde os clientes que já tem.
+- Dispensar é definitivo (`dismissed_at`), não some-até-recarregar.
+- O benefício é **congelado na linha** ao abrir: mudar a campanha depois não reescreve promessa já feita.
+
+**Surface**: cartão em `/inicio` com contagem regressiva real + a data-hora exata (ela confere no próprio relógio), CTA para `/settings/billing?cupom=<code>` — reaproveitando integralmente a máquina da Etapa 2, que aplica e confirma o cupom visualmente. Sino toca só no gatilho de ativação; o de 80% já tinha alerta próprio e dois avisos seguidos viram nagware.
+
+**Console** em `/admin/billing → Trial offers`: liga/desliga a campanha e cada gatilho, define janela e cupom, e mostra **abertas × convertidas por gatilho** — poucas aberturas é problema de gatilho, muitas aberturas com pouca conversão é problema de oferta, e são consertos diferentes. `converted_at` é carimbado pelo webhook só se a assinatura ativou **com a oferta ainda viva**.
+
+⚠️ **Armadilha de margem, avisada no console**: os dois provedores aplicam cupom em **todos os ciclos** (Stripe `duration: forever`, Asaas grava o valor já com desconto). Um código de 20% aqui é 20% enquanto ela ficar, não "desconto no primeiro mês". Dimensione o percentual sabendo disso, ou use `valid_until` no cupom.
+
+**Não implementado (recomendação de margem)**: o benefício ideal para MTC seria **minutos bônus** em vez de desconto — custa ~R$1/consulta de COGS contra R$40/mês eternos de um desconto de 20% sobre R$199, e é exatamente o que ela precisa no momento do gatilho. Exige conceder via `grant_audio_minute_pack()` no webhook. Fica como próximo passo natural.
+
 ## A.5 Fase 2 — para a onda Hellen e a base antiga (semanas 2–4)
 
 - `/voltar` + redirect de `/migracao` (T3.2) — o copy atual ("migração avaliada caso a caso") **contradiz a capacidade real** do produto (pipeline de import entregue) e deve morrer antes do disparo à base.
