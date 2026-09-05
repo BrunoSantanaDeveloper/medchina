@@ -2,6 +2,7 @@
 
 import { listUserAdminInfo, resetUserMfa, setUserBanned, UserAdminInfo } from "../actions";
 import ImpersonateDialog from "./impersonate-dialog";
+import SuperadminDialog from "./superadmin-dialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Alert, Box, Chip, Typography } from "@mui/material";
@@ -9,7 +10,9 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import NiCrown from "@/icons/nexture/ni-crown";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
+import NiShield from "@/icons/nexture/ni-shield";
 import NiShieldCross from "@/icons/nexture/ni-shield-cross";
 import NiUserCheck from "@/icons/nexture/ni-user-check";
 import NiUserCross from "@/icons/nexture/ni-user-cross";
@@ -60,6 +63,7 @@ export default function UsersAdmin() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [selfId, setSelfId] = useState<string | null>(null);
   const [impersonating, setImpersonating] = useState<UserTableRow | null>(null);
+  const [roleChange, setRoleChange] = useState<{ row: UserTableRow; grant: boolean } | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -216,13 +220,17 @@ export default function UsersAdmin() {
         minWidth: 70,
         align: "right",
         headerAlign: "right",
-        // Every escalated action needs the service role, exactly as before:
-        // without it the kebab simply has nothing to offer.
+        // The auth-side actions need the service role: without it the kebab
+        // offers only what RLS alone can authorize (the platform role, whose
+        // gate lives in the database — migration 0096).
         getActions: (params) => {
           const row = params.row;
           const canImpersonate = Boolean(serviceAvailable) && row.id !== selfId && !row.isSuperadmin && !row.banned;
           const canResetMfa = Boolean(serviceAvailable) && row.hasMfa;
           const canBan = Boolean(serviceAvailable) && row.id !== selfId;
+          // Never on yourself, in either direction — the database refuses it
+          // too, so offering it would only produce an error.
+          const canChangeRole = row.id !== selfId;
           return [
             ...(canImpersonate
               ? [
@@ -242,6 +250,17 @@ export default function UsersAdmin() {
                     icon={<NiShieldCross size="medium" />}
                     label="Reset 2FA (lost-device recovery)"
                     onClick={() => handleResetMfa(row)}
+                    showInMenu
+                  />,
+                ]
+              : []),
+            ...(canChangeRole
+              ? [
+                  <GridActionsCellItem
+                    key="superadmin"
+                    icon={row.isSuperadmin ? <NiShield size="medium" /> : <NiCrown size="medium" />}
+                    label={row.isSuperadmin ? "Remove platform superadmin" : "Make platform superadmin"}
+                    onClick={() => setRoleChange({ row, grant: !row.isSuperadmin })}
                     showInMenu
                   />,
                 ]
@@ -305,6 +324,18 @@ export default function UsersAdmin() {
         userId={impersonating?.id ?? ""}
         userName={impersonating?.displayName ?? ""}
         onClose={() => setImpersonating(null)}
+      />
+
+      <SuperadminDialog
+        open={Boolean(roleChange)}
+        userId={roleChange?.row.id ?? ""}
+        userName={roleChange?.row.displayName ?? ""}
+        grant={roleChange?.grant ?? false}
+        onClose={() => setRoleChange(null)}
+        onDone={() => {
+          setRoleChange(null);
+          refresh();
+        }}
       />
     </Box>
   );

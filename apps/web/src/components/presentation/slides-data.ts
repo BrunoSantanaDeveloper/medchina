@@ -212,6 +212,8 @@ export interface StatCard {
   note: Bi;
   tone?: "primary" | "secondary" | "jade";
   wide?: boolean;
+  /** A part-to-whole reading: draws a meter track under the figure. */
+  meter?: { value: number; total: number; caption: Bi };
 }
 
 export const SUS_STATS: StatCard[] = [
@@ -260,16 +262,51 @@ export const SUS_FOOTNOTE: Bi = {
 /* Slide 6 · the law                                                   */
 /* ------------------------------------------------------------------ */
 
-export const LAW_FACTS: StatCard[] = [
+/**
+ * The 22 years, plotted instead of asserted.
+ *
+ * `at` is the position on the rail as a share of the elapsed time between the
+ * bill's presentation (July 2003) and the signature (January 2026) — 270 months
+ * in all. Spacing the markers by real elapsed time is the whole point: the
+ * 16-year silence between 2003 and the Chamber vote is the argument, and evenly
+ * spaced markers would erase it.
+ */
+export interface LawMilestone {
+  year: string;
+  at: number;
+  label: Bi;
+  detail: Bi;
+  emphasis?: boolean;
+}
+
+export const LAW_TRACK: LawMilestone[] = [
   {
-    value: { pt: "22 anos", zh: "22年" },
-    label: { pt: "De tramitação no Congresso Nacional", zh: "国会审议历程" },
-    note: {
-      pt: "Projeto apresentado em julho de 2003; sanção em 12 de janeiro de 2026",
-      zh: "2003年7月提案，2026年1月12日签署生效",
-    },
-    tone: "secondary",
+    year: "2003",
+    at: 0,
+    label: { pt: "Projeto apresentado", zh: "提案提出" },
+    detail: { pt: "Julho · dep. Celso Russomanno", zh: "7月 · 众议员 Celso Russomanno" },
   },
+  {
+    year: "2019",
+    at: 71,
+    label: { pt: "Aprovado na Câmara", zh: "众议院通过" },
+    detail: { pt: "16 anos depois", zh: "历时16年" },
+  },
+  {
+    year: "2026",
+    at: 100,
+    label: { pt: "Sancionada", zh: "签署生效" },
+    detail: { pt: "12 de janeiro · Lei 15.345", zh: "1月12日 · 第15345号法律" },
+    emphasis: true,
+  },
+];
+
+export const LAW_SPAN: Bi = {
+  pt: "22 anos de tramitação no Congresso Nacional",
+  zh: "国会审议历时22年",
+};
+
+export const LAW_FACTS: StatCard[] = [
   {
     value: { pt: "250 a 370 mil", zh: "25万–37万" },
     label: { pt: "Profissionais de medicina chinesa no Brasil", zh: "巴西中医药从业者（估计）" },
@@ -412,7 +449,11 @@ export interface SurveyStat {
   value: Bi;
   label: Bi;
   note: Bi;
-  tone: "attention" | "secondary" | "primary" | "jade";
+  /** The plotted magnitude, 0–100. All four share the 3.800-respondent base,
+   *  which is exactly why they belong on one axis instead of four cards. */
+  percent: number;
+  /** `attention` is the one bar the whole product answers — the 6,8% gap. */
+  tone: "attention" | "primary";
 }
 
 export const SURVEY_STATS: SurveyStat[] = [
@@ -420,25 +461,29 @@ export const SURVEY_STATS: SurveyStat[] = [
     value: { pt: "6,8%", zh: "6.8%" },
     label: { pt: "Usavam algum prontuário eletrônico", zh: "在使用电子病历" },
     note: { pt: "E sempre um sistema genérico, emprestado da medicina ocidental", zh: "且均为借用自西医的通用系统" },
+    percent: 6.8,
     tone: "attention",
   },
   {
     value: { pt: "77%", zh: "77%" },
     label: { pt: "Registravam seus atendimentos de alguma forma", zh: "以某种方式记录诊疗" },
     note: { pt: "Muitos ainda no papel", zh: "其中许多人仍使用纸质卡片" },
+    percent: 77,
     tone: "primary",
   },
   {
     value: { pt: "72,7%", zh: "72.7%" },
     label: { pt: "Queriam um prontuário eletrônico dedicado", zh: "希望拥有专属的电子病历" },
     note: { pt: "Construído sob a lógica da medicina chinesa", zh: "依循中医自身的诊疗逻辑" },
+    percent: 72.7,
     tone: "primary",
   },
   {
     value: { pt: "90,9%", zh: "90.9%" },
     label: { pt: "Queriam um sistema de gestão para o consultório", zh: "希望拥有完整的诊所管理系统" },
     note: { pt: "Agenda, financeiro e histórico em um só lugar", zh: "预约、财务与病史合于一处" },
-    tone: "jade",
+    percent: 90.9,
+    tone: "primary",
   },
 ];
 
@@ -534,6 +579,9 @@ export const PLATFORM_STATS: StatCard[] = [
     value: { pt: "222", zh: "222" },
     label: { pt: "Já assinaram planos pagos", zh: "曾订阅付费方案" },
     note: { pt: "Profissionais que sustentaram o produto ao longo da jornada", zh: "一路支持产品走到今天的专业人士" },
+    // 222 of the 1.046 above — the number means nothing without its denominator,
+    // and the share is the free tier working as designed, not a shortfall.
+    meter: { value: 222, total: 1046, caption: { pt: "dos 1.046 cadastrados", zh: "占1046名注册用户" } },
     tone: "secondary",
   },
   {

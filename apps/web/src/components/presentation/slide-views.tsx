@@ -27,6 +27,8 @@ import {
   LAW_GROUPS,
   LAW_GROUPS_NOTE,
   LAW_QUOTE,
+  LAW_SPAN,
+  LAW_TRACK,
   LAYERS_NOTE,
   LIBRARY_SECURITY,
   MANAGEMENT_NOTE,
@@ -42,7 +44,6 @@ import {
   PAUSE_LINE,
   PLATFORM_STATS,
   SURVEY_CONCLUSION,
-  SURVEY_SOURCE,
   SURVEY_STATS,
   SUS_FOOTNOTE,
   SUS_STATS,
@@ -170,6 +171,7 @@ function Stat({
   small,
   wide,
   icon: Icon,
+  meter,
 }: {
   value: Bi;
   label: Bi;
@@ -180,6 +182,7 @@ function Stat({
   small?: boolean;
   wide?: boolean;
   icon?: PhosphorIcon;
+  meter?: { value: number; total: number; caption: Bi };
 }) {
   return (
     <article
@@ -198,9 +201,85 @@ function Stat({
         </span>
       )}
       <b>{value[lang]}</b>
+      {meter && (
+        <span className="deck-meter">
+          <span className="deck-meter-track">
+            <i style={{ width: `${(meter.value / meter.total) * 100}%` }} />
+          </span>
+          <small>{meter.caption[lang]}</small>
+        </span>
+      )}
       <span>{label[lang]}</span>
       <small>{note[lang]}</small>
     </article>
+  );
+}
+
+/**
+ * The survey, plotted.
+ *
+ * Four percentages that share one base (3.800 respondents) were four separate
+ * cards, which made the reader compare them in their head — and the argument IS
+ * the comparison: almost nobody had a system, almost everybody wanted one. One
+ * axis, one baseline, and the gap is visible in a second.
+ *
+ * Colour: one hue for the four bars, with the 6,8% in the DS's attention tone —
+ * emphasis, not a category. The pair was checked with the dataviz validator
+ * against the deck surface (mint↔coral: CVD ΔE 9.3, normal-vision 28.3); the
+ * brand jade FAILED the chroma floor as a fill (0.079 — "reads gray"), which is
+ * why the bars run jade→mint rather than flat jade. Both tones sit under 3:1
+ * against the surface, so every bar carries a visible value label — that is the
+ * required relief, not decoration.
+ */
+function SurveyChart({ lang }: { lang: DeckLang }) {
+  return (
+    <div className="deck-bars">
+      {SURVEY_STATS.map((stat, index) => (
+        <div
+          className={cx("deck-bar-row", stat.tone === "attention" && "deck-bar-row--attention", "deck-reveal")}
+          key={stat.value.pt}
+          style={at(index + 1)}
+        >
+          <span className="deck-bar-label">{stat.label[lang]}</span>
+          <b className="deck-bar-value">{stat.value[lang]}</b>
+          <span className="deck-bar-track">
+            <i style={{ width: `${stat.percent}%` }} />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The 22 years, plotted rather than asserted. Markers sit at their real share of
+ * the elapsed time, so the 16-year silence between the bill and the Chamber vote
+ * takes up most of the rail — which is the whole point of the number.
+ */
+function LawTrack({ lang }: { lang: DeckLang }) {
+  return (
+    <div className="deck-track deck-reveal" style={at(1)}>
+      <span className="deck-track-rail" aria-hidden="true" />
+      {LAW_TRACK.map((milestone) => (
+        <span
+          className={cx(
+            "deck-track-stop",
+            // A stop anchored at the far end has to hang leftwards or it
+            // overflows the canvas — geometry, not "is it the last item".
+            milestone.at >= 100 && "deck-track-stop--end",
+            milestone.emphasis && "deck-track-stop--emphasis",
+          )}
+          key={milestone.year}
+          style={{ left: `${milestone.at}%` }}
+        >
+          <i aria-hidden="true" />
+          <b>{milestone.year}</b>
+          <strong>{milestone.label[lang]}</strong>
+          <small>{milestone.detail[lang]}</small>
+        </span>
+      ))}
+      <span className="deck-track-span">{LAW_SPAN[lang]}</span>
+    </div>
   );
 }
 
@@ -560,8 +639,9 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
         <div className="deck-slide-inner">
           <Head slide={slide} lang={lang} />
           <div className="deck-body">
-            <div className="deck-grid deck-grid--split deck-grid--stretch">
-              <article className="deck-card deck-reveal" style={at(1)}>
+            <LawTrack lang={lang} />
+            <div className="deck-grid deck-grid--split deck-grid--stretch deck-law-grid">
+              <article className="deck-card deck-reveal" style={at(2)}>
                 <span className="deck-card-icon">
                   <Scales size={22} weight="duotone" aria-hidden="true" />
                 </span>
@@ -588,9 +668,10 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
                     label={fact.label}
                     note={fact.note}
                     tone={fact.tone}
+                    icon={UsersThree}
                     small
                     lang={lang}
-                    index={index + 2}
+                    index={index + 3}
                   />
                 ))}
                 <blockquote className="deck-quote deck-reveal" style={at(4)}>
@@ -717,27 +798,12 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
         <div className="deck-slide-inner">
           <Head slide={slide} lang={lang} center />
           <div className="deck-body">
-            <div className="deck-grid deck-grid--4">
-              {SURVEY_STATS.map((stat, index) => (
-                <Stat
-                  key={stat.value.pt}
-                  value={stat.value}
-                  label={stat.label}
-                  note={stat.note}
-                  tone={stat.tone}
-                  lang={lang}
-                  index={index + 1}
-                />
-              ))}
-            </div>
+            <SurveyChart lang={lang} />
             <div className="deck-note deck-reveal" style={at(5)}>
               <Info size={22} weight="duotone" aria-hidden="true" />
-              <div>
-                <p>
-                  <strong>{SURVEY_SOURCE[lang]}</strong>
-                </p>
-                <p>{SURVEY_CONCLUSION[lang]}</p>
-              </div>
+              <p>
+                <strong>{SURVEY_CONCLUSION[lang]}</strong>
+              </p>
             </div>
           </div>
         </div>
@@ -813,6 +879,7 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
                     note={stat.note}
                     tone={stat.tone}
                     icon={[UsersThree, SealCheck, Rocket][index]}
+                    meter={stat.meter}
                     small
                     lang={lang}
                     index={index + 2}

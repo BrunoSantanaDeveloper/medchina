@@ -1304,6 +1304,245 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Charts                                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+  Drawn here rather than with @mui/x-charts (installed, licensed, and the right
+  tool for the product's dashboards): a projected slide needs no tooltip, no
+  legend box and no axis machinery, and it does need exact control of the
+  display type and colours the rest of the deck uses. Three forms only, each
+  chosen by the data's job — magnitude on a shared axis, milestones on a time
+  rail, one part-to-whole meter.
+
+  Mark specs follow the dataviz playbook: bars <= 24px thick, 4px rounded at the
+  data end and square at the baseline, recessive track, values direct-labelled,
+  and text never wearing the data colour.
+*/
+
+.deck-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.deck-bar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 18px;
+  row-gap: 8px;
+}
+
+.deck-bar-label {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.deck-bar-value {
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  /* A text token, never the bar's colour. */
+  color: var(--ink);
+}
+
+.deck-bar-track {
+  grid-column: 1 / -1;
+}
+
+.deck--dark .deck-bar-value {
+  color: var(--ink-strong);
+}
+
+.deck-bar-track {
+  position: relative;
+  height: 22px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line);
+}
+
+.deck--dark .deck-bar-track {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.deck-bar-track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  /* Square at the baseline, rounded at the data end. */
+  border-radius: 3px 4px 4px 3px;
+  background: linear-gradient(90deg, var(--jade), var(--mint));
+}
+
+/*
+  The one bar the product exists to answer. Coral is the DS's attention tone —
+  emphasis within a single series, not a second category.
+*/
+.deck-bar-row--attention .deck-bar-track i {
+  background: linear-gradient(90deg, #d8583f, var(--coral));
+}
+
+.deck-bar-row--attention .deck-bar-value {
+  color: #b45a44;
+}
+
+.deck--dark .deck-bar-row--attention .deck-bar-value {
+  color: #ffb9a7;
+}
+
+/* A time rail: markers sit at their real share of the elapsed years. */
+.deck-track {
+  position: relative;
+  height: 112px;
+  margin: 2px 0 14px;
+  padding: 0 4px;
+}
+
+.deck-track-rail {
+  position: absolute;
+  top: 7px;
+  right: 4px;
+  left: 4px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--line), var(--jade));
+}
+
+.deck-track-stop {
+  position: absolute;
+  top: 0;
+  width: 260px;
+  margin-left: -8px;
+}
+
+/*
+  The last marker would run off the canvas if it kept growing rightwards, so it
+  hangs from its anchor instead: translateX(-100%) lands the box's right edge
+  exactly on the 100% point, and the dot re-centres on that same point.
+*/
+.deck-track-stop--end {
+  margin-left: 0;
+  transform: translateX(-100%);
+  text-align: right;
+}
+
+.deck-track-stop i {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  border: 4px solid var(--ivory);
+  border-radius: 999px;
+  background: var(--jade);
+  box-shadow: 0 0 0 2px var(--jade);
+}
+
+.deck-track-stop--end i {
+  right: -8px;
+  left: auto;
+}
+
+.deck-track-stop--emphasis i {
+  background: var(--coral);
+  box-shadow: 0 0 0 2px var(--coral);
+}
+
+.deck--dark .deck-track-stop i {
+  border-color: var(--ground);
+}
+
+.deck-track-stop b {
+  display: block;
+  margin-top: 22px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.deck-track-stop--emphasis b {
+  color: var(--coral);
+}
+
+.deck-track-stop strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--jade);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.deck--dark .deck-track-stop strong {
+  color: var(--mint);
+}
+
+.deck-track-stop small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.deck-track-span {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  left: 4px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--edge);
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* One ratio against its whole — the figure alone had no denominator. */
+.deck-meter {
+  display: block;
+  margin: 8px 0 2px;
+}
+
+.deck-meter-track {
+  position: relative;
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.deck--dark .deck-meter-track {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.deck-meter-track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--jade), var(--mint));
+}
+
+.deck-meter small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.deck-law-grid {
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------------ */
 /* Slide 4 · milestones                                                */
 /* ------------------------------------------------------------------ */
 
