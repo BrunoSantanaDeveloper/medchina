@@ -36,6 +36,7 @@ values (
     -- side effect of running a migration.
     'enabled', false,
     'plan_slug', 'pro-fundador',
+    'compare_plan_slug', '',
     'seats', 30,
     'deadline', null
   )
@@ -101,6 +102,10 @@ begin
   return jsonb_build_object(
     'enabled', offer_enabled,
     'plan_slug', plan_slug,
+    -- Optional anchor: the plan whose price the offer page strikes through.
+    -- Absent means no struck price is shown at all, because an anchor nobody
+    -- configured would have to be invented.
+    'compare_plan_slug', nullif(btrim(coalesce(config ->> 'compare_plan_slug', '')), ''),
     'plan_id', offer_plan.id,
     'seats_total', seats_total,
     'seats_taken', seats_taken,

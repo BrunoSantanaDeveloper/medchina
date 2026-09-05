@@ -1024,7 +1024,22 @@
     "cookie-consent-description": "Usamos cookies para funciones esenciales (inicio de sesión, preferencias) y para analíticas de uso y medición de anuncios que nos ayudan a mejorar. Puedes rechazar las analíticas en cualquier momento: todo lo demás funciona igual.",
     "cookie-consent-accept": "Entendido",
     "cookie-consent-reject": "Rechazar analíticas",
-    "cookie-consent-privacy": "Política de privacidad"
+    "cookie-consent-privacy": "Política de privacidad",
+    "footer-guarantee": "Garantía",
+    "guarantee-meta-title": "Garantía de {days} días",
+    "guarantee-meta-description": "Cómo funciona la garantía de {days} días de MedChina: reembolso íntegro, cómo solicitarlo, plazos de devolución y qué pasa con las historias clínicas.",
+    "guarantee-title": "Garantía de {days} días",
+    "guarantee-subtitle": "Contrata, úsalo de verdad y, si no encaja en tu práctica, devolvemos el importe íntegro. Sin justificación y sin letra pequeña.",
+    "guarantee-1-title": "Qué garantizamos",
+    "guarantee-1-body": "Si lo solicitas dentro de {days} días naturales desde la confirmación del pago, devolvemos el importe íntegro. No descontamos los minutos de IA ni las consultas que registraste en ese periodo: descontarlos convertiría esto en una multa por haber probado el producto, no en una garantía.",
+    "guarantee-2-title": "Cómo solicitarla",
+    "guarantee-2-body": "Escríbenos por cualquiera de nuestros canales y basta con decir que quieres usar la garantía. No pedimos motivo, no agendamos llamada de retención y no exigimos formulario. Registramos la solicitud el día que llega, y esa es la fecha que cuenta para el plazo.",
+    "guarantee-3-title": "Cuándo vuelve el dinero",
+    "guarantee-3-body": "La devolución se inicia en cuanto confirmamos la solicitud. El tiempo hasta que aparezca depende del medio de pago y está fuera de nuestro control: las transferencias instantáneas suelen volver en pocos días hábiles; la tarjeta de crédito depende del cierre de la factura de la emisora y puede aparecer como crédito en el siguiente extracto; el pago por boleto requiere tus datos bancarios para la transferencia.",
+    "guarantee-4-title": "Tus historias clínicas siguen contigo",
+    "guarantee-4-body": "Pedir el reembolso no borra nada. La cuenta vuelve al plan Gratuito y todo el historial clínico sigue legible y editable: lo que controla un plan de pago es la grabación y el procesamiento por IA, nunca el acceso a lo que ya es tuyo. La exportación completa está disponible en todos los planes, incluido el Gratuito, antes o después del reembolso.",
+    "guarantee-5-title": "Tu derecho de desistimiento",
+    "guarantee-5-body": "Esta garantía es un compromiso comercial que ofrecemos por decisión propia y que se suma a tus derechos legales: el Código de Defensa del Consumidor brasileño (art. 49) asegura 7 días para desistir de compras hechas fuera del establecimiento comercial. Cuando nuestra garantía sea mayor que ese plazo, vale la nuestra; nunca será menor."
   },
   "mobile": {
     "signin-title": "Iniciar sesión",

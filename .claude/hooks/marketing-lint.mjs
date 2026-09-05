@@ -39,22 +39,33 @@ const JSX_TEXT = />\s*([A-Za-zÀ-ÿ][^<>{}]*?\s+\S+\s+\S+[^<>{}]*?)\s*</;
 const ATTR_TEXT = /\b(?:alt|aria-label|placeholder)=["'][A-Za-zÀ-ÿ][^"']+["']/;
 
 /**
- * Hand-crafted exception: the home (`/`) ships as a self-contained,
- * pixel-tuned implementation (`ClinicalSourceHome` + its own CSS) instead of
- * composing the shared library — a deliberate call (docs/DESIGN.md
- * "ClinicalSourceHome exception") to keep its bespoke fidelity rather than
- * regress it to the generic primitives. These files are exempt from the
- * token/library/icon/i18n checks below; everything else (structure, SEO,
- * GSAP, JSON-LD) still applies. Do not add files here casually — a new
- * exception needs the same explicit, documented decision.
+ * The Landing DS (docs/DESIGN.md, "The Landing DS").
+ *
+ * Landing, offer and campaign pages are built in the hand-crafted system the
+ * home established — its own stylesheet vocabulary, direct Phosphor imports and
+ * hardcoded pt-BR copy — because a landing that does not look like the home
+ * reads as a different company. Files in this system are exempt from the
+ * token/library/icon/i18n checks; everything else (structure, SEO, GSAP,
+ * JSON-LD, and the blocking honesty rules) still applies.
+ *
+ * Matched by PATH, not by filename: this was a two-name allowlist while the
+ * home was a one-off exception, which meant every new campaign page needed an
+ * edit to this hook before it could be written. Promoting the system to the
+ * landing standard (2026-08-11) made that friction pointless — the route group
+ * IS the declaration.
  */
-const HAND_CRAFTED_EXCEPTIONS = new Set(["clinical-source-home.tsx", "clinical-source-home.css"]);
+const LANDING_DS_PATTERNS = [
+  // Offer/campaign pages live in their own route group (no site chrome).
+  /\/app\/\(funil\)\//,
+  // The home and the stylesheet that defines the whole vocabulary.
+  /\/clinical-source-home\.(tsx|css)$/,
+];
 
 function lint(filePath, content) {
   const p = filePath.replace(/\\/g, "/");
   const isPage = /\/app\/\(marketing\)\//.test(p);
   const file = basename(p);
-  const isExempt = HAND_CRAFTED_EXCEPTIONS.has(file);
+  const isExempt = LANDING_DS_PATTERNS.some((pattern) => pattern.test(p));
   const violations = [];
   const advisories = [];
   const lines = content.split(/\r?\n/);

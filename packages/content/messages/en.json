@@ -1024,7 +1024,22 @@
     "cookie-consent-description": "We use cookies for core functionality (sign-in, preferences) and for usage analytics and ad measurement that help us improve. You can opt out of analytics at any time — everything else works either way.",
     "cookie-consent-accept": "Got it",
     "cookie-consent-reject": "Reject analytics",
-    "cookie-consent-privacy": "Privacy policy"
+    "cookie-consent-privacy": "Privacy policy",
+    "footer-guarantee": "Guarantee",
+    "guarantee-meta-title": "{days}-day guarantee",
+    "guarantee-meta-description": "How MedChina's {days}-day guarantee works: full refund, how to request it, refund timelines, and what happens to your patient records.",
+    "guarantee-title": "{days}-day guarantee",
+    "guarantee-subtitle": "Subscribe, use it for real, and if it does not fit your practice we return the full amount. No justification, no small print.",
+    "guarantee-1-title": "What we guarantee",
+    "guarantee-1-body": "Request it within {days} calendar days of the payment confirmation and we return the full amount paid. We do not deduct the AI minutes or the consultations you recorded in that period — deducting them would make this a penalty for having tried the product, not a guarantee.",
+    "guarantee-2-title": "How to request it",
+    "guarantee-2-body": "Contact us through any of our channels and simply say you want to use the guarantee. We do not ask for a reason, we do not schedule a retention call and we do not require a form. The request is recorded on the day it arrives, and that is the date the deadline follows.",
+    "guarantee-3-title": "When the money comes back",
+    "guarantee-3-body": "The refund starts as soon as we confirm the request. How long it takes to appear depends on the payment method and is outside our control: instant transfers usually return within a few business days; credit card refunds follow the issuer's billing cycle and may show up as a credit on the next statement; bank slips require your account details for the transfer.",
+    "guarantee-4-title": "Your records stay with you",
+    "guarantee-4-body": "Asking for a refund erases nothing. The account returns to the Free plan and the whole clinical history stays readable and editable — what a paid plan controls is recording and AI processing, never access to what is already yours. Full data export is available on every plan, including Free, before or after the refund.",
+    "guarantee-5-title": "Your statutory right of withdrawal",
+    "guarantee-5-body": "This guarantee is a commercial commitment we choose to offer, on top of your legal rights: the Brazilian Consumer Code (art. 49) grants 7 days to withdraw from purchases made outside a physical store. Where our guarantee is longer than that period, ours applies; it will never be shorter."
   },
   "mobile": {
     "signin-title": "Sign in",

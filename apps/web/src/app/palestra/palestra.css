@@ -1,0 +1,2530 @@
+/*
+  The congress deck (/palestra), built in the Landing DS.
+
+  The layout imports `clinical-source-home.css` first, so everything here
+  inherits the home's own vocabulary — the `--jade`/`--coral`/`--ink` custom
+  properties, the self-hosted TT Chocolates + Mulish faces, `.eyebrow`,
+  `.button` — and a slide reads as the same company as the website. This file
+  only adds what a projected deck needs and the website never did.
+
+  Three decisions shape the whole file:
+
+  1. **A fixed 1280×720 canvas, scaled by transform.** A congress projector may
+     be 1920×1080, a hall screen 1024×768 and the organiser's notebook
+     1366×768. Sizing type in viewport units means composing blind for all of
+     them; sizing it in canvas pixels and scaling the canvas means the slide is
+     laid out ONCE and every projector gets the same picture, with nothing
+     clipped. It is also why the type here is in px: inside a fixed canvas, px
+     IS the design unit — the scale factor does the responsiveness.
+  2. **One language on screen at a time.** `[data-lang]` switches the slide
+     wholesale instead of stacking a translation under every line. Two
+     languages per slide is a wall of text and the audience reads neither.
+  3. **When that language is Chinese, the typeface changes too.** TT Chocolates
+     has no Han glyphs, and the tight negative tracking that flatters Latin
+     display type makes Han unreadable, so `--font-zh` takes over the prose and
+     the headings while the numerals stay in the display face.
+*/
+
+.deck {
+  --canvas-w: 1280px;
+  --canvas-h: 720px;
+  --deck-scale: 1;
+
+  /* Type scale, in canvas pixels. Multiply by --deck-scale for the real size. */
+  --t-display: 66px;
+  --t-title: 44px;
+  --t-subtitle: 20px;
+  --t-eyebrow: 13px;
+  --t-body: 16px;
+  --t-small: 13px;
+  --t-stat: 44px;
+  --t-stat-sm: 32px;
+  --t-glyph: 84px;
+
+  /*
+    CJK stack. Every entry is a face that actually ships with a mainstream OS
+    (PingFang on macOS/iOS, Microsoft YaHei on Windows, Noto on Linux), because
+    the machine in the AV booth is not ours to provision.
+  */
+  --font-zh:
+    "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei",
+    sans-serif;
+  --font-zh-serif: "Songti SC", "Noto Serif CJK SC", "Noto Serif SC", "Source Han Serif SC", SimSun, serif;
+
+  /* Surfaces resolve per theme; the values themselves come from the home. */
+  --ground: var(--ivory);
+  --surface: var(--white);
+  --surface-2: #f6faf8;
+  --edge: var(--line);
+  --ink-strong: var(--ink);
+  --ink-soft: var(--muted);
+  --accent: var(--jade);
+  --accent-soft: var(--jade-soft);
+  --chrome-bg: rgba(251, 250, 246, 0.92);
+  --chrome-edge: rgba(8, 103, 97, 0.14);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--ground);
+  color: var(--ink-strong);
+  font-family: "Mulish", Arial, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.deck--dark {
+  --ground: #04211f;
+  --surface: rgba(255, 255, 255, 0.055);
+  --surface-2: rgba(255, 255, 255, 0.03);
+  --edge: rgba(255, 255, 255, 0.14);
+  --ink-strong: #f4fbf9;
+  --ink-soft: #a9c4bf;
+  --accent: var(--mint);
+  --accent-soft: rgba(30, 201, 164, 0.16);
+  --chrome-bg: rgba(4, 33, 31, 0.9);
+  --chrome-edge: rgba(255, 255, 255, 0.12);
+}
+
+/* ------------------------------------------------------------------ */
+/* Ambience                                                            */
+/* ------------------------------------------------------------------ */
+
+.deck-ambience {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.deck-ambience span {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(150px);
+  opacity: 0.5;
+}
+
+.deck-ambience span:nth-child(1) {
+  top: -22%;
+  left: 50%;
+  width: 900px;
+  height: 560px;
+  background: rgba(8, 103, 97, 0.16);
+  transform: translateX(-50%);
+}
+
+.deck-ambience span:nth-child(2) {
+  right: 4%;
+  bottom: -24%;
+  width: 620px;
+  height: 480px;
+  background: rgba(239, 116, 93, 0.13);
+}
+
+.deck--dark .deck-ambience span:nth-child(1) {
+  background: rgba(30, 201, 164, 0.16);
+}
+
+/* ------------------------------------------------------------------ */
+/* Chrome — the operator's controls, never part of the composition      */
+/* ------------------------------------------------------------------ */
+
+.deck-chrome {
+  position: relative;
+  z-index: 20;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--chrome-edge);
+  background: var(--chrome-bg);
+  backdrop-filter: blur(16px);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.deck-chrome--footer {
+  border-top: 1px solid var(--chrome-edge);
+  border-bottom: 0;
+}
+
+/*
+  Stage-clean: in fullscreen the audience is looking at the projector, and a
+  toolbar with a slide dropdown on it announces the mechanics of the talk. The
+  chrome leaves after a few idle seconds and returns on any input.
+*/
+.deck--clean .deck-chrome {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.deck--clean .deck-chrome--header {
+  transform: translateY(-100%);
+}
+
+.deck--clean .deck-chrome--footer {
+  transform: translateY(100%);
+}
+
+.deck-chrome-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-chrome-group--end {
+  margin-left: auto;
+}
+
+.deck-context {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.deck-context strong {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.deck-context span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.deck-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.deck-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--ink-strong);
+}
+
+.deck-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.deck-btn--icon {
+  padding: 0 8px;
+}
+
+.deck-btn--primary {
+  border-color: var(--jade);
+  background: var(--jade);
+  color: #fff;
+}
+
+.deck-btn--primary:hover:not(:disabled) {
+  background: var(--jade-deep);
+  color: #fff;
+}
+
+.deck--dark .deck-btn--primary {
+  border-color: var(--mint);
+  background: var(--mint);
+  color: #04211f;
+}
+
+/* The language switch: two states, one of them always on. */
+.deck-langswitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 4px 0 9px;
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-soft);
+}
+
+.deck-langswitch button {
+  min-width: 34px;
+  height: 24px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.deck-langswitch button:last-child {
+  font-family: var(--font-zh);
+}
+
+.deck-langswitch button[aria-pressed="true"] {
+  background: var(--jade);
+  color: #fff;
+}
+
+.deck--dark .deck-langswitch button[aria-pressed="true"] {
+  background: var(--mint);
+  color: #04211f;
+}
+
+.deck-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.deck-timer b {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-timer small {
+  color: var(--ink-soft);
+}
+
+.deck-timer--ahead b {
+  color: var(--jade);
+}
+
+.deck-timer--behind b {
+  color: var(--coral);
+}
+
+.deck--dark .deck-timer--ahead b {
+  color: var(--mint);
+}
+
+.deck-timer button {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.deck-timer button:hover {
+  color: var(--ink-strong);
+}
+
+.deck-progress {
+  position: relative;
+  height: 3px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--edge);
+}
+
+.deck-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--jade), var(--mint));
+  transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.deck-counter {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.deck-select {
+  max-width: 250px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--edge);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stage and canvas                                                    */
+/* ------------------------------------------------------------------ */
+
+.deck-stage {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.deck-canvas {
+  width: var(--canvas-w);
+  height: var(--canvas-h);
+  flex: none;
+  transform: scale(var(--deck-scale));
+  transform-origin: center center;
+}
+
+.deck-slide {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 54px 68px;
+  overflow: hidden;
+  border-radius: 26px;
+  background: var(--ground);
+}
+
+/* The Bloco 6 pause: the roteiro asks for a dark, quiet screen. */
+.deck-slide--solemn {
+  background: #04211f;
+  color: #eaf5f2;
+}
+
+/*
+  The inner block takes its NATURAL height and the slide centres it. That is
+  what makes the fit guard below measurable: a centred flex child that fills
+  the box hides its own overflow from `scrollHeight` (content spilling past the
+  top is simply not counted), so a slide could be clipped on stage with nothing
+  in the DOM admitting it.
+*/
+.deck-slide-inner {
+  display: flex;
+  flex-direction: column;
+  transform: scale(var(--fit, 1));
+  transform-origin: center center;
+}
+
+.deck-slide-inner--center {
+  align-items: center;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion                                                              */
+/* ------------------------------------------------------------------ */
+
+@keyframes deck-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--enter-x, 34px), 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes deck-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.deck-slide {
+  animation: deck-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.deck-slide[data-direction="back"] {
+  --enter-x: -34px;
+}
+
+/*
+  Children rise in sequence. `--i` is set inline by the view, so the order is a
+  property of the composition rather than of the DOM — a stat grid staggers
+  left to right even where the markup nests it.
+*/
+.deck-reveal {
+  animation: deck-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(120ms + var(--i, 0) * 80ms);
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide primitives                                                    */
+/* ------------------------------------------------------------------ */
+
+.deck-head {
+  flex: none;
+  margin-bottom: 28px;
+}
+
+.deck-head--center {
+  text-align: center;
+}
+
+.deck-eyebrow {
+  display: block;
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: var(--t-eyebrow);
+  font-weight: 850;
+  letter-spacing: 0.13em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.deck-title {
+  margin: 0;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: var(--t-title);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.deck-title--lead {
+  max-width: 1000px;
+  font-size: 54px;
+}
+
+/* The motto's second sentence carries the brand colour, like the home's h1. */
+.deck-title--lead em {
+  display: block;
+  color: var(--jade);
+  font-style: normal;
+}
+
+.deck--dark .deck-title--lead em {
+  color: var(--mint);
+}
+
+.deck-sub {
+  max-width: 900px;
+  margin: 14px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--t-subtitle);
+  line-height: 1.5;
+}
+
+.deck-head--center .deck-sub,
+.deck-slide-inner--center .deck-sub {
+  margin-inline: auto;
+}
+
+.deck-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.deck-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.deck-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deck-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.deck-grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.deck-grid--split {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 26px;
+  align-items: center;
+}
+
+/* When both columns are card stacks, ragged tops read as misalignment. */
+.deck-grid--stretch {
+  align-items: stretch;
+}
+
+.deck-grid--stretch > .deck-grid {
+  align-content: stretch;
+}
+
+.deck-card {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.deck--dark .deck-card {
+  box-shadow: none;
+}
+
+.deck-card--accent {
+  border-color: rgba(8, 103, 97, 0.28);
+  background: var(--jade-soft);
+}
+
+.deck--dark .deck-card--accent {
+  border-color: rgba(30, 201, 164, 0.32);
+  background: rgba(30, 201, 164, 0.1);
+}
+
+.deck-card--quiet {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+.deck-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 14px;
+  border-radius: 13px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* On the jade-soft accent card the jade-soft chip vanished into the ground. */
+.deck-card--accent .deck-card-icon {
+  background: var(--white);
+}
+
+.deck--dark .deck-card--accent .deck-card-icon {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.deck-card h3 {
+  margin: 0 0 8px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.22;
+}
+
+.deck-card p {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.55;
+}
+
+/* Stat cards ------------------------------------------------------- */
+
+.deck-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.deck--dark .deck-stat {
+  box-shadow: none;
+}
+
+/* Sits in the corner so an icon never costs the card any height. */
+.deck-stat {
+  position: relative;
+}
+
+.deck-stat-icon {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.deck-stat b {
+  font-family: "TT Chocolates", sans-serif;
+  font-size: var(--t-stat);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.deck-stat--sm b {
+  font-size: var(--t-stat-sm);
+}
+
+.deck-stat span {
+  font-size: var(--t-body);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.deck-stat small {
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+
+.deck-stat--primary b {
+  color: var(--jade);
+}
+
+.deck-stat--secondary b {
+  color: #b06a4f;
+}
+
+.deck-stat--jade b {
+  color: var(--jade-deep);
+}
+
+/*
+  Attention, never alarm. Red is reserved for risk and failure across the
+  product (PRD §16.1), so "only 6.8% had any record system" and the column of
+  contradicting signs use coral — the DS's attention colour.
+*/
+.deck-stat--attention b {
+  color: var(--coral);
+}
+
+.deck--dark .deck-stat--primary b,
+.deck--dark .deck-stat--jade b {
+  color: var(--mint);
+}
+
+.deck--dark .deck-stat--secondary b {
+  color: #e8b48f;
+}
+
+.deck-stat--wide {
+  grid-column: span 2;
+}
+
+/* Notes, quotes and lists ------------------------------------------ */
+
+.deck-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.deck-note > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.deck-note p {
+  max-width: 1080px;
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.55;
+}
+
+.deck-note p + p {
+  margin-top: 6px;
+}
+
+/* A note that is a grid cell already has the grid's gap above it. */
+.deck-grid > .deck-note {
+  margin-top: 0;
+}
+
+.deck-card > .deck-note {
+  margin-top: auto;
+}
+
+.deck-quote {
+  margin: 0;
+  padding: 20px 26px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 16px 16px 0;
+  background: var(--surface-2);
+}
+
+.deck-quote p {
+  margin: 0;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.34;
+}
+
+.deck-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.deck-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.deck-list li > svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--accent);
+}
+
+.deck-list p {
+  margin: 0;
+  font-size: var(--t-body);
+  line-height: 1.5;
+}
+
+/* Product windows and v1 sketches ---------------------------------- */
+
+/*
+ * A screenshot in a little window frame (traffic-light dots + body), echoing
+ * the home's flow visuals. The window stays light even in the dark theme —
+ * it is a picture of the product, not a surface of the deck.
+ */
+.deck-window {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.deck-window-bar {
+  display: flex;
+  gap: 5px;
+  flex: none;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--ivory);
+}
+
+.deck-window-bar i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(239, 116, 93, 0.5);
+}
+
+.deck-window-bar i:nth-child(2) {
+  background: rgba(192, 147, 98, 0.55);
+}
+
+.deck-window-bar i:nth-child(3) {
+  background: rgba(8, 103, 97, 0.45);
+}
+
+.deck-window-body {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--paper);
+}
+
+.deck-grid--split > .deck-window .deck-window-body {
+  aspect-ratio: 16 / 9;
+}
+
+/* The v1 gallery runs four windows in a row — a shorter body keeps the whole
+   composition (windows + milestones + pledge) inside the canvas. */
+.deck-grid--4 > .deck-window .deck-window-body {
+  aspect-ratio: 3 / 2;
+}
+
+.deck-window-body img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.deck-window figcaption {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--ivory);
+  color: var(--muted);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+
+/*
+ * Skeleton sketches of the 2021 screens — markup-drawn UI in the Landing DS
+ * tradition (the home draws a whole phone this way). They stand in until the
+ * real captures are dropped into public/images/palestra/.
+ */
+.deck-sketch {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  inset: 0;
+  padding: 16px;
+  background: linear-gradient(160deg, var(--white), var(--paper));
+}
+
+.deck-sketch-line {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.deck-sketch-line--label {
+  height: 6px;
+  opacity: 0.85;
+}
+
+.deck-sketch-input {
+  height: 17px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--white);
+}
+
+.deck-sketch-input--filled {
+  border-color: rgba(8, 103, 97, 0.3);
+  background: var(--jade-soft);
+}
+
+.deck-sketch-avatar {
+  width: 27px;
+  height: 27px;
+  margin-bottom: 2px;
+  border: 1px solid rgba(8, 103, 97, 0.25);
+  border-radius: 999px;
+  background: var(--jade-soft);
+}
+
+.deck-sketch-pill {
+  width: 46%;
+  height: 15px;
+  margin-top: auto;
+  border-radius: 999px;
+  background: var(--jade);
+  opacity: 0.85;
+}
+
+.deck-sketch--agenda {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+  align-content: start;
+}
+
+.deck-sketch--agenda i {
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--white);
+}
+
+.deck-sketch--agenda i:nth-child(10) {
+  border-color: var(--jade);
+  background: var(--jade);
+}
+
+.deck-sketch--agenda i:nth-child(17) {
+  border-color: rgba(8, 103, 97, 0.3);
+  background: var(--jade-soft);
+}
+
+.deck-sketch--financeiro {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 20px 18px 16px;
+}
+
+.deck-sketch--financeiro i {
+  flex: 1;
+  height: var(--h, 50%);
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--mint), var(--jade));
+  opacity: 0.8;
+}
+
+.deck-sketch--financeiro i:nth-child(4) {
+  opacity: 1;
+}
+
+/* Figures ---------------------------------------------------------- */
+
+.deck-figure {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.deck-figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+
+/* The v1 gallery is a row of four screenshots — a squarer crop reads better. */
+.deck-grid--4 > .deck-figure img {
+  aspect-ratio: 4 / 3;
+}
+
+.deck-figure figcaption {
+  padding: 9px 14px;
+  border-top: 1px solid var(--edge);
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+
+.deck-figure--empty {
+  display: grid;
+  place-items: center;
+  min-height: 136px;
+  padding: 16px;
+  border-style: dashed;
+  background: var(--surface-2);
+  box-shadow: none;
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 1 · cover                                                     */
+/* ------------------------------------------------------------------ */
+
+.deck-cover-flags {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 26px 0;
+  padding: 8px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: var(--t-small);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deck-cover-flags svg {
+  display: block;
+  border-radius: 3px;
+}
+
+.deck-cover-flags em {
+  color: var(--ink-soft);
+  font-style: normal;
+}
+
+.deck-cover h1 {
+  max-width: 1020px;
+  margin: 0;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: var(--t-display);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.deck-cover-credits {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 46px;
+  margin-top: 36px;
+  padding-top: 26px;
+  border-top: 1px solid var(--edge);
+}
+
+.deck-cover-credits > div {
+  text-align: left;
+}
+
+.deck-cover-credits span {
+  display: block;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.deck-cover-credits strong {
+  display: block;
+  margin-top: 4px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.deck-cover-credits small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 2 · founders                                                  */
+/* ------------------------------------------------------------------ */
+
+.deck-founder {
+  gap: 14px;
+}
+
+.deck-founder-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.deck-portrait {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  overflow: hidden;
+  border: 2px solid var(--accent);
+  border-radius: 20px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.deck-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.deck-founder--secondary .deck-portrait {
+  border-color: var(--coral);
+  background: rgba(239, 116, 93, 0.14);
+  color: #b45a44;
+}
+
+.deck-founder-top strong {
+  display: block;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.deck-founder-role {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent);
+  font-size: var(--t-small);
+  font-weight: 800;
+}
+
+.deck-founder--secondary .deck-founder-role {
+  color: #b45a44;
+}
+
+.deck-founder-line {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 3 · timeline                                                  */
+/* ------------------------------------------------------------------ */
+
+.deck-timeline {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 34px;
+}
+
+.deck-timeline::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  right: 6%;
+  left: 6%;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--edge);
+}
+
+.deck-timeline-item {
+  position: relative;
+  padding-top: 22px;
+  text-align: center;
+}
+
+.deck-timeline-item::before {
+  content: "";
+  position: absolute;
+  top: -17px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--ground);
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.deck-timeline-item--emphasis::before {
+  background: var(--coral);
+  box-shadow: 0 0 0 2px var(--coral);
+}
+
+.deck-timeline-item b {
+  display: block;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.deck-timeline-item--emphasis b {
+  color: var(--coral);
+}
+
+.deck-timeline-item > span {
+  display: block;
+  margin: 4px 0 8px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.deck-timeline-item p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 7 · two cultures                                              */
+/* ------------------------------------------------------------------ */
+
+.deck-culture-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.deck-culture-head svg {
+  flex: none;
+  border-radius: 3px;
+}
+
+.deck-culture-head strong {
+  display: block;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.deck-culture-head span {
+  display: block;
+  color: var(--accent);
+  font-size: var(--t-small);
+  font-weight: 800;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 4 · milestones                                                */
+/* ------------------------------------------------------------------ */
+
+.deck-milestone-year {
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--jade);
+}
+
+.deck-card--accent .deck-milestone-year {
+  color: var(--jade-deep);
+}
+
+.deck--dark .deck-milestone-year,
+.deck--dark .deck-card--accent .deck-milestone-year {
+  color: var(--mint);
+}
+
+.deck-milestone-label {
+  margin: 6px 0 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 11 · version one                                              */
+/* ------------------------------------------------------------------ */
+
+.deck-v1-milestones {
+  margin-top: 16px;
+}
+
+.deck-v1-pledge {
+  margin-top: 16px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 13 · the motto                                                */
+/* ------------------------------------------------------------------ */
+
+.deck-motto-grid {
+  width: 100%;
+  margin-top: 36px;
+  text-align: left;
+}
+
+.deck-motto-card {
+  position: relative;
+}
+
+/* The card's index sits big and quiet in the corner, like a chapter number. */
+.deck-motto-card > b {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  color: var(--line);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.deck--dark .deck-motto-card > b {
+  color: var(--edge);
+}
+
+.deck-motto-card .deck-card-icon {
+  margin-bottom: 10px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 14 · flow                                                     */
+/* ------------------------------------------------------------------ */
+
+.deck-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.deck-flow-step {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.deck--dark .deck-flow-step {
+  box-shadow: none;
+}
+
+.deck-flow-shot {
+  position: relative;
+  height: 136px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--edge);
+  background: var(--surface-2);
+}
+
+.deck-flow-shot img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+}
+
+/* A hard crop through the middle of a UI reads as a defect; a fade reads as a
+   deliberate glimpse. */
+.deck-flow-shot::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 34px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.95));
+}
+
+.deck--dark .deck-flow-shot::after {
+  background: linear-gradient(180deg, transparent, rgba(6, 44, 42, 0.9));
+}
+
+.deck-flow-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 16px 18px 18px;
+}
+
+.deck-flow-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.deck-flow-label b {
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.deck-flow-step h3 {
+  margin: 0 0 8px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.deck-flow-step p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 15 · traceability                                             */
+/* ------------------------------------------------------------------ */
+
+.deck-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.deck--dark .deck-evidence {
+  box-shadow: none;
+}
+
+/* The stretches the AI actually extracted, highlighted in the quote. */
+.deck-evidence mark {
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--jade-soft);
+  color: var(--jade-dark);
+}
+
+.deck--dark .deck-evidence mark {
+  background: rgba(30, 201, 164, 0.2);
+  color: #c9f3e7;
+}
+
+.deck-player {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+}
+
+.deck-player-play {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--jade);
+  color: #fff;
+}
+
+.deck--dark .deck-player-play {
+  background: var(--mint);
+  color: #04211f;
+}
+
+.deck-player-copy strong {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.deck-player > svg {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.deck-player time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.deck-evidence-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deck-evidence-top span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.deck-evidence-top time {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.deck-evidence blockquote {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.deck-evidence blockquote p {
+  margin: 0;
+  font-size: 17px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.deck-evidence-arrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deck-evidence-arrow > span {
+  height: 1px;
+  flex: 1;
+  background: var(--edge);
+}
+
+/*
+ * The organised fields, one per honesty state. Same triad as the product and
+ * the home: clear evidence in jade, needs-attention in coral (never red — PRD
+ * §16.1 reserves red for risk), not-informed stays neutral because an honest
+ * blank is not a problem to fix.
+ */
+.deck-evidence-field {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.deck-evidence-field--clear {
+  border-color: rgba(8, 103, 97, 0.28);
+  background: var(--jade-soft);
+}
+
+.deck-evidence-field--attention {
+  border-color: rgba(239, 116, 93, 0.35);
+  background: rgba(239, 116, 93, 0.08);
+}
+
+.deck--dark .deck-evidence-field--clear {
+  background: rgba(30, 201, 164, 0.12);
+}
+
+.deck--dark .deck-evidence-field--attention {
+  background: rgba(239, 116, 93, 0.12);
+}
+
+.deck-evidence-field > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ink-soft);
+}
+
+.deck-evidence-field--clear > svg {
+  color: var(--jade);
+}
+
+.deck-evidence-field--attention > svg {
+  color: #b45a44;
+}
+
+.deck--dark .deck-evidence-field--clear > svg {
+  color: var(--mint);
+}
+
+.deck-evidence-field > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.deck-evidence-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.deck-evidence-heading strong {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.deck-evidence-heading em {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.deck-evidence-field--clear .deck-evidence-heading em {
+  color: var(--jade-deep);
+}
+
+.deck-evidence-field--attention .deck-evidence-heading em {
+  color: #b45a44;
+}
+
+.deck-evidence-field--missing .deck-evidence-heading em {
+  color: var(--ink-soft);
+}
+
+.deck--dark .deck-evidence-field--clear .deck-evidence-heading em {
+  color: var(--mint);
+}
+
+.deck-evidence-field p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.deck-evidence-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  color: var(--jade);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.deck--dark .deck-evidence-source {
+  color: var(--mint);
+}
+
+.deck-evidence-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.deck-evidence-footer svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.deck-principle {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.deck-principle-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+}
+
+.deck-principle--1 .deck-principle-icon {
+  background: var(--jade-soft);
+  color: var(--jade);
+}
+
+.deck-principle--2 .deck-principle-icon {
+  background: rgba(53, 107, 255, 0.09);
+  color: #2f56c8;
+}
+
+.deck-principle--3 .deck-principle-icon {
+  background: rgba(239, 116, 93, 0.1);
+  color: #b45a44;
+}
+
+.deck--dark .deck-principle--1 .deck-principle-icon {
+  background: rgba(30, 201, 164, 0.12);
+  color: var(--mint);
+}
+
+.deck--dark .deck-principle--2 .deck-principle-icon {
+  background: rgba(53, 107, 255, 0.16);
+  color: #8fb0ff;
+}
+
+.deck-principle strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.deck-principle p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 16 · hypotheses                                               */
+/* ------------------------------------------------------------------ */
+
+.deck-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.deck-column--support {
+  border-color: rgba(8, 103, 97, 0.3);
+  background: var(--jade-soft);
+}
+
+.deck-column--attention {
+  border-color: rgba(239, 116, 93, 0.36);
+  background: rgba(239, 116, 93, 0.09);
+}
+
+.deck-column--missing {
+  border-color: rgba(53, 107, 255, 0.28);
+  background: rgba(53, 107, 255, 0.07);
+}
+
+.deck--dark .deck-column--support {
+  background: rgba(30, 201, 164, 0.12);
+}
+
+.deck-column-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.deck-column--support .deck-column-title {
+  color: var(--jade-deep);
+}
+
+.deck-column--attention .deck-column-title {
+  color: #b45a44;
+}
+
+.deck-column--missing .deck-column-title {
+  color: #2f56c8;
+}
+
+.deck--dark .deck-column--support .deck-column-title {
+  color: var(--mint);
+}
+
+.deck--dark .deck-column--missing .deck-column-title {
+  color: #8fb0ff;
+}
+
+.deck-column ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.deck-column li {
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.deck-layers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.deck-layer {
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-top: 3px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.deck-layer b {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.deck-layer span {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.deck-library-foot,
+.deck-exams-foot {
+  margin-top: 14px;
+}
+
+/* The one line the roteiro reads out loud — it must not look like the other
+   note bands, or it drowns among them. */
+.deck-disclaimer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 15px 20px;
+  border: 1.5px solid rgba(8, 103, 97, 0.4);
+  border-radius: 14px;
+  background: var(--jade-soft);
+}
+
+.deck--dark .deck-disclaimer {
+  border-color: rgba(30, 201, 164, 0.4);
+  background: rgba(30, 201, 164, 0.1);
+}
+
+.deck-disclaimer > svg {
+  flex: none;
+  color: var(--jade-deep);
+}
+
+.deck--dark .deck-disclaimer > svg {
+  color: var(--mint);
+}
+
+.deck-disclaimer p {
+  margin: 0;
+  color: var(--jade-dark);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.deck--dark .deck-disclaimer p {
+  color: #d9f3eb;
+}
+
+.deck-hypotheses-notes {
+  margin-top: 14px;
+}
+
+.deck-hypotheses-notes .deck-note p {
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 18 · the four examinations                                    */
+/* ------------------------------------------------------------------ */
+
+.deck-exams {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.deck-exam {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 16px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.deck-exam-glyph {
+  font-family: var(--font-zh-serif);
+  font-size: var(--t-glyph);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.deck-exam strong {
+  margin-top: 12px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+/*
+  Class, not `.deck-exam > span`: the element selector also matched the glyph
+  and, being more specific than `.deck-exam-glyph`, shrank 望闻问切 to caption
+  size — the one thing on this slide that has to be big.
+*/
+.deck-exam-meaning {
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.deck-exam small {
+  margin-top: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.deck-exam--assisted {
+  border-color: rgba(8, 103, 97, 0.34);
+  background: var(--jade-soft);
+}
+
+.deck-exam--assisted .deck-exam-glyph {
+  color: var(--jade-deep);
+}
+
+.deck-exam--assisted small {
+  background: var(--jade);
+  color: #fff;
+}
+
+.deck--dark .deck-exam--assisted {
+  background: rgba(30, 201, 164, 0.12);
+}
+
+.deck--dark .deck-exam--assisted .deck-exam-glyph {
+  color: var(--mint);
+}
+
+.deck--dark .deck-exam--assisted small {
+  background: var(--mint);
+  color: #04211f;
+}
+
+.deck-exams-quote {
+  margin-top: 14px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Video                                                               */
+/* ------------------------------------------------------------------ */
+
+.deck-video {
+  position: relative;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  background: #04211f;
+  box-shadow: var(--shadow-md);
+}
+
+/* On the solemn (dark) slides the frame needs its own ground to read at all. */
+.deck-slide--solemn .deck-video {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #063b39;
+}
+
+.deck-video video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  background: #000;
+}
+
+/*
+  Shown until the file is dropped in `public/videos/palestra/`. It names the
+  person and the role and stops there — a projected slide never tells the
+  audience it is a placeholder.
+*/
+.deck-video-standby {
+  display: flex;
+  aspect-ratio: 16 / 9;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 30px;
+  background: linear-gradient(150deg, #063b39, #04211f 62%);
+  color: #eaf5f2;
+  text-align: center;
+}
+
+.deck-video-standby-icon {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--mint);
+}
+
+.deck-video-standby strong {
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.deck-video-standby span {
+  color: #a9c4bf;
+  font-size: 15px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Bloco 6 · the pause                                                 */
+/* ------------------------------------------------------------------ */
+
+.deck-solemn-line {
+  max-width: 900px;
+  margin: 0;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.34;
+}
+
+.deck-slide--solemn .deck-eyebrow {
+  color: var(--mint);
+}
+
+.deck-slide--solemn .deck-title {
+  color: #eaf5f2;
+}
+
+.deck-slide--solemn .deck-sub {
+  color: #a9c4bf;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slide 20 · closing                                                  */
+/* ------------------------------------------------------------------ */
+
+.deck-thanks {
+  margin: 18px 0 0;
+  font-family: var(--font-zh-serif);
+  font-size: 58px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+.deck-thanks span {
+  display: block;
+  margin-top: 10px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 24px;
+  letter-spacing: 0.02em;
+}
+
+.deck-closing-quote {
+  max-width: 940px;
+  margin-top: 24px;
+  text-align: left;
+}
+
+.deck-contact {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  margin-top: 26px;
+  padding: 18px 26px;
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+}
+
+.deck-qr {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 148px;
+  height: 148px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.deck-qr img {
+  width: 100%;
+  height: 100%;
+}
+
+.deck-contact-lines strong {
+  display: block;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.deck-contact-lines a,
+.deck-contact-lines span {
+  display: block;
+  margin-top: 3px;
+  font-size: 15px;
+}
+
+.deck-contact-lines a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.deck-contact-lines small {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+}
+
+.deck-closing-pledge {
+  max-width: 880px;
+  margin-top: 18px;
+  color: var(--ink-strong);
+  font-size: 18px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Chinese typography                                                  */
+/* ------------------------------------------------------------------ */
+
+/*
+  When Chinese is the projected language the whole canvas changes typeface.
+  Numerals and Latin proper nouns (the founders' names, the pinyin, the domain)
+  deliberately stay in the display face — they are the same string in both
+  languages, and Han faces render Latin digits poorly.
+*/
+.deck[data-lang="zh"] .deck-canvas {
+  font-family: var(--font-zh);
+}
+
+.deck[data-lang="zh"] .deck-title,
+.deck[data-lang="zh"] .deck-cover h1,
+.deck[data-lang="zh"] .deck-card h3,
+.deck[data-lang="zh"] .deck-flow-step h3,
+.deck[data-lang="zh"] .deck-culture-head strong,
+.deck[data-lang="zh"] .deck-quote p,
+.deck[data-lang="zh"] .deck-solemn-line {
+  font-family: var(--font-zh);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+
+/* Han glyphs carry more ink per character, so the display sizes come down. */
+.deck[data-lang="zh"] .deck-cover h1 {
+  font-size: 54px;
+}
+
+.deck[data-lang="zh"] .deck-title {
+  font-size: 38px;
+}
+
+.deck[data-lang="zh"] .deck-title--lead {
+  font-size: 46px;
+}
+
+.deck[data-lang="zh"] .deck-quote p {
+  font-size: 20px;
+}
+
+.deck[data-lang="zh"] .deck-solemn-line {
+  font-size: 31px;
+}
+
+.deck[data-lang="zh"] .deck-eyebrow,
+.deck[data-lang="zh"] .deck-column-title,
+.deck[data-lang="zh"] .deck-flow-label,
+.deck[data-lang="zh"] .deck-evidence-top,
+.deck[data-lang="zh"] .deck-evidence-arrow,
+.deck[data-lang="zh"] .deck-timeline-item > span,
+.deck[data-lang="zh"] .deck-milestone-label,
+.deck[data-lang="zh"] .deck-cover-flags,
+.deck[data-lang="zh"] .deck-cover-credits span {
+  letter-spacing: 0.06em;
+  /* Uppercasing is a Latin convention; Han has no case to raise. */
+  text-transform: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Presenter view — the second window, always in Portuguese            */
+/* ------------------------------------------------------------------ */
+
+.presenter {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100dvh;
+  overflow: hidden;
+  background: #04211f;
+  color: #eaf5f2;
+  font-family: "Mulish", Arial, sans-serif;
+}
+
+.presenter-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.presenter-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.presenter-clock small {
+  color: #a9c4bf;
+  font-family: "Mulish", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.presenter-pace {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.presenter-pace--ahead {
+  background: rgba(30, 201, 164, 0.16);
+  color: var(--mint);
+}
+
+.presenter-pace--ontime {
+  background: rgba(255, 255, 255, 0.1);
+  color: #d6e8e4;
+}
+
+.presenter-pace--behind {
+  background: rgba(239, 116, 93, 0.18);
+  color: #ffb9a7;
+}
+
+.presenter-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+  padding: 18px 20px 22px;
+}
+
+.presenter-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.presenter-script {
+  min-height: 0;
+  padding-right: 12px;
+  overflow-y: auto;
+  font-size: 21px;
+  line-height: 1.62;
+  white-space: pre-line;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.presenter-card {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.presenter-card h4 {
+  margin: 0 0 6px;
+  color: var(--mint);
+  font-family: "Mulish", sans-serif;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.presenter-card--cut h4 {
+  color: #ffb9a7;
+}
+
+.presenter-next {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: #a9c4bf;
+  font-size: 13px;
+}
+
+.presenter-next strong {
+  display: block;
+  margin-top: 3px;
+  color: #eaf5f2;
+  font-size: 16px;
+}
+
+.presenter-title {
+  margin: 0;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.presenter-title span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--mint);
+  font-family: "Mulish", sans-serif;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* Overlays                                                            */
+/* ------------------------------------------------------------------ */
+
+.deck-blackout {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  padding: 8vh 8vw;
+  background: #000;
+  color: #4d5c59;
+  cursor: pointer;
+  text-align: center;
+}
+
+.deck-blackout small {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.deck-modal {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 33, 31, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.deck-modal-panel {
+  width: min(100%, 460px);
+  padding: 22px 24px;
+  border: 1px solid var(--edge);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.deck--dark .deck-modal-panel {
+  background: #06322f;
+}
+
+.deck-modal-panel h2 {
+  margin: 0 0 14px;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.deck-shortcuts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 16px;
+  font-size: 14px;
+}
+
+.deck-shortcuts dt {
+  color: var(--ink-soft);
+}
+
+.deck-shortcuts dd {
+  margin: 0;
+}
+
+.deck-shortcuts kbd {
+  padding: 2px 8px;
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ */
+/* Reduced motion                                                      */
+/* ------------------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-slide,
+  .deck-reveal {
+    animation: none !important;
+  }
+
+  .deck-chrome,
+  .deck-progress i {
+    transition: none !important;
+  }
+}

@@ -42,6 +42,10 @@ const PUBLIC_PREFIXES = [
   "/api/oauth",
   "/api/mcp",
   "/verify",
+  // Offer pages (route group `(funil)`): reached by a link the operator sends,
+  // deliberately noindex and absent from the sitemap (docs/FUNIL.md D10), but
+  // they must still open without a session.
+  "/fundadores",
   "/planos",
   "/como-funciona",
   "/recursos",
@@ -52,6 +56,7 @@ const PUBLIC_PREFIXES = [
   "/legal",
   "/ajuda",
   "/blog",
+  "/palestra",
   // SEO surfaces crawlers hit anonymously.
   "/sitemap.xml",
   "/robots.txt",

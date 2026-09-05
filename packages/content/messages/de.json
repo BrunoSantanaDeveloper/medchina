@@ -1024,7 +1024,22 @@
     "cookie-consent-description": "Wir verwenden Cookies für Kernfunktionen (Anmeldung, Einstellungen) sowie für Nutzungsanalysen und Anzeigenmessung, die uns helfen, besser zu werden. Sie können die Analysen jederzeit ablehnen — alles andere funktioniert trotzdem.",
     "cookie-consent-accept": "Verstanden",
     "cookie-consent-reject": "Analysen ablehnen",
-    "cookie-consent-privacy": "Datenschutzerklärung"
+    "cookie-consent-privacy": "Datenschutzerklärung",
+    "footer-guarantee": "Garantie",
+    "guarantee-meta-title": "{days}-Tage-Garantie",
+    "guarantee-meta-description": "So funktioniert die {days}-Tage-Garantie von MedChina: volle Rückerstattung, Antragstellung, Erstattungsfristen und was mit den Patientenakten geschieht.",
+    "guarantee-title": "{days}-Tage-Garantie",
+    "guarantee-subtitle": "Abonnieren, wirklich nutzen — und wenn es nicht zu Ihrer Praxis passt, erstatten wir den vollen Betrag. Ohne Begründung und ohne Kleingedrucktes.",
+    "guarantee-1-title": "Was wir garantieren",
+    "guarantee-1-body": "Wenn Sie innerhalb von {days} Kalendertagen nach der Zahlungsbestätigung anfragen, erstatten wir den vollen gezahlten Betrag. Wir ziehen weder die genutzten KI-Minuten noch die in dieser Zeit dokumentierten Behandlungen ab — ein Abzug wäre eine Strafe fürs Ausprobieren, keine Garantie.",
+    "guarantee-2-title": "Wie Sie sie in Anspruch nehmen",
+    "guarantee-2-body": "Melden Sie sich über einen unserer Kanäle und sagen Sie einfach, dass Sie die Garantie nutzen möchten. Wir fragen nicht nach einem Grund, vereinbaren kein Rückgewinnungsgespräch und verlangen kein Formular. Der Antrag wird mit dem Eingangstag erfasst, und dieser Tag zählt für die Frist.",
+    "guarantee-3-title": "Wann das Geld zurückkommt",
+    "guarantee-3-body": "Die Erstattung wird eingeleitet, sobald wir den Antrag bestätigen. Wie lange es bis zur Gutschrift dauert, hängt vom Zahlungsmittel ab und liegt nicht in unserer Hand: Sofortüberweisungen kommen meist in wenigen Werktagen zurück; bei Kreditkarten richtet es sich nach dem Abrechnungszyklus des Herausgebers und kann als Gutschrift auf der nächsten Abrechnung erscheinen; für Zahlscheine benötigen wir Ihre Bankdaten.",
+    "guarantee-4-title": "Ihre Akten bleiben bei Ihnen",
+    "guarantee-4-body": "Eine Erstattung löscht nichts. Das Konto kehrt zum kostenlosen Tarif zurück und die gesamte klinische Historie bleibt lesbar und bearbeitbar — ein bezahlter Tarif steuert Aufnahme und KI-Verarbeitung, niemals den Zugang zu dem, was bereits Ihnen gehört. Der vollständige Datenexport steht in jedem Tarif zur Verfügung, auch im kostenlosen, vor oder nach der Erstattung.",
+    "guarantee-5-title": "Ihr Widerrufsrecht",
+    "guarantee-5-body": "Diese Garantie ist eine freiwillige kommerzielle Zusage, die zu Ihren gesetzlichen Rechten hinzukommt: Das brasilianische Verbraucherschutzgesetz (Art. 49) gewährt 7 Tage Widerrufsrecht für Käufe außerhalb von Geschäftsräumen. Ist unsere Garantie länger, gilt unsere; kürzer wird sie nie sein."
   },
   "mobile": {
     "signin-title": "Anmelden",

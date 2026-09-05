@@ -68,6 +68,52 @@ export async function listPublicPlans(): Promise<PublicPlan[] | null> {
 }
 
 /**
+ * One plan by slug, INCLUDING unlisted ones (0085).
+ *
+ * `listPublicPlans` deliberately hides them, which is right for a catalog and
+ * wrong for the offer page itself: a founders page has to print the price of
+ * the very plan the catalog is not allowed to show. Named explicitly rather
+ * than adding a flag to the listing, so nothing can accidentally leak an
+ * unlisted plan into a grid.
+ *
+ * Still refuses an INACTIVE plan — that one is retired, not merely unlisted.
+ */
+export async function getPlanBySlug(slug: string): Promise<PublicPlan | null> {
+  if (!slug.trim()) return null;
+
+  let supabase: ReturnType<typeof createServiceClient>;
+  try {
+    supabase = createServiceClient();
+  } catch {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("plans")
+    .select("slug, name, description, kind, period, price_cents, currency, credit_amount, trial_days, is_free, limits, sort")
+    .eq("slug", slug.trim())
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    slug: data.slug,
+    name: data.name,
+    description: data.description,
+    kind: data.kind,
+    period: data.period,
+    priceCents: data.price_cents,
+    currency: data.currency,
+    creditAmount: data.credit_amount,
+    trialDays: data.trial_days,
+    isFree: data.is_free,
+    limits: (data.limits ?? {}) as Record<string, number>,
+    sort: data.sort,
+  };
+}
+
+/**
  * Resolves a campaign code for the PUBLIC pricing page.
  *
  * The authenticated checkout validates the same code through the customer's own

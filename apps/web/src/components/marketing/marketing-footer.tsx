@@ -30,6 +30,7 @@ const COLUMNS = [
     links: [
       { key: "nav-about", href: "/sobre" },
       { key: "nav-contact", href: "/contato" },
+      { key: "footer-guarantee", href: "/legal/garantia" },
       { key: "footer-terms", href: "/legal/termos" },
       { key: "footer-privacy", href: "/legal/privacidade" },
       { key: "footer-cookies", href: "/legal/cookies" },

@@ -1,0 +1,241 @@
+/*
+ * Sections that only the founders offer needs, written in the Landing DS
+ * vocabulary (docs/DESIGN.md) — same custom properties, radii and shadow scale
+ * as clinical-source-home.css, which this page also imports. Nothing here
+ * redefines a DS token; it only composes them.
+ */
+
+/* ---------- Seat counter ---------- */
+
+.offer-seats {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 26px 28px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.offer-seats-count {
+  margin: 0;
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-align: center;
+}
+
+.offer-seats--closed .offer-seats-count {
+  color: var(--muted);
+}
+
+.offer-seats-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--jade-soft);
+}
+
+.offer-seats-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--jade), var(--mint));
+}
+
+.offer-seats--closed .offer-seats-fill {
+  background: var(--muted);
+}
+
+.offer-seats-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+/* ---------- Price block ---------- */
+
+.offer-price {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.offer-price-was {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.offer-price-was s {
+  text-decoration-thickness: 2px;
+}
+
+.offer-price-badge {
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--jade-soft);
+  color: var(--jade-deep);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.offer-price-now {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+}
+
+.offer-price-now strong {
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: clamp(2.6rem, 1.8rem + 3.2vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.offer-price-now small {
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+/* ---------- Guarantee: the DS gives price and guarantee the same weight ----------
+   The plan (docs/FUNIL.md T3.1) requires the guarantee to carry the same visual
+   weight as the price, because the objection here is not "is it worth it" but
+   "what happens to my patients' records if I leave". */
+
+.offer-guarantee {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  align-items: start;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 30px 32px;
+  border: 1px solid var(--jade-soft);
+  border-radius: 26px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.offer-guarantee-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  background: var(--jade-soft);
+  color: var(--jade-deep);
+}
+
+.offer-guarantee h3 {
+  margin: 0 0 8px;
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.offer-guarantee p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.offer-guarantee a {
+  color: var(--jade);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- What the founder gets ---------- */
+
+.offer-includes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 18px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.offer-includes article {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.offer-includes article > svg {
+  color: var(--jade);
+}
+
+.offer-includes h3 {
+  margin: 0;
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.offer-includes p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ---------- Closed state ---------- */
+
+.offer-closed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--paper);
+  text-align: center;
+}
+
+.offer-closed h2 {
+  margin: 0;
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.offer-closed p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .offer-guarantee {
+    grid-template-columns: 1fr;
+    padding: 26px 22px;
+  }
+}

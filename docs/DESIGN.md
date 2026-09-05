@@ -2,7 +2,14 @@
 
 **This file is the single source of the public site's visual direction.** The `marketing-page` skill READS it and builds within it. It is durable design memory: once committed, every new page, every edit, and every added section inherit these decisions so the whole site reads as one system.
 
-**Scope note (2026-07-26):** everything below governs `/como-funciona`, `/recursos`, `/planos`, `/seguranca`, `/migracao`, `/sobre`, `/contato` and any future public route. **The home (`/`) is a documented exception** — see "The home exception: ClinicalSourceHome" further down — it does not compose the library described here.
+**Scope note (2026-08-11 — REVISED, supersedes the 2026-07-26 note):** the public site runs **two design systems**, and which one applies is decided by what the page is FOR, not by when it was built:
+
+| Page kind | Design system | Examples |
+|---|---|---|
+| **Landing / offer / external-facing pages** — anything a campaign, an event or an ad points at | **The MedChina Landing DS** (`clinical-source-home.tsx` + `clinical-source-home.css`) — see "The Landing DS" below | `/` (home), `/fundadores`, and every future landing, offer or campaign page |
+| **Informational / institutional pages** — the site's own reference material | **The marketing component library** (`components/marketing/*`), governed by the "Cuidado Sereno" table below | `/como-funciona`, `/recursos`, `/planos`, `/seguranca`, `/migracao`, `/sobre`, `/contato`, `/ajuda`, `/blog`, `/legal/*` |
+
+The previous version of this note had it backwards: it declared the library the default for "any future public route" and framed the home as a one-off exception that must never become a precedent. The user's decision on **2026-08-11** inverts that for the pages that carry commercial weight — a landing page that does not look like the home is a landing page that looks like a different company. The library is not deprecated; it keeps the institutional pages, where its structure and i18n discipline are the right tool.
 
 ## STRICT MODE — how this governs work
 
@@ -56,7 +63,28 @@
 <!-- marketing-page Pass 0.R writes here when the user drops reference screenshots in attachments/. Structural ingredients only (composition, depth, breakout, imagery, motion) mapped to library primitives — never copied hex/fonts. -->
 _None ingested — direction chosen from generated candidates (A · Cuidado Sereno; previews in the session artifact)._
 
-## The home exception: ClinicalSourceHome (decided 2026-07-26)
+## The Landing DS — `ClinicalSourceHome` (decided 2026-07-26 as an exception, PROMOTED to the landing standard 2026-08-11)
+
+**Every landing, offer, campaign and event page is built in this system.** Not "may be" — is. A visitor who arrives from an ad, a QR code at a congress or a WhatsApp link must land on something that looks like the MedChina she will see next; a landing composed from the generic library next to a home built like this reads as two different products.
+
+### What the system IS (use these, they already exist)
+
+- **The stylesheet is the DS.** `app/(marketing)/clinical-source-home.css` (~3.900 lines) defines a global class vocabulary — `.section`, `.section-heading`, `.eyebrow`, `.button` (`--sm`/`--secondary`/`--light`), `.hero`, `.price-card`, `.plan-*`, `.faq-section`, `.final-cta`, `.check-list`, `.site-footer` — almost none of it scoped under `.clinical-source-home` (only 2 references in the whole file). A new landing page **imports this stylesheet and composes those classes**; it does not invent per-page CSS beyond what its own sections genuinely need.
+- **Icons**: direct `@phosphor-icons/react` imports, `weight="duotone"` for feature/section marks, `weight="fill"` for status ticks. NOT the `@/icons/nexture/ni-*` alias.
+- **Copy**: hardcoded pt-BR. Landing pages sell to one market; routing campaign copy through five locale catalogs buys nothing and slows every edit.
+- **Colour**: the CSS custom properties of the DS (`--jade`, `--mint`, `--blue`, `--coral`, `--ink`…), not `hsl(var(--token))`.
+- **Imagery**: real photography and real product screenshots from `public/images/medchina-*.webp`.
+- **Commercial data is still DATA**: prices, limits and plan copy come from the database through `getDisplayPlans()` (fixed 2026-08-10, decision D12 in `docs/FUNIL.md`) — the DS governs the LOOK, never the numbers.
+
+### What still applies, unexempted, to every page in this system
+
+Exactly one `<h1>`; real `alt` text; **no fabricated testimonials, metrics, logos or seals** (HOME-SPEC §33.5 — still blocking); the clinical-safety copy guardrails below; honest scarcity (a counter or deadline must derive from server state — `docs/FUNIL.md`); and performance hygiene (explicit image dimensions, `loading="lazy"` below the fold, WebP).
+
+### The lint contract
+
+`.claude/hooks/marketing-lint.mjs` exempts this system from the token/icon-import/hardcoded-copy checks via `LANDING_DS_EXCEPTIONS` — matched by **path**, so `app/(funil)/**` and the two `clinical-source-home.*` files qualify automatically and a new landing page needs no edit to the hook. Everything outside those paths still enforces the full library contract.
+
+### History (why this file used to say the opposite)
 
 `app/(marketing)/page.tsx` renders `<ClinicalSourceHome />` (`components/marketing/clinical-source-home.tsx`, ~1200 lines, `"use client"`) with its own route-owned stylesheet (`app/(marketing)/clinical-source-home.css`, ~3900 lines). It is a **self-contained, hand-tuned port** of an externally built reference (`attachments/medchina-clinica/` — since removed, the port having been judged approved), not a composition of the primitives above:
 
@@ -65,7 +93,9 @@ _None ingested — direction chosen from generated candidates (A · Cuidado Sere
 - Copy is hardcoded pt-BR, not routed through the `marketing` i18n namespace.
 - Real photography (`public/images/medchina-*.webp`) instead of token-driven mocks.
 
-**Why this exists:** the user had this file built as a literal, pixel-tuned port of an external reference and judged it materially better — "muito baixo nível" was their verdict on composing it from the generic shared primitives instead. On 2026-07-26 they made it explicit: keep this file's UI/UX intact; where a project rule would otherwise force a "drastic" rewrite, change the rule instead of the page. `.claude/hooks/marketing-lint.mjs` encodes the resulting exemption as `HAND_CRAFTED_EXCEPTIONS` (currently `clinical-source-home.tsx` + its CSS) — token/arbitrary-value/icon-import checks and the hardcoded-copy/raw-img advisories are skipped for exactly these two files; every other marketing file still enforces the full contract. **Do not extend the exception to a new file without the same explicit call** — it is a named exception, not a precedent.
+**Why this exists:** the user had this file built as a literal, pixel-tuned port of an external reference and judged it materially better — "muito baixo nível" was their verdict on composing it from the generic shared primitives instead. On 2026-07-26 they made it explicit: keep this file's UI/UX intact; where a project rule would otherwise force a "drastic" rewrite, change the rule instead of the page.
+
+**2026-08-11 — the exception became the rule for landing pages.** The 2026-07-26 text closed with "do not extend the exception to a new file without the same explicit call — it is a named exception, not a precedent." That explicit call was made: landing and external-facing pages now follow this system by default (see "The Landing DS" above). The hook's allowlist was widened from two filenames to a path rule so the standard does not need a code edit every time a campaign page is created.
 
 **What still applies to this file, unexempted:** exactly one `<h1>`, real `alt` text, no fabricated testimonials/metrics/logos (HOME-SPEC §33.5 — still blocking, see the audit below), the clinical-safety copy guardrails (never imply autonomous diagnosis, trial never automatic, mobile app always "complementar"), and ordinary performance hygiene (explicit image dimensions, `loading="lazy"` below the fold, WebP over PNG) — all verified/fixed 2026-07-26 during the ad-landing-page quality audit.
 

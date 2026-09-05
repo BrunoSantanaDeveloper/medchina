@@ -19,6 +19,13 @@ const MARKETING_ROUTES = [
   "/legal/termos",
   "/legal/privacidade",
   "/legal/cookies",
+  // A commercial promise the offer pages link to: it has to be findable on its
+  // own, not only reachable from a checkout (docs/FUNIL.md T1.5).
+  "/legal/garantia",
+  // NOT here on purpose: `/palestra`. It is in PUBLIC_PREFIXES so the congress
+  // AV machine can open it without a session, but it carries the speaker's full
+  // teleprompter (including a personal health account) and stage directions —
+  // presentation material, not marketing. The page also sets robots noindex.
 ];
 
 /**

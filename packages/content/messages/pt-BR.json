@@ -1024,7 +1024,22 @@
     "cookie-consent-description": "Usamos cookies para funcionalidades essenciais (login, preferências) e para análises de uso e medição de anúncios que nos ajudam a melhorar. Você pode recusar as análises a qualquer momento! O resto do site funciona normalmente.",
     "cookie-consent-accept": "Entendi",
     "cookie-consent-reject": "Recusar análises",
-    "cookie-consent-privacy": "Política de privacidade"
+    "cookie-consent-privacy": "Política de privacidade",
+    "footer-guarantee": "Garantia",
+    "guarantee-meta-title": "Garantia de {days} dias",
+    "guarantee-meta-description": "Como funciona a garantia de {days} dias do MedChina: reembolso integral, como solicitar, prazos de estorno e o que acontece com os prontuários.",
+    "guarantee-title": "Garantia de {days} dias",
+    "guarantee-subtitle": "Assine, use de verdade e, se não fizer sentido para a sua rotina, devolvemos o valor integral. Sem justificativa e sem letra miúda.",
+    "guarantee-1-title": "O que garantimos",
+    "guarantee-1-body": "Se você solicitar em até {days} dias corridos a partir da confirmação do pagamento, devolvemos o valor integral pago. Não descontamos os minutos de IA nem as consultas que você já registrou nesse período — se descontássemos, isso não seria uma garantia, seria uma multa por ter testado.",
+    "guarantee-2-title": "Como solicitar",
+    "guarantee-2-body": "Fale com a gente pelos canais de contato: basta dizer que quer usar a garantia. Não pedimos motivo, não agendamos conversa de retenção e não exigimos formulário. Registramos o pedido na data em que ele chega, que é a data que vale para o prazo.",
+    "guarantee-3-title": "Quando o dinheiro volta",
+    "guarantee-3-body": "O estorno é iniciado assim que confirmamos o pedido. O tempo até o valor aparecer depende do meio de pagamento e não está sob nosso controle: PIX costuma retornar em poucos dias úteis; cartão de crédito depende do fechamento da fatura da administradora e pode aparecer como crédito na fatura seguinte; boleto exige seus dados bancários para a transferência.",
+    "guarantee-4-title": "Seus prontuários continuam com você",
+    "guarantee-4-body": "Pedir reembolso não apaga nada. A conta volta ao plano Gratuito e todo o histórico clínico continua legível e editável — o que o plano pago controla é a gravação e o processamento por IA, nunca o acesso ao que já é seu. A exportação completa dos dados está disponível em qualquer plano, inclusive no Gratuito, antes ou depois do reembolso.",
+    "guarantee-5-title": "Seu direito de arrependimento",
+    "guarantee-5-body": "Esta garantia é uma condição comercial que oferecemos por escolha e que se soma ao seu direito legal: o Código de Defesa do Consumidor (art. 49) assegura 7 dias para desistir de compras feitas fora do estabelecimento comercial. Quando nossa garantia for maior que esse prazo, vale a nossa; ela nunca será menor."
   },
   "mobile": {
     "signin-title": "Entrar",

@@ -1024,7 +1024,22 @@
     "cookie-consent-description": "Nous utilisons des cookies pour les fonctions essentielles (connexion, préférences) ainsi que pour des analyses d’usage et la mesure publicitaire qui nous aident à progresser. Vous pouvez refuser les analyses à tout moment — tout le reste fonctionne normalement.",
     "cookie-consent-accept": "Compris",
     "cookie-consent-reject": "Refuser les analyses",
-    "cookie-consent-privacy": "Politique de confidentialité"
+    "cookie-consent-privacy": "Politique de confidentialité",
+    "footer-guarantee": "Garantie",
+    "guarantee-meta-title": "Garantie de {days} jours",
+    "guarantee-meta-description": "Comment fonctionne la garantie de {days} jours de MedChina : remboursement intégral, comment la demander, délais de remboursement et ce qu’il advient des dossiers patients.",
+    "guarantee-title": "Garantie de {days} jours",
+    "guarantee-subtitle": "Abonnez-vous, utilisez vraiment le produit et, si cela ne convient pas à votre pratique, nous remboursons l’intégralité. Sans justification et sans petits caractères.",
+    "guarantee-1-title": "Ce que nous garantissons",
+    "guarantee-1-body": "Si vous en faites la demande dans les {days} jours calendaires suivant la confirmation du paiement, nous remboursons l’intégralité du montant payé. Nous ne déduisons ni les minutes d’IA ni les consultations enregistrées pendant cette période : les déduire ferait de ceci une pénalité pour avoir essayé, pas une garantie.",
+    "guarantee-2-title": "Comment la demander",
+    "guarantee-2-body": "Contactez-nous par l’un de nos canaux et dites simplement que vous souhaitez utiliser la garantie. Nous ne demandons pas de motif, nous ne programmons pas d’entretien de rétention et nous n’exigeons aucun formulaire. La demande est enregistrée le jour où elle arrive, et c’est cette date qui compte pour le délai.",
+    "guarantee-3-title": "Quand l’argent revient",
+    "guarantee-3-body": "Le remboursement est lancé dès que nous confirmons la demande. Le délai d’apparition dépend du moyen de paiement et échappe à notre contrôle : les virements instantanés reviennent généralement en quelques jours ouvrés ; la carte de crédit suit le cycle de facturation de l’émetteur et peut apparaître en crédit sur le relevé suivant ; les avis de paiement nécessitent vos coordonnées bancaires.",
+    "guarantee-4-title": "Vos dossiers restent chez vous",
+    "guarantee-4-body": "Demander un remboursement n’efface rien. Le compte revient à l’offre Gratuite et tout l’historique clinique reste lisible et modifiable — ce qu’une offre payante contrôle, c’est l’enregistrement et le traitement par IA, jamais l’accès à ce qui vous appartient déjà. L’export complet des données est disponible sur toutes les offres, y compris la Gratuite, avant ou après le remboursement.",
+    "guarantee-5-title": "Votre droit de rétractation",
+    "guarantee-5-body": "Cette garantie est un engagement commercial que nous choisissons d’offrir et qui s’ajoute à vos droits légaux : le Code de la consommation brésilien (art. 49) accorde 7 jours pour renoncer à un achat effectué hors établissement. Lorsque notre garantie dépasse ce délai, c’est la nôtre qui s’applique ; elle ne sera jamais plus courte."
   },
   "mobile": {
     "signin-title": "Se connecter",
