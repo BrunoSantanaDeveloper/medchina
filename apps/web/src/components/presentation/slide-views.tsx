@@ -904,7 +904,6 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
     /* ---------------------------------------------------------- */
     case "testimony-cnaa":
     case "testimony-user":
-    case "testimony-confucius":
       return (
         <div className="deck-slide-inner">
           <Head slide={slide} lang={lang} center />

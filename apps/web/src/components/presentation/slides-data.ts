@@ -5,7 +5,7 @@ import { Bi, GalleryFrame, SlideData } from "./types";
  *
  * Fidelity rules, learned from an audit against the roteiro:
  *
- * - `script` follows `attachments/Palestra-MedChina-Congresso-MTC-Xinjiang.docx.md`
+ * - `script` follows `attachments/Discurso_MedChina_AI_China_14_minutos.docx.md`
  *   near-verbatim. It is the teleprompter: if a sentence is not here, Debora
  *   will not say it on stage.
  * - Nothing on a slide claims more than the roteiro claims. No superlatives the
@@ -31,10 +31,11 @@ export const ETHICAL_DISCLAIMER: Bi = {
 /** Public contact shown on the closing slide, and the target of the printed QR. */
 export const CONTACT = {
   /** Confirm before the talk — the repo has no NEXT_PUBLIC_SITE_URL committed. */
-  site: "medchina.com.br",
-  siteUrl: "https://medchina.com.br",
-  email: "contato@medchina.com.br",
+  site: "medchinaprontuarios.com.br",
+  siteUrl: "https://medchinaprontuarios.com.br",
+  email: "contato@medchinaprontuarios.com.br",
   city: { pt: "Goiânia, GO · Brasil", zh: "巴西 · 戈亚斯州 · 戈亚尼亚" } as Bi,
+  qrCode: "/images/palestra/qr-medchina.svg",
 };
 
 /* ------------------------------------------------------------------ */
@@ -116,14 +117,6 @@ export const TIMELINE_EVENTS: TimelineEvent[] = [
     body: {
       pt: "A coroa autoriza a vinda de dois mil chineses para as plantações experimentais de chá no Rio de Janeiro.",
       zh: "王室批准两千名中国人赴里约热内卢的试验性茶园。",
-    },
-  },
-  {
-    year: "1908",
-    label: { pt: "Navio Kasato Maru", zh: "笠户丸号" },
-    body: {
-      pt: "Os primeiros imigrantes japoneses chegam, e com eles a acupuntura japonesa.",
-      zh: "首批日本移民抵达，日式针灸随之传入。",
     },
   },
   {
@@ -236,12 +229,6 @@ export const SUS_STATS: StatCard[] = [
     tone: "primary",
   },
   {
-    value: { pt: "R$ 4", zh: "约4雷亚尔" },
-    label: { pt: "Custo aproximado de uma sessão para o Estado", zh: "公立体系单次治疗的大致成本" },
-    note: { pt: "Poucos investimentos em saúde rendem tanto por tão pouco", zh: "卫生投入中少有如此高的性价比" },
-    tone: "secondary",
-  },
-  {
     value: { pt: "20 a 35 milhões", zh: "2000万–3500万" },
     label: { pt: "De brasileiros já se trataram com acupuntura", zh: "已接受过针灸治疗的巴西民众" },
     note: {
@@ -308,7 +295,7 @@ export const LAW_SPAN: Bi = {
 
 export const LAW_FACTS: StatCard[] = [
   {
-    value: { pt: "250 a 370 mil", zh: "25万–37万" },
+    value: { pt: "370 mil", zh: "37万" },
     label: { pt: "Profissionais de medicina chinesa no Brasil", zh: "巴西中医药从业者（估计）" },
     note: { pt: "Estimativas do setor — ainda não há censo oficial", zh: "行业估算，尚无官方普查" },
     tone: "primary",
@@ -422,7 +409,7 @@ export const CONGRESS_CARDS: StatCard[] = [
     tone: "primary",
   },
   {
-    value: { pt: "3.000+", zh: "3000+" },
+    value: { pt: "3.800+", zh: "3800+" },
     label: { pt: "Acessos nos três dias", zh: "三天内的访问人次" },
     note: {
       pt: "Totalmente online e gratuito — o evento pioneiro no Brasil nesse formato",
@@ -600,7 +587,7 @@ export const PLATFORM_STATS: StatCard[] = [
 /* ------------------------------------------------------------------ */
 
 export const PAUSE_LINE: Bi = {
-  pt: "Para eu estar aqui hoje, foi preciso parar. Foi preciso olhar para a vida depois do diagnóstico e decidir o que merecia o meu tempo.",
+  pt: "Para eu estar aqui hoje, foi preciso parar. Foi preciso olhar para a vida depois do diagnóstico e decidir.",
   zh: "为了今天能站在这里，我必须停下来；必须在确诊之后重新审视生命，决定什么值得我的时间。",
 };
 
@@ -1025,11 +1012,11 @@ export const SLIDES_DATA: SlideData[] = [
     stageNote: "Slide 1 · Título da palestra + bandeiras do Brasil e da China.",
     script: `Boa tarde.
 
-Quero começar agradecendo à organização deste congresso pelo convite e pela acolhida. Estar aqui, em Xinjiang, falando sobre medicina chinesa para um público que a vive todos os dias, no país onde ela nasceu, tem um peso especial para mim. Para uma acupunturista brasileira, isso não é uma viagem de trabalho. É uma peregrinação.
+Quero agradecer aos organizadores deste evento por esta preciosa oportunidade e a todos os especialistas e colegas pela atenção e pela troca.
 
-Eu atravessei o mundo para chegar até aqui. São quase 15 mil quilômetros entre a minha cidade e esta sala. Mas a distância que quero apresentar a vocês hoje é outra: a que a medicina de vocês percorreu até chegar ao meu país, e o que estamos construindo lá para honrá-la.
+Para uma acupunturista brasileira, estar aqui não é apenas uma viagem de trabalho. É uma peregrinação.
 
-Meu nome é Debora Giovanella. Sou terapeuta desde 2017. Antes disso, trabalhei 25 anos com gestão de marketing e vendas, como empreendedora. Em 2020 organizei o primeiro Congresso de Práticas da Sabedoria Milenar do Brasil, totalmente online, e hoje sou fundadora do MedChina, uma plataforma de prontuário eletrônico e gestão criada exclusivamente para os profissionais de medicina chinesa do meu país.`,
+Hoje quero compartilhar uma história que une três elementos: a trajetória da acupuntura no Brasil, minha trajetória como terapeuta e o nascimento do MedChina AI.`,
   },
   {
     key: "founders",
@@ -1042,15 +1029,7 @@ Meu nome é Debora Giovanella. Sou terapeuta desde 2017. Antes disso, trabalhei 
     subtitle: { pt: "Três histórias que, na verdade, são uma só", zh: "三个故事，其实是同一个故事" },
     stageNote:
       "Slide 2 · Foto dos fundadores + logo MedChina. Fotos reais em /images/palestra/ substituem os monogramas.",
-    script: `Não construí isso sozinha. Meu sócio, Bruno Santana, é engenheiro de software com 15 anos de experiência e lidera toda a tecnologia do MedChina à frente da TriboDEV, a casa de desenvolvimento responsável pela plataforma. Ele representa uma parte desta história que vocês vão ouvir bastante hoje: o encontro entre a sabedoria milenar e a engenharia moderna.
-
-Nos próximos 40 minutos quero contar três histórias que, na verdade, são uma só.
-
-A primeira é a história da medicina chinesa no Brasil: como ela chegou nos navios, foi marginalizada, resistiu, cresceu e, em janeiro deste ano, foi finalmente reconhecida por lei.
-
-A segunda é a história de uma terapeuta brasileira que não encontrou nenhum sistema para registrar seus atendimentos e decidiu construir um.
-
-E a terceira é a história do que acontece quando a inteligência artificial é colocada a serviço da tradição, e não no lugar dela.
+    script: `Meu sócio, Bruno Santana, é engenheiro de software, com mais de 15 anos de experiência, e lidera a tecnologia do MedChina.
 
 Vamos começar pelo princípio.`,
   },
@@ -1068,17 +1047,15 @@ Vamos começar pelo princípio.`,
     },
     stageNote: "Slide 3 · Linha do tempo: 1808 → 2026.",
     optionalCut: `[CORTE OPCIONAL] Quem quebrou esse isolamento foi um personagem improvável: Friedrich Spaeth, um fisioterapeuta nascido em Luxemburgo, que fugiu do nazismo, estudou acupuntura na Alemanha e se naturalizou brasileiro. Em 1958, Spaeth começou a ensinar acupuntura no Rio de Janeiro e em São Paulo. Naquele mesmo ano nasceu a Sociedade Brasileira de Acupuntura. É esse o marco do ensino formal da medicina chinesa no meu país.`,
-    script: `Vocês sabem há quanto tempo existem agulhas chinesas em solo brasileiro?
+    script: `Existem registros de acupuntura chinesa no Brasil há 218 anos.
 
-Há 218 anos.
+Os primeiros relatos mencionam acupunturistas vindos de Macau em 1808, junto à corte portuguesa que havia se transferido para o Brasil.
 
-Os primeiros relatos falam de acupunturistas vindos de Macau em 1808, trazidos com a corte portuguesa de Dom João VI, que havia se transferido para o Brasil. Em 1812, a coroa autorizou a vinda de dois mil chineses para as plantações experimentais de chá no Rio de Janeiro. Em 1908, o navio Kasato Maru trouxe os primeiros imigrantes japoneses, e com eles a acupuntura japonesa.
+Mas havia uma grande barreira: o idioma.
 
-Mas havia uma barreira: o idioma. Os mestres orientais que chegavam não conseguiam ensinar em português. Por isso, durante mais de um século, a acupuntura existiu no Brasil em circuito fechado, dentro das colônias de imigrantes. A técnica estava lá. O conhecimento não circulava.
+Os mestres orientais não conseguiam ensinar em português. Durante mais de um século, a acupuntura permaneceu principalmente dentro das colônias de imigrantes.
 
-O preço da pioneirice foi alto. A classe médica brasileira rejeitou a acupuntura durante décadas, e a prática atravessou um longo período de marginalização. O médico Evaldo Martins Leite, um dos pioneiros da área, chegou a sofrer censura pública do conselho de medicina de São Paulo simplesmente por praticar acupuntura. Ensinar e aplicar essa medicina no Brasil do século 20 exigia coragem.
-
-E mesmo assim ela cresceu.`,
+E, mesmo assim, ela cresceu.`,
   },
   {
     key: "milestones",
@@ -1093,11 +1070,11 @@ E mesmo assim ela cresceu.`,
       zh: "1988 纳入SUS · 1995 专业委员会 · 2006 PNPIC · 2018 多专业实践",
     },
     stageNote: "Slide 4 · Marcos: 1988 SUS · 1995 conselhos · 2006 PNPIC.",
-    script: `Em 1988, o governo federal levou a acupuntura para a rede pública de saúde, mas restrita aos médicos. Em 1995, o Conselho Federal de Medicina a reconheceu como especialidade médica. Só que os conselhos de enfermagem, fisioterapia e biomedicina fizeram o mesmo movimento em seus territórios, e o resultado foram quase três décadas de disputas nos tribunais sobre uma única pergunta: quem pode segurar a agulha?
+    script: `Em 1988, a acupuntura entrou na rede pública de saúde, inicialmente restrita à aplicação por médicos.
 
-O desempate veio em 2006, quando o Ministério da Saúde criou a Política Nacional de Práticas Integrativas e Complementares e abriu o sistema público para profissionais não médicos: fisioterapeutas, enfermeiros, biomédicos, psicólogos, farmacêuticos.
+Em 2018, foi consolidada como prática multiprofissional no Sistema Único de Saúde, o SUS.
 
-Em 2018, a acupuntura foi consolidada oficialmente como prática multiprofissional no nosso sistema público de saúde, o SUS.`,
+Segundo os dados apresentados nesta palestra, entre 2008 e 2018 foram realizados mais de cinco milhões de atendimentos, e as práticas integrativas chegaram a 83% dos municípios brasileiros.`,
   },
   {
     key: "sus-numbers",
@@ -1112,13 +1089,11 @@ Em 2018, a acupuntura foi consolidada oficialmente como prática multiprofission
       zh: "巴西公立医疗系统中应用最广的整合疗法",
     },
     stageNote: "Slide 5 · Números do SUS.",
-    script: `E o que aconteceu quando o sistema público abriu as portas? Os números respondem.
+    script: `A acupuntura é a prática integrativa mais usada no sistema público brasileiro. Na década encerrada em 2018, foram mais de cinco milhões de sessões. Em 2024, foram 1,1 milhão de sessões em um único ano.
 
-A acupuntura é hoje, de longe, a prática integrativa mais usada no sistema público brasileiro. Na década encerrada em 2018, foram mais de 5 milhões de sessões. Em 2024, foram 1,1 milhão de sessões em um único ano. As práticas integrativas já chegam a 83% dos municípios brasileiros. E um detalhe que diz muito: na rede pública, uma sessão de acupuntura custa ao Estado em torno de 4 reais. Poucos investimentos em saúde rendem tanto por tão pouco. Os próprios conselhos profissionais apontam ainda que há subnotificação nos registros, ou seja, esses números oficiais são o piso, não o teto.
+As práticas integrativas chegaram a 83% dos municípios brasileiros.
 
-E o setor privado é ainda maior. Somando as quatro décadas de difusão, as estimativas apontam que entre 20 e 35 milhões de brasileiros já se trataram com acupuntura. Isso é algo entre um em cada dez e um em cada seis habitantes do meu país.
-
-Guardem esse número. O Brasil tem mais de 210 milhões de habitantes e é, possivelmente, um dos maiores territórios de medicina chinesa fora da Ásia. E até janeiro deste ano, nada disso tinha uma lei.`,
+E somando quatro décadas de difusão, as estimativas apontam que entre 20 e 35 milhões de brasileiros já se trataram com acupuntura — algo entre um em cada dez e um em cada seis habitantes do país.`,
   },
   {
     key: "law",
@@ -1134,19 +1109,11 @@ Guardem esse número. O Brasil tem mais de 210 milhões de habitantes e é, poss
     },
     stageNote: "Slide 6 · 12 de janeiro de 2026 — Lei 15.345.",
     optionalCut: `[CORTE OPCIONAL] A lei não resolveu tudo, e é honesto dizer isso. Ainda não temos um conselho profissional próprio nem diretrizes nacionais de formação. A graduação superior em acupuntura ainda é rara no país, então a porta de entrada mais usada será a comprovação dos cinco anos de prática. Dois pontos do texto foram vetados, entre eles o que permitia o exercício por técnicos de nível médio, um veto negociado justamente para valorizar a formação superior. E nem todos comemoraram: o Conselho Federal de Medicina segue entendendo a acupuntura como ato médico, enquanto os conselhos de fisioterapia, enfermagem e farmácia celebraram a conquista e já publicam as suas normas. O debate continua. Mas agora ele acontece dentro de uma moldura legal.`,
-    script: `No dia 12 de janeiro de 2026, o presidente do Brasil sancionou a Lei 15.345, que regulamenta a profissão de acupunturista.
+    script: `Em 12 de janeiro de 2026, segundo a trajetória apresentada nesta palestra, foi sancionada a Lei 15.345, que regulamenta a profissão de acupunturista no Brasil.
 
-Deixem-me dar a dimensão do que isso significa. O projeto foi apresentado no Congresso em julho de 2003, pelo deputado Celso Russomanno. Levou 16 anos para ser aprovado na Câmara dos Deputados. No Senado, sob a relatoria da senadora Teresa Leitão, o argumento decisivo foi a segurança sanitária: regulamentar a profissão protege, antes de todos, o paciente. O plenário aprovou o texto em dezembro de 2025, e a sanção presidencial veio em janeiro.
+Assim, 218 anos depois das primeiras referências à presença da acupuntura chinesa no Brasil, a profissão entra em um novo momento: com mais reconhecimento, mas também com mais responsabilidade e deveres.
 
-Foram 22 anos de tramitação. Se contarmos desde as primeiras agulhas de Macau, foram 218 anos até o Brasil dizer, em português claro, quem pode praticar acupuntura.
-
-O que diz a lei? Ela assegura o exercício da profissão a quatro grupos: quem tem graduação superior em acupuntura; quem se formou no exterior, depois da validação do diploma; os profissionais de saúde com título de especialista reconhecido pelos seus conselhos; e quem comprova pelo menos cinco anos de exercício contínuo da profissão. Ela também garante que outras profissões da saúde sigam usando procedimentos da acupuntura, mediante formação adequada.
-
-E de quantas pessoas estamos falando? Não existe ainda um censo oficial, justamente porque não havia registro profissional único. Mas as estimativas do setor falam em mais de 250 mil acupunturistas no Brasil, e as entidades mais recentes calculam até 370 mil.
-
-Mas o essencial mudou. Neste momento, o Brasil escreve as normas, as condutas e as boas práticas da profissão. Um novo profissional está nascendo: com reconhecimento, com responsabilidade e com deveres.
-
-E aqui eu chego à frase que orienta tudo o que vou apresentar daqui para a frente: acreditamos que não haverá mais campo para o amadorismo na medicina chinesa brasileira. A regulamentação constrói um lugar de respeito para quem honra essa ciência. E quem honra essa ciência precisa de ferramentas à altura dela.`,
+E quem honra essa ciência precisa de ferramentas à altura dessa responsabilidade.`,
   },
   {
     key: "cultures",
@@ -1161,21 +1128,15 @@ E aqui eu chego à frase que orienta tudo o que vou apresentar daqui para a fren
       zh: "就诊频次、独立执业，以及对病历近乎苛刻的要求",
     },
     stageNote: "Slide 7 · Brasil e China: duas culturas de tratamento.",
-    script: `Antes de falar da nossa plataforma, preciso explicar uma coisa que talvez surpreenda vocês: como é atender medicina chinesa no Brasil.
+    script: `Aqui na China, um tratamento de acupuntura pode ser diário, e a frequência faz parte da lógica terapêutica.
 
-Aqui na China, um tratamento de acupuntura pode ser diário. O paciente vai ao hospital ou à clínica todos os dias, às vezes por semanas seguidas. A frequência faz parte da lógica terapêutica.
+No Brasil, é comum que o paciente faça uma sessão por semana.
 
-No Brasil, a cultura é outra: uma sessão por semana. Pelo custo, pelas distâncias, pela rotina de trabalho. Isso muda tudo. Cada sessão precisa render mais. O raciocínio clínico precisa ser mais preciso, porque a próxima chance de avaliar o paciente é dali a sete dias. E o registro precisa ser impecável, porque uma semana depois ninguém lembra de detalhes de memória.
+Por isso, o registro clínico precisa ser muito bem feito. Uma semana depois, é difícil recuperar de memória todos os detalhes de uma consulta.
 
-Há uma segunda diferença, mais sutil. O paciente brasileiro acredita na acupuntura. Ele chega ao consultório com fé no resultado. Mas, na maioria das vezes, ele não entende que a medicina chinesa é uma racionalidade médica completa, com diagnóstico próprio, método próprio e eficácia própria. Muitos chegam "para relaxar", ou como último recurso, depois de esgotar outros caminhos. Educar esse paciente também é trabalho do terapeuta.
+Muitos acupunturistas trabalham sozinhos, sem hospital-escola, residência ou um colega mais experiente ao lado para discutir um caso difícil.
 
-E quem é o terapeuta brasileiro? Na grande maioria, não é médico. É um profissional com uma formação de base razoável, feita em cursos de especialização, muitas vezes estudando por conta própria para se aprofundar. É dedicado, é apaixonado, mas trabalha sozinho: sem residência, sem hospital-escola, sem um colega mais experiente na sala ao lado para discutir um caso difícil.
-
-Comparem com a realidade daqui. Na China, o profissional de medicina chinesa se forma em universidade, passa por hospital universitário e atende dezenas de pacientes por dia sob supervisão. No Brasil, a formação é pulverizada em centenas de cursos, na maioria privados e sem padrão nacional, e a experiência clínica se constrói na solidão do consultório. Não digo isso para diminuir os meus colegas. Digo para explicar o tamanho da responsabilidade de quem cria ferramentas para eles.
-
-Foi para esse profissional que o MedChina nasceu. Para dar a ele estrutura de registro, segurança de dados e apoio ao raciocínio clínico. Ferramentas que o ajudem a exercer a profissão com a seriedade que a nova lei exige.
-
-E agora deixem-me contar como tudo começou. Porque começou pequeno. Começou numa ficha de papel.`,
+Foi pensando nesse profissional que o MedChina nasceu: para oferecer estrutura de registro, segurança de dados e apoio ao raciocínio clínico.`,
   },
   {
     key: "paper",
@@ -1190,15 +1151,17 @@ E agora deixem-me contar como tudo começou. Porque começou pequeno. Começou n
       zh: "2017–2019：寻找一套“说我们语言”的系统",
     },
     stageNote: "Slide 8 · Foto ou imagem de fichas de papel.",
-    script: `Em 2017 eu fiz minha primeira formação como terapeuta, em massagem shiatsu. Em 2018 comecei o curso de acupuntura, que concluí em 2019.
+    script: `Em 2017, na minha primeira formação como terapeuta, comecei a registrar tudo desde o primeiro paciente: dados, queixa e tratamento.
 
-Desde o primeiro paciente, eu registrava tudo: os dados básicos, a queixa, o tratamento que eu realizava. Fazia esses registros em fichas de papel. Com três meses de atendimentos, passei a atender em dois locais diferentes, e transportar aquelas fichas de um lado para o outro virou um problema real. Ficha de papel rasga, molha, se perde. E ficha de papel não faz busca, não faz backup, não compara nada com nada.
+Tudo em fichas de papel.
 
-Quando comecei o curso de acupuntura, fui procurar um sistema de prontuário eletrônico feito para acupunturistas, que eu pudesse assinar mensalmente. Procurei, pesquisei, comparei. Não existia. Encontrei apenas prontuários genéricos, feitos para médicos, que não falavam a nossa língua: não tinham anamnese energética, não tinham língua e pulso, não tinham pontos nem meridianos.
+Eu não encontrava no mercado um prontuário desenvolvido para a lógica da medicina chinesa. Faltavam elementos como anamnese energética, avaliação de língua e pulso, pontos e meridianos.
 
-Naquele momento eu decidi que faria o primeiro sistema de prontuário eletrônico para os acupunturistas do Brasil.
+Foi então que decidi criar um sistema de prontuário eletrônico para acupunturistas brasileiros.
 
-Eu não tinha o dinheiro necessário. Não tinha experiência clínica acumulada. Não entendia ainda todas as necessidades de um acupunturista. Mas a ideia e o propósito ficaram marcados no meu espírito.`,
+Eu ainda não tinha dinheiro, experiência clínica acumulada nem conhecia todas as necessidades de um acupunturista.
+
+Mas tinha uma ideia e um propósito.`,
   },
   {
     key: "congress",
@@ -1213,13 +1176,17 @@ Eu não tinha o dinheiro necessário. Não tinha experiência clínica acumulada
       zh: "首届“千年智慧实践”大会——线上、免费",
     },
     stageNote: "Slide 9 · Congresso Práticas da Sabedoria Milenar — junho de 2020.",
-    script: `Então veio 2020, e com ele a pandemia.
+    script: `Então chegou 2020 e veio a pandemia.
 
-Eu olhei em volta e vi milhares de colegas na mesma situação que eu: sem pacientes, sem renda, sem saber quando poderiam voltar a trabalhar. E tive uma ideia: se não podíamos atender, podíamos aprender juntos. Criei o primeiro Congresso Práticas da Sabedoria Milenar, nos dias 19, 20 e 21 de junho de 2020. Totalmente online e totalmente gratuito. Reuni seis profissionais de áreas diferentes da medicina chinesa, que falaram ao vivo e compartilharam seus melhores conteúdos.
+Milhares de colegas ficaram sem pacientes e sem saber quando poderiam voltar a trabalhar.
 
-Foram mais de 3 mil acessos durante os três dias do evento. Sem dinheiro, sem patrocínio grande, com pessoas que compartilhavam o mesmo amor pela medicina chinesa. Foi o evento pioneiro no Brasil nesse formato.
+Pensei: se não podíamos atender, poderíamos aprender juntos.
 
-E o congresso gratuito abriu uma porta inesperada. Professores de medicina chinesa me procuraram depois do evento querendo que eu divulgasse seus cursos online. Aceitei o desafio. Passei a divulgar e patrocinar cursos online de acupuntura do Mestre Tung, de I Ching, de fitoterapia chinesa. Eram cursos voltados para acupunturistas já formados, que podiam ser feitos a distância sem prejuízo da prática clínica. Foi com esse trabalho que consegui arrecadar o dinheiro para criar e desenvolver o MedChina Gestão e Prontuários. Ainda em 2020, contratei o programador. A tecnologia começou a nascer.`,
+Em junho de 2020, criei o Congresso Práticas da Sabedoria Milenar, totalmente online e gratuito.
+
+Foi com esse trabalho que consegui arrecadar os recursos para criar e desenvolver o MedChina.
+
+Ainda em 2020, contratei o programador. A tecnologia começou a nascer.`,
   },
   {
     key: "survey",
@@ -1234,19 +1201,11 @@ E o congresso gratuito abriu uma porta inesperada. Professores de medicina chine
       zh: "2021年2月 · 面向3800名与会针灸师的问卷调研",
     },
     stageNote: "Slide 10 · Pesquisa de fevereiro de 2021 — os quatro números.",
-    script: `Mas eu não queria construir o sistema a partir das minhas suposições. Em fevereiro de 2021, usando a base de 3.800 acupunturistas qualificados que participaram do congresso, fiz uma pesquisa para entender as dores reais desse público.
+    script: `Em fevereiro de 2021, fizemos uma pesquisa com a base de 3.800 acupunturistas qualificados que haviam participado do congresso.
 
-Os resultados desenharam o produto:
+Os resultados mostraram uma necessidade praticamente universal e pouca oferta de soluções específicas.
 
-Apenas 6,8% usavam algum prontuário eletrônico, e era sempre um sistema genérico, emprestado da medicina ocidental.
-
-77% registravam seus atendimentos de alguma forma, muitos ainda no papel, como eu.
-
-72,7% queriam um sistema de prontuário eletrônico dedicado.
-
-E 90,9% queriam um sistema de gestão para o consultório.
-
-Ou seja: a necessidade era quase universal, e a oferta era quase zero. A partir dessas respostas construímos o MedChina, o primeiro software de prontuários e gestão de consultórios dedicado e exclusivo para acupunturistas do Brasil.`,
+A partir dessa pesquisa, construímos o MedChina, um software de prontuários e gestão de consultórios dedicado aos acupunturistas do Brasil.`,
   },
   {
     key: "version-one",
@@ -1262,11 +1221,13 @@ Ou seja: a necessidade era quase universal, e a oferta era quase zero. A partir 
     },
     stageNote:
       "Slide 11 · Linha do tempo da empresa 2020–2023 + [TELAS] 3 ou 4 capturas da v1 (cadastro, agenda, anamnese, financeiro) — narrar sobre as imagens. Arquivos em /images/palestra/v1-*.webp.",
-    script: `Estas são telas da nossa primeira versão, lançada em agosto de 2021. Cadastro de pacientes, agenda, anamnese guiada com a lógica da medicina chinesa, controle financeiro do consultório e busca por conteúdo de MTC. A anamnese guiada era o coração do sistema: em vez de uma folha em branco, ela conduzia o profissional pelas perguntas que a nossa medicina exige, da queixa principal à avaliação energética. Simples, mas já era nosso: feito por acupunturista, para acupunturista.
+    script: `A primeira versão foi lançada em agosto de 2021, com a lógica da medicina chinesa e conteúdo de MTC dentro do sistema.
 
-Os ganhos para quem usava foram imediatos: mais tempo de dedicação ao paciente, segurança no armazenamento dos dados clínicos e financeiros, visão real do resultado do consultório e a gestão inteira em um só lugar.
+A anamnese guiada era o coração da plataforma.
 
-Em 2022, validamos a primeira etapa do produto: mil usuários na versão gratuita, todos chegando de forma orgânica, sem anúncios. Mil colegas saindo do papel. Ali tomamos uma decisão que mantemos até hoje: sempre existirá uma versão gratuita de verdade, porque a missão é elevar o registro clínico da profissão inteira, não só de quem pode pagar. Em agosto de 2023, iniciamos a segunda etapa, com a versão 2.0 e a busca do encaixe definitivo entre produto e mercado.`,
+Um ano depois, tínhamos mil usuários na versão gratuita, sem propaganda paga.
+
+Decidimos manter uma versão gratuita porque nossa missão é contribuir para elevar o registro clínico da profissão, e não apenas atender quem pode pagar.`,
   },
   {
     key: "platform-today",
@@ -1282,9 +1243,9 @@ Em 2022, validamos a primeira etapa do produto: mil usuários na versão gratuit
     },
     stageNote:
       "Slide 12 · Números atuais. Os valores exibidos vêm do banco da plataforma anterior (1.046 cadastros, 222 pagantes). CONFERIR NO DIA: puxar os totais atuais de produção antes da palestra e atualizar PLATFORM_STATS.",
-    script: `Hoje são 1.046 profissionais cadastrados na plataforma e 222 deles já assinaram planos pagos ao longo dessa caminhada — uma base construída sem nenhum anúncio, apenas no boca a boca da nossa comunidade. E toda a nova geração do produto, essa que vou mostrar a vocês agora, já está em produção.
+    script: `Hoje, são 1.046 profissionais cadastrados na plataforma e 222 deles já assinaram planos pagos.
 
-A história estava indo bem. E então a vida me pediu uma pausa.`,
+Então a vida me pediu uma pausa.`,
   },
   {
     key: "pause",
@@ -1295,21 +1256,15 @@ A história estava indo bem. E então a vida me pediu uma pausa.`,
     title: { pt: "A pausa", zh: "暂停" },
     tone: "solemn",
     stageNote: "Sem slide. Tela escura ou neutra. Falar devagar.",
-    script: `Em 2025 eu recebi um diagnóstico muito difícil: câncer de endométrio. Os exames mostravam que a doença já avançava para os linfonodos. A partir daquele dia, eu e meu marido entramos numa luta constante pela paz e pela vida, preparados para o pior.
+    script: `Em 2025, recebi um diagnóstico muito difícil: câncer de endométrio.
 
-Fui operada com urgência. Passei por todo o tratamento: quimioterapia, radioterapia e braquiterapia.
-
-Naquele tempo foi necessário abrir mão de tudo o que não fosse a minha saúde. E isso incluiu a empresa. Eu e meu sócio decidimos interromper a produção e a atualização do MedChina, porque não tínhamos construído reserva financeira suficiente para manter uma equipe executando as nossas funções. Foi uma decisão dura e foi a decisão certa.
+Passei por cirurgia, quimioterapia, radioterapia e braquiterapia.
 
 O tratamento foi um sucesso.
 
-A cirurgia, a medicação, os resultados, todo esse ano de renascimento estão aqui, em mim. É por isso que hoje eu posso estar diante de vocês, um público respeitoso e dedicado, que vive a medicina chinesa diariamente no seu berço, falando sobre uma empresa que tem ideais profundos de apoio e valorização dos profissionais dessa medicina.
+Em 2026, voltamos com mais recursos e mais tecnologia — justamente no ano em que a profissão de acupunturista foi reconhecida no Brasil.
 
-Para eu estar aqui hoje, foi preciso parar. Foi preciso olhar para a vida depois do diagnóstico e decidir o que merecia o meu tempo.
-
-E quando o tratamento terminou, nós voltamos. Voltamos com muito mais recursos e muito mais tecnologia. E voltamos no ano em que a profissão de acupunturista foi finalmente reconhecida no Brasil.
-
-Eu não escolhi essa coincidência. Mas aprendi a respeitar o tempo das coisas.`,
+Com isso aprendi ainda mais a respeitar o tempo das coisas.`,
   },
   {
     key: "testimony-cnaa",
@@ -1347,13 +1302,15 @@ Eu não escolhi essa coincidência. Mas aprendi a respeitar o tempo das coisas.`
     title: { pt: "Atenda olhando para o paciente", zh: "目视患者，全心诊疗" },
     subtitle: { pt: "O MedChina organiza o restante", zh: "其余的记录，交给 MedChina" },
     stageNote: 'Slide 13 · MedChina AI — "Atenda olhando para o paciente. O MedChina organiza o restante."',
-    script: `O MedChina de hoje nasceu de uma pergunta simples: o que rouba a atenção do terapeuta durante a consulta?
+    script: `E é nesse novo momento que nasce o MedChina AI.
 
-A resposta é o computador. A tela. A digitação. Quando a profissional precisa digitar durante o atendimento, ela perde contato visual, fragmenta a escuta e ainda leva trabalho para casa. E quando não registra nada na hora, passa a noite tentando reconstruir a consulta de memória.
+O MedChina de hoje nasceu de uma pergunta simples: o que rouba a atenção do terapeuta durante a consulta?
 
-Nossa nova versão ataca exatamente isso. O lema da plataforma resume tudo: atenda olhando para o paciente. O MedChina organiza o restante.
+O computador. A tela. A digitação.
 
-Deixem-me levar vocês para dentro de uma consulta.`,
+Enquanto registra, o profissional pode perder contato visual, fragmentar a escuta e levar trabalho para casa.
+
+O MedChina AI foi criado para devolver essa atenção ao paciente.`,
   },
   {
     key: "flow",
@@ -1368,13 +1325,13 @@ Deixem-me levar vocês para dentro de uma consulta.`,
       zh: "过去每天要花一小时的事，如今在诊疗中即已完成",
     },
     stageNote: "Slide 14 · O fluxo: antes, durante e depois da consulta. Telas reais do sistema atual.",
-    script: `Antes do atendimento, a profissional abre a agenda e encontra um resumo pronto: o que aconteceu na última sessão, quais padrões foram registrados, quais técnicas foram aplicadas, como o paciente respondeu, quais alertas existem, alergias, medicamentos em uso, contraindicações.
+    script: `Durante a consulta, com o consentimento do paciente, o celular ou computador pode capturar o áudio.
 
-Durante o atendimento, o celular dela ou o computador viram um gravador clínico. Com o consentimento do paciente registrado e documentado, o aplicativo captura o áudio da consulta. A profissional não digita nada. Ela olha nos olhos do paciente, escuta, observa, examina. Quando examina a língua ou o pulso, dita a observação em voz alta: "língua pálida com marcas dentárias, pulso em corda". O sistema registra.
+O profissional pode olhar, escutar, observar e examinar.
 
-E o aplicativo foi desenhado para a vida real do consultório brasileiro. Se a internet cair, a gravação continua, guardada e criptografada no aparelho. O envio recomeça sozinho quando a conexão volta. E nada é apagado do celular antes de o servidor confirmar que recebeu tudo. Uma consulta gravada é um patrimônio clínico; ela não pode se perder por causa de um sinal de wi-fi.
+Depois, o sistema transcreve a conversa, separa a fala do profissional e do paciente e organiza a anamnese.
 
-E depois da consulta acontece o que antes tomava uma hora do dia. A plataforma transcreve a conversa inteira, separando a fala da profissional e a fala do paciente. A partir dessa transcrição, a anamnese estruturada é preenchida automaticamente: queixa principal e história atual; sono, energia, alimentação, digestão; aspectos emocionais; e a avaliação própria da medicina chinesa, com Yin e Yang, Qi, Sangue e Líquidos, Zang-Fu, Cinco Elementos, língua, pulso e palpação.`,
+São estruturados dados como queixa principal, história atual, sono, energia, alimentação, digestão, aspectos emocionais e avaliação pela medicina chinesa.`,
   },
   {
     key: "traceability",
@@ -1389,13 +1346,11 @@ E depois da consulta acontece o que antes tomava uma hora do dia. A plataforma t
       zh: "凡入病历，皆可回溯其出处",
     },
     stageNote: "Slide 15 · Anamnese preenchida com origem rastreável.",
-    script: `E aqui estão os detalhes dos quais eu mais me orgulho, porque mostram respeito pela clínica.
+    script: `Mas há algo que considero fundamental: cada informação preenchida guarda sua origem, permitindo ao profissional ouvir o trecho correspondente do áudio.
 
-Primeiro: cada campo preenchido guarda a origem da informação. A profissional toca no campo e ouve o trecho exato do áudio de onde aquilo veio. Nada aparece no prontuário sem que se possa verificar de onde saiu.
+Se o paciente não informou alguma coisa, o sistema não transforma silêncio em resposta negativa. O campo permanece como “não informado”.
 
-Segundo: o que o paciente não disse permanece vazio. O sistema jamais transforma ausência de informação em negação. Se ninguém perguntou sobre o sono, o campo do sono fica marcado como "não informado". Parece um detalhe técnico. É uma questão de honestidade clínica.
-
-Terceiro: o sistema aponta lacunas e contradições. Se o paciente disse duas datas diferentes para o início da dor, isso fica destacado. Se um sintoma importante não foi investigado, o sistema sugere a pergunta. E ele compara a consulta com o histórico: o que mudou, o que persiste, o que melhorou desde a última sessão.`,
+O sistema também pode apontar lacunas, contradições e mudanças em relação ao histórico.`,
   },
   {
     key: "hypotheses",
@@ -1410,17 +1365,19 @@ Terceiro: o sistema aponta lacunas e contradições. Se o paciente disse duas da
       zh: "支持的征象 · 不支持的征象 · 尚待查证",
     },
     stageNote: "Slide 16 · Hipóteses de padrões + as quatro camadas + a frase do contrato ético (ler verbatim).",
-    script: `E então chegamos à parte que costuma impressionar: o apoio ao raciocínio clínico.
+    script: `A partir dos dados organizados, o MedChina AI prepara hipóteses de padrões de desarmonia.
 
-Com os dados organizados, o MedChina AI prepara hipóteses de padrões de desarmonia. Para cada hipótese, ele apresenta três colunas: os sinais que a favorecem, os sinais que a contradizem e os dados que ainda faltam para concluir. Ele nunca diz "o paciente tem Deficiência de Qi do Baço". Ele diz: "os dados registrados têm correspondência forte com este padrão; estes três sinais apoiam; este sinal contradiz; falta investigar isto".
+Para cada hipótese, apresenta os sinais que favorecem, os que contradizem e os dados que ainda faltam.
 
-A partir do padrão que a profissional valida, o sistema prepara o caminho terapêutico: sugestões de pontos e combinações, estratégia de tonificação ou dispersão, e apoio às demais técnicas, com moxabustão, auriculoterapia, ventosaterapia e dietoterapia chinesa, sempre com checagem de contraindicações. Prepara também o plano terapêutico e as minutas de documentos e orientações para casa. E os documentos emitidos saem com identificação, versão, assinatura da profissional e um código QR de verificação: qualquer pessoa pode conferir a autenticidade sem ter acesso ao conteúdo clínico.
+Depois que o profissional valida um padrão, o sistema pode preparar sugestões de pontos e combinações, estratégias de tonificação ou dispersão e apoio a técnicas como moxabustão, auriculoterapia, ventosaterapia e dietoterapia chinesa, com checagem de contraindicações.
 
-E em cada tela de sugestão existe uma frase fixa, que faço questão de ler para vocês, porque ela é o nosso contrato ético:
+Também pode preparar o plano terapêutico e os documentos para casa do paciente.
 
-"Esta sugestão é um apoio ao raciocínio clínico e não substitui avaliação profissional, exame físico, observação da língua, palpação do pulso, análise de contraindicações ou encaminhamento quando necessário."
+Mas a decisão final continua sendo do profissional.
 
-Nada, absolutamente nada, vira decisão final sem a revisão e a assinatura da profissional. O prontuário separa com clareza quatro tipos de informação: o que o paciente relatou, o que a profissional observou, o que a inteligência artificial inferiu e o que a profissional decidiu. Essas quatro camadas nunca se misturam. E depois de finalizado, o prontuário se torna imutável: correções posteriores entram como adendos, com autor, data e motivo, como manda a boa prática documental.`,
+O prontuário diferencia aquilo que o paciente relatou, aquilo que o profissional observou, aquilo que a inteligência artificial inferiu e aquilo que o profissional decidiu.
+
+Essa separação é essencial.`,
   },
   {
     key: "testimony-user",
@@ -1461,15 +1418,15 @@ Mas ninguém explica isso melhor do que quem usa. Ouçam a Hellen.`,
       zh: "出处可引 · 分项授权 · 不用于公开模型",
     },
     stageNote: "Slide 17 · Biblioteca clínica e segurança.",
-    script: `Dois pontos finais sobre a plataforma.
+    script: `A plataforma também possui uma biblioteca clínica com base de conhecimento de medicina chinesa e respostas acompanhadas de fontes.
 
-O primeiro é a biblioteca clínica. O profissional pode estudar e tirar dúvidas conversando com uma base de conhecimento de medicina chinesa com curadoria, e cada resposta vem com as fontes citadas. A base separa três naturezas de conteúdo que não podem se confundir: as fontes tradicionais, os protocolos internos e as evidências científicas. E cada profissional pode adicionar os próprios protocolos, que passam a alimentar as sugestões do seu consultório.
+E existe uma questão que não pode ser secundária: segurança.
 
-O segundo é a segurança, porque dado clínico é o dado mais sensível que existe. O consentimento do paciente é específico e versionado: uma autorização para a gravação, outra para o processamento por inteligência artificial, e a recusa nunca impede o atendimento manual. Tudo é criptografado, cada acesso fica em trilha de auditoria e nenhum áudio ou conteúdo clínico é usado para treinar modelos públicos de IA. Seguimos a lei brasileira de proteção de dados desde a concepção do sistema.
+Com o consentimento do paciente, os dados são criptografados, os acessos ficam registrados em trilha de auditoria e, segundo a arquitetura do sistema, os áudios e conteúdos clínicos não são utilizados para treinar modelos públicos de inteligência artificial.
 
-E toda a gestão que fez o MedChina nascer continua lá: agenda, financeiro do consultório e a história completa de cada paciente organizada em linha do tempo.
+O MedChina também mantém uma versão gratuita com prontuário manual, cadastro de pacientes e registros ilimitados.
 
-E uma decisão de que me orgulho: o plano gratuito do MedChina oferece o prontuário manual completo, com pacientes e registros ilimitados, para sempre. Nenhum colega fica de fora por não poder pagar. O que se paga no MedChina é a automação, o tempo que a inteligência artificial devolve para a profissional. O registro digno da profissão, esse é para todos.`,
+O que se paga é a automação: o tempo que a tecnologia devolve ao profissional.`,
   },
   {
     key: "four-examinations",
@@ -1484,15 +1441,23 @@ E uma decisão de que me orgulho: o plano gratuito do MedChina oferece o prontu�
       zh: "技术只做门徒的角色，医道仍属于医者",
     },
     stageNote: "Slide 18 · O que a IA não faz (望闻问切 em destaque).",
-    script: `Eu sei que falar de inteligência artificial em medicina tradicional chinesa pode soar como contradição. Quero explicar por que acredito no contrário.
+    script: `Eu sei que falar de inteligência artificial em medicina tradicional chinesa pode parecer uma contradição.
 
-A medicina chinesa é uma medicina de presença. Vocês conhecem isso melhor do que ninguém: wàng, wén, wèn, qiè. Observar, ouvir e cheirar, perguntar, palpar. Os quatro exames que sustentam o diagnóstico há milênios. Desses quatro, uma máquina só pode ajudar de verdade no registro do interrogatório, e é exatamente ali que o MedChina trabalha. O olhar clínico, a escuta do corpo, a língua e o pulso não podem ser delegados, e o MedChina não tenta delegar nenhum deles. A nossa IA não olha, não palpa, não decide. Ela escuta, organiza, lembra e pergunta. Ela devolve à profissional exatamente aquilo que a burocracia roubou: tempo e atenção.
+Para mim, é justamente o contrário.
 
-Os clássicos ensinam que o bom médico observa antes de agir. Mas observar exige presença, e presença exige que alguém cuide do registro. Durante séculos, esse alguém foi o discípulo que acompanhava o mestre e anotava. A nossa tecnologia faz o papel do discípulo. A medicina continua sendo do mestre.
+A medicina chinesa é uma medicina de presença.
 
-E há a dimensão da responsabilidade. Com a profissão regulamentada, o registro clínico deixou de ser uma escolha pessoal e virou um dever profissional. Prontuário bem-feito protege o paciente, protege o profissional e dignifica a profissão. Não haverá campo para o amadorismo e para a prática leviana da medicina chinesa no Brasil, e nós consideramos isso uma excelente notícia.
+Vocês conhecem isso melhor do que ninguém: wàng, wén, wèn, qiè — observar, ouvir e cheirar, perguntar e palpar.
 
-Nós do MedChina reconhecemos esse novo tempo porque nascemos para ele. Nascemos para apoiar e valorizar cada profissional que honra essa ciência, que zela pelo bem-estar dos seres humanos e que exercita a sua profissão com dignidade, vivendo dela e se orgulhando dela, como o profissional de saúde que realmente é.`,
+O MedChina AI não olha, não palpa e não decide.
+
+Ele escuta, organiza, lembra e pergunta.
+
+Ele ajuda a devolver ao profissional aquilo que a burocracia pode roubar: tempo e atenção.
+
+Com a nova regulamentação, o registro clínico também ganha ainda mais importância.
+
+Um prontuário bem feito protege o paciente, protege o profissional e dignifica a profissão.`,
   },
   {
     key: "bridge",
@@ -1507,36 +1472,25 @@ Nós do MedChina reconhecemos esse novo tempo porque nascemos para ele. Nascemos
       zh: "戈亚尼亚 · 戈亚斯联邦大学与河北中医药大学",
     },
     stageNote: "Slide 19 · Instituto Confúcio de Medicina Chinesa — Goiânia.",
-    script: `Antes de encerrar, quero falar de uma ponte entre os nossos dois países que existe na cidade onde eu vivo.
+    script: `Quero terminar falando de uma ponte entre nossos dois países.
 
-Desde 2019, Goiânia tem a honra de sediar o Instituto Confúcio de Medicina Chinesa, uma parceria entre a Universidade Federal de Goiás, no Brasil, e a Universidade de Medicina Chinesa de Hebei, na China. É o único Instituto Confúcio da América Latina que, além da cultura, da língua e da arte chinesas, se dedica à divulgação da medicina chinesa e à formação de novos profissionais.`,
-  },
-  {
-    key: "testimony-confucius",
-    block: 9,
-    blockTitle: { pt: "A ponte Brasil–China", zh: "巴西—中国之桥" },
-    timeRange: "37:00–40:00",
-    kicker: { pt: "Depoimento", zh: "证言" },
-    title: { pt: "Entre os dois países, faltam pontes", zh: "两国之间，尚缺桥梁" },
-    subtitle: { pt: "Nós queremos ser uma delas", zh: "我们愿做其中一座" },
-    stageNote: "Vídeo 3 · Prof. Francisco (Instituto Confúcio), 60–90s, legendado. Depois do vídeo, fazer o convite.",
-    script: `[Vídeo] Prof. Francisco, do Instituto Confúcio de Medicina Chinesa.
+Desde 2019, Goiânia sedia o Instituto Confúcio de Medicina Chinesa, uma parceria entre a Universidade Federal de Goiás e a Universidade de Medicina Chinesa de Hebei.
 
-[Após o vídeo] É essa cooperação que queremos multiplicar. O Brasil tem centenas de milhares de profissionais sedentos de conhecimento de qualidade. A China tem as fontes, os mestres e a experiência clínica acumulada de milênios. Entre os dois, faltam pontes.
+Essa cooperação aproxima nossos dois países.
 
-Nós queremos ser uma delas. E deixo aqui um convite concreto: universidades, professores e instituições chinesas que queiram alcançar o público brasileiro encontram no MedChina um canal direto com essa comunidade. Seja em eventos e cursos, seja levando conteúdo de referência, com a devida curadoria e licença, para dentro da biblioteca clínica que os nossos profissionais consultam todos os dias.
+O Brasil tem centenas de milhares de profissionais interessados em conhecimento de qualidade.
 
-A medicina chinesa cresceu no Brasil por dois séculos sem falar português. Imaginem o que ela pode fazer agora que aprendeu.`,
-    media: {
-      kind: "video",
-      label: { pt: "Depoimento · Instituto Confúcio de Medicina Chinesa", zh: "证言 · 中医孔子学院" },
-      duration: "60–90s",
-      sourceUrl: "/videos/palestra/depoimento-3-prof-francisco.mp4",
-      speaker: { pt: "Prof. Francisco", zh: "Francisco 教授" },
-      role: { pt: "Instituto Confúcio de Medicina Chinesa · Goiânia", zh: "中医孔子学院 · 戈亚尼亚" },
-      productionNote:
-        "Vídeo legendado em mandarim, 16:9, 60–90s. Salvar em apps/web/public/videos/palestra/depoimento-3-prof-francisco.mp4.",
-    },
+A China tem fontes, mestres e uma experiência clínica acumulada por milênios.
+
+Entre os dois países, podemos construir ainda mais pontes.
+
+Nós queremos ser uma delas.
+
+Universidades, professores e instituições chinesas que desejem alcançar o público brasileiro podem encontrar no MedChina AI um canal direto com essa comunidade — por meio de eventos, cursos e conteúdo de referência, com a devida curadoria e licença, dentro da biblioteca clínica.
+
+A medicina chinesa cresceu no Brasil por dois séculos sem falar português.
+
+Imaginem o que ela pode fazer agora que aprendeu.`,
   },
   {
     key: "closing",
@@ -1551,10 +1505,16 @@ A medicina chinesa cresceu no Brasil por dois séculos sem falar português. Ima
       zh: "以敬那些写下每一个汉字的先贤",
     },
     stageNote: "Slide 20 · Encerramento — logo MedChina + agradecimento + QR. Abrir para perguntas, se houver tempo.",
-    script: `Eu comecei esta palestra falando de uma ficha de papel que rasgava e se perdia. Termino falando de um prontuário que escuta, organiza e prepara, para que o terapeuta brasileiro possa fazer o que os mestres desta terra fazem há milênios: olhar para o paciente.
+    script: `Termino com uma imagem simples.
 
-Nossa caminhada ainda é longa. Mas ela será constante no objetivo de sediar, expandir, divulgar, ensinar e praticar a medicina chinesa no Brasil. Estaremos sempre trabalhando para honrar os ancestrais que escreveram cada ideograma e que ensinam, há milênios, essa arte e essa sabedoria da qual hoje temos o orgulho de dizer que fazemos parte.
+Um prontuário que escuta, organiza e prepara, para que o terapeuta brasileiro possa fazer aquilo que os mestres desta terra fazem há milênios: olhar para o paciente.
 
-Obrigada. Xièxie.`,
+Nossa caminhada ainda é longa.
+
+Mas queremos continuar expandindo, divulgando, ensinando e praticando a medicina chinesa no Brasil, sempre com respeito aos ancestrais que construíram essa arte e essa sabedoria.
+
+Que a tecnologia nos ajude a preservar aquilo que é essencialmente humano na nossa profissão.
+
+Muito obrigada. 谢谢 — Xièxie.`,
   },
 ];

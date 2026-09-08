@@ -106,7 +106,7 @@ media `error` event never fires.
 | `public/images/palestra/v1-{cadastro,agenda,anamnese,financeiro}.webp` | Slide 11                      |
 
 `public/images/palestra/qr-medchina.svg` is a real, scannable QR for
-`medchina.com.br` — regenerate it if the domain changes.
+`medchinaprontuarios.com.br` — regenerate it if the domain changes.
 
 ## Confirm before the talk
 
