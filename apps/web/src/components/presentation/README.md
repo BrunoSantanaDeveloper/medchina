@@ -16,6 +16,8 @@ sentence that is not there will not be said on stage.
 | `slides-data.ts`                  | All content: the 24 steps plus the per-slide payloads (timeline, stats, columns…) |
 | `slide-views.tsx`                 | One view per step, composed from the deck's class vocabulary                      |
 | `slide-deck.tsx`                  | The shell: canvas scaling, keyboard, timer, presenter window, overlays            |
+| `deck-sync.ts`                    | Cross-device sync: transport choice, room code, connect/publish                   |
+| `deck-connect.tsx`                | The QR panel that pairs the phone                                                 |
 | `../../app/palestra/palestra.css` | The deck's design system                                                          |
 
 ## Which design system this is
@@ -58,6 +60,42 @@ Two rules that are easy to break by accident:
 - Position lives in the URL hash and the timer in `sessionStorage`, so a refresh
   mid-talk does not restart the presentation.
 
+## The phone teleprompter (QR sync)
+
+She reads the script from her phone while the laptop drives the projector. The
+**Celular** button (or `C`) on the projector opens a QR; scanning it lands the
+phone on `?apresentador=1&sala=<code>`, already following the deck. Both sides
+can navigate — the phone's thumb bar and the laptop's keys drive the same state.
+
+**A device that joins ASKS where the talk is.** The projector is the source of
+truth: it publishes on connect and answers newcomers. The phone only asks. This
+is the whole reason the QR can be scanned at minute twenty without the projected
+deck jumping back to slide 1.
+
+Two transports, picked from the hostname so the on-screen status is never a
+guess (`deck-sync.ts`):
+
+| Deck opened on                                      | Transport                                 | Notes                                                     |
+| --------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------- |
+| a private address (`192.168.x.x`, `10.x`, `.local`) | **`lan`** — this app's own SSE endpoint   | no internet, no third party; the setup to prefer on stage |
+| a public address (the Vercel deploy)                | **`cloud`** — Supabase Realtime broadcast | needs internet on both devices                            |
+
+`/api/public/palestra/sync` keeps its rooms in module memory, which is right for
+one Node process and wrong on serverless — so it **refuses with 501 on Vercel**
+rather than accepting a connection it cannot fan out. A sync indicator that might
+be lying is worse than none.
+
+Practical notes for the day:
+
+- **`localhost` cannot be scanned.** Only that laptop resolves it, so the panel
+  says so and names the fix: reopen the deck on the network address the dev
+  server prints.
+- **Prefer the phone's hotspot.** Congress guest Wi-Fi often isolates clients
+  from each other, which breaks LAN sync; putting the laptop on the phone's
+  hotspot puts both on one network and needs no internet at all.
+- The phone holds a **Wake Lock** so the screen does not sleep mid-block, and
+  re-acquires it after every tab switch (browsers drop it silently).
+
 ## Charts
 
 Three, each picked by what the data has to do — and stopping there. The other
@@ -96,14 +134,13 @@ without any of it. Availability is decided by probing the URL with a deadline,
 because `next dev` answers a missing file with 200 and an HTML body and the
 media `error` event never fires.
 
-| Path                                                                   | Slide                         |
-| ---------------------------------------------------------------------- | ----------------------------- |
-| `public/videos/palestra/depoimento-1-alexander-assuncao.mp4`           | Bloco 6 · CNAA                |
-| `public/videos/palestra/depoimento-2-hellen.mp4`                       | Bloco 7 · user                |
-| `public/videos/palestra/depoimento-3-prof-francisco.mp4`               | Bloco 9 · Confucius Institute |
-| `public/images/palestra/fundadora-debora.webp`                         | Slide 2                       |
-| `public/images/palestra/fundador-bruno.webp`                           | Slide 2                       |
-| `public/images/palestra/v1-{cadastro,agenda,anamnese,financeiro}.webp` | Slide 11                      |
+| Path                                                                   | Slide          |
+| ---------------------------------------------------------------------- | -------------- |
+| `public/videos/palestra/depoimento-1-alexander-assuncao.mp4`           | Bloco 6 · CNAA |
+| `public/videos/palestra/depoimento-2-hellen.mp4`                       | Bloco 7 · user |
+| `public/images/palestra/fundadora-debora.webp`                         | Slide 2        |
+| `public/images/palestra/fundador-bruno.webp`                           | Slide 2        |
+| `public/images/palestra/v1-{cadastro,agenda,anamnese,financeiro}.webp` | Slide 11       |
 
 `public/images/palestra/qr-medchina.svg` is a real, scannable QR for
 `medchinaprontuarios.com.br` — regenerate it if the domain changes.

@@ -57,6 +57,10 @@ const PUBLIC_PREFIXES = [
   "/ajuda",
   "/blog",
   "/palestra",
+  // Slide sync for the phone teleprompter (docs: components/presentation).
+  // No session by design: the deck itself is public and the endpoint only
+  // fans a slide index out to whoever holds the room code.
+  "/api/public/palestra",
   // SEO surfaces crawlers hit anonymously.
   "/sitemap.xml",
   "/robots.txt",

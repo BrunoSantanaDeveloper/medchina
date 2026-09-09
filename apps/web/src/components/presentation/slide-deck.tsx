@@ -1,5 +1,7 @@
 "use client";
 
+import DeckConnect from "./deck-connect";
+import { resolveRoom, type SyncStatus, type SyncTransport, useRemoteSync } from "./deck-sync";
 import { SlideRenderer } from "./slide-views";
 import { SLIDES_DATA } from "./slides-data";
 import { DeckLang, SlideData } from "./types";
@@ -14,6 +16,7 @@ import {
   CaretLeft,
   CaretRight,
   Clock,
+  DeviceMobile,
   EyeSlash,
   MonitorPlay,
   Moon,
@@ -110,8 +113,9 @@ function slideLabel(slide: SlideData) {
 /* Shared state, across both windows                                   */
 /* ------------------------------------------------------------------ */
 
-function useDeckState() {
+function useDeckState(role: "projector" | "presenter") {
   const [state, setState] = useState<DeckState>(INITIAL);
+  const [room, setRoom] = useState<string | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const selfId = useRef(`${performance.timeOrigin}-${Math.round(performance.now())}`);
   /** Read inside the channel handler, which is bound once and never re-bound. */
@@ -120,6 +124,22 @@ function useDeckState() {
 
   // Restore position from the URL hash and the timer from this tab's session,
   // so an accidental refresh mid-talk does not send her back to slide 1.
+  useEffect(() => setRoom(resolveRoom()), []);
+
+  /*
+    The phone teleprompter is a second DEVICE, so BroadcastChannel — which never
+    leaves the browser — cannot reach it. `useRemoteSync` carries the same state
+    over the network and applies it with the raw setter, exactly like a message
+    from the other window.
+  */
+  const remote = useRemoteSync<DeckState>({
+    room,
+    role,
+    selfId: selfId.current,
+    onRemote: setState,
+    getState: () => stateRef.current,
+  });
+
   useEffect(() => {
     const fromHash = Number(window.location.hash.replace("#s", ""));
     const stored = sessionStorage.getItem(TIMER_STORAGE_KEY);
@@ -162,13 +182,18 @@ function useDeckState() {
     };
   }, []);
 
-  const update = useCallback((patch: Partial<DeckState> | ((previous: DeckState) => Partial<DeckState>)) => {
-    setState((previous) => {
-      const next = { ...previous, ...(typeof patch === "function" ? patch(previous) : patch) };
-      channelRef.current?.postMessage({ type: "state", from: selfId.current, state: next });
-      return next;
-    });
-  }, []);
+  const publishRemote = remote.publish;
+  const update = useCallback(
+    (patch: Partial<DeckState> | ((previous: DeckState) => Partial<DeckState>)) => {
+      setState((previous) => {
+        const next = { ...previous, ...(typeof patch === "function" ? patch(previous) : patch) };
+        channelRef.current?.postMessage({ type: "state", from: selfId.current, state: next });
+        publishRemote(next);
+        return next;
+      });
+    },
+    [publishRemote],
+  );
 
   // Persist what a refresh must not lose.
   useEffect(() => {
@@ -179,7 +204,7 @@ function useDeckState() {
     );
   }, [state.index, state.running, state.startedAt, state.accumulatedMs]);
 
-  return [state, update] as const;
+  return [state, update, { room, transport: remote.transport, status: remote.status }] as const;
 }
 
 /** Re-render on a cadence so the wall-clock reading stays current. */
@@ -196,19 +221,56 @@ function useTick(active: boolean) {
 /* Presenter window                                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A phone screen dims and locks after ~30 seconds of not being touched, and a
+ * teleprompter is read, not tapped. Wake Lock keeps it lit while the view is
+ * visible and — this is the part that is easy to miss — has to be re-acquired
+ * after every tab switch or incoming call, because the browser drops the lock
+ * on visibility change without telling the page.
+ */
+function useScreenAwake() {
+  useEffect(() => {
+    if (!("wakeLock" in navigator)) return;
+    let sentinel: WakeLockSentinel | null = null;
+    let cancelled = false;
+
+    const acquire = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const lock = await navigator.wakeLock.request("screen");
+        if (cancelled) void lock.release();
+        else sentinel = lock;
+      } catch {
+        // Denied or unsupported: the talk still works, the screen just sleeps.
+      }
+    };
+
+    void acquire();
+    document.addEventListener("visibilitychange", acquire);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", acquire);
+      void sentinel?.release();
+    };
+  }, []);
+}
+
 function PresenterView({
   state,
   update,
   onPrev,
   onNext,
+  sync,
 }: {
   state: DeckState;
   update: (patch: Partial<DeckState>) => void;
   onPrev: () => void;
   onNext: () => void;
+  sync: { room: string | null; transport: SyncTransport; status: SyncStatus };
 }) {
   const slide = SLIDES_DATA[state.index];
   const next = SLIDES_DATA[state.index + 1];
+  useScreenAwake();
   useTick(state.running);
   const ms = elapsedMs(state);
   const standing = pace(slide, ms);
@@ -225,6 +287,16 @@ function PresenterView({
           {standing === "ahead" && " · adiantada"}
           {standing === "behind" && " · atrasada"}
           {standing === "ontime" && " · no ritmo"}
+        </span>
+        {/* She has to be able to tell, at a glance, whether the screen is still
+            following her — a teleprompter that quietly stopped syncing is worse
+            than one that never did. */}
+        <span
+          className={`presenter-sync presenter-sync--${sync.status}`}
+          title={sync.transport === "lan" ? "Rede local" : sync.transport === "cloud" ? "Internet" : "Sem sincronia"}
+        >
+          <i aria-hidden="true" />
+          {sync.status === "live" ? "Sincronizado" : sync.status === "connecting" ? "Conectando…" : "Sem sincronia"}
         </span>
         <div className="deck-chrome-group deck-chrome-group--end">
           <button
@@ -305,6 +377,27 @@ function PresenterView({
           )}
         </div>
       </div>
+
+      {/* Phone only (see the media query): the desktop view already has these
+          in the top bar, but a thumb does not reach up there. */}
+      <div className="presenter-thumb">
+        <button type="button" onClick={onPrev} disabled={state.index === 0} aria-label="Slide anterior">
+          <CaretLeft size={22} weight="bold" />
+        </button>
+        <span>
+          {state.index + 1} / {SLIDES_DATA.length}
+        </span>
+        <button
+          type="button"
+          className="presenter-thumb--next"
+          onClick={onNext}
+          disabled={state.index === SLIDES_DATA.length - 1}
+          aria-label="Próximo slide"
+        >
+          Avançar
+          <CaretRight size={22} weight="bold" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -317,10 +410,11 @@ export default function SlideDeck() {
   const searchParams = useSearchParams();
   const isPresenter = searchParams.get("apresentador") === "1";
 
-  const [state, update] = useDeckState();
+  const [state, update, sync] = useDeckState(isPresenter ? "presenter" : "projector");
   const [fullscreen, setFullscreen] = useState(false);
   const [chromeHidden, setChromeHidden] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showConnect, setShowConnect] = useState(false);
   const [scale, setScale] = useState(1);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
 
@@ -418,7 +512,8 @@ export default function SlideDeck() {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
 
       if (event.key === "Escape") {
-        if (showShortcuts) setShowShortcuts(false);
+        if (showConnect) setShowConnect(false);
+        else if (showShortcuts) setShowShortcuts(false);
         else if (state.blackout) update({ blackout: false });
         return;
       }
@@ -488,6 +583,10 @@ export default function SlideDeck() {
         case "N":
           openPresenter();
           break;
+        case "c":
+        case "C":
+          setShowConnect((value) => !value);
+          break;
         case "?":
         case "h":
         case "H":
@@ -505,6 +604,7 @@ export default function SlideDeck() {
     next,
     openPresenter,
     prev,
+    showConnect,
     showShortcuts,
     state.lang,
     state.blackout,
@@ -564,7 +664,7 @@ export default function SlideDeck() {
   const standing = useMemo(() => pace(slide, ms), [slide, ms]);
 
   if (isPresenter) {
-    return <PresenterView state={state} update={update} onPrev={prev} onNext={next} />;
+    return <PresenterView state={state} update={update} onPrev={prev} onNext={next} sync={sync} />;
   }
 
   return (
@@ -620,6 +720,17 @@ export default function SlideDeck() {
           <button className="deck-btn" type="button" onClick={openPresenter}>
             <MonitorPlay size={15} weight="duotone" aria-hidden="true" />
             Modo apresentador
+          </button>
+
+          {/* The phone teleprompter: scan and it follows the deck. */}
+          <button
+            className={cx("deck-btn", sync.status === "live" && "deck-btn--linked")}
+            type="button"
+            onClick={() => setShowConnect(true)}
+          >
+            <DeviceMobile size={15} weight="duotone" aria-hidden="true" />
+            Celular
+            {sync.status === "live" && <i className="deck-btn-dot" aria-hidden="true" />}
           </button>
 
           {/* One language on screen at a time — this switches, it does not add. */}
@@ -762,6 +873,15 @@ export default function SlideDeck() {
             <small>Pausa de palco · clique ou tecle B para retomar</small>
           </div>
         </div>
+      )}
+
+      {showConnect && sync.room && (
+        <DeckConnect
+          room={sync.room}
+          transport={sync.transport}
+          status={sync.status}
+          onClose={() => setShowConnect(false)}
+        />
       )}
 
       {showShortcuts && (

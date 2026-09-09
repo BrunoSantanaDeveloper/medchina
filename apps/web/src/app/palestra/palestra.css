@@ -742,7 +742,7 @@
 }
 
 .deck-stat--wide {
-  grid-column: span 2;
+  grid-column: span 3;
 }
 
 /* Notes, quotes and lists ------------------------------------------ */
@@ -1202,7 +1202,7 @@
 .deck-timeline {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   padding-top: 34px;
 }
@@ -2669,6 +2669,343 @@
   font-weight: 850;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* Connecting the phone                                                */
+/* ------------------------------------------------------------------ */
+
+.deck-btn--linked {
+  border-color: var(--jade);
+  color: var(--ink-strong);
+}
+
+.deck-btn-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--jade);
+}
+
+.deck--dark .deck-btn-dot {
+  background: var(--mint);
+}
+
+/* Both are single-class selectors and `.deck-modal-panel` is declared later in
+   the file, so the wider panel has to out-specify it rather than out-order it. */
+.deck-modal-panel.deck-connect {
+  width: min(100%, 640px);
+}
+
+.deck-connect-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.deck-connect-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.deck-connect-qr img,
+.deck-connect-qr-empty {
+  display: grid;
+  place-items: center;
+  width: 190px;
+  height: 190px;
+  padding: 8px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink-soft);
+}
+
+.deck-connect-qr figcaption {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deck-connect-qr figcaption b {
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.14em;
+}
+
+.deck-connect-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.deck-connect-copy p {
+  margin: 0;
+}
+
+.deck-connect-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.deck-connect-status i {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--ink-soft);
+}
+
+.deck-connect-status strong {
+  display: block;
+  font-size: 14px;
+}
+
+.deck-connect-status small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.deck-connect-status--live {
+  border-color: rgba(8, 103, 97, 0.32);
+  background: var(--jade-soft);
+}
+
+.deck-connect-status--live i {
+  background: var(--jade);
+}
+
+.deck-connect-status--connecting i {
+  background: var(--coral);
+}
+
+.deck-connect-status--error {
+  border-color: rgba(239, 116, 93, 0.4);
+  background: rgba(239, 116, 93, 0.09);
+}
+
+.deck-connect-status--error i {
+  background: var(--coral);
+}
+
+.deck-connect-warn,
+.deck-connect-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.45;
+  /* A URL is one long unbreakable word; without this it runs off the panel. */
+  overflow-wrap: anywhere;
+}
+
+.deck-connect-warn {
+  padding: 10px 12px;
+  border: 1px solid rgba(239, 116, 93, 0.4);
+  border-radius: 12px;
+  background: rgba(239, 116, 93, 0.08);
+}
+
+.deck-connect-warn svg {
+  flex: none;
+  margin-top: 1px;
+  color: #b45a44;
+}
+
+.deck-connect-hint {
+  color: var(--ink-soft);
+}
+
+.deck-connect-hint svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent);
+}
+
+.deck-connect-url {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  -webkit-user-select: all;
+  user-select: all;
+}
+
+/* Sync state, in the presenter's top bar. */
+.presenter-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #a9c4bf;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.presenter-sync i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #7d8c89;
+}
+
+.presenter-sync--live {
+  background: rgba(30, 201, 164, 0.16);
+  color: var(--mint);
+}
+
+.presenter-sync--live i {
+  background: var(--mint);
+}
+
+.presenter-sync--connecting i,
+.presenter-sync--error i {
+  background: var(--coral);
+}
+
+.presenter-sync--error {
+  background: rgba(239, 116, 93, 0.18);
+  color: #ffb9a7;
+}
+
+/* The thumb bar is a phone affordance; the desktop bar already has these. */
+.presenter-thumb {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* The presenter view on a phone                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+  She holds the phone; the laptop drives the projector. So the phone gets one
+  column, a script sized to be read at arm's length, and the controls at the
+  BOTTOM where a thumb actually rests — the desktop layout puts them in a top
+  bar that is unreachable one-handed.
+*/
+@media (max-width: 820px) {
+  .presenter {
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .presenter-top {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 10px 14px;
+  }
+
+  .presenter-clock {
+    font-size: 26px;
+  }
+
+  .presenter-top .deck-chrome-group--end {
+    /* Prev/next live in the thumb bar on a phone; the clock controls stay. */
+    gap: 6px;
+  }
+
+  .presenter-top .deck-chrome-group--end > button:nth-last-child(-n + 2) {
+    display: none;
+  }
+
+  .presenter-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px 14px 10px;
+    overflow-y: auto;
+  }
+
+  .presenter-panel {
+    overflow: visible;
+  }
+
+  .presenter-script {
+    padding-right: 0;
+    overflow-y: visible;
+    font-size: 23px;
+    line-height: 1.68;
+  }
+
+  .presenter-title {
+    font-size: 22px;
+  }
+
+  .presenter-next {
+    margin-top: 0;
+  }
+
+  .presenter-thumb {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    background: #04211f;
+  }
+
+  .presenter-thumb button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    /* 56px clears the 44px touch-target floor with room for a moving thumb. */
+    min-height: 56px;
+    padding: 0 18px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #eaf5f2;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .presenter-thumb button:disabled {
+    opacity: 0.35;
+  }
+
+  .presenter-thumb .presenter-thumb--next {
+    flex: 1;
+    border-color: var(--mint);
+    background: var(--mint);
+    color: #04211f;
+  }
+
+  .presenter-thumb span {
+    color: #a9c4bf;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+  }
+}
+
+/* The QR panel stacks on a narrow screen. */
+@media (max-width: 620px) {
+  .deck-connect-body {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
 }
 
 /* ------------------------------------------------------------------ */
