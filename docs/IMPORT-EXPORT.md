@@ -470,6 +470,143 @@ emite `change` para o arquivo repetido).
 
 ---
 
+## 11.2 Incidente: planilha de atendimentos importada como cadastro (set/2026)
+
+Uma cliente exportou os ATENDIMENTOS do sistema antigo e importou com o seletor no padrão
+("Cadastro de pacientes"). Reproduzido com um CSV de 8 linhas e 3 pacientes:
+
+| Coluna | Virou | |
+| --- | --- | --- |
+| `Paciente` | Nome | ✔ |
+| `ID Atendimento` | **`external_ref` da paciente** | o id da consulta virou a identidade do prontuário |
+| `Descrição` | **`patients.notes`** | texto clínico no campo livre, sem marca de origem |
+| `Data`, `Profissional`, `Procedimento`, `Valor` | descartadas | em silêncio |
+
+`create: 8, update: 0, skip: 0, error: 0` — **zero avisos**. Três pessoas, oito prontuários.
+
+**As três defesas estavam desarmadas ao mesmo tempo**, e por uma razão só: a planilha não tinha
+nenhuma chave de identidade. `external_ref` era o id do atendimento (único por linha, nunca colide);
+`document` não foi mapeado; nome+nascimento exige nascimento, que o matcher recusa de propósito
+quando a coluna se chama só "Data" — a salvaguarda que impediu "Data" de virar data de nascimento é
+a mesma que desligou o único detector de duplicata que salvaria o arquivo.
+
+**E nenhuma tela podia contradizer a escolha do passo 1**: `ImportReviewStep` nem recebia o `kind`,
+e os rótulos diziam "Novos cadastros" nos três modos. Na importação errada a tela dizia a verdade;
+na certa, mentiria.
+
+### O que mudou
+
+**Cercas de matcher** ([mapping.ts](../apps/web/src/lib/import/mapping.ts)) — o que impede o dano
+*permanente*, porque `patients.external_ref` é único por workspace, é a primeira regra de
+casamento de toda importação futura, é fill-only no writer e não aparece em tela nenhuma:
+
+- `external_ref` de pacientes recusa substantivo de evento (atendimento, consulta, sessão,
+  procedimento, convênio, fatura…);
+- `document` exige `rg`/`doc` como **palavra inteira** — como substring capturava "Alergias"
+  ("ale-**rg**-ias"), "Cirurgias" e "Urgencia";
+- `body` do histórico recusa cabeçalho de identificador: o caminho de recuperação natural
+  ("reimporte como Histórico") propunha `body ← "ID Atendimento"` e gravava uma consulta
+  **finalizada e imutável** cujo prontuário inteiro era o número `10234`;
+- `date` da agenda exige "dia" como palavra — como substring casava "Diagnóstico";
+- `full_name` recusa cabeçalho de endereço ("Cidade do Paciente" vencia a coluna "Paciente").
+
+**Identidade** ([preview.ts](../apps/web/src/lib/import/preview.ts)) — `documentKey()` só aceita
+valor com forma de CPF/CNPJ. Antes caía para o texto em minúsculas, o que transformava qualquer
+coluna mal mapeada em identidade: 40 pacientes respondendo "Nenhuma" colapsavam numa chave só —
+39 sumiam em `skip` e a primeira era **gravada por cima da ficha de outra pessoa**. Um RG continua
+sendo GUARDADO (ela reconcilia lendo), só não funde nada sozinho.
+
+**A conferência afirma em vez de contar** ([import-review-step.tsx](../apps/web/src/components/product/import-review-step.tsx)):
+frase de abertura nomeando o objeto ("Vai criar 8 fichas de paciente novas"), quantas pacientes o
+consultório tem hoje, rótulos e botão por tipo, colunas descartadas nomeadas, e `columnWarnings`
+finalmente renderizado (era calculado em três previews e lido em lugar nenhum).
+
+**Um portão que PARA** — `assessRepeatedNames` marca a planilha exportada por evento pelo único
+sinal que não depende do vocabulário do cabeçalho: nome repetido entre linhas `create`. Duas
+condições, porque cada uma sozinha erra num consultório real (um par de homônimos é normal; uma
+contagem fixa não significa nada entre planilhas de tamanhos diferentes): **repetidas ≥ 2 E
+(um nome aparecendo ≥ 3 vezes OU repetidas ≥ 20% do arquivo)**. Fica no `canAdvance` do passo 3 —
+não no submit — e destrava por caixa de confirmação explícita.
+
+Descartado de propósito: o **classificador de cabeçalho** ("esta planilha parece histórico"). Dois
+agentes implementaram a especificação e rodaram: erra nos dois sentidos (`"Cidade"` casa `"cid"` →
+histórico; um cadastro legítimo com "Data do Atendimento" → pacientes). Um portão que treina a
+profissional a clicar "continuar" é pior que nenhum.
+
+**O desfazer alcançável e honesto** — o `batchId` vive em `?lote=` na URL, porque morria num
+`useState` e o CTA da própria tela de sucesso ("Ver pacientes") era o jeito mais rápido de perdê-lo,
+que é exatamente o clique de quem vai ver a bagunça. E a recusa passa a dizer o motivo real: antes,
+**toda** recusa que não fosse `batch_in_use` — inclusive prazo vencido — era pintada como "estes
+cadastros já fazem parte do consultório" com a lista de motivos vazia.
+
+### A prova do desfazer ([0097](../packages/db/migrations/0097_import_revert_proof.sql))
+
+Estava errada nas duas direções:
+
+- **Provava de menos.** Uma importação de AGENDA insere consultas `scheduled` com o carimbo do lote,
+  que é imutável. Quando ela atende esse agendamento, a linha ganha anamnese, gravação, hipóteses e
+  plano — e a prova só olhava adendos, anexos e documentos emitidos. Como `anamnesis_answers`,
+  `consultation_hypotheses` e `consultation_plans` são `on delete cascade`, um desfazer dentro
+  dos 30 dias apagaria uma consulta realmente atendida. Isso contradizia o invariante escrito no topo
+  do próprio 0076.
+- **Provava de mais.** Qualquer ficha com `archived_at` travava o lote inteiro — e arquivar é a
+  primeira coisa que se faz quando a importação dá errado, uma paciente por vez. Desarquivar não
+  curava, porque a checagem era `updated_at > created_at`, que arquivar também mexe. Agora a
+  pergunta é precisa: a ficha difere do que a importação GRAVOU, em alguma coluna que não seja de
+  arquivamento? O snapshot INSERT em `record_versions` é a linha de base.
+
+Comportamento fixado em [0030_import_revert_proof.test.sql](../packages/db/tests/0030_import_revert_proof.test.sql).
+
+### Segunda passada: o que a revisão adversarial encontrou na própria correção
+
+Quatro revisores independentes leram o diff (falso positivo das cercas, portão, SQL, UI/i18n) e
+levantaram 32 achados. A verificação automática deles não chegou a rodar, então cada um foi conferido
+à mão contra o código. **Cinco eram regressões introduzidas pela correção**, e o resto se dividiu
+entre furos que a correção dizia ter fechado e limitações aceitas:
+
+| Achado | Verdadeiro? | O que foi feito |
+| --- | --- | --- |
+| As 6 chaves de bloqueio novas da 0097 não existiam nos catálogos | sim, regressão | a recusa mostrava `import-blocked-recordsAttended` na tela; hoje são 3 chaves genéricas, traduzidas |
+| Pedir exclusão da paciente travava o lote | sim, regressão | as 3 colunas do pedido entraram na isenção, junto do arquivamento |
+| Cancelar um agendamento importado contava como "atendido" | sim, regressão | cancelar é a limpeza da agenda; entrou na isenção |
+| `DtAtendimento` colado perdeu a data (e o corpo tomou a coluna) | sim, regressão | `dt` voltou a casar como substring |
+| `Docto`, `Document Number` e `Recepção` pararam de mapear | sim, regressão | `document`/`docto` reconhecidos; `cep` e `estado` viraram palavra inteira |
+| `Cód. Paciente` virava o NOME de cada ficha | sim, pré-existente | `full_name` recusa cabeçalho de identificador |
+| `Nº Atendimento` virava o corpo do prontuário congelado | sim, pré-existente | `Nº` normaliza para `n`, agora reconhecido — e vira `external_ref`, o que dá idempotência ao histórico |
+| Remarcar/trocar a paciente de uma consulta importada passava pela prova | sim | comparação com o snapshot `INSERT` de `record_versions` |
+| CPF placeholder (`000.000.000-00`, `123.456.789-09`) fundia estranhos | sim | a chave exige dígito verificador **e** documento repetido entre nomes diferentes fica em quarentena |
+| Excel comendo o zero à esquerda passou a duplicar | sim, regressão da chave nova | o zero é restaurado quando o valor padded valida |
+| Portão disparava com 3 homônimos em 2.000 fichas | sim | regra proporcional: 20% do arquivo, ou um nome com 10% dele |
+| `existing` vazio por falha de rede virava "não há nenhuma paciente" | sim | a importação é barrada, porque sem a base não há como ver duplicata |
+| Só as primeiras 1.000 fichas entravam na deduplicação | sim, pré-existente | `fetchExistingPatients` pagina até o fim |
+| Checkbox dentro de `role="alert"` | sim | saiu do live region |
+| `Dia da Semana` ganhava de `Data` | sim, pré-existente | `semana` excluída |
+| RG vira `external_ref` e some do documento | sim, pré-existente | `Registro Geral` é documento, não id |
+| Coluna futura com backfill congelaria todo desfazer aberto | sim | só colunas presentes no snapshot são comparadas |
+| Reimportar planilha só com RG duplica (RG não funde) | sim, aceito | fundir por RG reabre o buraco das colunas numéricas mal mapeadas; o aviso `name_exists_in_practice` cobre o caso |
+| `Ficha de Atendimento` perde o `external_ref` | sim, aceito | a coluna aparece na lista de descartadas |
+| Botão desabilitado sem `aria-describedby` | sim, aceito | exigiria mudar o `SetupWizard`, compartilhado |
+
+**A lição estrutural** veio do SQL. A prova do desfazer nomeava tabelas filhas uma a uma; o catálogo
+diz que **13 tabelas apontam para `consultations` e 9 para `patients`**, e a primeira versão da 0097
+ainda deixava 5 de fora (sessões de captura, feedback de IA, lacunas dispensadas, consentimento por
+QR, autorizações do app). Uma lista que alguém precisa lembrar de estender é exatamente como esse bug
+aconteceu duas vezes, então a prova agora **pergunta ao `pg_constraint`**: qualquer linha, em
+qualquer tabela, apontando para algo que o lote criou significa que aquilo foi usado. As três chaves
+que a interface já traduzia continuam nomeadas; o resto entra num contador só.
+
+### O que ainda não foi feito
+
+- **Tela de lotes importados** com desfazer (tudo que ela precisa já está gravado: `kind`,
+  `file_name`, `counts`, e `import_rows.target_id` linha a linha). O `?lote=` é o paliativo.
+- **Desfazer parcial** (remover o que ninguém tocou, listando o que ficou e por quê).
+- **Console de suporte** para reverter pela profissional — o RPC já aceita `is_superadmin()`, falta
+  a tela. Por "personificar" não funciona: `patients` está na cerca de escrita do 0057.
+- **CSV do que FOI gravado** — hoje o único CSV é o das linhas com problema, e só existe antes de
+  gravar.
+
+---
+
 ## 12. Riscos conhecidos
 
 - **Data ambígua** (`03/04/1985`) — resolver por coluna ou perguntar; nunca chutar.
@@ -477,4 +614,6 @@ emite `change` para o arquivo repetido).
 - **Duplicatas** — homônimo com mesma data de nascimento existe; só `external_ref` e documento autorizam merge automático.
 - **Desfazer destrutivo** — reversão precisa recusar, não avisar.
 - **A planilha é dado clínico** — bucket privado, retenção curta, download auditado, apagada com o lote.
+- **O tipo escolhido é uma declaração** — nada compara a FORMA do arquivo com ele. A defesa é o portão de nomes repetidos (§11.2), que só cobre `patients`: pacientes→histórico continua aberta e é a confusão mais cara, porque grava consulta finalizada e imutável.
+- **Chave de fusão de prontuários** — só CPF/CNPJ funde. Qualquer afrouxamento aqui reabre o caminho de escrever dado de uma paciente na ficha de outra.
 - **Expectativa de completude** — a UI precisa dizer, no resultado, o que NÃO foi importado (áudios, consentimentos, documentos assinados de terceiros). Silêncio aqui vira reclamação depois.

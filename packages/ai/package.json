@@ -5,10 +5,11 @@
   "type": "module",
   "description": "Instruction-driven assistants behind a ChatProvider interface: Anthropic, Gemini, OpenAI and OpenRouter implementations with streaming and image/audio attachments.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./errors": "./src/errors.ts"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test src/providers/openai.test.ts"
+    "test": "node --experimental-strip-types --test src/providers/openai.test.ts src/errors.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.60.0",

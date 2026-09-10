@@ -1,3 +1,4 @@
+import { StructuredOutputError } from "@flyee/ai/errors";
 import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
 
 /** Models that accept audio parts on the chat-completions API. */
@@ -162,19 +163,33 @@ export class OpenAiProvider implements ChatProvider {
     }
 
     const data = (await response.json()) as {
-      choices?: { message?: { content?: string; refusal?: string | null } }[];
+      choices?: { message?: { content?: string; refusal?: string | null }; finish_reason?: string | null }[];
     };
     const choice = data.choices?.[0]?.message;
+    const finishReason = data.choices?.[0]?.finish_reason ?? undefined;
     // A refusal is a deliberate model decision, not a malformed reply: saying
     // so beats "returned no structured output" when a clinical prompt trips a
     // safety rule.
-    if (choice?.refusal) throw new Error(`OpenAI refused the request: ${choice.refusal}`);
+    if (choice?.refusal || finishReason === "content_filter") {
+      throw new StructuredOutputError({ failure: "blocked", provider: "openai", finishReason });
+    }
+    // An answer cut at the token cap is incomplete JSON — a budget problem the
+    // caller can name instead of reporting a malformed model.
+    if (finishReason === "length") {
+      throw new StructuredOutputError({ failure: "truncated", provider: "openai", finishReason });
+    }
     const content = choice?.content;
-    if (!content) throw new Error("OpenAI returned no structured output.");
+    if (!content) throw new StructuredOutputError({ failure: "empty", provider: "openai", finishReason });
     try {
       return JSON.parse(content);
     } catch {
-      throw new Error(`OpenAI returned invalid JSON: ${content.slice(0, 200)}`);
+      // The reply is never quoted here: it is clinical content and this is logged.
+      throw new StructuredOutputError({
+        failure: "invalid_json",
+        provider: "openai",
+        finishReason,
+        detail: `${content.length} characters returned`,
+      });
     }
   }
 }

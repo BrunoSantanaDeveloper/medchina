@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+import { StructuredOutputError } from "@flyee/ai/errors";
 import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
 
 function toAnthropicMessages(messages: ChatMessage[]) {
@@ -80,9 +81,19 @@ export class AnthropicProvider implements ChatProvider {
       tool_choice: { type: "tool", name: output.name },
     });
 
+    // Why it stopped decides what the caller can say. A tool input cut at
+    // max_tokens is incomplete JSON, not a refusal, and vice-versa.
+    const stopReason = (response.stop_reason ?? undefined) as string | undefined;
+    if (stopReason === "max_tokens") {
+      throw new StructuredOutputError({ failure: "truncated", provider: "anthropic", finishReason: stopReason });
+    }
+    if (stopReason === "refusal") {
+      throw new StructuredOutputError({ failure: "blocked", provider: "anthropic", finishReason: stopReason });
+    }
+
     const toolUse = response.content.find((block) => block.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") {
-      throw new Error("Anthropic returned no structured output.");
+      throw new StructuredOutputError({ failure: "empty", provider: "anthropic", finishReason: stopReason });
     }
     return toolUse.input;
   }

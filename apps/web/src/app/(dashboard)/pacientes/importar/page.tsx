@@ -65,6 +65,14 @@ import { createClient } from "@flyee/auth/client";
 type Phase = "loading" | "wizard" | "running" | "failed" | "done";
 
 /**
+ * Refusals of the undo that have their own sentence. Anything else falls back
+ * to a generic one — never to "these charts are already part of the practice",
+ * which is what an empty blocker list used to render for EVERY refusal, and is
+ * the opposite of the truth when the reason is that the window closed.
+ */
+const UNDO_ERROR_CODES = ["revert_window_closed", "invalid_state", "not_found", "not_authorized"];
+
+/**
  * Importing patients from the system she is leaving (docs/IMPORT-EXPORT.md).
  *
  * Who: a professional on day one, with her practice still in another product.
@@ -88,6 +96,12 @@ export default function ImportarPacientes() {
   const [appointments, setAppointments] = useState<ExistingAppointment[]>([]);
   const [maxRows, setMaxRows] = useState<number | null>(null);
   const [blockedReason, setBlockedReason] = useState<string | null>(null);
+  /**
+   * The charts she already has could not be loaded. Without them the preview
+   * sees no duplicate at all — every row reads as new — so the import is held
+   * instead of quietly bringing her whole registry in a second time.
+   */
+  const [existingFailed, setExistingFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
    * Kept apart from `error` so it can render WHERE she just clicked. A rejected
@@ -105,12 +119,20 @@ export default function ImportarPacientes() {
   const [dateVerdict, setDateVerdict] = useState<DateColumnVerdict | null>(null);
   const [dateOrder, setDateOrder] = useState<DateOrder | undefined>(undefined);
 
+  /**
+   * Her explicit "yes, these really are patients" for a file that looks like
+   * one line per VISIT. Reset whenever the file, the kind or the mapping
+   * changes, because an acknowledgement is about one specific outcome.
+   */
+  const [shapeAcknowledged, setShapeAcknowledged] = useState(false);
+
   const [counts, setCounts] = useState<ImportCounts | null>(null);
   const [trialStarted, setTrialStarted] = useState(false);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [uploadWarning, setUploadWarning] = useState(false);
   const [undoState, setUndoState] = useState<"idle" | "running" | "done">("idle");
   const [undoBlockers, setUndoBlockers] = useState<Record<string, number> | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -137,6 +159,36 @@ export default function ImportarPacientes() {
       }
 
       setOrgId(membership.org_id as string);
+
+      // The undo used to live in a useState that died with the tab — and the
+      // result screen's own primary CTA ("Ver pacientes") was the fastest way
+      // to lose it, which is exactly the click someone makes to go and see the
+      // mess. The batch id is in the URL now, so this address comes back to the
+      // screen that can still undo it, for as long as the window is open.
+      const resumed = new URLSearchParams(window.location.search).get("lote");
+      if (resumed) {
+        const { data: batch } = await supabase
+          .from("import_batches")
+          .select("id, kind, status, counts")
+          .eq("id", resumed)
+          .eq("org_id", membership.org_id as string)
+          .maybeSingle();
+
+        if (batch && (batch.status === "completed" || batch.status === "reverted")) {
+          const stored = (batch.counts ?? {}) as Record<string, number>;
+          setBatchId(batch.id as string);
+          setKind(batch.kind as ImportKind);
+          setCounts({
+            created: Number(stored.created ?? 0),
+            updated: Number(stored.updated ?? 0),
+            skipped: Number(stored.skipped ?? 0),
+            failed: Number(stored.failed ?? 0),
+          });
+          if (batch.status === "reverted") setUndoState("done");
+          setPhase("done");
+          return;
+        }
+      }
       const [allowance, patients] = await Promise.all([
         fetchImportAllowance(supabase, membership.org_id as string),
         fetchExistingPatients(supabase, membership.org_id as string),
@@ -146,6 +198,7 @@ export default function ImportarPacientes() {
         if (!allowance.data.allowed) setBlockedReason(allowance.data.reason);
       }
       if (patients.ok) setExisting(patients.data);
+      else setExistingFailed(true);
 
       // The calendar as it stands, so the agenda preview can refuse a slot
       // that is already taken instead of letting the writer discover it.
@@ -186,6 +239,7 @@ export default function ImportarPacientes() {
 
   const handleFile = async (picked: File | null) => {
     setFileError(null);
+    setShapeAcknowledged(false);
     setFile(picked);
     setTable(null);
     if (!picked) return;
@@ -224,6 +278,7 @@ export default function ImportarPacientes() {
   const changeKind = (next: ImportKind) => {
     setKind(next);
     setError(null);
+    setShapeAcknowledged(false);
     if (table) applyGuess(table, next);
     else {
       setMapping({});
@@ -234,6 +289,7 @@ export default function ImportarPacientes() {
   };
 
   const changeMapping = (field: ImportFieldKey, index: number | null) => {
+    setShapeAcknowledged(false);
     setMapping((current) => {
       const next = { ...current };
       if (index === null) delete next[field];
@@ -255,6 +311,17 @@ export default function ImportarPacientes() {
     }
     return buildImportPreview({ table, mapping, surnameColumn, dateOrder, existing });
   }, [kind, table, mapping, surnameColumn, dateOrder, existing, appointments, timezone]);
+
+  // Named on the review step: "we imported everything" is what silence here
+  // reads as, and four discarded columns is how an attendance sheet loses the
+  // only thing that made its lines attendances.
+  const discardedColumns = useMemo(() => {
+    if (!table) return [];
+    const used = new Set<number>();
+    for (const index of Object.values(mapping)) if (typeof index === "number") used.add(index);
+    if (surnameColumn !== undefined) used.add(surnameColumn);
+    return table.headers.filter((header, index) => !used.has(index) && header.trim() !== "");
+  }, [table, mapping, surnameColumn]);
 
   const dateSample = useMemo(() => {
     const column = mapping[dateField];
@@ -288,7 +355,9 @@ export default function ImportarPacientes() {
   }, [preview, table, t]);
 
   const runImport = async () => {
-    if (!orgId || !preview) return;
+    // canAdvance is the gate; this is the second door into the write ("Tentar
+    // de novo" calls it directly), and it must not be the one that forgets.
+    if (!orgId || !preview || shapeBlocked || existingFailed) return;
     setPhase("running");
     setError(null);
     const supabase = createClient();
@@ -349,6 +418,9 @@ export default function ImportarPacientes() {
 
     setCounts(committed.data);
     setPhase("done");
+    // replaceState rather than a router push: this is the same screen, and the
+    // point is only that the address now identifies the batch.
+    window.history.replaceState(null, "", `?lote=${currentBatch}`);
     // Bringing her charts in is real use of the product, and it used to leave
     // the Pro trial unreachable (migration 0084). Fired after the commit so a
     // billing call can never put an import at risk.
@@ -359,14 +431,21 @@ export default function ImportarPacientes() {
     if (!orgId || !batchId) return;
     setUndoState("running");
     setUndoBlockers(null);
+    setUndoError(null);
     const supabase = createClient();
     const result = await revertImportBatch(supabase, { batchId, orgId });
     if (result.ok) {
       setUndoState("done");
       return;
     }
+
     setUndoState("idle");
-    setUndoBlockers((result.details as Record<string, number> | undefined) ?? {});
+    if (result.code === "batch_in_use") {
+      setUndoBlockers((result.details as Record<string, number> | undefined) ?? {});
+      return;
+    }
+    const code = UNDO_ERROR_CODES.includes(result.code ?? "") ? result.code : "unknown";
+    setUndoError(t(`import-undo-error-${code}`));
   };
 
   // History needs to know WHO and WHEN before it can write anything; a patients
@@ -384,6 +463,10 @@ export default function ImportarPacientes() {
   const dateReady = mapping[dateField] === undefined || dateVerdict?.ambiguous !== true || Boolean(dateOrder);
   const willWrite = preview ? preview.summary.create + preview.summary.update : 0;
   const withinLimit = maxRows === null || willWrite <= maxRows;
+  // The one thing on this screen that STOPS instead of warning. It is in
+  // canAdvance rather than in the submit handler because the wizard's own
+  // "next" is the only way into the write.
+  const shapeBlocked = kind === "patients" && Boolean(preview?.repeatedNames?.suspicious) && !shapeAcknowledged;
 
   const steps: WizardStep[] = [
     {
@@ -483,8 +566,20 @@ export default function ImportarPacientes() {
             dateOrder={dateOrder}
             dateSample={dateSample}
             onMappingChange={changeMapping}
-            onSurnameChange={kind === "patients" ? (index) => setSurnameColumn(index ?? undefined) : undefined}
-            onDateOrderChange={setDateOrder}
+            onSurnameChange={
+              kind === "patients"
+                ? (index) => {
+                    // The surname is part of every chart's name, so it changes
+                    // what she confirmed.
+                    setShapeAcknowledged(false);
+                    setSurnameColumn(index ?? undefined);
+                  }
+                : undefined
+            }
+            onDateOrderChange={(order) => {
+              setShapeAcknowledged(false);
+              setDateOrder(order);
+            }}
           />
         ) : (
           <Skeleton variant="rounded" height={220} className="rounded-3xl" />
@@ -493,9 +588,18 @@ export default function ImportarPacientes() {
     {
       title: t("import-step-review"),
       hint: t("import-step-review-hint"),
-      canAdvance: willWrite > 0 && withinLimit,
+      canAdvance: willWrite > 0 && withinLimit && !shapeBlocked && !existingFailed,
       content: preview ? (
-        <ImportReviewStep preview={preview} maxRows={maxRows} onDownloadIssues={downloadIssues} />
+        <ImportReviewStep
+          preview={preview}
+          kind={kind}
+          existingCount={existingFailed ? null : existing.filter((patient) => !patient.archived).length}
+          discardedColumns={discardedColumns}
+          maxRows={maxRows}
+          acknowledged={shapeAcknowledged}
+          onAcknowledgedChange={setShapeAcknowledged}
+          onDownloadIssues={downloadIssues}
+        />
       ) : (
         <Skeleton variant="rounded" height={220} className="rounded-3xl" />
       ),
@@ -524,6 +628,12 @@ export default function ImportarPacientes() {
       {error && phase !== "failed" && (
         <Grid size={12}>
           <Alert severity="error">{error}</Alert>
+        </Grid>
+      )}
+
+      {existingFailed && (
+        <Grid size={12}>
+          <Alert severity="error">{t("import-existing-load-error")}</Alert>
         </Grid>
       )}
 
@@ -577,11 +687,15 @@ export default function ImportarPacientes() {
                 <NiCheckFull size="large" className="text-primary flex-none" />
                 <Box className="flex flex-col gap-1">
                   <Typography variant="h4" component="h2" className="text-text-primary mb-0">
-                    {t("import-done")}
+                    {undoState === "done" ? t("import-undo-done") : t("import-done")}
                   </Typography>
-                  <Typography variant="body1" className="text-text-secondary leading-6">
-                    {t("import-done-body", counts)}
-                  </Typography>
+                  {/* Reopened from ?lote= after an undo, the creation counts
+                      describe rows that no longer exist — not a result. */}
+                  {undoState !== "done" && (
+                    <Typography variant="body1" className="text-text-secondary leading-6">
+                      {t("import-done-body", counts)}
+                    </Typography>
+                  )}
                 </Box>
               </Box>
 
@@ -593,7 +707,7 @@ export default function ImportarPacientes() {
                   trial that expires "without being used". */}
               {trialStarted && <Alert severity="info">{t("trial-auto-started")}</Alert>}
               {uploadWarning && <Alert severity="info">{t("import-upload-warning")}</Alert>}
-              {undoState === "done" && <Alert severity="success">{t("import-undo-done")}</Alert>}
+              {undoError && <Alert severity="warning">{undoError}</Alert>}
               {undoBlockers && (
                 <Alert severity="warning">
                   {t("import-undo-blocked")}{" "}
@@ -614,9 +728,14 @@ export default function ImportarPacientes() {
                 )}
               </Box>
               {undoState !== "done" && (
-                <Typography variant="body2" className="text-text-secondary">
-                  {t("import-undo-hint")}
-                </Typography>
+                <Box className="flex flex-col gap-1">
+                  <Typography variant="body2" className="text-text-secondary">
+                    {t("import-undo-hint")}
+                  </Typography>
+                  <Typography variant="body2" className="text-text-secondary">
+                    {t("import-undo-return")}
+                  </Typography>
+                </Box>
               )}
             </CardContent>
           </Card>
@@ -624,7 +743,7 @@ export default function ImportarPacientes() {
           <SetupWizard
             steps={steps}
             onComplete={runImport}
-            completeLabel={t("import-submit", { count: willWrite })}
+            completeLabel={t(`import-submit-${kind}`, { count: willWrite })}
             className="max-w-4xl"
           />
         )}

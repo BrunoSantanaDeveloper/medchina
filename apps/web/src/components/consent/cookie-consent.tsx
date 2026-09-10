@@ -17,6 +17,14 @@ import { ANALYTICS_ENABLED, getStoredConsent, optOutOfAnalytics, storeConsent } 
  * stays on); "Recusar análises" opts out (sets the cookie + disables the SDKs).
  *
  * Not a modal on purpose: it must not trap focus or block the page.
+ *
+ * **Its footprint is a conversion decision, not a styling one.** As a tall
+ * card with stacked buttons it covered the price and the primary CTA of
+ * `/fundadores` on a 375px screen, and the CTA on a 1440px one — and a first
+ * visit is exactly what every campaign link produces. So it is a slim bar: one
+ * sentence, buttons inline beside the text from `sm` up, pinned to the bottom
+ * edge. Both actions are real `<button>` elements; the acknowledge action used
+ * to be an `<a>` with no `href`, which kept it out of the tab order entirely.
  */
 export default function CookieConsent() {
   const t = useTranslations("marketing");
@@ -46,17 +54,17 @@ export default function CookieConsent() {
       <Card
         component="section"
         aria-label={t("cookie-consent-title")}
-        className="shadow-darker-sm! fixed bottom-5 left-5 z-50 flex max-w-md flex-col gap-4 p-5 max-sm:right-5 max-sm:max-w-none"
+        className="shadow-darker-sm! fixed right-3 bottom-3 left-3 z-50 flex flex-col gap-2.5 p-3 sm:right-5 sm:bottom-5 sm:left-auto sm:max-w-2xl sm:flex-row sm:items-center sm:gap-5 sm:p-5"
       >
         <Box className="flex items-start gap-3">
-          <Box className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-            <NiShieldCheck size="medium" />
+          <Box className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+            <NiShieldCheck size="small" />
           </Box>
-          <Box className="flex flex-col gap-1">
-            <Typography variant="h6" component="h2">
+          <Box className="flex flex-col gap-0.5">
+            <Typography variant="subtitle2" component="h2">
               {t("cookie-consent-title")}
             </Typography>
-            <Typography variant="body2" className="text-text-secondary">
+            <Typography variant="caption" className="text-text-secondary leading-snug">
               {t("cookie-consent-description")}{" "}
               <Link href="/legal/privacidade" className="text-primary underline">
                 {t("cookie-consent-privacy")}
@@ -64,11 +72,22 @@ export default function CookieConsent() {
             </Typography>
           </Box>
         </Box>
-        <Box className="flex gap-2 max-sm:flex-col">
-          <a className="button button--sm" onClick={acknowledge}>
+        <Box className="flex shrink-0 gap-2">
+          <Button
+            variant="contained"
+            size="small"
+            className="flex-1 whitespace-nowrap sm:flex-none"
+            onClick={acknowledge}
+          >
             {t("cookie-consent-accept")}
-          </a>
-          <Button variant="outlined" color="grey" className="flex-1" onClick={optOut}>
+          </Button>
+          <Button
+            variant="outlined"
+            color="grey"
+            size="small"
+            className="flex-1 whitespace-nowrap sm:flex-none"
+            onClick={optOut}
+          >
             {t("cookie-consent-reject")}
           </Button>
         </Box>

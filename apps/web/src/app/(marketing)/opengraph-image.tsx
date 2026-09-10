@@ -9,11 +9,14 @@ export const contentType = "image/png";
 
 /**
  * Shared Open Graph card for the public site. Colors come from the generated
- * token mirror (blue theme), so a token change re-brands this image too.
+ * token mirror (the green theme MedChina locks in `css/green.css`), so a token
+ * change re-brands this image too. It read `themes.blue` — the template default
+ * — which shipped every link preview of the site in a colour the brand does not
+ * use.
  */
 export default function OpenGraphImage() {
-  const primary = hsl(themes.blue.light["primary"]);
-  const primaryDark = hsl(themes.blue.light["primary-dark"]);
+  const primary = hsl(themes.green.light["primary"]);
+  const primaryDark = hsl(themes.green.light["primary-dark"]);
 
   return new ImageResponse(
     (

@@ -35,13 +35,26 @@ export type ClinicalContextBarProps = {
   timezone?: string | null;
   saveState: ConsultationSaveState;
   recordingStatus?: RecordingStatus | null;
-  nextAction: string;
+  /**
+   * The ONE thing to do next, derived from the record's data
+   * (`deriveConsultationJourney`), with the control that does it. A sentence
+   * that names an action the screen does not offer is how the bar used to send
+   * her looking for a "finalizar" button that was not there.
+   */
+  nextAction: { label: string; action?: { label: string; onClick: () => void } };
   onRetrySave?: () => void;
+  /** Opens the consent dialog IN this screen, instead of navigating out of the consultation. */
+  onManageConsents?: () => void;
   primaryAction?: {
     label: string;
     onClick: () => void;
     disabled?: boolean;
     variant: "outlined" | "contained";
+    /**
+     * Why it is disabled, in words, under the button. A disabled control with
+     * no reason is a dead end, and a tooltip does not exist on touch.
+     */
+    reason?: string;
   };
 };
 
@@ -112,6 +125,7 @@ export default function ClinicalContextBar({
   recordingStatus,
   nextAction,
   onRetrySave,
+  onManageConsents,
   primaryAction,
 }: ClinicalContextBarProps) {
   const t = useTranslations("product");
@@ -247,16 +261,25 @@ export default function ClinicalContextBar({
                   </>
                 )}
               </Box>
-              {!contextUnavailable && (!consents.audio || !consents.ai) && (
-                <Button
-                  component={Link}
-                  href={`/pacientes/${patientId}/consentimentos`}
-                  size="small"
-                  className="mt-1 px-0!"
-                >
-                  {t("context-manage-consents")}
-                </Button>
-              )}
+              {/* Registering the consent happens HERE, with the patient in the
+                  room: this used to be a link to the patient's consent page,
+                  which meant leaving an open consultation to come back to it. */}
+              {!contextUnavailable &&
+                (!consents.audio || !consents.ai) &&
+                (onManageConsents ? (
+                  <Button size="small" className="mt-1 px-0!" onClick={onManageConsents}>
+                    {t("context-manage-consents")}
+                  </Button>
+                ) : (
+                  <Button
+                    component={Link}
+                    href={`/pacientes/${patientId}/consentimentos`}
+                    size="small"
+                    className="mt-1 px-0!"
+                  >
+                    {t("context-manage-consents")}
+                  </Button>
+                ))}
             </Box>
           </Box>
 
@@ -268,8 +291,13 @@ export default function ClinicalContextBar({
               {t("context-next-action")}
             </Typography>
             <Typography variant="body2" className="mt-1 font-medium">
-              {nextAction}
+              {nextAction.label}
             </Typography>
+            {nextAction.action && (
+              <Button size="small" className="mt-0.5 px-0!" onClick={nextAction.action.onClick}>
+                {nextAction.action.label}
+              </Button>
+            )}
             <Typography
               variant="caption"
               className={saveState === "error" ? "text-accent-3-dark dark:text-accent-3-light" : "text-text-secondary"}
@@ -287,15 +315,30 @@ export default function ClinicalContextBar({
           </Box>
 
           {primaryAction && (
-            <Button
-              variant={primaryAction.variant}
-              color="primary"
-              onClick={primaryAction.onClick}
-              disabled={primaryAction.disabled}
-              className="w-full flex-none md:w-auto md:self-center"
-            >
-              {primaryAction.label}
-            </Button>
+            <Box className="flex w-full flex-none flex-col gap-1 md:w-auto md:max-w-56 md:self-center">
+              <Button
+                variant={primaryAction.variant}
+                color="primary"
+                onClick={primaryAction.onClick}
+                disabled={primaryAction.disabled}
+                aria-describedby={primaryAction.reason ? "clinical-context-primary-reason" : undefined}
+                className="w-full"
+              >
+                {primaryAction.label}
+              </Button>
+              {/* The button stays VISIBLE when it cannot act, with the reason
+                  in words: it used to disappear, and the bar kept recommending
+                  the action it had just removed. */}
+              {primaryAction.reason && (
+                <Typography
+                  id="clinical-context-primary-reason"
+                  variant="caption"
+                  className="text-text-secondary leading-4"
+                >
+                  {primaryAction.reason}
+                </Typography>
+              )}
+            </Box>
           )}
         </Box>
       </CardContent>

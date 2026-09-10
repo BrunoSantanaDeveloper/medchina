@@ -33,6 +33,8 @@ export type ConsentTerm = {
 type ConsentSheetProps = {
   open: boolean;
   label: string;
+  /** "Termo 1 de 2" while collecting the missing consents in one sitting. */
+  progress?: string;
   purpose: string;
   term: ConsentTerm | null;
   active: boolean;
@@ -47,6 +49,7 @@ type ConsentSheetProps = {
 export default function ConsentSheet({
   open,
   label,
+  progress,
   purpose,
   term,
   active,
@@ -79,7 +82,16 @@ export default function ConsentSheet({
       fullScreen={fullScreen}
       aria-labelledby="consent-sheet-title"
     >
-      <DialogTitle id="consent-sheet-title">{active ? t("consent-sheet-review-title") : label}</DialogTitle>
+      <DialogTitle id="consent-sheet-title" className="flex flex-col gap-0.5">
+        {/* Collecting the two consents in one sitting: she needs to know a
+            second term follows before she hands the screen to the patient. */}
+        {progress && (
+          <Typography variant="caption" className="text-text-secondary font-semibold">
+            {progress}
+          </Typography>
+        )}
+        {active ? t("consent-sheet-review-title") : label}
+      </DialogTitle>
       <DialogContent className="flex flex-col gap-4">
         <Alert severity={active ? "success" : "info"} className="neutral">
           {active && acceptedAt

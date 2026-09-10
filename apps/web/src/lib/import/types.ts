@@ -112,6 +112,28 @@ export type ImportPreview = {
   summary: { create: number; update: number; skip: number; error: number };
   /** Problems with a whole column (an unresolved date order, say). */
   columnWarnings: RowIssue[];
+  /** Patients only — the other kinds have no notion of a repeated identity. */
+  repeatedNames?: RepeatedNamesVerdict;
+};
+
+/**
+ * Whether a sheet looks like ONE LINE PER VISIT instead of one line per
+ * patient. It is the only signal that does not depend on how the columns are
+ * NAMED, which is why it is the one the wizard stops on: an attendance export
+ * whose headers happen to look like a patient sheet still repeats the same
+ * person on every line.
+ */
+export type RepeatedNamesVerdict = {
+  /** Rows whose name already appeared on an earlier row of the same file. */
+  repeated: number;
+  /** Rows that would CREATE a chart and carry a usable name. */
+  considered: number;
+  /** The largest number of rows sharing one name. */
+  maxPerName: number;
+  /** True when the file should not be imported as a patient registry. */
+  suspicious: boolean;
+  /** Up to three names, to show her instead of asserting it. */
+  examples: string[];
 };
 
 /** A patient already in the workspace, for duplicate resolution. */
@@ -121,4 +143,6 @@ export type ExistingPatient = {
   document: string | null;
   fullName: string;
   birthDate: string | null;
+  /** Still matched against — only left out of "how many she has today". */
+  archived?: boolean;
 };

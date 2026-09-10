@@ -65,6 +65,16 @@ export function normalizeDocument(raw: string): NormalizedValue {
   if (trimmed === "") return {};
 
   const digits = onlyDigits(trimmed);
+  // Excel keeps a CPF typed into a number cell as a NUMBER and drops its
+  // leading zeros: 012.345.678-90 arrives as 1234567890. The zero is restored
+  // only when the padded value passes the check digit, which is what proves it
+  // was a CPF and not a phone number or an RG.
+  if (digits.length >= 9 && digits.length <= 10 && isValidCpf(digits.padStart(11, "0"))) {
+    return { value: digits.padStart(11, "0") };
+  }
+  if (digits.length >= 12 && digits.length <= 13 && isValidCnpj(digits.padStart(14, "0"))) {
+    return { value: digits.padStart(14, "0") };
+  }
   if (digits.length === 11) {
     return isValidCpf(digits) ? { value: digits } : { value: digits, warning: issue("cpf_check_failed", "document") };
   }

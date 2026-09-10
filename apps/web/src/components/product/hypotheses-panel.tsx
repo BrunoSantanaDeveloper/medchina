@@ -24,6 +24,7 @@ import {
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
+import GateNotice from "@/components/product/gate-notice";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiClipboard from "@/icons/nexture/ni-clipboard";
 import { ANAMNESIS_BLOCKS } from "@/lib/anamnesis";
@@ -32,7 +33,14 @@ import { trackCommercialEvent, trackProductEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
-import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
+import {
+  type JourneyGate,
+  remoteEmpty,
+  remoteError,
+  remoteLoading,
+  type RemoteState,
+  remoteSuccess,
+} from "@flyee/clinical";
 
 type Sign = { text: string; fieldKey?: string };
 type Source = {
@@ -127,19 +135,35 @@ export default function HypothesesPanel({
   consultationId,
   patientId,
   reasoningEntitled,
-  canPrepare,
+  prepareGate,
+  stepNumber,
   entitlementLoading,
   entitlementError,
   onRetryEntitlement,
   onDecisionChanged,
   onBeforePrepare,
   onFocusField,
+  onRequestConsent,
+  refreshSignal,
   isFinalized,
 }: {
   consultationId: string;
   patientId: string;
   reasoningEntitled: boolean;
-  canPrepare: boolean;
+  /**
+   * Whether preparing can run right now and, when it cannot, WHY — derived from
+   * the record's data by `deriveConsultationJourney`, mirroring what
+   * `POST /hypotheses` checks. The button used to be gated on status and plan
+   * alone, so it stayed lit over an empty chart and the refusal arrived after
+   * the wait.
+   */
+  prepareGate: JourneyGate;
+  /** Position in the visible sequence (the page computes it; Pro-less charts renumber). */
+  stepNumber?: number;
+  /** Opens the consent dialog in the consultation, instead of sending her away. */
+  onRequestConsent?: () => void;
+  /** Bumped by the page after a save that could have made these hypotheses stale. */
+  refreshSignal?: number;
   entitlementLoading: boolean;
   entitlementError: boolean;
   onRetryEntitlement: () => void;
@@ -188,7 +212,13 @@ export default function HypothesesPanel({
   // Reviewing patterns is deliberate work over long content — it happens in a
   // dialog so this column stays a summary instead of a scroll.
   const [reviewOpen, setReviewOpen] = useState(false);
+  /** The accepted-but-stale hypothesis she is about to re-anchor to today's chart. */
+  const [reaffirming, setReaffirming] = useState<Hypothesis | null>(null);
   const upgradeViewedRef = useRef(false);
+
+  const canPrepare = prepareGate.state === "available";
+  /** Not entitled / not editable: the button is not part of this screen at all. */
+  const prepareVisible = prepareGate.state !== "hidden";
 
   const load = useCallback(
     async (preservePrevious = true) => {
@@ -263,6 +293,17 @@ export default function HypothesesPanel({
     void load(false);
   }, [load]);
 
+  // A save that bumped the clinical revision stales every hypothesis
+  // (mark_clinical_outputs_stale, 0031). The page tells us the moment it
+  // happens; without this the card kept showing them as current until the next
+  // 12-second poll — long enough for her to click "Considerar" and be refused.
+  const refreshedRef = useRef(refreshSignal);
+  useEffect(() => {
+    if (refreshSignal === undefined || refreshSignal === refreshedRef.current) return;
+    refreshedRef.current = refreshSignal;
+    void load(true);
+  }, [refreshSignal, load]);
+
   const prepare = async () => {
     if (!canPrepare) return;
     setBusy(true);
@@ -276,6 +317,10 @@ export default function HypothesesPanel({
       const response = await fetch(`/api/consultations/${consultationId}/hypotheses`, { method: "POST" });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
+        // One sentence per cause. The old single bucket told her to repeat an
+        // action that could not succeed and hid which of five different things
+        // had happened — including the token-budget truncation that made
+        // preparing look random.
         const code = body?.error?.code ?? body?.error;
         setActionError(
           code === "reasoning_not_available"
@@ -284,14 +329,66 @@ export default function HypothesesPanel({
               ? t("hypotheses-consent")
               : code === "nothing_recorded"
                 ? t("hypotheses-nothing-recorded")
-                : t("hypotheses-error"),
+                : code === "provider_unavailable"
+                  ? t("hypotheses-provider")
+                  : code === "provider_rejected"
+                    ? t("hypotheses-provider-rejected")
+                    : code === "clinical_revision_conflict"
+                      ? t("hypotheses-revision-conflict")
+                      : code === "consultation_finalized"
+                        ? t("hypotheses-finalized")
+                        : t("hypotheses-error"),
         );
         return;
       }
       setRetrievalFailed(Boolean(body?.retrievalFailed));
       await load(true);
     } catch {
-      setActionError(t("hypotheses-error"));
+      // No response at all: the request never reached the server, so nothing
+      // was written — say that instead of blaming the AI.
+      setActionError(t("hypotheses-network"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Re-anchor a decision she already made to the chart as it stands now.
+   *
+   * A hypothesis she had accepted and that later went stale was a dead end:
+   * `review_consultation_hypothesis` refuses every decision on a stale row and
+   * re-preparing only replaces DRAFTS, so the AI plan (which needs an accepted,
+   * non-stale hypothesis) could never run again. The confirmation is NAMED —
+   * the server compares the pattern we display — so this can never become a
+   * batch "mark everything current" button.
+   */
+  const reaffirm = async (hypothesis: Hypothesis) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/consultations/${consultationId}/hypotheses/${hypothesis.id}/reaffirm`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ expectedUpdatedAt: hypothesis.updatedAt, confirmPattern: hypothesis.pattern }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        const code = body?.error?.code ?? body?.code;
+        setActionError(
+          code === "hypothesis_revision_conflict"
+            ? t("hypotheses-review-conflict")
+            : code === "consultation_finalized"
+              ? t("hypotheses-finalized")
+              : t("hypotheses-reaffirm-error"),
+        );
+        await load(true);
+        return;
+      }
+      setReaffirming(null);
+      await load(true);
+      onDecisionChanged?.();
+    } catch {
+      setActionError(t("hypotheses-network"));
     } finally {
       setBusy(false);
     }
@@ -325,10 +422,17 @@ export default function HypothesesPanel({
         const body = await response.json().catch(() => null);
         const code = body?.error?.code ?? body?.code;
         setActionError(
-          code === "hypothesis_stale" || code === "hypothesis_revision_conflict"
-            ? t("hypotheses-stale")
-            : t("hypotheses-error"),
+          code === "hypothesis_stale"
+            ? t("hypotheses-stale-draft")
+            : code === "hypothesis_revision_conflict"
+              ? t("hypotheses-review-conflict")
+              : code === "consultation_finalized"
+                ? t("hypotheses-finalized")
+                : t("hypotheses-error"),
         );
+        // Whatever the server saw, our copy of the row is behind. Reload so the
+        // card stops offering a decision the database will refuse again.
+        if (code === "hypothesis_stale" || code === "hypothesis_revision_conflict") await load(true);
         return;
       }
       setReviewing(null);
@@ -337,7 +441,7 @@ export default function HypothesesPanel({
       await load(true);
       onDecisionChanged?.();
     } catch {
-      setActionError(t("hypotheses-error"));
+      setActionError(t("hypotheses-network"));
     } finally {
       setBusy(false);
     }
@@ -357,10 +461,27 @@ export default function HypothesesPanel({
   const hasAny = hypotheses.length > 0;
   const panelMode = deriveHypothesesPanelMode({
     reasoningEntitled,
-    canPrepare,
+    // "Can this screen offer preparing at all?" — a blocked gate still shows the
+    // button, disabled, with the reason; only a hidden one takes it away.
+    canPrepare: prepareVisible,
     isFinalized,
     hasHypotheses: hasAny,
   });
+
+  const staleCount = hypotheses.filter((item) => item.staleAt).length;
+  const pendingDrafts = hypotheses.filter((item) => item.status === "draft" && !item.staleAt).length;
+  const hasFreshDecision = hypotheses.some(
+    (item) => (item.status === "accepted" || item.status === "edited") && !item.staleAt,
+  );
+  const stepStatus: "done" | "in_progress" | "stale" | undefined = !hasAny
+    ? undefined
+    : staleCount > 0
+      ? "stale"
+      : pendingDrafts > 0
+        ? "in_progress"
+        : hasFreshDecision
+          ? "done"
+          : undefined;
   const locked = !initialLoading && !entitlementLoading && !entitlementError && panelMode === "locked" && !loadFailed;
 
   useEffect(() => {
@@ -387,6 +508,60 @@ export default function HypothesesPanel({
       evidence: t("hypotheses-kind-evidence"),
     })[kind] ?? t("hypotheses-kind-unknown");
 
+  /**
+   * One control, rendered in two places (the empty card and the footer).
+   *
+   * It is shown whenever preparing is possible IN PRINCIPLE and disabled with
+   * the reason underneath when a fact is missing: a button that simply vanishes
+   * teaches nothing, and one that stays lit over an empty chart spends her
+   * minute before refusing.
+   */
+  const prepareControl = (label: string, variant: "contained" | "outlined") =>
+    prepareVisible ? (
+      <Box className="flex flex-col gap-1.5">
+        <Button
+          variant={variant}
+          color="primary"
+          fullWidth
+          startIcon={busy ? undefined : <NiClipboard size="tiny" />}
+          onClick={prepare}
+          disabled={busy || !canPrepare}
+          aria-describedby={
+            prepareGate.state === "blocked" || prepareGate.state === "unknown" ? "hypotheses-prepare-reason" : undefined
+          }
+        >
+          {busy ? <CircularProgress size={18} /> : label}
+        </Button>
+        <GateNotice
+          gate={prepareGate}
+          id="hypotheses-prepare-reason"
+          onRequestConsent={onRequestConsent}
+          onRetry={onRetryEntitlement}
+        />
+        {/* A minute of silence with a spinner reads as "frozen" with the next
+            patient at the door. Say how long, and what not to do meanwhile. */}
+        {busy && (
+          <Typography variant="body2" role="status" className="text-text-secondary text-xs leading-5">
+            {t("hypotheses-preparing")}
+          </Typography>
+        )}
+        {/* Tongue and pulse are a WARNING, never a block: the server accepts the
+            request and marks the reading as partial itself (PRD §10.8). */}
+        {prepareGate.state === "available" && prepareGate.soft?.includes("exam_partial") && (
+          <Box className="flex flex-row flex-wrap items-center gap-1">
+            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+              {t("journey-reason-exam_partial")}
+            </Typography>
+            {onFocusField && (
+              <Button size="small" className="px-1!" onClick={() => onFocusField("tcm", "tongue")}>
+                {t("hypotheses-goto-exam")}
+              </Button>
+            )}
+          </Box>
+        )}
+      </Box>
+    ) : null;
+
   // Reading a sign means going back to the field that produced it — which sits
   // behind this dialog. Close first, then let the page put it in view.
   const focusField = onFocusField
@@ -408,10 +583,22 @@ export default function HypothesesPanel({
             not step 2 of anything — numbering an upgrade prompt dressed it as
             part of the appointment. */}
         <ConsultationStepHeader
-          step={locked ? undefined : 2}
+          step={locked ? undefined : stepNumber}
           icon={<NiClipboard size="medium" />}
           title={locked ? t("hypotheses-locked-title") : t("hypotheses-title")}
           hint={t("hypotheses-step-hint")}
+          status={locked ? undefined : stepStatus}
+          statusLabel={
+            stepStatus
+              ? t(
+                  stepStatus === "done"
+                    ? "journey-step-done"
+                    : stepStatus === "stale"
+                      ? "journey-step-stale"
+                      : "journey-step-in-progress",
+                )
+              : undefined
+          }
         />
 
         {loadFailed && (
@@ -477,29 +664,22 @@ export default function HypothesesPanel({
             <Typography variant="body2" className="text-text-secondary leading-6">
               {t("hypotheses-empty")}
             </Typography>
-            {canPrepare && (
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                startIcon={busy ? undefined : <NiClipboard size="tiny" />}
-                onClick={prepare}
-                disabled={busy}
-              >
-                {busy ? <CircularProgress size={18} /> : t("hypotheses-prepare")}
-              </Button>
-            )}
+            {prepareControl(t("hypotheses-prepare"), "contained")}
           </>
         ) : (
           <>
             {/* The column states WHERE the review stands; the reviewing itself
                 happens in the dialog below, which has room for the reasoning. */}
             <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-              {hypotheses.some((item) => item.status === "draft")
-                ? t("hypotheses-summary-pending", {
-                    count: hypotheses.filter((item) => item.status === "draft").length,
-                  })
-                : t("hypotheses-summary-done")}
+              {staleCount > 0
+                ? // The chart moved: say it on the card, not only inside the
+                  // dialog, and name both exits.
+                  t("hypotheses-summary-stale")
+                : hypotheses.some((item) => item.status === "draft")
+                  ? t("hypotheses-summary-pending", {
+                      count: hypotheses.filter((item) => item.status === "draft").length,
+                    })
+                  : t("hypotheses-summary-done")}
             </Typography>
             <Button
               variant="contained"
@@ -553,10 +733,36 @@ export default function HypothesesPanel({
                       )}
                     </Box>
 
-                    {/* Stated BEFORE the pattern is read, not as a footnote. */}
+                    {/* Stated BEFORE the pattern is read, not as a footnote —
+                        and with the exit that actually works for THIS row: a
+                        draft is replaced by preparing again, a decision she
+                        already took can only be re-anchored (the database
+                        refuses every other move on a stale row, 0031:152-154). */}
                     {hypothesis.staleAt && (
-                      <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
-                        {t("hypotheses-stale")}
+                      <Alert
+                        severity="warning"
+                        className="neutral bg-background-paper/60! text-xs"
+                        action={
+                          isFinalized ? undefined : hypothesis.status === "accepted" ||
+                            hypothesis.status === "edited" ? (
+                            <Button
+                              color="inherit"
+                              size="small"
+                              disabled={busy}
+                              onClick={() => setReaffirming(hypothesis)}
+                            >
+                              {t("hypotheses-reaffirm")}
+                            </Button>
+                          ) : canPrepare ? (
+                            <Button color="inherit" size="small" disabled={busy} onClick={() => void prepare()}>
+                              {t("hypotheses-reprepare")}
+                            </Button>
+                          ) : undefined
+                        }
+                      >
+                        <span id={`hypothesis-stale-${hypothesis.id}`}>
+                          {t(hypothesis.status === "draft" ? "hypotheses-stale-draft" : "hypotheses-stale-decided")}
+                        </span>
                       </Alert>
                     )}
                     {hypothesis.limitation && (
@@ -658,7 +864,11 @@ export default function HypothesesPanel({
                             size="small"
                             variant="outlined"
                             color="primary"
-                            disabled={busy}
+                            // The database refuses ANY decision on a stale row
+                            // (hypothesis_stale, 0031:152-154), so the button
+                            // says so instead of spending a click to find out.
+                            disabled={busy || Boolean(hypothesis.staleAt)}
+                            aria-describedby={hypothesis.staleAt ? `hypothesis-stale-${hypothesis.id}` : undefined}
                             onClick={() => review(hypothesis, "accepted")}
                           >
                             {t("hypotheses-accept")}
@@ -669,7 +879,8 @@ export default function HypothesesPanel({
                           size="small"
                           variant="outlined"
                           color="grey"
-                          disabled={busy}
+                          disabled={busy || Boolean(hypothesis.staleAt)}
+                          aria-describedby={hypothesis.staleAt ? `hypothesis-stale-${hypothesis.id}` : undefined}
                           onClick={() => {
                             setReviewing({ hypothesis, mode: "edit" });
                             setPattern(hypothesis.pattern);
@@ -683,7 +894,8 @@ export default function HypothesesPanel({
                             size="small"
                             variant="outlined"
                             color="grey"
-                            disabled={busy}
+                            disabled={busy || Boolean(hypothesis.staleAt)}
+                            aria-describedby={hypothesis.staleAt ? `hypothesis-stale-${hypothesis.id}` : undefined}
                             onClick={() => {
                               setReviewing({ hypothesis, mode: "reject" });
                               setNote("");
@@ -730,18 +942,7 @@ export default function HypothesesPanel({
               </Box>
             )}
 
-            {canPrepare && (
-              <Button
-                variant="outlined"
-                color="primary"
-                fullWidth
-                startIcon={busy ? undefined : <NiClipboard size="tiny" />}
-                onClick={prepare}
-                disabled={busy}
-              >
-                {busy ? <CircularProgress size={18} /> : t("hypotheses-reprepare")}
-              </Button>
-            )}
+            {prepareControl(t("hypotheses-reprepare"), "outlined")}
           </>
         )}
 
@@ -803,6 +1004,43 @@ export default function HypothesesPanel({
             }
           >
             {reviewing?.mode === "edit" ? t("hypotheses-edit-confirm") : t("hypotheses-reject-confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reaffirming is a clinical act: the dialog NAMES the pattern, one at a
+          time, and the server compares the name it was given (0098). There is
+          deliberately no "reaffirm all". */}
+      <Dialog
+        open={Boolean(reaffirming)}
+        onClose={busy ? undefined : () => setReaffirming(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogHeader
+          title={t("hypotheses-reaffirm-title")}
+          closeLabel={t("close")}
+          onClose={() => setReaffirming(null)}
+        />
+        <DialogContent className="flex flex-col gap-3 py-5!">
+          <Typography variant="body1" className="text-text-primary font-semibold">
+            {reaffirming?.pattern}
+          </Typography>
+          <Typography variant="body2" className="text-text-secondary leading-6">
+            {t("hypotheses-reaffirm-body")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="grey" onClick={() => setReaffirming(null)}>
+            {t("cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={busy}
+            onClick={() => reaffirming && void reaffirm(reaffirming)}
+          >
+            {busy ? <CircularProgress size={18} /> : t("hypotheses-reaffirm-confirm")}
           </Button>
         </DialogActions>
       </Dialog>

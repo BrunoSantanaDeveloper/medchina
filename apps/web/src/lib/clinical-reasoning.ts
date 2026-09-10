@@ -113,6 +113,16 @@ export interface RecordedCase {
  */
 const ESSENTIAL_FIELDS = ["tcm.tongue", "tcm.pulse"] as const;
 
+/** Written into the stored limitation and the gap list, which she reads. */
+const ESSENTIAL_FIELD_LABELS: Record<(typeof ESSENTIAL_FIELDS)[number], string> = {
+  "tcm.tongue": "língua",
+  "tcm.pulse": "pulso",
+};
+const ESSENTIAL_FIELD_QUESTIONS: Record<(typeof ESSENTIAL_FIELDS)[number], string> = {
+  "tcm.tongue": "Observar a língua?",
+  "tcm.pulse": "Palpar o pulso?",
+};
+
 const RESULT_SCHEMA = {
   type: "object",
   properties: {
@@ -457,12 +467,22 @@ export async function buildHypotheses(supabase: SupabaseClient, recorded: Record
     let limitation: string | null = null;
     let finalCorrespondence = correspondence;
     if (missingEssentials.length > 0) {
-      const names = missingEssentials.map((key) => key.split(".")[1]).join(", ");
+      // The sentence the PRD requires is read by the professional, so it says
+      // "língua" and "pulso" — it used to print the raw field keys, so the one
+      // line that admits a partial reading arrived in English and looked like a
+      // bug ("Dados essenciais do exame não registrados (tongue, pulse)").
+      const names = missingEssentials.map((key) => ESSENTIAL_FIELD_LABELS[key]).join(" e ");
       limitation = `Dados essenciais do exame não registrados (${names}). Qualquer padrão aqui é uma leitura parcial até que a profissional os observe.`;
       if (finalCorrespondence === "strong") finalCorrespondence = "moderate";
       for (const key of missingEssentials) {
-        const question = `Observar ${key.split(".")[1]}?`;
-        if (!missingData.some((entry) => entry.toLowerCase().includes(key.split(".")[1]))) missingData.push(question);
+        const label = ESSENTIAL_FIELD_LABELS[key];
+        // The model writes in pt-BR, but an English word can still slip in; both
+        // are checked so the same request is not asked twice.
+        const alreadyAsked = missingData.some((entry) => {
+          const lower = entry.toLowerCase();
+          return lower.includes(label) || lower.includes(key.split(".")[1]);
+        });
+        if (!alreadyAsked) missingData.push(ESSENTIAL_FIELD_QUESTIONS[key]);
       }
     }
 

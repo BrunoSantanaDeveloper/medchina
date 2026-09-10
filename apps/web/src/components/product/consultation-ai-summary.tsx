@@ -5,8 +5,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { Alert, Box, Button, CircularProgress, Typography } from "@mui/material";
 
+import GateNotice from "@/components/product/gate-notice";
 import NiAi from "@/icons/nexture/ni-ai";
 import { cn } from "@/lib/utils";
+import type { JourneyGate } from "@flyee/clinical";
 
 /**
  * The AI-SUGGESTED clinical summary (migration 0071). It is a DRAFT she reviews
@@ -19,20 +21,41 @@ import { cn } from "@/lib/utils";
 export default function ConsultationAiSummary({
   consultationId,
   canGenerate,
+  gate,
   initialSummary,
   onApply,
+  onRequestConsent,
+  invalidatesOutputs = false,
   readOnly = false,
 }: {
   consultationId: string;
   /** Pro entitlement — generating the suggestion is a Pro capability. */
   canGenerate: boolean;
+  /**
+   * Whether generating can run now and, if not, why (`deriveConsultationJourney`,
+   * mirroring `POST /summary`: Pro, the patient's AI consent, and something
+   * recorded to summarise).
+   */
+  gate?: JourneyGate;
   initialSummary: string | null;
   /** Copy the draft into her Resumo clínico field. */
   onApply: (text: string) => void;
+  /** Opens the consent dialog here, instead of navigating out of the consultation. */
+  onRequestConsent?: () => void;
+  /**
+   * Hypotheses or a plan are current: copying this text into her summary edits
+   * the chart, which stales them (mark_clinical_outputs_stale). Say so BEFORE
+   * the click — that cascade arriving unannounced is the main reason the screen
+   * felt like it undid her work.
+   */
+  invalidatesOutputs?: boolean;
   /** Finalized consultation: show the stored summary, no generate/apply. */
   readOnly?: boolean;
 }) {
   const t = useTranslations("product");
+  // A gate that is loading is not a block: the control simply waits without
+  // claiming a reason it does not have yet.
+  const blocked = gate ? gate.state === "blocked" || gate.state === "loading" : false;
   const [summary, setSummary] = useState<string | null>(initialSummary);
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -80,9 +103,11 @@ export default function ConsultationAiSummary({
                 ? "ai-summary-nothing"
                 : code === "provider_unavailable"
                   ? "ai-summary-provider"
-                  : code === "consultation_finalized"
-                    ? "ai-summary-finalized"
-                    : "ai-summary-error",
+                  : code === "provider_rejected"
+                    ? "ai-summary-provider-rejected"
+                    : code === "consultation_finalized"
+                      ? "ai-summary-finalized"
+                      : "ai-summary-error",
         );
         return;
       }
@@ -131,16 +156,31 @@ export default function ConsultationAiSummary({
           <Typography variant="body2" className="text-text-secondary leading-6 whitespace-pre-line">
             {summary}
           </Typography>
+          {/* Copying edits the chart, and editing the chart stales the reasoning
+              built on it. Better said here than discovered afterwards. */}
+          {invalidatesOutputs && (
+            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+              {t("ai-summary-apply-cost")}
+            </Typography>
+          )}
           <Box className="flex flex-row flex-wrap gap-2">
             <Button variant="contained" color="primary" size="small" onClick={() => onApply(summary)}>
               {t("ai-summary-apply")}
             </Button>
             {canGenerate && (
-              <Button variant="text" color="grey" size="small" onClick={() => void generate()} disabled={busy}>
+              <Button
+                variant="text"
+                color="grey"
+                size="small"
+                onClick={() => void generate()}
+                disabled={busy || blocked}
+                aria-describedby={blocked ? "ai-summary-reason" : undefined}
+              >
                 {busy ? <CircularProgress size={16} /> : t("ai-summary-refresh")}
               </Button>
             )}
           </Box>
+          {gate && <GateNotice gate={gate} id="ai-summary-reason" onRequestConsent={onRequestConsent} />}
         </>
       ) : (
         <>
@@ -154,10 +194,17 @@ export default function ConsultationAiSummary({
             className={cn("self-start")}
             startIcon={busy ? undefined : <NiAi size="tiny" />}
             onClick={() => void generate()}
-            disabled={busy}
+            disabled={busy || blocked}
+            aria-describedby={blocked ? "ai-summary-reason" : undefined}
           >
             {busy ? <CircularProgress size={16} /> : t("ai-summary-generate")}
           </Button>
+          {gate && <GateNotice gate={gate} id="ai-summary-reason" onRequestConsent={onRequestConsent} />}
+          {busy && (
+            <Typography variant="body2" role="status" className="text-text-secondary text-xs leading-5">
+              {t("ai-summary-generating")}
+            </Typography>
+          )}
         </>
       )}
     </Box>

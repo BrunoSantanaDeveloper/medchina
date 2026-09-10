@@ -52,26 +52,50 @@ export async function fetchImportAllowance(
  * the preview has to answer "is this person already here?" for every line
  * without a round trip per row, and a practice's patient list is small.
  */
+const EXISTING_PAGE = 1000;
+
+/**
+ * Every chart in the workspace — ALL of them, which is the point.
+ *
+ * PostgREST caps a plain select (1000 rows on Supabase by default). Stopping at
+ * the cap hid every chart past it from duplicate detection, so a practice
+ * larger than one page that re-imported its registry duplicated exactly the
+ * patients the first page did not reach. Pages advance by what actually came
+ * back, not by the size requested, so a server cap below the page size cannot
+ * end the loop early either.
+ */
 export async function fetchExistingPatients(
   supabase: SupabaseClient,
   orgId: string,
 ): Promise<ImportResult<ExistingPatient[]>> {
-  const { data, error } = await supabase
-    .from("patients")
-    .select("id, full_name, birth_date, document, external_ref")
-    .eq("org_id", orgId);
+  const patients: ExistingPatient[] = [];
 
-  if (error) return { ok: false, error: error.message };
-  return {
-    ok: true,
-    data: (data ?? []).map((row) => ({
-      id: row.id as string,
-      fullName: row.full_name as string,
-      birthDate: (row.birth_date as string | null) ?? null,
-      document: (row.document as string | null) ?? null,
-      externalRef: (row.external_ref as string | null) ?? null,
-    })),
-  };
+  for (let from = 0; ; ) {
+    const { data, error } = await supabase
+      .from("patients")
+      .select("id, full_name, birth_date, document, external_ref, archived_at")
+      .eq("org_id", orgId)
+      .order("id")
+      .range(from, from + EXISTING_PAGE - 1);
+
+    if (error) return { ok: false, error: error.message };
+    const page = data ?? [];
+    if (page.length === 0) break;
+
+    for (const row of page) {
+      patients.push({
+        id: row.id as string,
+        fullName: row.full_name as string,
+        birthDate: (row.birth_date as string | null) ?? null,
+        document: (row.document as string | null) ?? null,
+        externalRef: (row.external_ref as string | null) ?? null,
+        archived: row.archived_at !== null && row.archived_at !== undefined,
+      });
+    }
+    from += page.length;
+  }
+
+  return { ok: true, data: patients };
 }
 
 export async function createImportBatch(

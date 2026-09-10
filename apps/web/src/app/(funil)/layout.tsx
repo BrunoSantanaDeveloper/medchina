@@ -3,6 +3,7 @@
 // body typography and the class system (.section, .eyebrow, .button, …) — so an
 // offer page looks like the home instead of like a different company.
 import "../(marketing)/clinical-source-home.css";
+import "./funil.css";
 
 import { BRAND } from "@/brand";
 import CookieConsent from "@/components/consent/cookie-consent";
@@ -46,6 +47,31 @@ export default async function FunnelLayout({ children }: { children: React.React
         </div>
       </header>
       {children}
+      {/* A commercial offer has to say who is selling and under which terms.
+          The site footer cannot be reused for it: it is a menu, and every menu
+          item here is an exit — starting with the free plan. So this is the
+          legal minimum only, and each link opens in a new tab so reading the
+          terms never ends the funnel. */}
+      <footer className="site-footer offer-footer">
+        <div className="footer-bottom">
+          <span>© {new Date().getFullYear()} MedChina. Todos os direitos reservados.</span>
+          <div className="offer-footer-links">
+            <a href="/legal/termos" target="_blank" rel="noopener noreferrer">
+              Termos de uso
+            </a>
+            <a href="/legal/privacidade" target="_blank" rel="noopener noreferrer">
+              Política de privacidade
+            </a>
+            <a href="/legal/garantia" target="_blank" rel="noopener noreferrer">
+              Garantia
+            </a>
+          </div>
+        </div>
+        <p className="offer-footer-note">
+          O MedChina não substitui avaliação profissional, exame físico, observação da língua, palpação do pulso,
+          análise de contraindicações ou encaminhamento quando necessário.
+        </p>
+      </footer>
       <SupportWidget support={support} />
       <CookieConsent />
       <MarketingTrackers />

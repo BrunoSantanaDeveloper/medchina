@@ -11,11 +11,24 @@ import { Box, Typography } from "@mui/material";
  * three cards read as one ordered flow instead of three independent controls.
  * The order is a suggestion, never a hard gate (a plan can still be manual).
  */
+/**
+ * Where this step stands, derived from DATA (see `deriveConsultationJourney` in
+ * `@flyee/clinical`). "stale" is amber, never red: work that needs redoing is
+ * not a clinical risk, and red is reserved for risk and failure.
+ */
+const STATUS_TONE: Record<"done" | "in_progress" | "stale", string> = {
+  done: "bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light",
+  in_progress: "bg-grey-100 text-text-secondary",
+  stale: "bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light",
+};
+
 export default function ConsultationStepHeader({
   step,
   icon,
   title,
   hint,
+  status,
+  statusLabel,
   trailing,
 }: {
   /**
@@ -29,6 +42,14 @@ export default function ConsultationStepHeader({
   title: string;
   /** One line: when to use this step and what it builds on. */
   hint?: string;
+  /**
+   * Concluded / under way / outdated. Shown as a chip so the card says where it
+   * stands without her having to open it — the reason a step is BLOCKED is not
+   * shown here: it belongs next to the control that is disabled.
+   */
+  status?: "done" | "in_progress" | "stale";
+  /** Translated label for `status` (the component holds no copy). */
+  statusLabel?: string;
   /** Optional status affordance rendered at the end of the title row. */
   trailing?: ReactNode;
 }) {
@@ -49,7 +70,16 @@ export default function ConsultationStepHeader({
         <Typography variant="h6" component="h2" className="mb-0">
           {title}
         </Typography>
-        {trailing}
+        {(status && statusLabel) || trailing ? (
+          <Box className="ml-auto flex flex-row items-center gap-1.5">
+            {status && statusLabel && (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_TONE[status]}`}>
+                {statusLabel}
+              </span>
+            )}
+            {trailing}
+          </Box>
+        ) : null}
       </Box>
       {hint && (
         <Typography variant="body2" className="text-text-secondary text-xs leading-5">

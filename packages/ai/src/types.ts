@@ -26,7 +26,15 @@ export interface AssistantConfig {
   model: string;
   systemPrompt: string;
   temperature: number;
+  /** Budget for the ANSWER. Reasoning tokens are counted separately below. */
   maxTokens: number;
+  /**
+   * Tokens a reasoning model may spend thinking BEFORE the answer. Providers
+   * that charge thinking against the same output cap (Gemini 2.5+/3.x) add this
+   * on top of `maxTokens`, so raising a caller's answer budget never has to
+   * account for the model's private reasoning. Omitted: the provider's default.
+   */
+  reasoningBudget?: number;
 }
 
 /**

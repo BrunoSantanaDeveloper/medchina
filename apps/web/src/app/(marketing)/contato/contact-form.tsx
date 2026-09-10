@@ -19,7 +19,7 @@ const InputErrorTooltip = ({ title }: { title: string }) => {
   );
 };
 
-export default function ContactForm() {
+export default function ContactForm({ initialMessage = "" }: { initialMessage?: string }) {
   const t = useTranslations("marketing");
   const [result, setResult] = useState<ContactResult["status"] | null>(null);
 
@@ -30,7 +30,9 @@ export default function ContactForm() {
   });
 
   const formik = useFormik({
-    initialValues: { name: "", email: "", message: "" },
+    // Prefilled from a known `?assunto=` so a visitor sent here from a campaign
+    // page does not have to restate the context she was answering.
+    initialValues: { name: "", email: "", message: initialMessage },
     validationSchema,
     onSubmit: async (values, helpers) => {
       setResult(null);

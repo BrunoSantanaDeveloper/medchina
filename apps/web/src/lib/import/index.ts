@@ -10,7 +10,7 @@ export {
   type DateOrder,
 } from "./dates";
 export { guessColumnMapping, normalizeHeader, type MappingGuess } from "./mapping";
-export { buildImportPreview, type PreviewInput } from "./preview";
+export { assessRepeatedNames, buildImportPreview, type PreviewInput } from "./preview";
 export { buildHistoryPreview, type HistoryPreviewInput } from "./history-preview";
 export {
   buildSchedulePreview,

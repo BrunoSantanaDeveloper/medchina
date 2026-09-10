@@ -36,6 +36,7 @@ import ConsentCollectionDialog from "@/components/product/consent-collection-dia
 import ConsentSheet, { type ConsentTerm } from "@/components/product/consent-sheet";
 import ConsultationAiSummary from "@/components/product/consultation-ai-summary";
 import ConsultationRecorder from "@/components/product/consultation-recorder";
+import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
 import MobileCaptureHandoff from "@/components/product/mobile-capture-handoff";
 import PlanPanel from "@/components/product/plan-panel";
@@ -48,6 +49,7 @@ import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiCross from "@/icons/nexture/ni-cross";
+import NiDocumentFull from "@/icons/nexture/ni-document-full";
 import NiListCheck from "@/icons/nexture/ni-list-check";
 import NiLock from "@/icons/nexture/ni-lock";
 import NiPlay from "@/icons/nexture/ni-play";
@@ -76,7 +78,18 @@ import { createClient } from "@flyee/auth/client";
 import {
   type ConsultationStatus,
   deriveConsultationCapabilities,
+  deriveConsultationJourney,
   deriveConsultationState,
+  type Fact,
+  factLoading,
+  factReady,
+  factUnavailable,
+  type HypothesisFacts,
+  hypothesisFactsFromRows,
+  type JourneyFacts,
+  type PlanFacts,
+  planFactsFromRow,
+  type PrescriptionFacts,
   type RecordingStatus,
 } from "@flyee/clinical";
 
@@ -88,7 +101,14 @@ type Provenance = {
   /** False when the extraction could not find this quote in the transcript. */
   verified?: boolean;
 };
-type FieldMeta = { value: string; state: string; source: string; provenance: Provenance };
+type FieldMeta = {
+  value: string;
+  state: string;
+  source: string;
+  provenance: Provenance;
+  /** She read this AI draft and kept it as written (confirm_anamnesis_answer, 0098). */
+  reviewed?: boolean;
+};
 
 type Consultation = {
   id: string;
@@ -216,15 +236,39 @@ export default function ConsultaPage() {
     label: string;
     purpose: string;
   } | null>(null);
+  /**
+   * The consents still missing, collected in ONE sitting. The in-person path
+   * used to take a single slug per cycle, so granting audio and AI meant
+   * opening the QR dialog, choosing "presencial", signing, and doing the whole
+   * thing again — with the patient waiting.
+   */
+  const [inPersonQueue, setInPersonQueue] = useState<{ slugs: string[]; index: number } | null>(null);
   const [consentBusy, setConsentBusy] = useState(false);
+  /** The other open consultation that blocks starting this one, when the RPC names it. */
+  const [startBlockedBy, setStartBlockedBy] = useState<string | null>(null);
   const [addendumBody, setAddendumBody] = useState("");
   const [addendumReason, setAddendumReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [provenanceAnchor, setProvenanceAnchor] = useState<{ el: HTMLElement; data: Provenance } | null>(null);
   const [recordingsRefresh, setRecordingsRefresh] = useState(0);
-  // Does a hypothesis stand accepted/edited? The plan panel (step 3) builds ON
-  // those, so its AI button is gated on this instead of erroring after a click.
-  const [hasAcceptedHypotheses, setHasAcceptedHypotheses] = useState(false);
+  /**
+   * Was the clinical context READ, or did the fetch fail? The bar and every
+   * gate need the difference: a failed read must never be rendered as "no
+   * consent" (PRD §10.5), and it must never look like a granted one either.
+   */
+  const [contextState, setContextState] = useState<"loading" | "ready" | "failed">("loading");
+  /**
+   * The decisions already on file: hypotheses (by status AND freshness), the
+   * plan and the prescription. They drive what each step may offer, so they are
+   * read here once instead of being locked inside each panel — and the counts
+   * FILTER STALE, which the old `hasAcceptedHypotheses` did not, leaving the
+   * plan's AI button lit over a hypothesis the database would refuse.
+   */
+  const [hypothesisFacts, setHypothesisFacts] = useState<Fact<HypothesisFacts>>(() => factLoading());
+  const [planFacts, setPlanFacts] = useState<Fact<PlanFacts | null>>(() => factLoading());
+  const [prescriptionFacts, setPrescriptionFacts] = useState<Fact<PrescriptionFacts | null>>(() => factLoading());
+  /** Bumped after a save that could have staled the outputs, so the panels re-read at once. */
+  const [outputsRefresh, setOutputsRefresh] = useState(0);
   /** "Ouvir este trecho": the excerpt the recordings panel should open on. */
   const [transcriptSeek, setTranscriptSeek] = useState<{
     start: string;
@@ -286,7 +330,7 @@ export default function ConsultaPage() {
         .maybeSingle(),
       supabase
         .from("anamnesis_answers")
-        .select("block_key, field_key, value, state, source, provenance")
+        .select("block_key, field_key, value, state, source, provenance, reviewed_at")
         .eq("consultation_id", params.id),
       supabase
         .from("consultation_addenda")
@@ -331,8 +375,13 @@ export default function ConsultaPage() {
       | null;
     if (contextResponse?.ok && contextBody?.ok) {
       setContext({ patient: contextBody.patient, consents: contextBody.consents, recording: contextBody.recording });
+      setContextState("ready");
       setErrorKey(null);
     } else {
+      // Tracked apart from `errorKey`, which any later error overwrites: the
+      // gates must keep knowing that consents were never READ, rather than
+      // silently treating "could not ask" as "not granted".
+      setContextState("failed");
       setErrorKey("consultation-context-load-error");
     }
 
@@ -344,6 +393,7 @@ export default function ConsultaPage() {
         state: (answer.state as string) ?? "clear",
         source: (answer.source as string) ?? "professional",
         provenance: (answer.provenance as Provenance) ?? {},
+        reviewed: Boolean(answer.reviewed_at),
       };
     }
     if (!saveCoordinator.hasUnsavedChanges()) {
@@ -396,24 +446,50 @@ export default function ConsultaPage() {
     void load();
   }, [load]);
 
-  // The plan panel's AI button gates on an accepted/edited hypothesis. Recheck
-  // it whenever a decision could have changed it: on load, on the poll below,
-  // and the instant she decides in the hypotheses panel (its onDecisionChanged).
-  const refreshHypothesisAcceptance = useCallback(async () => {
+  /**
+   * What has already been decided in this consultation: hypotheses by status
+   * and freshness, the plan, the prescription. Every step gate reads these, so
+   * they are fetched once here — three light queries on the same tick the page
+   * already polls — instead of living inside each panel where the others could
+   * not see them.
+   *
+   * A failed query becomes `unavailable`, never an empty count: a gate must be
+   * able to say "I could not check" instead of quietly claiming "nothing here".
+   */
+  const refreshDecisions = useCallback(async () => {
     const consultationId = consultation?.id;
     if (!consultationId || !isSupabaseConfigured) return;
     const supabase = createClient();
-    const { count, error } = await supabase
-      .from("consultation_hypotheses")
-      .select("id", { count: "exact", head: true })
-      .eq("consultation_id", consultationId)
-      .in("status", ["accepted", "edited"]);
-    if (!error) setHasAcceptedHypotheses((count ?? 0) > 0);
+    const [hypothesesResult, planResult, prescriptionResult] = await Promise.all([
+      supabase.from("consultation_hypotheses").select("status, stale_at").eq("consultation_id", consultationId),
+      supabase
+        .from("consultation_plans")
+        .select("status, origin, stale_at, objective, modalities, safety_flags")
+        .eq("consultation_id", consultationId)
+        .maybeSingle(),
+      supabase.from("consultation_prescriptions").select("status").eq("consultation_id", consultationId).maybeSingle(),
+    ]);
+
+    setHypothesisFacts(
+      hypothesesResult.error ? factUnavailable() : factReady(hypothesisFactsFromRows(hypothesesResult.data ?? [])),
+    );
+    setPlanFacts(
+      planResult.error ? factUnavailable() : factReady(planResult.data ? planFactsFromRow(planResult.data) : null),
+    );
+    setPrescriptionFacts(
+      prescriptionResult.error
+        ? factUnavailable()
+        : factReady(
+            prescriptionResult.data
+              ? { status: prescriptionResult.data.status === "validated" ? "validated" : "draft" }
+              : null,
+          ),
+    );
   }, [consultation?.id]);
 
   useEffect(() => {
-    void refreshHypothesisAcceptance();
-  }, [refreshHypothesisAcceptance]);
+    void refreshDecisions();
+  }, [refreshDecisions]);
 
   // A capture finishes OUT OF BAND with this open tab, in two ways the page
   // cannot otherwise see: the AI pipeline drafts the anamnesis in a background
@@ -428,9 +504,9 @@ export default function ConsultaPage() {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     if (saveCoordinator.hasUnsavedChanges()) return;
     void load();
-    void refreshHypothesisAcceptance();
+    void refreshDecisions();
     setRecordingsRefresh((value) => value + 1);
-  }, [load, refreshHypothesisAcceptance, saveCoordinator]);
+  }, [load, refreshDecisions, saveCoordinator]);
 
   useEffect(() => {
     const status = consultation?.status;
@@ -604,6 +680,52 @@ export default function ConsultaPage() {
     });
   };
 
+  /**
+   * "Revisei e mantenho": close a field marked for attention WITHOUT rewriting
+   * it (migration 0098).
+   *
+   * Before this, the only way to clear "requer atenção" was to retype the
+   * value, which turns the model's draft into HER text, throws away the
+   * provenance, and bumps the clinical revision — staling every hypothesis for
+   * the act of agreeing with what was written.
+   */
+  const confirmAnswer = async (blockKey: string, fieldKey: string) => {
+    if (!consultation || !canEdit) return;
+    const composite = `${blockKey}.${fieldKey}`;
+    const current = fields[composite];
+    if (!current) return;
+    try {
+      // She is confirming what is ON SCREEN, so commit any pending keystroke
+      // first: the server compares the value it holds with the one we send.
+      await saveCoordinator.flush();
+    } catch {
+      setErrorKey("consultation-save-error");
+      return;
+    }
+    const { data, error } = await createClient().rpc("confirm_anamnesis_answer", {
+      target_consultation: consultation.id,
+      target_block_key: blockKey,
+      target_field_key: fieldKey,
+      expected_value: current.value.trim(),
+    });
+    const result = data as { ok?: boolean; code?: string; revision?: number } | null;
+    if (error || !result?.ok) {
+      if (result?.code === "revision_conflict") {
+        await load();
+        setErrorKey("consultation-revision-conflict");
+        return;
+      }
+      setErrorKey("field-confirm-error");
+      return;
+    }
+    if (Number.isInteger(result.revision)) revisionRef.current = Number(result.revision);
+    setFields((currentFields) => {
+      const meta = currentFields[composite];
+      if (!meta) return currentFields;
+      return { ...currentFields, [composite]: { ...meta, state: "clear", reviewed: true } };
+    });
+  };
+
   const consultationIsEmpty =
     Object.values(fields).every((meta) => !meta.value.trim()) &&
     !headerDraft.chiefComplaint.trim() &&
@@ -621,7 +743,17 @@ export default function ConsultaPage() {
     try {
       const result = await startAppointment(createClient(), consultation.orgId, consultation.id);
       if (!result.ok) {
-        setErrorKey("consultation-start-error");
+        // Three different situations used to share one sentence that pointed at
+        // the agenda, which fixes none of them.
+        setStartBlockedBy(result.code === "active_consultation_exists" ? (result.consultationId ?? null) : null);
+        if (result.code === "active_consultation_exists") setErrorKey("consultation-start-active-exists");
+        else if (result.code === "patient_unavailable") setErrorKey("consultation-start-patient-unavailable");
+        else if (result.code === "stale_status") {
+          // It already moved somewhere else: show the current state instead of
+          // asking her to try an action that no longer applies.
+          await load();
+          setErrorKey("consultation-start-stale");
+        } else setErrorKey("consultation-start-error");
         return;
       }
       await load();
@@ -638,9 +770,9 @@ export default function ConsultaPage() {
    * comes first: without it there is no capture at all, and the AI consent is
    * only meaningful once audio is allowed.
    */
-  const collectConsentInPerson = async () => {
-    if (!consultation) return;
-    const slug = context?.consents.audio ? "ai-processing" : "audio-recording";
+  /** Open the sheet for one term of the queue (the term text is always shown). */
+  const openInPersonConsent = async (slugs: string[], index: number) => {
+    const slug = slugs[index];
     const kind = CONSENT_KINDS.find((candidate) => candidate.slug === slug);
     const { data } = await createClient()
       .from("consent_terms")
@@ -650,12 +782,25 @@ export default function ConsultaPage() {
       .order("version", { ascending: false })
       .limit(1)
       .maybeSingle();
+    setInPersonQueue({ slugs, index });
     setInPersonConsent({
       slug,
       term: data ?? null,
       label: kind ? t(kind.label) : slug,
       purpose: kind ? t(kind.hint) : "",
     });
+  };
+
+  const collectConsentInPerson = async () => {
+    if (!consultation) return;
+    // Everything still missing, in order, in ONE sitting: audio first (without
+    // it there is no capture at all), then the AI processing.
+    const missing = [
+      ...(context?.consents.audio ? [] : ["audio-recording"]),
+      ...(context?.consents.ai ? [] : ["ai-processing"]),
+    ];
+    const slugs = missing.length > 0 ? missing : ["audio-recording"];
+    await openInPersonConsent(slugs, 0);
   };
 
   const submitConsentInPerson = async (input: { granted: boolean; method: "verbal" | "in_person" }) => {
@@ -671,8 +816,16 @@ export default function ConsultaPage() {
         setErrorKey("consent-save-error");
         return;
       }
+      // Straight on to the next term, if there is one: a refusal is a decision
+      // too, and the remaining purposes still need an answer.
+      const queue = inPersonQueue;
       setInPersonConsent(null);
       await load();
+      if (queue && queue.index + 1 < queue.slugs.length) {
+        await openInPersonConsent(queue.slugs, queue.index + 1);
+      } else {
+        setInPersonQueue(null);
+      }
     } catch {
       setErrorKey("consent-save-error");
     } finally {
@@ -682,12 +835,14 @@ export default function ConsultaPage() {
 
   const prepareFinalize = () => {
     if (!consultation || !capabilities?.canFinalize) return;
-    // Warnings are discovered by ASKING the server to close: it is the only
-    // place that can see every loose end at once (attention fields, drafts, an
-    // unsigned prescription). The dialog opens clean and shows what comes back.
+    // The dialog opens ALREADY listing what is open — the journey knows the same
+    // facts finalize_consultation checks (0093:82-110). She used to discover
+    // them only on the second click, after the server refused. The server stays
+    // the authority: anything it names that we did not predict is added below
+    // and asks for its own confirmation.
     setErrorKey(null);
     setEmptyConfirmed(false);
-    setPendingWarnings([]);
+    setPendingWarnings(journey.finalizeLooseEnds);
     setWarningsConfirmed(false);
     setFinalizeOpen(true);
   };
@@ -788,9 +943,19 @@ export default function ConsultaPage() {
         method: "POST",
         headers: { "idempotency-key": crypto.randomUUID() },
       });
-      const body = (await response.json().catch(() => ({}))) as { ok?: boolean; documentId?: string };
+      const body = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        documentId?: string;
+        error?: { code?: string };
+      };
       if (!response.ok || !body.ok || !body.documentId) {
-        setErrorKey("attendance-issue-error");
+        // A missing professional name/registration is a field in another screen,
+        // not a transient failure — "tente novamente" could never fix it.
+        setErrorKey(
+          body.error?.code === "document_profile_incomplete"
+            ? "attendance-profile-incomplete"
+            : "attendance-issue-error",
+        );
         return;
       }
       const supabase = createClient();
@@ -958,6 +1123,22 @@ export default function ConsultaPage() {
     }));
   }, [consultation?.status, blockStats]);
 
+  /**
+   * Put ONE field in view, wherever it is. The hypotheses panel names the
+   * anamnesis field each sign was read from, but only this screen can expand
+   * that block and scroll to it — the prop existed and was never passed, so the
+   * chips were inert. The delay lets the panel's dialog finish closing: MUI
+   * restores focus to the trigger on close and would take it straight back.
+   */
+  const focusField = useCallback((blockKey: string, fieldKey: string) => {
+    setExpandedBlocks((current) => ({ ...current, [blockKey]: true }));
+    window.setTimeout(() => {
+      const element = document.getElementById(`consultation-field-${blockKey}-${fieldKey}`);
+      element?.scrollIntoView({ behavior: "smooth", block: "center" });
+      element?.focus({ preventScroll: true });
+    }, 300);
+  }, []);
+
   /** Jump to the first field the extraction flagged — the review, in one click. */
   const focusFirstAttention = useCallback(() => {
     const target = ANAMNESIS_BLOCKS.flatMap((block) =>
@@ -971,22 +1152,137 @@ export default function ConsultaPage() {
       element?.focus({ preventScroll: true });
     }, 0);
   }, [fields]);
-  const nextAction =
-    saveSnapshot.state === "error"
-      ? t("context-next-retry-save")
-      : experience === "scheduled"
-        ? t("context-next-start")
-        : experience === "awaiting_review"
-          ? t("context-next-review")
-          : experience === "processing" || experience === "uploading" || experience === "awaiting_upload"
-            ? t("context-next-wait-recording")
-            : experience === "failed"
-              ? t("context-next-recover-recording")
-              : experience === "finalized"
-                ? t("context-next-finalized")
-                : experience === "cancelled"
-                  ? t("context-next-cancelled")
-                  : t("context-next-continue");
+  /**
+   * The journey: one derivation from the record's DATA (`@flyee/clinical`),
+   * feeding the bar, the step headers and every disabled button — so the screen
+   * and the database stop disagreeing about what she can do right now.
+   */
+  const recordedAnswerCount = useMemo(
+    // What the AI routes count as "something recorded": a non-blank answer that
+    // is not rejected, in ANY block (old charts carry answers from retired ones).
+    () => Object.values(fields).filter((meta) => meta.value.trim() && meta.state !== "rejected").length,
+    [fields],
+  );
+  const aiDraftPresent = useMemo(
+    () =>
+      Object.values(fields).some(
+        (meta) =>
+          meta.source === "ai_inference" ||
+          meta.source === "patient_report" ||
+          Boolean(meta.provenance?.transcriptionId),
+      ),
+    [fields],
+  );
+  const journeyFacts: JourneyFacts = useMemo(
+    () => ({
+      consultationStatus: consultation?.status ?? "draft",
+      recordingStatus,
+      isPrimaryTab: isPrimary,
+      saveFailed: saveSnapshot.state === "error",
+      consents:
+        contextState === "ready" && context
+          ? factReady({ audio: context.consents.audio, ai: context.consents.ai, images: context.consents.images })
+          : contextState === "failed"
+            ? factUnavailable()
+            : factLoading(),
+      reasoningEntitled: allowanceLoading
+        ? factLoading()
+        : allowanceError
+          ? factUnavailable()
+          : factReady(Boolean(allowance?.clinicalReasoning)),
+      record: {
+        recordedAnswerCount,
+        hasChiefComplaint: headerDraft.chiefComplaint.trim().length > 0,
+        hasSummary: headerDraft.summary.trim().length > 0,
+        attentionCount,
+        aiDraftPresent,
+        tongueRecorded: Boolean(fields["tcm.tongue"]?.value.trim()),
+        pulseRecorded: Boolean(fields["tcm.pulse"]?.value.trim()),
+        legacyRecord: Boolean(consultation?.legacyBody),
+        gapCount: consultation?.aiGaps.length ?? 0,
+      },
+      hypotheses: hypothesisFacts,
+      plan: planFacts,
+      prescription: prescriptionFacts,
+    }),
+    [
+      consultation?.status,
+      consultation?.legacyBody,
+      consultation?.aiGaps.length,
+      recordingStatus,
+      isPrimary,
+      saveSnapshot.state,
+      contextState,
+      context,
+      allowanceLoading,
+      allowanceError,
+      allowance?.clinicalReasoning,
+      recordedAnswerCount,
+      headerDraft.chiefComplaint,
+      headerDraft.summary,
+      attentionCount,
+      aiDraftPresent,
+      fields,
+      hypothesisFacts,
+      planFacts,
+      prescriptionFacts,
+    ],
+  );
+  const journey = useMemo(() => deriveConsultationJourney(journeyFacts), [journeyFacts]);
+
+  // The cascade, visible within a second instead of at the next 12s poll: a
+  // save that bumped the clinical revision has just staled the hypotheses and
+  // returned the plan to draft (0031), and she needs to see that while she
+  // still remembers editing.
+  const previousSaveState = useRef(saveSnapshot.state);
+  useEffect(() => {
+    const previous = previousSaveState.current;
+    previousSaveState.current = saveSnapshot.state;
+    if (saveSnapshot.state !== "saved" || previous === "saved") return;
+    if (!journey.editingInvalidatesOutputs) return;
+    setOutputsRefresh((value) => value + 1);
+    void refreshDecisions();
+  }, [saveSnapshot.state, journey.editingInvalidatesOutputs, refreshDecisions]);
+
+  /**
+   * What the PHONE will be able to do with a QR link, from the same facts it
+   * re-checks at capture time. The link is mintable without consent on purpose
+   * (0069 — that is what lets a free workspace attach photos), so the QR stays
+   * enabled and the dialog says what will work instead of hiding the button.
+   */
+  const captureCapabilities = useMemo(() => {
+    if (contextState !== "ready" || !context) return { audio: "unknown" as const, photos: "unknown" as const };
+    const photos = context.consents.images ? ("available" as const) : ("needs_consent" as const);
+    if (!context.consents.audio || !context.consents.ai) return { audio: "needs_consent" as const, photos };
+    if (allowanceLoading || allowanceError || !allowance) return { audio: "unknown" as const, photos };
+    return {
+      audio: allowance.canStart || allowance.trialAvailable ? ("available" as const) : ("needs_minutes" as const),
+      photos,
+    };
+  }, [contextState, context, allowance, allowanceLoading, allowanceError]);
+
+  const scrollToStep = useCallback((key: string) => {
+    document.getElementById(`etapa-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const nextAction = {
+    label: t(`journey-next-${journey.next.key}`, { count: journey.next.count ?? 0 }),
+    // One sentence, one control — and the control always exists on this screen.
+    action:
+      journey.next.key === "review-attention"
+        ? { label: t("consultation-review-attention-goto"), onClick: focusFirstAttention }
+        : journey.next.key === "consent-for-ai"
+          ? { label: t("journey-next-action-consent"), onClick: () => setConsentCollectionOpen(true) }
+          : journey.next.key === "prepare-hypotheses" ||
+              journey.next.key === "decide-hypotheses" ||
+              journey.next.key === "hypotheses-stale"
+            ? { label: t("journey-next-action-hypotheses"), onClick: () => scrollToStep("hypotheses") }
+            : journey.next.key === "plan-stale" || journey.next.key === "validate-plan"
+              ? { label: t("journey-next-action-plan"), onClick: () => scrollToStep("plan") }
+              : journey.next.key === "record"
+                ? { label: t("journey-next-action-record"), onClick: () => scrollToStep("record") }
+                : undefined,
+  };
 
   if (!consultation && loadFailed) {
     return (
@@ -1063,15 +1359,27 @@ export default function ConsultaPage() {
           recordingStatus={recordingStatus}
           nextAction={nextAction}
           onRetrySave={() => void saveCoordinator.retry().catch(() => setErrorKey("consultation-save-error"))}
+          onManageConsents={() => setConsentCollectionOpen(true)}
+          // Finalizing no longer DISAPPEARS while a recording is processing: it
+          // stays, disabled, with the reason under it. The button vanishing while
+          // the bar still said "finalize quando estiver de acordo" is exactly how
+          // this screen sent her looking for a control that was not there.
           primaryAction={
-            !isFinalized && capabilities?.canFinalize && isPrimary
-              ? {
-                  label: t("consultation-review-finalize"),
+            journey.gates.finalize.state === "hidden"
+              ? undefined
+              : {
+                  label:
+                    journey.finalizeLooseEnds.length > 0
+                      ? t("consultation-review-finalize-count", { count: journey.finalizeLooseEnds.length })
+                      : t("consultation-review-finalize"),
                   onClick: prepareFinalize,
-                  disabled: busy,
+                  disabled: busy || journey.gates.finalize.state !== "available",
                   variant: consultationIsEmpty && consultation.status !== "awaiting_review" ? "outlined" : "contained",
+                  reason:
+                    journey.gates.finalize.state === "blocked"
+                      ? t(`journey-reason-${journey.gates.finalize.reason}`)
+                      : undefined,
                 }
-              : undefined
           }
         />
       </Grid>
@@ -1184,9 +1492,24 @@ export default function ConsultaPage() {
             className="neutral bg-background-paper/60!"
             // "Recarregue antes de continuar" without a way to reload is an
             // instruction, not a recovery. The load is right here.
+            // Each cause gets the control that resolves IT: reloading the
+            // context, opening the consultation that is in the way, restoring
+            // the patient, or filling in the professional profile.
             action={
               errorKey === "consultation-context-load-error" ? (
                 <Button onClick={() => void load()}>{t("retry")}</Button>
+              ) : errorKey === "consultation-start-active-exists" && startBlockedBy ? (
+                <Button component={Link} href={`/consultas/${startBlockedBy}`}>
+                  {t("consultation-start-open-active")}
+                </Button>
+              ) : errorKey === "consultation-start-patient-unavailable" ? (
+                <Button component={Link} href={`/pacientes/${consultation.patientId}`}>
+                  {t("consultation-open-patient")}
+                </Button>
+              ) : errorKey === "attendance-profile-incomplete" ? (
+                <Button component={Link} href="/settings" target="_blank" rel="noopener">
+                  {t("attendance-open-profile")}
+                </Button>
               ) : undefined
             }
           >
@@ -1243,7 +1566,13 @@ export default function ConsultaPage() {
                     // Phone-via-QR is an alternate METHOD for this same step, not
                     // a step of its own — it renders inside the recorder's own
                     // card instead of a second, confusingly-numbered "step 1".
-                    secondaryCapture={<MobileCaptureHandoff consultationId={consultation.id} />}
+                    secondaryCapture={
+                      <MobileCaptureHandoff
+                        consultationId={consultation.id}
+                        capabilities={captureCapabilities}
+                        onRequestConsent={() => setConsentCollectionOpen(true)}
+                      />
+                    }
                   />
                 ) : (
                   <Card component="section">
@@ -1281,28 +1610,61 @@ export default function ConsultaPage() {
                   consultationId={consultation.id}
                   patientId={consultation.patientId}
                   canAnalyze={Boolean(allowance?.clinicalReasoning)}
+                  analyzeGate={journey.gates.analyzeAttachment}
+                  onRequestConsent={() => setConsentCollectionOpen(true)}
+                  onManageConsents={() => setConsentCollectionOpen(true)}
                   refreshSignal={recordingsRefresh}
                 />
               )}
             </Box>
           )}
 
-          <Box className="order-2 flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <Box
+            id="etapa-record"
+            className="order-2 flex min-w-0 scroll-mt-4 flex-col gap-5 md:scroll-mt-60 lg:col-start-1 lg:row-span-2 lg:row-start-1"
+          >
             {/* Intro card: what the anamnesis is, plus the return-visit context.
                 Each anamnesis block below is its OWN card so the sections read as
                 distinct areas of the chart instead of blurring together. */}
             <Card component="section">
               <CardContent className="flex flex-col gap-4">
-                <Box>
-                  <Typography variant="h5" component="h2" className="card-title">
-                    {t("consultation-anamnesis-title")}
-                  </Typography>
-                  <Typography variant="body2" className="text-text-secondary">
-                    {captureInFlight
+                {/* The chart IS the step: recording is one way of filling it,
+                    typing is the other, and both finish it. Numbering only the
+                    recorder made the manual path read as outside the flow. */}
+                <ConsultationStepHeader
+                  step={journey.steps.record.number}
+                  icon={<NiDocumentFull size="medium" />}
+                  title={t("consultation-anamnesis-title")}
+                  hint={
+                    captureInFlight
                       ? t("consultation-anamnesis-subtitle-capturing")
-                      : t("consultation-anamnesis-subtitle")}
+                      : t("consultation-anamnesis-subtitle")
+                  }
+                  status={
+                    journey.steps.record.state === "done"
+                      ? "done"
+                      : journey.steps.record.state === "in_progress"
+                        ? "in_progress"
+                        : undefined
+                  }
+                  statusLabel={
+                    journey.steps.record.state === "done"
+                      ? t("journey-step-done")
+                      : journey.steps.record.state === "in_progress"
+                        ? t("journey-step-in-progress")
+                        : undefined
+                  }
+                />
+
+                {/* What editing will COST, before she edits: any change to the
+                    chart stales the hypotheses and returns the plan to draft
+                    (0031). Learning that afterwards is what made the screen feel
+                    like it was undoing her work. */}
+                {canEdit && journey.editingInvalidatesOutputs && (
+                  <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                    {t("journey-outputs-cost-hint")}
                   </Typography>
-                </Box>
+                )}
 
                 {/* The one line that names the case. It drives the patient
                     timeline and every AI prompt, and it had become unwritable:
@@ -1434,7 +1796,12 @@ export default function ConsultaPage() {
                                     </span>
                                   )}
                                   {meta?.value && (
-                                    <StateChip state={meta.state} sourceLabel={t(`source-${meta.source}`)} t={t} />
+                                    <StateChip
+                                      state={meta.state}
+                                      reviewed={Boolean(meta.reviewed)}
+                                      sourceLabel={t(`source-${meta.source}`)}
+                                      t={t}
+                                    />
                                   )}
                                 </FormLabel>
                                 {/* Moved OUT of the field label above. A button
@@ -1445,18 +1812,35 @@ export default function ConsultaPage() {
                                     its own row it finally gets a real touch
                                     target — this is the control that answers
                                     "where did this value come from?". */}
-                                {meta?.provenance?.quote && (
-                                  <button
-                                    type="button"
-                                    className="text-secondary-dark dark:text-secondary-light -mt-0.5 mb-0.5 inline-flex min-h-9 items-center gap-1 self-start px-1 text-xs font-semibold"
-                                    onClick={(event) =>
-                                      setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
-                                    }
-                                  >
-                                    <NiPlay size="tiny" />
-                                    {t("field-provenance")}
-                                  </button>
-                                )}
+                                <Box className="flex flex-row flex-wrap items-center gap-2">
+                                  {meta?.provenance?.quote && (
+                                    <button
+                                      type="button"
+                                      className="text-secondary-dark dark:text-secondary-light -mt-0.5 mb-0.5 inline-flex min-h-9 items-center gap-1 self-start px-1 text-xs font-semibold"
+                                      onClick={(event) =>
+                                        setProvenanceAnchor({ el: event.currentTarget, data: meta.provenance })
+                                      }
+                                    >
+                                      <NiPlay size="tiny" />
+                                      {t("field-provenance")}
+                                    </button>
+                                  )}
+                                  {/* The exit from "requer atenção" when the
+                                      value is RIGHT. Rewriting the text was the
+                                      only way out before — and it turned the
+                                      model's draft into her own words, dropped
+                                      the provenance and staled the hypotheses. */}
+                                  {canEdit && meta?.state === "attention" && (
+                                    <button
+                                      type="button"
+                                      className="text-secondary-dark dark:text-secondary-light -mt-0.5 mb-0.5 inline-flex min-h-9 items-center gap-1 self-start px-1 text-xs font-semibold"
+                                      aria-label={t("field-confirm-keep-label", { field: t(field.label) })}
+                                      onClick={() => void confirmAnswer(block.key, field.key)}
+                                    >
+                                      {t("field-confirm-keep")}
+                                    </button>
+                                  )}
+                                </Box>
                                 <Input
                                   id={`consultation-field-${block.key}-${field.key}`}
                                   multiline={field.multiline}
@@ -1531,8 +1915,11 @@ export default function ConsultaPage() {
                 <ConsultationAiSummary
                   consultationId={consultation.id}
                   canGenerate={Boolean(allowance?.clinicalReasoning)}
+                  gate={journey.gates.generateSummary}
                   initialSummary={consultation.aiSummary}
                   onApply={(text) => queueHeaderSave("summary", text)}
+                  onRequestConsent={() => setConsentCollectionOpen(true)}
+                  invalidatesOutputs={journey.editingInvalidatesOutputs}
                   readOnly={isReadOnly}
                 />
               </CardContent>
@@ -1547,38 +1934,6 @@ export default function ConsultaPage() {
               capabilities?.canEditClinicalRecord ? "lg:row-start-2" : "lg:row-start-1",
             )}
           >
-            {/* Pattern hypotheses (PRD §10.8) — prepared on demand, because a
-              pattern is read from the tongue and pulse, and those are HER
-              observations, never inferred from the recording (PRD §10.3). */}
-            <HypothesesPanel
-              consultationId={consultation.id}
-              patientId={consultation.patientId}
-              reasoningEntitled={Boolean(allowance?.clinicalReasoning)}
-              canPrepare={Boolean(canEdit && allowance?.clinicalReasoning)}
-              entitlementLoading={allowanceLoading}
-              entitlementError={allowanceError}
-              onRetryEntitlement={() => void reloadAllowance()}
-              onDecisionChanged={() => void refreshHypothesisAcceptance()}
-              onBeforePrepare={async () => {
-                await saveCoordinator.flush();
-              }}
-              isFinalized={isReadOnly}
-            />
-
-            {/* Therapeutic plan (PRD §10.9) — built on the accepted hypotheses,
-              a draft until she validates it (PRD §10.10). */}
-            <PlanPanel
-              consultationId={consultation.id}
-              canReason={Boolean(canEdit && allowance?.clinicalReasoning)}
-              hasAcceptedHypotheses={hasAcceptedHypotheses}
-              isFinalized={isReadOnly}
-            />
-
-            {/* Receituário (PRD §9.8) — the professional's own prescription
-              (herbal formula / generic). Authored by her, never the AI; a draft
-              until she validates and signs it. */}
-            <PrescriptionPanel consultationId={consultation.id} orgId={consultation.orgId} isFinalized={isReadOnly} />
-
             {/* Gaps are suggestions to investigate — never answers (PRD §10.7). */}
             {consultation.aiGaps.length > 0 && canEdit && (
               <Card component="section">
@@ -1631,6 +1986,57 @@ export default function ConsultaPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Pattern hypotheses (PRD §10.8) — prepared on demand, because a
+              pattern is read from the tongue and pulse, and those are HER
+              observations, never inferred from the recording (PRD §10.3). */}
+            <Box id="etapa-hypotheses" className="scroll-mt-4 md:scroll-mt-60">
+              <HypothesesPanel
+                consultationId={consultation.id}
+                patientId={consultation.patientId}
+                reasoningEntitled={Boolean(allowance?.clinicalReasoning)}
+                // Gated by the FACTS the route checks, not by status alone.
+                prepareGate={journey.gates.prepareHypotheses}
+                stepNumber={journey.steps.hypotheses.number}
+                entitlementLoading={allowanceLoading}
+                entitlementError={allowanceError}
+                onRetryEntitlement={() => void reloadAllowance()}
+                onDecisionChanged={() => void refreshDecisions()}
+                onRequestConsent={() => setConsentCollectionOpen(true)}
+                refreshSignal={outputsRefresh}
+                onFocusField={focusField}
+                onBeforePrepare={async () => {
+                  await saveCoordinator.flush();
+                }}
+                isFinalized={isReadOnly}
+              />
+            </Box>
+
+            {/* Therapeutic plan (PRD §10.9) — built on the accepted hypotheses,
+              a draft until she validates it (PRD §10.10). */}
+            <Box id="etapa-plan" className="scroll-mt-4 md:scroll-mt-60">
+              <PlanPanel
+                consultationId={consultation.id}
+                prepareGate={journey.gates.preparePlanAi}
+                createManualGate={journey.gates.createManualPlan}
+                stepNumber={journey.steps.plan.number}
+                consultationStatus={consultation.status}
+                onRequestConsent={() => setConsentCollectionOpen(true)}
+                onChanged={() => void refreshDecisions()}
+                refreshSignal={outputsRefresh}
+                isFinalized={isReadOnly}
+              />
+            </Box>
+
+            {/* Receituário (PRD §9.8) — the professional's own prescription
+              (herbal formula / generic). Authored by her, never the AI; a draft
+              until she validates and signs it. */}
+            <PrescriptionPanel
+              consultationId={consultation.id}
+              orgId={consultation.orgId}
+              isFinalized={isReadOnly}
+              onChanged={() => void refreshDecisions()}
+            />
 
             <Card component="section">
               <CardContent className="flex flex-col gap-3">
@@ -1775,6 +2181,19 @@ export default function ConsultaPage() {
                 {pendingWarnings.map((warning) => (
                   <Typography key={warning} component="li" variant="body2" className="text-text-secondary">
                     {t(`consultation-finalize-warning-${warning}`)}
+                    {/* The one loose end she can close from here in one move. */}
+                    {warning === "attention_fields" && attentionCount > 0 && (
+                      <Button
+                        size="small"
+                        className="ml-1 px-1!"
+                        onClick={() => {
+                          setFinalizeOpen(false);
+                          focusFirstAttention();
+                        }}
+                      >
+                        {t("consultation-review-attention-goto")}
+                      </Button>
+                    )}
                   </Typography>
                 ))}
               </Box>
@@ -1788,6 +2207,14 @@ export default function ConsultaPage() {
                 label={t("consultation-finalize-warnings-confirm")}
               />
             </Alert>
+          )}
+          {/* Closing runs the suggested summary first and can take most of a
+              minute. Saying so beats a silent dialog that looks stuck with the
+              next patient already at the door. */}
+          {busy && (
+            <Typography variant="body2" role="status" className="text-text-secondary text-xs leading-5">
+              {t(allowance?.clinicalReasoning ? "consultation-finalize-busy" : "consultation-finalize-busy-basic")}
+            </Typography>
           )}
           {consultationIsEmpty && (
             <Alert severity="warning" className="neutral bg-background-paper/60!">
@@ -1876,6 +2303,11 @@ export default function ConsultaPage() {
         <ConsentSheet
           open
           label={inPersonConsent.label}
+          progress={
+            inPersonQueue && inPersonQueue.slugs.length > 1
+              ? t("consent-sequence", { current: inPersonQueue.index + 1, total: inPersonQueue.slugs.length })
+              : undefined
+          }
           purpose={inPersonConsent.purpose}
           term={inPersonConsent.term}
           active={false}
@@ -2022,7 +2454,18 @@ function PreviousFieldValue({
   );
 }
 
-function StateChip({ state, sourceLabel, t }: { state: string; sourceLabel: string; t: (key: string) => string }) {
+function StateChip({
+  state,
+  reviewed,
+  sourceLabel,
+  t,
+}: {
+  state: string;
+  /** She read this draft and kept it as written — not the same as "clear evidence". */
+  reviewed?: boolean;
+  sourceLabel: string;
+  t: (key: string) => string;
+}) {
   const style =
     state === "attention"
       ? "bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light"
@@ -2030,7 +2473,13 @@ function StateChip({ state, sourceLabel, t }: { state: string; sourceLabel: stri
         ? "bg-grey-100 text-text-secondary"
         : "bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light";
   const label =
-    state === "attention" ? t("state-attention") : state === "edited" ? t("state-edited") : t("state-clear");
+    state === "attention"
+      ? t("state-attention")
+      : state === "edited"
+        ? t("state-edited")
+        : reviewed
+          ? t("state-confirmed")
+          : t("state-clear");
   return (
     <>
       <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold", style)}>{label}</span>

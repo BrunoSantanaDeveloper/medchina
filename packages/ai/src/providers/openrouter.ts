@@ -1,3 +1,4 @@
+import { StructuredOutputError } from "@flyee/ai/errors";
 import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
 
 function toOpenRouterMessages(config: AssistantConfig, messages: ChatMessage[]) {
@@ -133,13 +134,28 @@ export class OpenRouterProvider implements ChatProvider {
       throw new Error(`OpenRouter request failed (${response.status}): ${body}`);
     }
 
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string; refusal?: string | null }; finish_reason?: string | null }[];
+    };
     const content = data.choices?.[0]?.message?.content;
-    if (!content) throw new Error("OpenRouter returned no structured output.");
+    const finishReason = data.choices?.[0]?.finish_reason ?? undefined;
+    if (data.choices?.[0]?.message?.refusal || finishReason === "content_filter") {
+      throw new StructuredOutputError({ failure: "blocked", provider: "openrouter", finishReason });
+    }
+    if (finishReason === "length") {
+      throw new StructuredOutputError({ failure: "truncated", provider: "openrouter", finishReason });
+    }
+    if (!content) throw new StructuredOutputError({ failure: "empty", provider: "openrouter", finishReason });
     try {
       return JSON.parse(content);
     } catch {
-      throw new Error(`OpenRouter returned invalid JSON: ${content.slice(0, 200)}`);
+      // Never quote the reply: it is clinical content and this is logged.
+      throw new StructuredOutputError({
+        failure: "invalid_json",
+        provider: "openrouter",
+        finishReason,
+        detail: `${content.length} characters returned`,
+      });
     }
   }
 }

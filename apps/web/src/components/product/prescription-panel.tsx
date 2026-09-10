@@ -48,10 +48,13 @@ export default function PrescriptionPanel({
   consultationId,
   orgId,
   isFinalized,
+  onChanged,
 }: {
   consultationId: string;
   orgId: string;
   isFinalized: boolean;
+  /** Tells the page a draft appeared or was signed, so the journey re-reads the facts. */
+  onChanged?: () => void;
 }) {
   const t = useTranslations("product");
   const theme = useTheme();
@@ -157,6 +160,7 @@ export default function PrescriptionPanel({
       }
       setDraft(null);
       await load();
+      onChanged?.();
     } catch {
       setActionError(t("prescription-error"));
     } finally {
@@ -180,6 +184,7 @@ export default function PrescriptionPanel({
       if (error) throw error;
       setValidating(false);
       await load();
+      onChanged?.();
     } catch {
       setActionError(t("prescription-error"));
     } finally {
@@ -197,6 +202,7 @@ export default function PrescriptionPanel({
       if (error) throw error;
       setConfirmDelete(false);
       await load();
+      onChanged?.();
     } catch {
       setActionError(t("prescription-error"));
     } finally {

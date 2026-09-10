@@ -52,7 +52,28 @@ type LiveStatus =
  * for the recording step, so it mounts inside ConsultationRecorder's card via
  * its `secondaryCapture` slot.
  */
-export default function MobileCaptureHandoff({ consultationId }: { consultationId: string }) {
+export default function MobileCaptureHandoff({
+  consultationId,
+  capabilities,
+  onRequestConsent,
+}: {
+  consultationId: string;
+  /**
+   * What the PHONE will actually be able to do with this link, computed from
+   * the same facts the phone re-checks at capture time (`resolve_capture_link`,
+   * 0069): documents always, photos with the images consent, audio with the
+   * audio + AI consents and minutes available.
+   *
+   * The link itself is deliberately mintable without any of them — that is what
+   * lets a free workspace attach photos from the phone (0069) — so the honest
+   * move is to SAY what will work before the patient scans, never to hide the QR.
+   */
+  capabilities?: {
+    audio: "available" | "needs_consent" | "needs_minutes" | "unknown";
+    photos: "available" | "needs_consent" | "unknown";
+  };
+  onRequestConsent?: () => void;
+}) {
   const t = useTranslations("product");
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -333,6 +354,45 @@ export default function MobileCaptureHandoff({ consultationId }: { consultationI
           <Typography variant="body2" className="text-text-secondary self-stretch leading-6">
             {t("capture-qr-dialog-body")}
           </Typography>
+
+          {/* What the phone will be able to do, BEFORE the patient scans. The
+              failure used to surface on HER phone, blaming "a conta" for what
+              was often a missing consent — and the professional never saw it. */}
+          {capabilities && (
+            <Box className="border-grey-100 flex w-full flex-col gap-1 rounded-2xl border px-3 py-2">
+              <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+                {t("capture-qr-capabilities-title")}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t("capture-qr-capability-documents")}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t(
+                  capabilities.photos === "available"
+                    ? "capture-qr-capability-photos-ok"
+                    : capabilities.photos === "needs_consent"
+                      ? "capture-qr-capability-photos-consent"
+                      : "capture-qr-capability-photos-unknown",
+                )}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                {t(
+                  capabilities.audio === "available"
+                    ? "capture-qr-capability-audio-ok"
+                    : capabilities.audio === "needs_consent"
+                      ? "capture-qr-capability-audio-consent"
+                      : capabilities.audio === "needs_minutes"
+                        ? "capture-qr-capability-audio-minutes"
+                        : "capture-qr-capability-audio-unknown",
+                )}
+              </Typography>
+              {capabilities.audio === "needs_consent" && onRequestConsent && (
+                <Button size="small" className="self-start px-1!" onClick={onRequestConsent}>
+                  {t("journey-next-action-consent")}
+                </Button>
+              )}
+            </Box>
+          )}
 
           {loading && <CircularProgress aria-label={t("loading")} className="my-6" />}
 

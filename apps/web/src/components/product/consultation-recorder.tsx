@@ -1063,7 +1063,10 @@ export default function ConsultationRecorder({
       <Card component="section">
         <CardContent className="flex flex-col gap-3">
           <ConsultationStepHeader
-            step={1}
+            // No number: recording is one WAY of doing the record step, not a
+            // step of its own. Numbering it left the manual anamnesis — the
+            // other half of the same step — looking like it was off the path.
+            step={undefined}
             icon={<NiMicrophone size="medium" />}
             title={t("recorder-title")}
             hint={t("recorder-step-hint")}

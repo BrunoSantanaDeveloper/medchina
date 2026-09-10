@@ -133,7 +133,16 @@ describe("OpenAI provider", () => {
             name: "reply",
             schema: { type: "object" },
           }),
-        /refused/i,
+        (error: unknown) => {
+          // The refusal is carried as a TAG, not as prose: the caller branches on
+          // `failure` (blocked is not retryable), and the model's own words are
+          // kept out of a message that ends up in the server log.
+          const failure = error as { name?: string; failure?: string };
+          assert.equal(failure.name, "StructuredOutputError");
+          assert.equal(failure.failure, "blocked");
+          assert.ok(!String((error as Error).message).includes("I cannot help"));
+          return true;
+        },
       );
     } finally {
       globalThis.fetch = original;

@@ -2,6 +2,7 @@ import { recordAudit } from "@/lib/audit";
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 import { buildClinicalSummary, type SummaryInput } from "@/lib/clinical-summary";
 import { getAudioAllowance } from "@/lib/usage";
+import { clinicalProviderCode, describeAiFailure } from "@flyee/ai";
 import { createServiceClient } from "@flyee/auth/service";
 
 export const maxDuration = 120;
@@ -62,8 +63,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     result = await buildClinicalSummary(input);
   } catch (error) {
-    console.error("[summary] provider call failed", error);
-    return clinicalError("provider_unavailable");
+    // Logged without the model's text (it is the patient's record), and mapped
+    // to the code that says whether trying again can help.
+    console.error("[summary] provider call failed", describeAiFailure(error));
+    return clinicalError(clinicalProviderCode(error));
   }
 
   // Inside a try: `createServiceClient()` THROWS when the service-role key is

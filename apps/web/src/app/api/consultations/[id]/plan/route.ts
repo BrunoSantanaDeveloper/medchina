@@ -2,6 +2,7 @@ import { recordAudit } from "@/lib/audit";
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 import { buildTherapeuticPlan, type PlanInput } from "@/lib/therapeutic-plan";
 import { getAudioAllowance } from "@/lib/usage";
+import { clinicalProviderCode, describeAiFailure } from "@flyee/ai";
 import { createServiceClient } from "@flyee/auth/service";
 
 export const maxDuration = 120;
@@ -97,9 +98,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     result = await buildTherapeuticPlan(supabase, input);
   } catch (error) {
     // Real provider error stays SERVER-side (never to a clinical client), but
-    // is logged so a failure is diagnosable instead of an opaque 503.
-    console.error("[plan] provider call failed", error);
-    return clinicalError("provider_unavailable");
+    // is logged so a failure is diagnosable instead of an opaque 503 — the
+    // model's text is left out on purpose.
+    console.error("[plan] provider call failed", describeAiFailure(error));
+    return clinicalError(clinicalProviderCode(error));
   }
 
   const basis = hypotheses.map((hypothesis) => ({
@@ -124,6 +126,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (savedError) return clinicalError("internal_error");
   const saved = savedData as { ok?: boolean; planId?: string; code?: string } | null;
   if (!saved?.ok) return clinicalRpcResponse(saved);
+
+  // Whether the library was actually consulted is a FACT about this plan, not a
+  // detail of the browser session that asked for it: held only in local state,
+  // it disappeared on reload and a plan built with no sources looked like a plan
+  // whose sources found nothing. Same fix migration 0094 made for hypotheses.
+  await createServiceClient()
+    .from("consultation_plans")
+    .update({ retrieval_failed: result.retrievalFailed })
+    .eq("id", saved.planId);
 
   await recordAudit(supabase, "consultation.plan.prepared", {
     orgId: consultation.org_id,

@@ -2,6 +2,7 @@ import { recordAudit } from "@/lib/audit";
 import { buildHypotheses, type RecordedCase } from "@/lib/clinical-reasoning";
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 import { getAudioAllowance } from "@/lib/usage";
+import { clinicalProviderCode, describeAiFailure } from "@flyee/ai";
 import { createServiceClient } from "@flyee/auth/service";
 
 export const maxDuration = 120;
@@ -114,9 +115,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } catch (error) {
     // The real provider error (invalid/restricted key, model access, safety
     // block, empty/invalid output) must never reach a clinical client, but
-    // swallowing it silently made this undiagnosable. Log it SERVER-side.
-    console.error("[hypotheses] provider call failed", error);
-    return clinicalError("provider_unavailable");
+    // swallowing it silently made this undiagnosable. Log it SERVER-side —
+    // without the model's text, which is this patient's record.
+    console.error("[hypotheses] provider call failed", describeAiFailure(error));
+    // "The service hiccuped, try again" and "the service refused, trying again
+    // cannot help" are different sentences on screen, so they are different
+    // codes here.
+    return clinicalError(clinicalProviderCode(error));
   }
 
   const { data: replaceData, error: replaceError } = await createServiceClient().rpc("replace_draft_hypotheses", {

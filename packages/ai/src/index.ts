@@ -5,6 +5,7 @@ import { OpenRouterProvider } from "./providers/openrouter";
 import { type AiProviderName, AI_PROVIDERS, type ChatProvider } from "./types";
 
 export * from "./types";
+export * from "./errors";
 
 export const isAnthropicConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
 export const isGeminiConfigured = Boolean(process.env.GEMINI_API_KEY);

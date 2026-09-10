@@ -2,6 +2,7 @@ import { analyzeAttachment } from "@/lib/attachment-analysis";
 import { recordAudit } from "@/lib/audit";
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 import { getAudioAllowance } from "@/lib/usage";
+import { clinicalProviderCode, describeAiFailure } from "@flyee/ai";
 import { createServiceClient } from "@flyee/auth/service";
 
 export const maxDuration = 120;
@@ -53,8 +54,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const dataBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
     result = await analyzeAttachment({ mime: attachment.mime, dataBase64 });
   } catch (error) {
-    console.error("[attachment.analyze] provider call failed", error);
-    return clinicalError("provider_unavailable");
+    // No model text in the log (it read a clinical document), and a code that
+    // says whether clicking again could work.
+    console.error("[attachment.analyze] provider call failed", describeAiFailure(error));
+    return clinicalError(clinicalProviderCode(error));
   }
 
   const { data, error } = await service.rpc("save_attachment_analysis", {

@@ -18,6 +18,7 @@ import {
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
+import GateNotice from "@/components/product/gate-notice";
 import InfoHint from "@/components/product/info-hint";
 import NiAi from "@/icons/nexture/ni-ai";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
@@ -26,6 +27,7 @@ import NiUploadCloud from "@/icons/nexture/ni-upload-cloud";
 import { ATTACHMENT_ACCEPT, attachmentKindForMime, MAX_ATTACHMENT_BYTES } from "@/lib/attachment-mime";
 import { cn } from "@/lib/utils";
 import { createClient } from "@flyee/auth/client";
+import type { JourneyGate } from "@flyee/clinical";
 
 const BUCKET = "clinical-attachments";
 
@@ -58,17 +60,30 @@ export default function AttachmentsPanel({
   consultationId,
   patientId,
   canAnalyze = false,
+  analyzeGate,
+  onRequestConsent,
+  onManageConsents,
   refreshSignal,
 }: {
   consultationId: string;
   patientId: string;
   /** Pro entitlement: the AI may read an attachment for review (Fase B). */
   canAnalyze?: boolean;
+  /**
+   * Whether reading an attachment can run now and, if not, why — mirroring the
+   * analyze route (Pro + the patient's ai-processing consent).
+   */
+  analyzeGate?: JourneyGate;
+  /** Opens the consent dialog here rather than sending her to the patient page. */
+  onRequestConsent?: () => void;
+  onManageConsents?: () => void;
   /** Bumped by the parent's sync tick so a photo captured on the PHONE appears
    *  here without a manual reload — the same mechanism the recordings use. */
   refreshSignal?: number;
 }) {
   const t = useTranslations("product");
+  // Loading is not a block: the control waits without inventing a reason.
+  const analyzeBlocked = analyzeGate ? analyzeGate.state === "blocked" || analyzeGate.state === "loading" : false;
   const [items, setItems] = useState<Attachment[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -213,7 +228,13 @@ export default function AttachmentsPanel({
             ? "attachments-analyze-pro"
             : code === "ai_consent_required"
               ? "attachments-analyze-consent"
-              : "attachments-analyze-error",
+              : code === "not_found"
+                ? "attachments-analyze-missing"
+                : code === "provider_unavailable"
+                  ? "attachments-analyze-provider"
+                  : code === "provider_rejected"
+                    ? "attachments-analyze-provider-rejected"
+                    : "attachments-analyze-error",
         );
         return;
       }
@@ -255,15 +276,28 @@ export default function AttachmentsPanel({
             severity="info"
             className="neutral bg-background-paper/60!"
             action={
-              <Button size="small" color="inherit" href={`/pacientes/${patientId}/consentimentos`}>
-                {t("context-manage-consents")}
-              </Button>
+              // In-place, with the patient in the room: this link used to take
+              // her out of the open consultation just to grant a consent.
+              onManageConsents ? (
+                <Button size="small" color="inherit" onClick={onManageConsents}>
+                  {t("context-manage-consents")}
+                </Button>
+              ) : (
+                <Button size="small" color="inherit" href={`/pacientes/${patientId}/consentimentos`}>
+                  {t("context-manage-consents")}
+                </Button>
+              )
             }
           >
             {t("attachments-images-consent")}
           </Alert>
         )}
         {errorKey && <Alert severity="error">{t(errorKey)}</Alert>}
+        {/* Said once for the card, not repeated on every row: why the AI reading
+            is unavailable, with the way to resolve it here. */}
+        {canAnalyze && analyzeGate && (
+          <GateNotice gate={analyzeGate} id="attachments-analyze-reason" onRequestConsent={onRequestConsent} />
+        )}
         {loadFailed && (
           <Alert severity="error" action={<Button onClick={() => void load()}>{t("retry")}</Button>}>
             {t("attachments-load-error")}
@@ -330,17 +364,26 @@ export default function AttachmentsPanel({
                     {t("attachments-view-analysis")}
                   </Button>
                 ) : canAnalyze ? (
-                  <Button
-                    size="tiny"
-                    variant="text"
-                    color="primary"
-                    className="justify-start px-1!"
-                    startIcon={analyzingId === item.id ? undefined : <NiAi size="tiny" />}
-                    disabled={analyzingId !== null}
-                    onClick={() => void analyze(item)}
-                  >
-                    {analyzingId === item.id ? <CircularProgress size={14} /> : t("attachments-analyze")}
-                  </Button>
+                  <Box className="flex flex-col items-start gap-1">
+                    <Button
+                      size="tiny"
+                      variant="text"
+                      color="primary"
+                      className="justify-start px-1!"
+                      startIcon={analyzingId === item.id ? undefined : <NiAi size="tiny" />}
+                      disabled={analyzingId !== null || analyzeBlocked}
+                      aria-describedby={analyzeBlocked ? "attachments-analyze-reason" : undefined}
+                      onClick={() => void analyze(item)}
+                    >
+                      {analyzingId === item.id ? <CircularProgress size={14} /> : t("attachments-analyze")}
+                    </Button>
+                    {/* A minute of spinner with no words reads as broken. */}
+                    {analyzingId === item.id && (
+                      <Typography variant="body2" role="status" className="text-text-secondary text-xs leading-5">
+                        {t("attachments-analyzing")}
+                      </Typography>
+                    )}
+                  </Box>
                 ) : null}
               </Box>
             ))}

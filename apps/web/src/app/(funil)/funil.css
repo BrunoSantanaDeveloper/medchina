@@ -1,0 +1,50 @@
+/*
+ * Chrome shared by every offer page in the route group, written in the Landing
+ * DS vocabulary (docs/DESIGN.md). Lives with the layout rather than with one
+ * page's stylesheet so the next campaign page inherits it by existing.
+ */
+
+/* ---------- Legal footer ----------
+   Identification of the seller and the terms of the sale, and nothing else: a
+   footer with site navigation would reintroduce the exits the layout exists to
+   remove (docs/FUNIL.md T3.1). */
+
+.offer-footer {
+  padding-top: 44px;
+  padding-bottom: 28px;
+}
+
+.offer-footer .footer-bottom {
+  align-items: center;
+  gap: 24px;
+  padding-top: 0;
+  border-top: 0;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.offer-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.offer-footer-links a {
+  color: #cbd9d5;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.offer-footer-links a:hover {
+  color: #fff;
+}
+
+.offer-footer-note {
+  max-width: 720px;
+  margin: 22px 0 0;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  color: #728b85;
+  font-size: 11px;
+  line-height: 1.6;
+}

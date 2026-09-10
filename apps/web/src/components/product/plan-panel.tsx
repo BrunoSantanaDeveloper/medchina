@@ -27,6 +27,7 @@ import {
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
+import GateNotice from "@/components/product/gate-notice";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
 import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
@@ -37,7 +38,17 @@ import { hasHomeGuidance } from "@/lib/home-guidance";
 import { type FieldDescriptor, type FieldKind, PLAN_MODALITIES, PLAN_STRATEGIES } from "@/lib/plan-modalities";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
-import { remoteEmpty, remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
+import {
+  type ConsultationStatus,
+  derivePlanValidationGate,
+  type JourneyGate,
+  planFactsFromRow,
+  remoteEmpty,
+  remoteError,
+  remoteLoading,
+  type RemoteState,
+  remoteSuccess,
+} from "@flyee/clinical";
 
 type Modality = Record<string, unknown>;
 type SafetyFlag = { category: string; matchedText: string; fieldKey?: string };
@@ -66,6 +77,12 @@ type Plan = {
   staleAt: string | null;
   /** When she signed this content — what decides if an issued PDF is current. */
   validatedAt: string | null;
+  /**
+   * This plan was generated with the clinical library UNREACHABLE (0098). Held
+   * only in local state before, it vanished on reload — so a plan built with no
+   * sources looked like a plan whose sources found nothing.
+   */
+  retrievalFailed: boolean;
 };
 type PlanData = { plan: Plan; documents: IssuedDocument[] };
 
@@ -86,19 +103,36 @@ type PlanData = { plan: Plan; documents: IssuedDocument[] };
  */
 export default function PlanPanel({
   consultationId,
-  canReason,
-  hasAcceptedHypotheses,
+  prepareGate,
+  createManualGate,
+  stepNumber,
+  consultationStatus,
+  onRequestConsent,
+  onChanged,
+  refreshSignal,
   isFinalized,
 }: {
   consultationId: string;
-  canReason: boolean;
   /**
-   * Whether at least one hypothesis is accepted/edited. The AI plan is BUILT on
-   * those (PRD §10.9), so preparing without one is refused server-side
-   * (`accepted_hypothesis_required`). We gate the button on it instead of
-   * letting the click surface a warning after the fact.
+   * Whether the AI plan can be prepared right now and, when it cannot, WHY —
+   * derived from the record's data (`deriveConsultationJourney`), mirroring
+   * `POST /plan` and `save_generated_consultation_plan`. It replaces the old
+   * `hasAcceptedHypotheses` boolean, which counted accepted hypotheses without
+   * looking at whether they had gone stale — so the button stayed lit over a
+   * hypothesis the database would refuse to build on.
    */
-  hasAcceptedHypotheses: boolean;
+  prepareGate: JourneyGate;
+  /** Creating a manual plan needs no AI and no hypothesis: only an editable record. */
+  createManualGate: JourneyGate;
+  /** Position in the visible sequence, computed by the page. */
+  stepNumber?: number;
+  /** Validation is allowed after finalization, refused on a cancelled record (0093). */
+  consultationStatus: ConsultationStatus;
+  onRequestConsent?: () => void;
+  /** Tells the page a decision changed, so the journey re-reads the facts at once. */
+  onChanged?: () => void;
+  /** Bumped by the page after a save that could have made this plan stale. */
+  refreshSignal?: number;
   isFinalized: boolean;
 }) {
   const t = useTranslations("product");
@@ -169,7 +203,7 @@ export default function PlanPanel({
       const { data, error: planError } = await supabase
         .from("consultation_plans")
         .select(
-          "id, objective, modalities, safety_flags, sources, status, origin, updated_at, model, stale_at, validated_at",
+          "id, objective, modalities, safety_flags, sources, status, origin, updated_at, model, stale_at, validated_at, retrieval_failed",
         )
         .eq("consultation_id", consultationId)
         .maybeSingle();
@@ -194,6 +228,7 @@ export default function PlanPanel({
         model: data.model,
         staleAt: data.stale_at,
         validatedAt: data.validated_at,
+        retrievalFailed: Boolean(data.retrieval_failed),
       };
 
       // Documents already issued from this plan (PRD §9.8) — newest first.
@@ -230,6 +265,16 @@ export default function PlanPanel({
     void load(false);
   }, [load]);
 
+  // A save that bumped the clinical revision returns this plan to draft and
+  // clears its validation (mark_clinical_outputs_stale, 0031). The page signals
+  // it immediately, so the card stops showing a validation that no longer holds.
+  const refreshedRef = useRef(refreshSignal);
+  useEffect(() => {
+    if (refreshSignal === undefined || refreshSignal === refreshedRef.current) return;
+    refreshedRef.current = refreshSignal;
+    void load(true);
+  }, [refreshSignal, load]);
+
   const prepare = async (replaceManual = false) => {
     setBusy(true);
     setActionError(null);
@@ -255,14 +300,22 @@ export default function PlanPanel({
                     ? t("plan-accepted-hypothesis-required")
                     : code === "manual_plan_exists"
                       ? t("plan-manual-kept")
-                      : t("plan-error"),
+                      : code === "provider_unavailable"
+                        ? t("plan-provider")
+                        : code === "provider_rejected"
+                          ? t("plan-provider-rejected")
+                          : code === "clinical_revision_conflict"
+                            ? t("plan-revision-conflict")
+                            : t("plan-error"),
         );
         return;
       }
       setRetrievalFailed(Boolean(body?.retrievalFailed));
       await load(true);
+      onChanged?.();
     } catch {
-      setActionError(t("plan-error"));
+      // The request never reached the server: nothing was written.
+      setActionError(t("plan-network"));
     } finally {
       setBusy(false);
     }
@@ -274,12 +327,21 @@ export default function PlanPanel({
     try {
       const response = await fetch(`/api/consultations/${consultationId}/plan/manual`, { method: "POST" });
       if (!response.ok) {
-        setActionError(t("plan-error"));
+        const body = await response.json().catch(() => ({}));
+        const code = body?.error?.code ?? body?.error;
+        setActionError(
+          code === "manual_plan_exists" || code === "plan_validated"
+            ? t("plan-already-exists")
+            : code === "consultation_finalized"
+              ? t("plan-finalized")
+              : t("plan-error"),
+        );
         return;
       }
       await load(true);
+      onChanged?.();
     } catch {
-      setActionError(t("plan-error"));
+      setActionError(t("plan-network"));
     } finally {
       setBusy(false);
     }
@@ -307,14 +369,30 @@ export default function PlanPanel({
         }),
       });
       if (!response.ok) {
-        setActionError(t("plan-conflict"));
+        // Saving had ONE sentence for every possible refusal ("o plano mudou em
+        // outra etapa"), which was wrong for most of them.
+        const body = await response.json().catch(() => ({}));
+        const code = body?.error?.code ?? body?.error;
+        setActionError(
+          code === "clinical_revision_conflict" || code === "plan_revision_conflict"
+            ? t("plan-reloaded-conflict")
+            : code === "derived_safety_flags_immutable"
+              ? t("plan-safety-immutable")
+              : code === "consultation_finalized"
+                ? t("plan-finalized")
+                : code === "invalid_request"
+                  ? t("plan-save-invalid")
+                  : t("plan-error"),
+        );
+        if (code === "clinical_revision_conflict" || code === "plan_revision_conflict") await load(true);
         return;
       }
       setEditing(false);
       setDraft(null);
       await load(true);
+      onChanged?.();
     } catch {
-      setActionError(t("plan-error"));
+      setActionError(t("plan-network"));
     } finally {
       setBusy(false);
     }
@@ -336,14 +414,40 @@ export default function PlanPanel({
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
+        // Everything that was not `plan_stale` used to read "o plano mudou em
+        // outra etapa. Recarregue" — including a plan with no objective and a
+        // moxibustion checklist that was never filled, which reloading cannot fix.
         const code = body?.error?.code ?? body?.error;
-        setActionError(code === "plan_stale" ? t("plan-stale") : t("plan-conflict"));
+        setActionError(
+          code === "plan_stale"
+            ? t(plan.origin === "manual" ? "plan-stale-manual" : "plan-stale-ai")
+            : code === "moxibustion_checklist_required"
+              ? t("journey-reason-moxibustion_checklist_required")
+              : code === "safety_acknowledgement_required"
+                ? t("journey-reason-safety_acknowledgement_required")
+                : code === "invalid_request"
+                  ? t(
+                      planFacts && !planFacts.hasObjective
+                        ? "journey-reason-plan_objective_required"
+                        : planFacts?.enabledModalities === 0
+                          ? "journey-reason-plan_modality_required"
+                          : "plan-validate-incomplete",
+                    )
+                  : code === "clinical_revision_conflict"
+                    ? t("plan-reloaded-conflict")
+                    : code === "invalid_consultation_transition"
+                      ? t("plan-cancelled")
+                      : t("plan-error"),
+        );
+        // Realign with what the server sees, so the button state stops lying.
+        await load(true);
         return;
       }
       setAcknowledged(false);
       await load(true);
+      onChanged?.();
     } catch {
-      setActionError(t("plan-error"));
+      setActionError(t("plan-network"));
     } finally {
       setBusy(false);
     }
@@ -576,14 +680,44 @@ export default function PlanPanel({
   const hiddenByScope = plan ? PLAN_MODALITIES.filter((modality) => !isOffered(modality.slug)) : [];
   const mustAcknowledge = (plan?.safetyFlags.length ?? 0) > 0;
 
+  // The same reading of the row the DATABASE does when it validates
+  // (validate_consultation_plan, 0093:308-336), so the button can say what is
+  // missing instead of erroring after the click with a sentence about staleness.
+  const planFacts = plan
+    ? planFactsFromRow({
+        status: plan.status,
+        origin: plan.origin,
+        stale_at: plan.staleAt,
+        objective: plan.objective,
+        modalities: plan.modalities,
+        safety_flags: plan.safetyFlags,
+      })
+    : null;
+  const validationGate: JourneyGate = planFacts
+    ? derivePlanValidationGate(planFacts, { acknowledged, consultationStatus })
+    : { state: "hidden" };
+  const canPrepareAi = prepareGate.state === "available";
+  const prepareVisible = prepareGate.state !== "hidden";
+  const libraryUnavailable = retrievalFailed || Boolean(plan?.retrievalFailed);
+
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
         <ConsultationStepHeader
-          step={3}
+          step={stepNumber}
           icon={<NiListCheck size="medium" />}
           title={t("plan-title")}
           hint={t("plan-step-hint")}
+          status={plan?.staleAt ? "stale" : plan?.status === "validated" ? "done" : plan ? "in_progress" : undefined}
+          statusLabel={
+            plan?.staleAt
+              ? t("journey-step-stale")
+              : plan?.status === "validated"
+                ? undefined // the "Validado por você" chip below already says it
+                : plan
+                  ? t("journey-step-in-progress")
+                  : undefined
+          }
           trailing={
             plan?.status === "validated" ? (
               <Chip
@@ -613,8 +747,9 @@ export default function PlanPanel({
         )}
 
         {/* A plan built without the library is not a plan built on sources
-            that happened to find nothing — say which one this is. */}
-        {retrievalFailed && (
+            that happened to find nothing — say which one this is. The fact now
+            lives on the row (0098), so it survives a reload. */}
+        {libraryUnavailable && (
           <Alert severity="warning" className="neutral bg-background-paper/60!">
             {t("hypotheses-library-unavailable")}
           </Alert>
@@ -629,17 +764,27 @@ export default function PlanPanel({
             </Typography>
             {!isFinalized && (
               <Box className="flex flex-col gap-2">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  fullWidth
-                  startIcon={busy ? undefined : <NiListCheck size="tiny" />}
-                  onClick={createManual}
-                  disabled={busy}
-                >
-                  {busy ? <CircularProgress size={18} /> : t("plan-create-manual")}
-                </Button>
-                {canReason && (
+                {createManualGate.state !== "hidden" && (
+                  <>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      fullWidth
+                      startIcon={busy ? undefined : <NiListCheck size="tiny" />}
+                      onClick={createManual}
+                      disabled={busy || createManualGate.state !== "available"}
+                      aria-describedby={createManualGate.state === "blocked" ? "plan-manual-reason" : undefined}
+                    >
+                      {busy ? <CircularProgress size={18} /> : t("plan-create-manual")}
+                    </Button>
+                    <GateNotice gate={createManualGate} id="plan-manual-reason" />
+                  </>
+                )}
+                {/* The AI plan is built ON the hypotheses she settled — the
+                    button stays visible with the reason under it rather than
+                    erroring after a click (or, worse, lighting up over a
+                    hypothesis that went stale). */}
+                {prepareVisible && (
                   <>
                     <Button
                       variant="outlined"
@@ -647,28 +792,37 @@ export default function PlanPanel({
                       fullWidth
                       startIcon={<NiListCheck size="tiny" />}
                       onClick={() => prepare()}
-                      // The AI plan is built ON the accepted hypotheses — until
-                      // there is one it cannot run, so it stays disabled with the
-                      // reason stated below rather than erroring after a click.
-                      disabled={busy || !hasAcceptedHypotheses}
+                      disabled={busy || !canPrepareAi}
+                      aria-describedby={
+                        prepareGate.state === "blocked" || prepareGate.state === "unknown"
+                          ? "plan-prepare-reason"
+                          : undefined
+                      }
                     >
                       {t("plan-prepare")}
                     </Button>
-                    {!hasAcceptedHypotheses && (
-                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                        {t("plan-accepted-hypothesis-required")}
-                      </Typography>
-                    )}
+                    <GateNotice gate={prepareGate} id="plan-prepare-reason" onRequestConsent={onRequestConsent} />
                   </>
+                )}
+                {busy && (
+                  <Typography variant="body2" role="status" className="text-text-secondary text-xs leading-5">
+                    {t("plan-preparing")}
+                  </Typography>
                 )}
               </Box>
             )}
           </>
         ) : (
           <>
+            {/* The exit depends on where the plan came from: a manual one is
+                brought up to date by Editar → Salvar (save_consultation_plan
+                clears stale_at, 0031), an AI one can also be prepared again. The
+                old single sentence told everyone to "prepare novamente", an
+                action a manual plan does not have. */}
             {plan.staleAt && (
               <Alert severity="warning" className="neutral bg-background-paper/60!">
-                {t("plan-stale")}
+                {t(plan.origin === "manual" ? "plan-stale-manual" : "plan-stale-ai")}
+                {documents.length > 0 && ` ${t("plan-stale-documents")}`}
               </Alert>
             )}
             {/* Contraindications first, in amber, never hidden (PRD §10.10). */}
@@ -838,13 +992,27 @@ export default function PlanPanel({
                     <Button color="grey" onClick={() => setPlanOpen(false)}>
                       {t("close")}
                     </Button>
-                    {!isFinalized && canReason && plan.status === "draft" && plan.origin === "ai" && (
+                    {/* Why the AI actions cannot run, once, beside them. */}
+                    {!isFinalized &&
+                      prepareVisible &&
+                      plan.status === "draft" &&
+                      (prepareGate.state === "blocked" || prepareGate.state === "unknown") && (
+                        <Box className="mr-auto max-w-xs">
+                          <GateNotice
+                            gate={prepareGate}
+                            id="plan-dialog-prepare-reason"
+                            onRequestConsent={onRequestConsent}
+                          />
+                        </Box>
+                      )}
+                    {!isFinalized && prepareVisible && plan.status === "draft" && plan.origin === "ai" && (
                       <Button
                         variant="text"
                         color="grey"
                         onClick={() => prepare()}
-                        // Rebuilding still needs a settled hypothesis to build on.
-                        disabled={busy || !hasAcceptedHypotheses}
+                        // Rebuilding still needs a settled, current hypothesis.
+                        disabled={busy || !canPrepareAi}
+                        aria-describedby={canPrepareAi ? undefined : "plan-dialog-prepare-reason"}
                       >
                         {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
                       </Button>
@@ -856,12 +1024,13 @@ export default function PlanPanel({
                         point/moxa/cupping proposals at all. The replacement is
                         explicit and confirmed: it overwrites her manual DRAFT
                         (a validated plan is refused server-side). */}
-                    {!isFinalized && canReason && plan.status === "draft" && plan.origin === "manual" && (
+                    {!isFinalized && prepareVisible && plan.status === "draft" && plan.origin === "manual" && (
                       <Button
                         variant="text"
                         color="grey"
                         onClick={() => setConfirmReplaceManual(true)}
-                        disabled={busy || !hasAcceptedHypotheses}
+                        disabled={busy || !canPrepareAi}
+                        aria-describedby={canPrepareAi ? undefined : "plan-dialog-prepare-reason"}
                       >
                         {busy ? <CircularProgress size={16} /> : t("plan-generate-ai")}
                       </Button>
@@ -875,15 +1044,24 @@ export default function PlanPanel({
                         a signature attests what the plan already said, and
                         without it a plan drafted at the end of the appointment
                         could never become its signed document. */}
+                    {/* Validation now checks what the DATABASE checks — objective,
+                        an active modality, the moxibustion checklist, the safety
+                        acknowledgement, staleness (0093:308-336) — and says which
+                        one is missing instead of refusing after the click with a
+                        sentence about a plan that "changed elsewhere". */}
                     {plan.status === "draft" && (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={validate}
-                        disabled={busy || (mustAcknowledge && !acknowledged)}
-                      >
-                        {t("plan-validate")}
-                      </Button>
+                      <Box className="flex flex-col items-stretch gap-1">
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={validate}
+                          disabled={busy || validationGate.state !== "available"}
+                          aria-describedby={validationGate.state === "blocked" ? "plan-validate-reason" : undefined}
+                        >
+                          {t("plan-validate")}
+                        </Button>
+                        <GateNotice gate={validationGate} id="plan-validate-reason" />
+                      </Box>
                     )}
                     {/* Issuing the signed documents (PRD §9.8) is no longer a
                         footer act: the document rows on the card download,
