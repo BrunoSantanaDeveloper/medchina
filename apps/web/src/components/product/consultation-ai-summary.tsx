@@ -24,7 +24,6 @@ export default function ConsultationAiSummary({
   gate,
   initialSummary,
   onApply,
-  onRequestConsent,
   invalidatesOutputs = false,
   readOnly = false,
 }: {
@@ -40,8 +39,6 @@ export default function ConsultationAiSummary({
   initialSummary: string | null;
   /** Copy the draft into her Resumo clínico field. */
   onApply: (text: string) => void;
-  /** Opens the consent dialog here, instead of navigating out of the consultation. */
-  onRequestConsent?: () => void;
   /**
    * Hypotheses or a plan are current: copying this text into her summary edits
    * the chart, which stales them (mark_clinical_outputs_stale). Say so BEFORE
@@ -180,7 +177,7 @@ export default function ConsultationAiSummary({
               </Button>
             )}
           </Box>
-          {gate && <GateNotice gate={gate} id="ai-summary-reason" onRequestConsent={onRequestConsent} />}
+          {gate && <GateNotice gate={gate} id="ai-summary-reason" />}
         </>
       ) : (
         <>
@@ -199,7 +196,7 @@ export default function ConsultationAiSummary({
           >
             {busy ? <CircularProgress size={16} /> : t("ai-summary-generate")}
           </Button>
-          {gate && <GateNotice gate={gate} id="ai-summary-reason" onRequestConsent={onRequestConsent} />}
+          {gate && <GateNotice gate={gate} id="ai-summary-reason" />}
           {busy && (
             <Typography variant="body2" role="status" className="text-text-secondary text-xs leading-5">
               {t("ai-summary-generating")}

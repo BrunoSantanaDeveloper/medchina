@@ -705,6 +705,9 @@ export function deriveConsultationJourney(facts: JourneyFacts): ConsultationJour
     if (facts.plan.status === "unavailable") return { state: "unknown" };
     // One plan per consultation (0026): with one on file there is nothing to create.
     if (facts.plan.value) return { state: "hidden" };
+    // Mirrors create_manual_consultation_plan (0100): a plan answers a RECORDED
+    // case — an answer that is not rejected, or the chief complaint.
+    if (!recorded) return blockedGate("nothing_recorded");
     return availableGate();
   })();
 

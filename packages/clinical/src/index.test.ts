@@ -169,6 +169,22 @@ test("a fact that is loading is neither available nor blocked, and a failed fetc
   );
 });
 
+test("a manual plan needs something recorded, like every step after the record", () => {
+  const empty = deriveConsultationJourney(
+    facts({ record: { recordedAnswerCount: 0, hasChiefComplaint: false } as JourneyFacts["record"] }),
+  );
+  assert.deepEqual(empty.gates.createManualPlan, { state: "blocked", reason: "nothing_recorded" });
+  assert.equal(empty.steps.plan.state, "blocked");
+  assert.equal(deriveConsultationJourney(facts()).gates.createManualPlan.state, "available");
+  assert.equal(
+    deriveConsultationJourney(
+      facts({ plan: factReady(planFactsFromRow({ status: "draft", origin: "manual", objective: "", modalities: {} })) }),
+    ).gates.createManualPlan.state,
+    "hidden",
+    "with a plan on file there is nothing to create",
+  );
+});
+
 test("an accepted hypothesis that went stale does not unlock the AI plan", () => {
   const stale = deriveConsultationJourney(
     facts({ hypotheses: factReady({ ...NO_HYPOTHESES, acceptedStale: 1 }) }),

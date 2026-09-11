@@ -1271,17 +1271,18 @@ export default function ConsultaPage() {
     action:
       journey.next.key === "review-attention"
         ? { label: t("consultation-review-attention-goto"), onClick: focusFirstAttention }
-        : journey.next.key === "consent-for-ai"
-          ? { label: t("journey-next-action-consent"), onClick: () => setConsentCollectionOpen(true) }
-          : journey.next.key === "prepare-hypotheses" ||
-              journey.next.key === "decide-hypotheses" ||
-              journey.next.key === "hypotheses-stale"
-            ? { label: t("journey-next-action-hypotheses"), onClick: () => scrollToStep("hypotheses") }
-            : journey.next.key === "plan-stale" || journey.next.key === "validate-plan"
-              ? { label: t("journey-next-action-plan"), onClick: () => scrollToStep("plan") }
-              : journey.next.key === "record"
-                ? { label: t("journey-next-action-record"), onClick: () => scrollToStep("record") }
-                : undefined,
+        : // No action for "consent-for-ai": the consent control sits in this
+          // same bar, highlighted while pending — a second button would
+          // compete with it.
+          journey.next.key === "prepare-hypotheses" ||
+            journey.next.key === "decide-hypotheses" ||
+            journey.next.key === "hypotheses-stale"
+          ? { label: t("journey-next-action-hypotheses"), onClick: () => scrollToStep("hypotheses") }
+          : journey.next.key === "plan-stale" || journey.next.key === "validate-plan"
+            ? { label: t("journey-next-action-plan"), onClick: () => scrollToStep("plan") }
+            : journey.next.key === "record"
+              ? { label: t("journey-next-action-record"), onClick: () => scrollToStep("record") }
+              : undefined,
   };
 
   if (!consultation && loadFailed) {
@@ -1349,7 +1350,9 @@ export default function ConsultaPage() {
           alerts={context?.patient.alerts ?? []}
           scheduledFor={consultation.scheduledFor ?? consultation.startedAt}
           experience={experience}
-          consents={context?.consents ?? { audio: false, ai: false }}
+          consents={context?.consents ?? { audio: false, ai: false, images: false }}
+          // A missing consent is worth asking for only while the record can change.
+          consentActionable={Boolean(capabilities?.canEditClinicalRecord)}
           // A failed context fetch leaves `context` null, and the fallbacks
           // above then read as facts: no alerts, nothing consented. The bar has
           // to know the difference between "nothing there" and "could not ask".
@@ -1368,10 +1371,12 @@ export default function ConsultaPage() {
             journey.gates.finalize.state === "hidden"
               ? undefined
               : {
-                  label:
+                  label: t("consultation-review-finalize"),
+                  count: journey.finalizeLooseEnds.length,
+                  ariaLabel:
                     journey.finalizeLooseEnds.length > 0
                       ? t("consultation-review-finalize-count", { count: journey.finalizeLooseEnds.length })
-                      : t("consultation-review-finalize"),
+                      : undefined,
                   onClick: prepareFinalize,
                   disabled: busy || journey.gates.finalize.state !== "available",
                   variant: consultationIsEmpty && consultation.status !== "awaiting_review" ? "outlined" : "contained",
@@ -1567,11 +1572,7 @@ export default function ConsultaPage() {
                     // a step of its own — it renders inside the recorder's own
                     // card instead of a second, confusingly-numbered "step 1".
                     secondaryCapture={
-                      <MobileCaptureHandoff
-                        consultationId={consultation.id}
-                        capabilities={captureCapabilities}
-                        onRequestConsent={() => setConsentCollectionOpen(true)}
-                      />
+                      <MobileCaptureHandoff consultationId={consultation.id} capabilities={captureCapabilities} />
                     }
                   />
                 ) : (
@@ -1608,11 +1609,8 @@ export default function ConsultaPage() {
               {capabilities?.canEditClinicalRecord && isPrimary && (
                 <AttachmentsPanel
                   consultationId={consultation.id}
-                  patientId={consultation.patientId}
                   canAnalyze={Boolean(allowance?.clinicalReasoning)}
                   analyzeGate={journey.gates.analyzeAttachment}
-                  onRequestConsent={() => setConsentCollectionOpen(true)}
-                  onManageConsents={() => setConsentCollectionOpen(true)}
                   refreshSignal={recordingsRefresh}
                 />
               )}
@@ -1918,7 +1916,6 @@ export default function ConsultaPage() {
                   gate={journey.gates.generateSummary}
                   initialSummary={consultation.aiSummary}
                   onApply={(text) => queueHeaderSave("summary", text)}
-                  onRequestConsent={() => setConsentCollectionOpen(true)}
                   invalidatesOutputs={journey.editingInvalidatesOutputs}
                   readOnly={isReadOnly}
                 />
@@ -2002,7 +1999,6 @@ export default function ConsultaPage() {
                 entitlementError={allowanceError}
                 onRetryEntitlement={() => void reloadAllowance()}
                 onDecisionChanged={() => void refreshDecisions()}
-                onRequestConsent={() => setConsentCollectionOpen(true)}
                 refreshSignal={outputsRefresh}
                 onFocusField={focusField}
                 onBeforePrepare={async () => {
@@ -2021,7 +2017,6 @@ export default function ConsultaPage() {
                 createManualGate={journey.gates.createManualPlan}
                 stepNumber={journey.steps.plan.number}
                 consultationStatus={consultation.status}
-                onRequestConsent={() => setConsentCollectionOpen(true)}
                 onChanged={() => void refreshDecisions()}
                 refreshSignal={outputsRefresh}
                 isFinalized={isReadOnly}

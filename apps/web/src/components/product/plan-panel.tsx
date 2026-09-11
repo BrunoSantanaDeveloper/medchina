@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -107,7 +107,6 @@ export default function PlanPanel({
   createManualGate,
   stepNumber,
   consultationStatus,
-  onRequestConsent,
   onChanged,
   refreshSignal,
   isFinalized,
@@ -128,7 +127,6 @@ export default function PlanPanel({
   stepNumber?: number;
   /** Validation is allowed after finalization, refused on a cancelled record (0093). */
   consultationStatus: ConsultationStatus;
-  onRequestConsent?: () => void;
   /** Tells the page a decision changed, so the journey re-reads the facts at once. */
   onChanged?: () => void;
   /** Bumped by the page after a save that could have made this plan stale. */
@@ -334,7 +332,9 @@ export default function PlanPanel({
             ? t("plan-already-exists")
             : code === "consultation_finalized"
               ? t("plan-finalized")
-              : t("plan-error"),
+              : code === "nothing_recorded"
+                ? t("journey-reason-nothing_recorded")
+                : t("plan-error"),
         );
         return;
       }
@@ -801,7 +801,7 @@ export default function PlanPanel({
                     >
                       {t("plan-prepare")}
                     </Button>
-                    <GateNotice gate={prepareGate} id="plan-prepare-reason" onRequestConsent={onRequestConsent} />
+                    <GateNotice gate={prepareGate} id="plan-prepare-reason" />
                   </>
                 )}
                 {busy && (
@@ -827,15 +827,17 @@ export default function PlanPanel({
             )}
             {/* Contraindications first, in amber, never hidden (PRD §10.10). */}
             {plan.safetyFlags.length > 0 && (
-              <Alert severity="warning" className="neutral bg-background-paper/60! flex flex-col gap-1">
-                <Typography variant="body2" className="font-semibold">
-                  {t("plan-safety-title")}
-                </Typography>
-                {plan.safetyFlags.map((flag, index) => (
-                  <Typography key={index} variant="body2" className="text-xs leading-5">
-                    · {t(`plan-safety-${flag.category}`)}: {flag.matchedText}
+              <Alert severity="warning" className="neutral bg-background-paper/60!">
+                <Box className="flex flex-col gap-1">
+                  <Typography variant="body2" className="font-semibold">
+                    {t("plan-safety-title")}
                   </Typography>
-                ))}
+                  {plan.safetyFlags.map((flag, index) => (
+                    <Typography key={index} variant="body2" className="text-xs leading-5">
+                      · {t(`plan-safety-${flag.category}`)}: {flag.matchedText}
+                    </Typography>
+                  ))}
+                </Box>
               </Alert>
             )}
 
@@ -870,22 +872,40 @@ export default function PlanPanel({
                 closeLabel={t("close")}
                 onClose={() => setPlanOpen(false)}
                 trailing={
-                  plan.status === "validated" ? (
+                  <>
                     <Chip
                       size="small"
-                      icon={<NiCheckSquare size="tiny" />}
-                      label={t("plan-validated-badge")}
-                      className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
+                      variant="outlined"
+                      label={t(plan.origin === "ai" ? "plan-origin-ai" : "plan-origin-manual")}
+                      className="text-xs"
                     />
-                  ) : undefined
+                    {plan.status === "validated" ? (
+                      <Chip
+                        size="small"
+                        icon={<NiCheckSquare size="tiny" />}
+                        label={t("plan-validated-badge")}
+                        className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
+                      />
+                    ) : plan.staleAt ? (
+                      <Chip
+                        size="small"
+                        label={t("journey-step-stale")}
+                        className="bg-accent-3/15 text-accent-3-dark dark:text-accent-3-light text-xs font-semibold"
+                      />
+                    ) : null}
+                  </>
                 }
               />
-              <DialogContent dividers className="flex flex-col gap-3 py-5!">
-                {/* Objective */}
-                <Box className="flex flex-col gap-1">
-                  <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                    {t("plan-objective")}
-                  </Typography>
+              <DialogContent dividers className="flex flex-col gap-4 py-5!">
+                {/* Whether this plan still holds comes before what it says. */}
+                {plan.staleAt && (
+                  <Alert severity="warning" className="neutral bg-background-paper/60!">
+                    {t(plan.origin === "manual" ? "plan-stale-manual" : "plan-stale-ai")}
+                    {documents.length > 0 && ` ${t("plan-stale-documents")}`}
+                  </Alert>
+                )}
+
+                <PlanSection title={t("plan-objective")}>
                   {editing ? (
                     <TextField
                       multiline
@@ -895,12 +915,53 @@ export default function PlanPanel({
                       value={draft?.objective ?? ""}
                       onChange={(event) => setDraft((d) => (d ? { ...d, objective: event.target.value } : d))}
                     />
+                  ) : plan.objective ? (
+                    <Typography variant="body2" className="text-text-primary leading-6">
+                      {plan.objective}
+                    </Typography>
                   ) : (
                     <Typography variant="body2" className="text-text-secondary leading-6">
-                      {plan.objective || "—"}
+                      {t("plan-objective-empty")}
                     </Typography>
                   )}
-                </Box>
+                </PlanSection>
+
+                {/* The contraindications INSIDE the dialog, with the
+                    acknowledgement right under them. They used to live only on
+                    the card behind this modal, while the checkbox here asked
+                    her to confirm "as contraindicações acima". */}
+                {plan.safetyFlags.length > 0 && (
+                  <PlanSection title={t("plan-safety-title")}>
+                    <Alert severity="warning" className="neutral bg-background-paper/60!">
+                      <Box className="flex flex-col gap-2">
+                        <Box component="ul" className="flex flex-col gap-1">
+                          {plan.safetyFlags.map((flag, index) => (
+                            <Typography key={index} component="li" variant="body2" className="leading-6">
+                              <span className="font-semibold">{t(`plan-safety-${flag.category}`)}</span>
+                              {flag.matchedText ? `: ${flag.matchedText}` : ""}
+                            </Typography>
+                          ))}
+                        </Box>
+                        {!editing && plan.status === "draft" && mustAcknowledge && (
+                          <FormControlLabel
+                            className="mt-1"
+                            control={
+                              <Checkbox
+                                checked={acknowledged}
+                                onChange={(event) => setAcknowledged(event.target.checked)}
+                              />
+                            }
+                            label={
+                              <Typography variant="body2" className="text-text-primary leading-5">
+                                {t("plan-acknowledge")}
+                              </Typography>
+                            }
+                          />
+                        )}
+                      </Box>
+                    </Alert>
+                  </PlanSection>
+                )}
 
                 {editing && hiddenByScope.length > 0 && (
                   <Alert
@@ -918,157 +979,152 @@ export default function PlanPanel({
                   </Alert>
                 )}
 
-                {activeModalities.map((modality) => (
-                  <ModalityCard
-                    key={modality.slug}
-                    slug={modality.slug}
-                    fields={modality.fields}
-                    data={
-                      ((editing ? draft?.modalities[modality.slug] : plan.modalities[modality.slug]) ?? {
-                        enabled: false,
-                      }) as Modality
-                    }
-                    editing={editing}
-                    t={t}
-                    onChange={(next) =>
-                      setDraft((d) => (d ? { ...d, modalities: { ...d.modalities, [modality.slug]: next } } : d))
-                    }
-                  />
-                ))}
+                <PlanSection title={t("plan-modalities-title")}>
+                  {activeModalities.length === 0 ? (
+                    <Typography variant="body2" className="text-text-secondary leading-6">
+                      {t("plan-summary-empty")}
+                    </Typography>
+                  ) : (
+                    <Box className="flex flex-col gap-3">
+                      {activeModalities.map((modality) => (
+                        <ModalityCard
+                          key={modality.slug}
+                          slug={modality.slug}
+                          fields={modality.fields}
+                          data={
+                            ((editing ? draft?.modalities[modality.slug] : plan.modalities[modality.slug]) ?? {
+                              enabled: false,
+                            }) as Modality
+                          }
+                          editing={editing}
+                          t={t}
+                          onChange={(next) =>
+                            setDraft((d) => (d ? { ...d, modalities: { ...d.modalities, [modality.slug]: next } } : d))
+                          }
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </PlanSection>
 
                 {plan.sources.length > 0 && (
-                  <Box className="flex flex-col gap-1">
-                    <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                      {t("plan-sources")}
-                    </Typography>
-                    {plan.sources.map((source, index) => (
-                      <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-                        · {source.title}
-                        {source.source ? ` — ${source.source}` : ""}
-                      </Typography>
-                    ))}
-                  </Box>
+                  <PlanSection title={t("plan-sources")}>
+                    <Box component="ul" className="flex flex-col gap-2">
+                      {plan.sources.map((source, index) => (
+                        <Box component="li" key={index} className="border-grey-100 rounded-xl border px-3 py-2">
+                          <Typography variant="body2" className="text-text-primary font-semibold">
+                            {source.title}
+                          </Typography>
+                          {source.source && (
+                            <Typography variant="caption" className="text-text-secondary block leading-4">
+                              {source.source}
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  </PlanSection>
                 )}
 
-                {/* The acknowledgement is a READING task about the content
-                    above, so it stays in the content. The act it unlocks lives
-                    in the footer with the other decisions. */}
-                {!editing && plan.status === "draft" && mustAcknowledge && (
-                  <FormControlLabel
-                    control={<Checkbox checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} />}
-                    label={
-                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                        {t("plan-acknowledge")}
-                      </Typography>
-                    }
-                  />
-                )}
                 {/* The draft-not-a-prescription framing travels with the plan. */}
-                <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                <Typography
+                  variant="body2"
+                  className="text-text-secondary border-grey-100 border-t pt-4 text-xs leading-5"
+                >
                   {t("plan-disclaimer")}
                 </Typography>
               </DialogContent>
-              {/* Decisions live in the footer, pinned while the content scrolls:
-                  a plan runs several modalities long, and "Validar" parked at the
-                  bottom of the content meant scrolling to act. */}
-              <DialogActions className="flex flex-row flex-wrap justify-end gap-2">
-                {!isFinalized && editing ? (
-                  <>
-                    <Button
-                      color="grey"
-                      onClick={() => {
-                        setEditing(false);
-                        setDraft(null);
-                      }}
-                    >
-                      {t("plan-cancel")}
-                    </Button>
-                    <Button variant="contained" color="primary" onClick={saveEdit} disabled={busy}>
-                      {t("plan-save")}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button color="grey" onClick={() => setPlanOpen(false)}>
-                      {t("close")}
-                    </Button>
-                    {/* Why the AI actions cannot run, once, beside them. */}
-                    {!isFinalized &&
+              {/* Decisions pinned in the footer while the content scrolls. What
+                  is missing is said ONCE, above the buttons, instead of wedged
+                  between them. */}
+              <DialogActions disableSpacing className="flex flex-col items-stretch gap-2">
+                {!editing &&
+                  ((plan.status === "draft" && validationGate.state === "blocked") ||
+                    (!isFinalized &&
                       prepareVisible &&
                       plan.status === "draft" &&
-                      (prepareGate.state === "blocked" || prepareGate.state === "unknown") && (
-                        <Box className="mr-auto max-w-xs">
-                          <GateNotice
-                            gate={prepareGate}
-                            id="plan-dialog-prepare-reason"
-                            onRequestConsent={onRequestConsent}
-                          />
-                        </Box>
+                      (prepareGate.state === "blocked" || prepareGate.state === "unknown"))) && (
+                    <Box className="flex flex-col gap-0.5 px-2">
+                      {plan.status === "draft" && <GateNotice gate={validationGate} id="plan-validate-reason" />}
+                      {!isFinalized && prepareVisible && plan.status === "draft" && (
+                        <GateNotice gate={prepareGate} id="plan-dialog-prepare-reason" />
                       )}
-                    {!isFinalized && prepareVisible && plan.status === "draft" && plan.origin === "ai" && (
+                    </Box>
+                  )}
+                <Box className="flex flex-row flex-wrap items-center gap-2">
+                  {!isFinalized && editing ? (
+                    <>
                       <Button
-                        variant="text"
                         color="grey"
-                        onClick={() => prepare()}
-                        // Rebuilding still needs a settled, current hypothesis.
-                        disabled={busy || !canPrepareAi}
-                        aria-describedby={canPrepareAi ? undefined : "plan-dialog-prepare-reason"}
+                        onClick={() => {
+                          setEditing(false);
+                          setDraft(null);
+                        }}
                       >
-                        {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
+                        {t("plan-cancel")}
                       </Button>
-                    )}
-                    {/* A manual draft used to be a DEAD END for the AI: prepare()
-                        without replaceManual is refused (manual_plan_exists) and
-                        this footer only offered "reprepare" for AI plans — so a
-                        professional who started manually could never receive the
-                        point/moxa/cupping proposals at all. The replacement is
-                        explicit and confirmed: it overwrites her manual DRAFT
-                        (a validated plan is refused server-side). */}
-                    {!isFinalized && prepareVisible && plan.status === "draft" && plan.origin === "manual" && (
-                      <Button
-                        variant="text"
-                        color="grey"
-                        onClick={() => setConfirmReplaceManual(true)}
-                        disabled={busy || !canPrepareAi}
-                        aria-describedby={canPrepareAi ? undefined : "plan-dialog-prepare-reason"}
-                      >
-                        {busy ? <CircularProgress size={16} /> : t("plan-generate-ai")}
-                      </Button>
-                    )}
-                    {!isFinalized && (
-                      <Button variant="outlined" color="grey" onClick={startEdit} disabled={busy}>
-                        {t("plan-edit")}
-                      </Button>
-                    )}
-                    {/* Validating stays available after the record is closed —
-                        a signature attests what the plan already said, and
-                        without it a plan drafted at the end of the appointment
-                        could never become its signed document. */}
-                    {/* Validation now checks what the DATABASE checks — objective,
-                        an active modality, the moxibustion checklist, the safety
-                        acknowledgement, staleness (0093:308-336) — and says which
-                        one is missing instead of refusing after the click with a
-                        sentence about a plan that "changed elsewhere". */}
-                    {plan.status === "draft" && (
-                      <Box className="flex flex-col items-stretch gap-1">
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          onClick={validate}
-                          disabled={busy || validationGate.state !== "available"}
-                          aria-describedby={validationGate.state === "blocked" ? "plan-validate-reason" : undefined}
-                        >
-                          {t("plan-validate")}
+                      <Box className="ml-auto">
+                        <Button variant="contained" color="primary" onClick={saveEdit} disabled={busy}>
+                          {t("plan-save")}
                         </Button>
-                        <GateNotice gate={validationGate} id="plan-validate-reason" />
                       </Box>
-                    )}
-                    {/* Issuing the signed documents (PRD §9.8) is no longer a
-                        footer act: the document rows on the card download,
-                        print and send — issuing the current version under the
-                        hood, exactly like the receituário. */}
-                  </>
-                )}
+                    </>
+                  ) : (
+                    <>
+                      <Button color="grey" className="max-sm:hidden" onClick={() => setPlanOpen(false)}>
+                        {t("close")}
+                      </Button>
+                      <Box className="ml-auto flex flex-row flex-wrap items-center justify-end gap-2">
+                        {!isFinalized && prepareVisible && plan.status === "draft" && plan.origin === "ai" && (
+                          <Button
+                            variant="text"
+                            color="grey"
+                            onClick={() => prepare()}
+                            // Rebuilding still needs a settled, current hypothesis.
+                            disabled={busy || !canPrepareAi}
+                            aria-describedby={canPrepareAi ? undefined : "plan-dialog-prepare-reason"}
+                          >
+                            {busy ? <CircularProgress size={16} /> : t("plan-reprepare")}
+                          </Button>
+                        )}
+                        {/* A manual draft can still receive the AI proposals —
+                            explicitly, and confirmed, because it overwrites what
+                            she typed (a validated plan is refused server-side). */}
+                        {!isFinalized && prepareVisible && plan.status === "draft" && plan.origin === "manual" && (
+                          <Button
+                            variant="text"
+                            color="grey"
+                            onClick={() => setConfirmReplaceManual(true)}
+                            disabled={busy || !canPrepareAi}
+                            aria-describedby={canPrepareAi ? undefined : "plan-dialog-prepare-reason"}
+                          >
+                            {busy ? <CircularProgress size={16} /> : t("plan-generate-ai")}
+                          </Button>
+                        )}
+                        {!isFinalized && (
+                          <Button variant="outlined" color="grey" onClick={startEdit} disabled={busy}>
+                            {t("plan-edit")}
+                          </Button>
+                        )}
+                        {/* Validating stays available after the record is closed
+                            (0093): a signature attests what the plan already said.
+                            It checks what the DATABASE checks and says which one is
+                            missing, above. */}
+                        {plan.status === "draft" && (
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={validate}
+                            disabled={busy || validationGate.state !== "available"}
+                            aria-describedby={validationGate.state === "blocked" ? "plan-validate-reason" : undefined}
+                          >
+                            {t("plan-validate")}
+                          </Button>
+                        )}
+                      </Box>
+                    </>
+                  )}
+                </Box>
               </DialogActions>
             </Dialog>
 
@@ -1329,51 +1385,105 @@ function ModalityCard({
   const set = (key: string, value: unknown) => onChange({ ...data, [key]: value });
   const enabled = data?.enabled === true;
 
+  // Each modality is its own card with a header, and its fields a LABEL | VALUE
+  // grid. They used to be label-over-value lines of the same small text, so
+  // one modality ran into the next and points blended with instructions.
   return (
-    <Box className="border-grey-100 flex flex-col gap-2 rounded-2xl border px-3.5 py-3">
-      {editing ? (
-        <FormControlLabel
-          control={<Checkbox checked={enabled} onChange={(event) => set("enabled", event.target.checked)} />}
-          label={
-            <Typography variant="body1" className="text-text-primary font-semibold">
-              {t(`plan-modality-${slug}`)}
-            </Typography>
-          }
-        />
-      ) : (
-        <Typography variant="body1" className="text-text-primary font-semibold">
-          {t(`plan-modality-${slug}`)}
-        </Typography>
-      )}
-      {(!editing || enabled) &&
-        fields.map((field) => {
-          const raw = data?.[field.key];
-          return (
-            <Box key={field.key} className="flex flex-col gap-1">
-              <Typography variant="body2" className="text-text-primary text-xs font-semibold">
+    <Box component="section" className="border-grey-100 flex flex-col overflow-hidden rounded-2xl border">
+      <Box className="border-grey-100 bg-grey-100/40 flex flex-row items-center gap-2 border-b px-3.5 py-2">
+        {editing ? (
+          <FormControlLabel
+            className="m-0"
+            control={<Checkbox checked={enabled} onChange={(event) => set("enabled", event.target.checked)} />}
+            label={
+              <Typography variant="subtitle2" className="text-text-primary font-semibold">
+                {t(`plan-modality-${slug}`)}
+              </Typography>
+            }
+          />
+        ) : (
+          <Typography variant="subtitle2" component="h4" className="text-text-primary mb-0 font-semibold">
+            {t(`plan-modality-${slug}`)}
+          </Typography>
+        )}
+        {editing && !enabled && (
+          <Typography variant="caption" className="text-text-secondary ml-auto">
+            {t("plan-modality-inactive")}
+          </Typography>
+        )}
+      </Box>
+      {(!editing || enabled) && (
+        <Box component="dl" className="m-0 grid gap-x-4 gap-y-3 px-3.5 py-3 sm:grid-cols-[minmax(9rem,13rem)_1fr]">
+          {fields.map((field) => (
+            <Fragment key={field.key}>
+              <Typography component="dt" variant="caption" className="text-text-secondary pt-0.5 font-semibold">
                 {t(field.label)}
               </Typography>
-              {editing ? (
-                <FieldEditor kind={field.kind} value={raw} t={t} onChange={(value) => set(field.key, value)} />
-              ) : (
-                <FieldView kind={field.kind} value={raw} t={t} />
-              )}
-            </Box>
-          );
-        })}
+              <Box component="dd" className="m-0 min-w-0">
+                {editing ? (
+                  <FieldEditor
+                    kind={field.kind}
+                    value={data?.[field.key]}
+                    t={t}
+                    onChange={(value) => set(field.key, value)}
+                  />
+                ) : slug === "moxibustion" &&
+                  field.key === "contraindicationChecklist" &&
+                  enabled &&
+                  !(
+                    Array.isArray(data?.[field.key]) &&
+                    (data?.[field.key] as unknown[]).some((entry) => String(entry ?? "").trim())
+                  ) ? (
+                  // Mirrors validate_consultation_plan (0093): moxibustion is not
+                  // validated without its pre-application checklist.
+                  <Typography
+                    variant="body2"
+                    className="text-accent-3-dark dark:text-accent-3-light leading-6 font-semibold"
+                  >
+                    {t("plan-field-required-to-validate")}
+                  </Typography>
+                ) : (
+                  <FieldView kind={field.kind} value={data?.[field.key]} t={t} />
+                )}
+              </Box>
+            </Fragment>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }
 
 function FieldView({ kind, value, t }: { kind: FieldKind; value: unknown; t: (key: string) => string }) {
   if (kind === "list") {
-    const list = Array.isArray(value) ? (value as string[]) : [];
+    const list = (Array.isArray(value) ? (value as unknown[]) : [])
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean);
     if (list.length === 0) return <Dash />;
+    // Points and meridians ("E36", "BP6", "Fígado") read best as tokens; a
+    // list of instructions or meals reads best as lines.
+    if (list.every((item) => item.length <= 24)) {
+      return (
+        <Box className="flex flex-row flex-wrap gap-1.5">
+          {list.map((item, index) => (
+            <Chip key={index} size="small" variant="outlined" label={item} className="text-xs" />
+          ))}
+        </Box>
+      );
+    }
     return (
-      <Box className="flex flex-col gap-0.5">
+      <Box component="ul" className="flex flex-col gap-1">
         {list.map((item, index) => (
-          <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-            · {item}
+          <Typography
+            key={index}
+            component="li"
+            variant="body2"
+            className="text-text-primary flex flex-row gap-2 leading-6"
+          >
+            <span aria-hidden className="text-text-secondary">
+              •
+            </span>
+            <span className="min-w-0">{item}</span>
           </Typography>
         ))}
       </Box>
@@ -1382,7 +1492,7 @@ function FieldView({ kind, value, t }: { kind: FieldKind; value: unknown; t: (ke
   if (kind === "strategy") {
     const label = value ? t(`plan-strategy-${value}`) : "";
     return label ? (
-      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+      <Typography variant="body2" className="text-text-primary leading-6">
         {label}
       </Typography>
     ) : (
@@ -1391,7 +1501,7 @@ function FieldView({ kind, value, t }: { kind: FieldKind; value: unknown; t: (ke
   }
   const text = typeof value === "string" ? value.trim() : "";
   return text ? (
-    <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+    <Typography variant="body2" className="text-text-primary leading-6 whitespace-pre-line">
       {text}
     </Typography>
   ) : (
@@ -1506,3 +1616,19 @@ const Dash = () => (
     —
   </Typography>
 );
+
+/** A titled block of the plan dialog, separated from the next by a hairline. */
+function PlanSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Box component="section" className="border-grey-100 flex flex-col gap-2 border-t pt-4 first:border-t-0 first:pt-0">
+      <Typography
+        variant="subtitle2"
+        component="h4"
+        className="text-text-secondary mb-0 text-xs font-semibold tracking-wide uppercase"
+      >
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
+}

@@ -58,15 +58,11 @@ type Attachment = {
  */
 export default function AttachmentsPanel({
   consultationId,
-  patientId,
   canAnalyze = false,
   analyzeGate,
-  onRequestConsent,
-  onManageConsents,
   refreshSignal,
 }: {
   consultationId: string;
-  patientId: string;
   /** Pro entitlement: the AI may read an attachment for review (Fase B). */
   canAnalyze?: boolean;
   /**
@@ -74,9 +70,6 @@ export default function AttachmentsPanel({
    * analyze route (Pro + the patient's ai-processing consent).
    */
   analyzeGate?: JourneyGate;
-  /** Opens the consent dialog here rather than sending her to the patient page. */
-  onRequestConsent?: () => void;
-  onManageConsents?: () => void;
   /** Bumped by the parent's sync tick so a photo captured on the PHONE appears
    *  here without a manual reload — the same mechanism the recordings use. */
   refreshSignal?: number;
@@ -272,32 +265,17 @@ export default function AttachmentsPanel({
         />
 
         {needsImagesConsent && (
-          <Alert
-            severity="info"
-            className="neutral bg-background-paper/60!"
-            action={
-              // In-place, with the patient in the room: this link used to take
-              // her out of the open consultation just to grant a consent.
-              onManageConsents ? (
-                <Button size="small" color="inherit" onClick={onManageConsents}>
-                  {t("context-manage-consents")}
-                </Button>
-              ) : (
-                <Button size="small" color="inherit" href={`/pacientes/${patientId}/consentimentos`}>
-                  {t("context-manage-consents")}
-                </Button>
-              )
-            }
-          >
+          // No button here on purpose: consents are registered in ONE place,
+          // "Consentimentos" at the top of the consultation, and the sentence
+          // points there. The same button on every card read as noise.
+          <Alert severity="info" className="neutral bg-background-paper/60!">
             {t("attachments-images-consent")}
           </Alert>
         )}
         {errorKey && <Alert severity="error">{t(errorKey)}</Alert>}
         {/* Said once for the card, not repeated on every row: why the AI reading
             is unavailable, with the way to resolve it here. */}
-        {canAnalyze && analyzeGate && (
-          <GateNotice gate={analyzeGate} id="attachments-analyze-reason" onRequestConsent={onRequestConsent} />
-        )}
+        {canAnalyze && analyzeGate && <GateNotice gate={analyzeGate} id="attachments-analyze-reason" />}
         {loadFailed && (
           <Alert severity="error" action={<Button onClick={() => void load()}>{t("retry")}</Button>}>
             {t("attachments-load-error")}

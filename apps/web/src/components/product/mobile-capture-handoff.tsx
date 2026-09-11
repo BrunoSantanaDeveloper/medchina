@@ -55,7 +55,6 @@ type LiveStatus =
 export default function MobileCaptureHandoff({
   consultationId,
   capabilities,
-  onRequestConsent,
 }: {
   consultationId: string;
   /**
@@ -72,7 +71,6 @@ export default function MobileCaptureHandoff({
     audio: "available" | "needs_consent" | "needs_minutes" | "unknown";
     photos: "available" | "needs_consent" | "unknown";
   };
-  onRequestConsent?: () => void;
 }) {
   const t = useTranslations("product");
   const [open, setOpen] = useState(false);
@@ -386,11 +384,6 @@ export default function MobileCaptureHandoff({
                         : "capture-qr-capability-audio-unknown",
                 )}
               </Typography>
-              {capabilities.audio === "needs_consent" && onRequestConsent && (
-                <Button size="small" className="self-start px-1!" onClick={onRequestConsent}>
-                  {t("journey-next-action-consent")}
-                </Button>
-              )}
             </Box>
           )}
 

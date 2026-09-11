@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Alert,
@@ -16,6 +16,8 @@ import {
   DialogActions,
   DialogContent,
   Link as MuiLink,
+  Tab,
+  Tabs,
   TextField,
   Typography,
   useMediaQuery,
@@ -143,7 +145,6 @@ export default function HypothesesPanel({
   onDecisionChanged,
   onBeforePrepare,
   onFocusField,
-  onRequestConsent,
   refreshSignal,
   isFinalized,
 }: {
@@ -160,8 +161,6 @@ export default function HypothesesPanel({
   prepareGate: JourneyGate;
   /** Position in the visible sequence (the page computes it; Pro-less charts renumber). */
   stepNumber?: number;
-  /** Opens the consent dialog in the consultation, instead of sending her away. */
-  onRequestConsent?: () => void;
   /** Bumped by the page after a save that could have made these hypotheses stale. */
   refreshSignal?: number;
   entitlementLoading: boolean;
@@ -214,6 +213,8 @@ export default function HypothesesPanel({
   const [reviewOpen, setReviewOpen] = useState(false);
   /** The accepted-but-stale hypothesis she is about to re-anchor to today's chart. */
   const [reaffirming, setReaffirming] = useState<Hypothesis | null>(null);
+  /** The hypothesis the review dialog is showing; null = the first one waiting for her. */
+  const [activeId, setActiveId] = useState<string | null>(null);
   const upgradeViewedRef = useRef(false);
 
   const canPrepare = prepareGate.state === "available";
@@ -469,6 +470,11 @@ export default function HypothesesPanel({
   });
 
   const staleCount = hypotheses.filter((item) => item.staleAt).length;
+  // Open on the one that needs her: the first fresh draft, else the first.
+  const activeHypothesis =
+    hypotheses.find((item) => item.id === activeId) ??
+    hypotheses.find((item) => item.status === "draft" && !item.staleAt) ??
+    hypotheses[0];
   const pendingDrafts = hypotheses.filter((item) => item.status === "draft" && !item.staleAt).length;
   const hasFreshDecision = hypotheses.some(
     (item) => (item.status === "accepted" || item.status === "edited") && !item.staleAt,
@@ -532,12 +538,7 @@ export default function HypothesesPanel({
         >
           {busy ? <CircularProgress size={18} /> : label}
         </Button>
-        <GateNotice
-          gate={prepareGate}
-          id="hypotheses-prepare-reason"
-          onRequestConsent={onRequestConsent}
-          onRetry={onRetryEntitlement}
-        />
+        <GateNotice gate={prepareGate} id="hypotheses-prepare-reason" onRetry={onRetryEntitlement} />
         {/* A minute of silence with a spinner reads as "frozen" with the next
             patient at the door. Say how long, and what not to do meanwhile. */}
         {busy && (
@@ -704,219 +705,287 @@ export default function HypothesesPanel({
                 closeLabel={t("close")}
                 onClose={() => setReviewOpen(false)}
               />
-              <DialogContent dividers className="flex flex-col gap-3 py-5!">
-                {hypotheses.map((hypothesis) => (
+              {/* One hypothesis at a time. The old dialog stacked every
+                  hypothesis with every section in small text, so signs, gaps,
+                  sources and buttons of different patterns ran into each other.
+                  Tabs keep each reading whole, and the dot says where each one
+                  stands without opening it. */}
+              {hypotheses.length > 1 && (
+                <Tabs
+                  value={Math.max(
+                    0,
+                    hypotheses.findIndex((item) => item.id === activeHypothesis?.id),
+                  )}
+                  onChange={(_, index: number) => setActiveId(hypotheses[index]?.id ?? null)}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  allowScrollButtonsMobile
+                  aria-label={t("hypotheses-tabs-label")}
+                  className="px-2 pt-1"
+                >
+                  {hypotheses.map((hypothesis, index) => (
+                    <Tab
+                      key={hypothesis.id}
+                      id={`hypothesis-tab-${hypothesis.id}`}
+                      aria-controls={`hypothesis-panel-${hypothesis.id}`}
+                      className="normal-case"
+                      label={
+                        <span className="flex max-w-60 flex-row items-center gap-1.5">
+                          <span
+                            aria-hidden
+                            className={cn("h-2 w-2 flex-none rounded-full", hypothesisDotTone(hypothesis))}
+                          />
+                          <span className="truncate">
+                            {index + 1}. {hypothesis.pattern}
+                          </span>
+                        </span>
+                      }
+                    />
+                  ))}
+                </Tabs>
+              )}
+              <DialogContent dividers className="flex flex-col gap-4 py-5!">
+                {activeHypothesis && (
                   <Box
-                    key={hypothesis.id}
-                    className={cn(
-                      "border-grey-100 flex flex-col gap-2.5 rounded-2xl border px-3.5 py-3",
-                      hypothesis.status === "rejected" && "opacity-60",
-                    )}
+                    role={hypotheses.length > 1 ? "tabpanel" : undefined}
+                    id={`hypothesis-panel-${activeHypothesis.id}`}
+                    aria-labelledby={hypotheses.length > 1 ? `hypothesis-tab-${activeHypothesis.id}` : undefined}
+                    className={cn("flex flex-col gap-4", activeHypothesis.status === "rejected" && "opacity-70")}
                   >
-                    <Box className="flex flex-row flex-wrap items-center gap-2">
-                      <Typography variant="body1" className="text-text-primary font-semibold">
-                        {hypothesis.pattern}
-                      </Typography>
+                    {/* ---- What is being proposed, and how well it fits ---- */}
+                    <Box className="flex flex-col gap-2">
+                      <Box className="flex flex-row flex-wrap items-center gap-2">
+                        <Typography variant="h6" component="h3" className="mb-0">
+                          {activeHypothesis.pattern}
+                        </Typography>
+                        {activeHypothesis.status !== "draft" && (
+                          <Chip
+                            size="small"
+                            label={t(`hypotheses-status-${activeHypothesis.status}`)}
+                            className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
+                          />
+                        )}
+                      </Box>
                       {/* Correspondence with the RECORDED data — never confidence. */}
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={correspondenceLabel(hypothesis.correspondence)}
-                        className="text-xs"
+                      <CorrespondenceMeter
+                        value={activeHypothesis.correspondence}
+                        label={correspondenceLabel(activeHypothesis.correspondence)}
                       />
-                      {hypothesis.status !== "draft" && (
-                        <Chip
-                          size="small"
-                          label={t(`hypotheses-status-${hypothesis.status}`)}
-                          className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light text-xs font-semibold"
-                        />
-                      )}
                     </Box>
 
-                    {/* Stated BEFORE the pattern is read, not as a footnote —
-                        and with the exit that actually works for THIS row: a
-                        draft is replaced by preparing again, a decision she
-                        already took can only be re-anchored (the database
-                        refuses every other move on a stale row, 0031:152-154). */}
-                    {hypothesis.staleAt && (
-                      <Alert
-                        severity="warning"
-                        className="neutral bg-background-paper/60! text-xs"
-                        action={
-                          isFinalized ? undefined : hypothesis.status === "accepted" ||
-                            hypothesis.status === "edited" ? (
-                            <Button
-                              color="inherit"
-                              size="small"
-                              disabled={busy}
-                              onClick={() => setReaffirming(hypothesis)}
-                            >
-                              {t("hypotheses-reaffirm")}
-                            </Button>
-                          ) : canPrepare ? (
-                            <Button color="inherit" size="small" disabled={busy} onClick={() => void prepare()}>
-                              {t("hypotheses-reprepare")}
-                            </Button>
-                          ) : undefined
-                        }
-                      >
-                        <span id={`hypothesis-stale-${hypothesis.id}`}>
-                          {t(hypothesis.status === "draft" ? "hypotheses-stale-draft" : "hypotheses-stale-decided")}
+                    {/* Stated BEFORE the reasoning is read, not as a footnote.
+                        The exit it needs is the one button in the footer. */}
+                    {activeHypothesis.staleAt && (
+                      <Alert severity="warning" className="neutral bg-background-paper/60!">
+                        <span id={`hypothesis-stale-${activeHypothesis.id}`}>
+                          {t(
+                            activeHypothesis.status === "draft" ? "hypotheses-stale-draft" : "hypotheses-stale-decided",
+                          )}
                         </span>
                       </Alert>
                     )}
-                    {hypothesis.limitation && (
-                      <Alert severity="warning" className="neutral bg-background-paper/60! text-xs">
-                        {hypothesis.limitation}
+                    {activeHypothesis.limitation && (
+                      <Alert severity="warning" className="neutral bg-background-paper/60!">
+                        {activeHypothesis.limitation}
                       </Alert>
                     )}
 
-                    {hypothesis.rationale && (
-                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                        {hypothesis.rationale}
-                      </Typography>
-                    )}
-
-                    <SignList
-                      title={t("hypotheses-supporting")}
-                      signs={hypothesis.supportingSigns}
-                      onFocusField={focusField}
-                    />
-                    {/* Same visual weight as the supporting ones, on purpose. */}
-                    <SignList
-                      title={t("hypotheses-contradicting")}
-                      signs={hypothesis.contradictingSigns}
-                      onFocusField={focusField}
-                    />
-
-                    {hypothesis.missingData.length > 0 && (
-                      <Box className="flex flex-col gap-1">
-                        <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                          {t("hypotheses-missing")}
+                    {activeHypothesis.rationale && (
+                      <ReviewSection title={t("hypotheses-rationale")}>
+                        <Typography variant="body2" className="text-text-primary leading-6">
+                          {activeHypothesis.rationale}
                         </Typography>
-                        {hypothesis.missingData.map((item, index) => (
-                          <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-                            · {item}
-                          </Typography>
-                        ))}
-                      </Box>
+                      </ReviewSection>
                     )}
 
-                    <Box className="flex flex-col gap-1">
-                      <Typography variant="body2" className="text-text-primary text-xs font-semibold">
-                        {t("hypotheses-sources")}
-                      </Typography>
-                      {hypothesis.sources.length === 0 ? (
-                        // Say it plainly rather than leave a confident-looking gap
-                        // — but "nothing in the library covers this" and "the
-                        // library was never reached" are opposite facts, and only
-                        // the row knows which one happened.
-                        <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                          {t(hypothesis.retrievalFailed ? "hypotheses-sources-unchecked" : "hypotheses-no-sources")}
+                    {/* For and against, side by side and with the SAME weight:
+                        a hypothesis you can only agree with is a trap. */}
+                    <ReviewSection title={t("hypotheses-evidence")}>
+                      <Box className="grid gap-3 md:grid-cols-2">
+                        <Box className="border-accent-1/30 bg-accent-1/5 rounded-2xl border p-3">
+                          <SignList
+                            title={t("hypotheses-supporting")}
+                            signs={activeHypothesis.supportingSigns}
+                            onFocusField={focusField}
+                          />
+                        </Box>
+                        <Box className="border-accent-3/30 bg-accent-3/5 rounded-2xl border p-3">
+                          <SignList
+                            title={t("hypotheses-contradicting")}
+                            signs={activeHypothesis.contradictingSigns}
+                            onFocusField={focusField}
+                          />
+                        </Box>
+                      </Box>
+                    </ReviewSection>
+
+                    {activeHypothesis.missingData.length > 0 && (
+                      <ReviewSection title={t("hypotheses-missing")}>
+                        <Box component="ul" className="flex flex-col gap-1.5">
+                          {activeHypothesis.missingData.map((item, index) => (
+                            <Box component="li" key={index} className="flex flex-row items-start gap-2">
+                              <span
+                                aria-hidden
+                                className="bg-accent-2/15 text-accent-2-dark dark:text-accent-2-light mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full text-xs font-bold"
+                              >
+                                ?
+                              </span>
+                              <Typography variant="body2" className="text-text-primary leading-6">
+                                {item}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </ReviewSection>
+                    )}
+
+                    <ReviewSection title={t("hypotheses-sources")}>
+                      {activeHypothesis.sources.length === 0 ? (
+                        // "Nothing in the library covers this" and "the library
+                        // was never reached" are opposite facts; the row knows.
+                        <Typography variant="body2" className="text-text-secondary leading-6">
+                          {t(
+                            activeHypothesis.retrievalFailed ? "hypotheses-sources-unchecked" : "hypotheses-no-sources",
+                          )}
                         </Typography>
                       ) : (
-                        hypothesis.sources.map((source, index) => (
-                          <Typography key={index} variant="body2" className="text-text-secondary text-xs leading-5">
-                            ·{" "}
-                            {source.documentId ? (
-                              // The pipeline already verified this citation
-                              // against a chunk it really retrieved; here is
-                              // where that check pays off for her — the card
-                              // itself, not just its name. It opens in another
-                              // tab on purpose: there is a patient on the
-                              // table and the record must stay where it is.
-                              <MuiLink
-                                component={Link}
-                                href={`/biblioteca/acervo/${source.documentId}`}
-                                target="_blank"
-                                rel="noopener"
-                                underline="hover"
-                                className="text-primary-dark dark:text-primary-light font-semibold"
-                                aria-label={t("hypotheses-source-open", { title: source.title })}
-                                // Are the references read, or trusted at face
-                                // value? Stamped with its surface: the library
-                                // chat fires the same event, and without an
-                                // origin the two would land in one bucket that
-                                // can never be separated again.
-                                onClick={() => trackProductEvent("citation.opened", { origin: "consultation" })}
-                              >
-                                {source.title}
-                              </MuiLink>
-                            ) : (
-                              source.title
-                            )}
-                            {source.source ? ` — ${source.source}` : ""} ({kindLabel(source.kind)})
-                          </Typography>
-                        ))
+                        <Box component="ul" className="flex flex-col gap-2">
+                          {activeHypothesis.sources.map((source, index) => (
+                            <Box
+                              component="li"
+                              key={index}
+                              className="border-grey-100 flex flex-col gap-1 rounded-xl border px-3 py-2 sm:flex-row sm:items-center sm:gap-2"
+                            >
+                              <Box className="min-w-0 flex-1">
+                                {source.documentId ? (
+                                  // Verified against a chunk the pipeline really
+                                  // retrieved; opens beside the consultation so
+                                  // the record stays where it is.
+                                  <MuiLink
+                                    component={Link}
+                                    href={`/biblioteca/acervo/${source.documentId}`}
+                                    target="_blank"
+                                    rel="noopener"
+                                    underline="hover"
+                                    className="text-primary-dark dark:text-primary-light text-sm font-semibold"
+                                    aria-label={t("hypotheses-source-open", { title: source.title })}
+                                    onClick={() => trackProductEvent("citation.opened", { origin: "consultation" })}
+                                  >
+                                    {source.title}
+                                  </MuiLink>
+                                ) : (
+                                  <Typography variant="body2" className="text-text-primary font-semibold">
+                                    {source.title}
+                                  </Typography>
+                                )}
+                                {source.source && (
+                                  <Typography variant="caption" className="text-text-secondary block leading-4">
+                                    {source.source}
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                label={kindLabel(source.kind)}
+                                className="self-start text-xs sm:self-center"
+                              />
+                            </Box>
+                          ))}
+                        </Box>
                       )}
-                    </Box>
+                    </ReviewSection>
 
-                    {hypothesis.reviewNote && (
-                      <Typography variant="body2" className="text-text-secondary text-xs leading-5 italic">
-                        {t("hypotheses-your-note")}: {hypothesis.reviewNote}
-                      </Typography>
+                    {activeHypothesis.reviewNote && (
+                      <ReviewSection title={t("hypotheses-your-note")}>
+                        <Typography variant="body2" className="text-text-secondary leading-6 italic">
+                          {activeHypothesis.reviewNote}
+                        </Typography>
+                      </ReviewSection>
                     )}
-
-                    {!isFinalized && (
-                      <Box className="flex flex-row flex-wrap gap-2">
-                        {hypothesis.status !== "accepted" && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="primary"
-                            // The database refuses ANY decision on a stale row
-                            // (hypothesis_stale, 0031:152-154), so the button
-                            // says so instead of spending a click to find out.
-                            disabled={busy || Boolean(hypothesis.staleAt)}
-                            aria-describedby={hypothesis.staleAt ? `hypothesis-stale-${hypothesis.id}` : undefined}
-                            onClick={() => review(hypothesis, "accepted")}
-                          >
-                            {t("hypotheses-accept")}
-                          </Button>
-                        )}
-                        {/* Editing makes the reading hers, not the model's (PRD §10.10). */}
+                  </Box>
+                )}
+                {/* PRD §10.11 travels WITH the reasoning it qualifies. */}
+                <Typography
+                  variant="body2"
+                  className="text-text-secondary border-grey-100 border-t pt-4 text-xs leading-5"
+                >
+                  {t("hypotheses-disclaimer")}
+                </Typography>
+              </DialogContent>
+              {/* Decisions live in the footer, for the hypothesis on screen, and
+                  only the ones that can work: a stale row offers its one exit
+                  (the database refuses every other move on it, 0031:152-154). */}
+              <DialogActions disableSpacing className="flex flex-row flex-wrap items-center gap-2">
+                <Button color="grey" className="max-sm:hidden" onClick={() => setReviewOpen(false)}>
+                  {t("close")}
+                </Button>
+                {!isFinalized && activeHypothesis && (
+                  <Box className="ml-auto flex flex-row flex-wrap items-center justify-end gap-2">
+                    {activeHypothesis.staleAt ? (
+                      activeHypothesis.status === "accepted" || activeHypothesis.status === "edited" ? (
                         <Button
-                          size="small"
-                          variant="outlined"
-                          color="grey"
-                          disabled={busy || Boolean(hypothesis.staleAt)}
-                          aria-describedby={hypothesis.staleAt ? `hypothesis-stale-${hypothesis.id}` : undefined}
-                          onClick={() => {
-                            setReviewing({ hypothesis, mode: "edit" });
-                            setPattern(hypothesis.pattern);
-                            setNote("");
-                          }}
+                          variant="contained"
+                          color="primary"
+                          disabled={busy}
+                          aria-describedby={`hypothesis-stale-${activeHypothesis.id}`}
+                          onClick={() => setReaffirming(activeHypothesis)}
                         >
-                          {t("hypotheses-edit")}
+                          {t("hypotheses-reaffirm")}
                         </Button>
-                        {hypothesis.status !== "rejected" && (
+                      ) : canPrepare ? (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          disabled={busy}
+                          aria-describedby={`hypothesis-stale-${activeHypothesis.id}`}
+                          onClick={() => void prepare()}
+                        >
+                          {busy ? <CircularProgress size={18} /> : t("hypotheses-reprepare")}
+                        </Button>
+                      ) : null
+                    ) : (
+                      <>
+                        {activeHypothesis.status !== "rejected" && (
                           <Button
-                            size="small"
-                            variant="outlined"
+                            variant="text"
                             color="grey"
-                            disabled={busy || Boolean(hypothesis.staleAt)}
-                            aria-describedby={hypothesis.staleAt ? `hypothesis-stale-${hypothesis.id}` : undefined}
+                            disabled={busy}
                             onClick={() => {
-                              setReviewing({ hypothesis, mode: "reject" });
+                              setReviewing({ hypothesis: activeHypothesis, mode: "reject" });
                               setNote("");
                             }}
                           >
                             {t("hypotheses-reject")}
                           </Button>
                         )}
-                      </Box>
+                        {/* Editing makes the reading hers, not the model's (PRD §10.10). */}
+                        <Button
+                          variant="outlined"
+                          color="grey"
+                          disabled={busy}
+                          onClick={() => {
+                            setReviewing({ hypothesis: activeHypothesis, mode: "edit" });
+                            setPattern(activeHypothesis.pattern);
+                            setNote("");
+                          }}
+                        >
+                          {t("hypotheses-edit")}
+                        </Button>
+                        {activeHypothesis.status !== "accepted" && (
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            disabled={busy}
+                            onClick={() => review(activeHypothesis, "accepted")}
+                          >
+                            {t("hypotheses-accept")}
+                          </Button>
+                        )}
+                      </>
                     )}
                   </Box>
-                ))}
-                {/* PRD §10.11 travels WITH the reasoning it qualifies. */}
-                <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                  {t("hypotheses-disclaimer")}
-                </Typography>
-              </DialogContent>
-              <DialogActions>
-                <Button color="grey" onClick={() => setReviewOpen(false)}>
-                  {t("close")}
-                </Button>
+                )}
               </DialogActions>
             </Dialog>
 
@@ -1097,6 +1166,51 @@ function SignList({
           );
         })
       )}
+    </Box>
+  );
+}
+
+/** Where a hypothesis stands, as a dot on its tab: outdated, waiting, decided, discarded. */
+function hypothesisDotTone(hypothesis: Hypothesis): string {
+  if (hypothesis.staleAt) return "bg-accent-3";
+  if (hypothesis.status === "draft") return "bg-primary";
+  if (hypothesis.status === "rejected") return "bg-grey-500";
+  return "bg-accent-1";
+}
+
+/** A titled block of the review, separated from the next by a hairline. */
+function ReviewSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <Box component="section" className="border-grey-100 flex flex-col gap-2 border-t pt-4">
+      <Typography
+        variant="subtitle2"
+        component="h4"
+        className="text-text-secondary mb-0 text-xs font-semibold tracking-wide uppercase"
+      >
+        {title}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+/**
+ * How well a pattern matches what was RECORDED, as three steps plus the words.
+ * It is a correspondence scale, never a confidence or a probability (PRD
+ * §10.8): the label says so and is the accessible name.
+ */
+function CorrespondenceMeter({ value, label }: { value: Hypothesis["correspondence"]; label: string }) {
+  const level = value === "strong" ? 3 : value === "moderate" ? 2 : 1;
+  return (
+    <Box role="img" aria-label={label} className="flex flex-row items-center gap-2">
+      <Box aria-hidden className="flex flex-row gap-0.5">
+        {[1, 2, 3].map((step) => (
+          <span key={step} className={cn("h-1.5 w-5 rounded-full", step <= level ? "bg-primary" : "bg-grey-100")} />
+        ))}
+      </Box>
+      <Typography aria-hidden variant="caption" className="text-text-secondary">
+        {label}
+      </Typography>
     </Box>
   );
 }

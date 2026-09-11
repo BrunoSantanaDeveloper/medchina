@@ -1,6 +1,7 @@
 "use client";
 
 import { listUserAdminInfo, resetUserMfa, setUserBanned, UserAdminInfo } from "../actions";
+import DeleteAccountDialog from "./delete-account-dialog";
 import ImpersonateDialog from "./impersonate-dialog";
 import SuperadminDialog from "./superadmin-dialog";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -10,6 +11,7 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
 import NiCrown from "@/icons/nexture/ni-crown";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
 import NiShield from "@/icons/nexture/ni-shield";
@@ -51,7 +53,7 @@ const badgesOf = (row: UserTableRow, selfId: string | null) =>
 
 /**
  * Platform-wide user roster: find a user, see how they use the platform
- * (orgs, last sign-in) and act (impersonate / reset 2FA / ban). Auth-side
+ * (orgs, last sign-in) and act (impersonate / reset 2FA / ban / delete). Auth-side
  * fields need the service role and degrade gracefully without it.
  */
 export default function UsersAdmin() {
@@ -64,6 +66,7 @@ export default function UsersAdmin() {
   const [selfId, setSelfId] = useState<string | null>(null);
   const [impersonating, setImpersonating] = useState<UserTableRow | null>(null);
   const [roleChange, setRoleChange] = useState<{ row: UserTableRow; grant: boolean } | null>(null);
+  const [deleting, setDeleting] = useState<UserTableRow | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
@@ -231,6 +234,10 @@ export default function UsersAdmin() {
           // Never on yourself, in either direction — the database refuses it
           // too, so offering it would only produce an error.
           const canChangeRole = row.id !== selfId;
+          // Irreversible, and service-role backed (files go through the Storage
+          // API). A superadmin has to lose the role first — the database
+          // refuses otherwise, so the menu does not offer it.
+          const canDelete = Boolean(serviceAvailable) && row.id !== selfId && !row.isSuperadmin;
           return [
             ...(canImpersonate
               ? [
@@ -276,6 +283,17 @@ export default function UsersAdmin() {
                   />,
                 ]
               : []),
+            ...(canDelete
+              ? [
+                  <GridActionsCellItem
+                    key="delete"
+                    icon={<NiBinEmpty size="medium" />}
+                    label="Delete account and all data"
+                    onClick={() => setDeleting(row)}
+                    showInMenu
+                  />,
+                ]
+              : []),
           ];
         },
       },
@@ -287,7 +305,8 @@ export default function UsersAdmin() {
     <Box className="flex flex-col gap-3">
       {serviceAvailable === false && (
         <Alert severity="info" className="neutral bg-background-paper/60!">
-          Set SUPABASE_SERVICE_ROLE_KEY to show emails, last sign-in and enable impersonation, 2FA reset and ban/unban.
+          Set SUPABASE_SERVICE_ROLE_KEY to show emails, last sign-in and enable impersonation, 2FA reset, ban/unban and
+          account deletion.
         </Alert>
       )}
 
@@ -337,6 +356,21 @@ export default function UsersAdmin() {
           refresh();
         }}
       />
+
+      {/* Mounted only while open and keyed by user: every account starts from
+          a fresh count of what it holds, never from the previous one's. */}
+      {deleting && (
+        <DeleteAccountDialog
+          key={deleting.id}
+          userId={deleting.id}
+          userName={deleting.displayName}
+          onClose={() => setDeleting(null)}
+          onDeleted={() => {
+            setDeleting(null);
+            refresh();
+          }}
+        />
+      )}
     </Box>
   );
 }

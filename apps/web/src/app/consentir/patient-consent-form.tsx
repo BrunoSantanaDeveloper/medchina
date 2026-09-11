@@ -187,14 +187,6 @@ export default function PatientConsentForm() {
   const canSubmit = state === "ready" && allDecided && validIdentity && confirmed;
   const busy = state === "submitting";
 
-  const setAll = (decision: boolean) => {
-    setDecisions({
-      "audio-recording": decision,
-      "ai-processing": decision,
-      "clinical-images": decision,
-    });
-  };
-
   const submit = async () => {
     if (!canSubmit || !token) return;
     setState("submitting");
@@ -337,27 +329,6 @@ export default function PatientConsentForm() {
           </Typography>
         </Alert>
       )}
-
-      <Box className="grid grid-cols-1 gap-2 sm:grid-cols-2" aria-label={t("consent-public-bulk-actions")}>
-        <Button
-          variant="outlined"
-          color="grey"
-          onClick={() => setAll(true)}
-          disabled={busy}
-          className="min-h-11 w-full"
-        >
-          {t("consent-public-authorize-all")}
-        </Button>
-        <Button
-          variant="outlined"
-          color="grey"
-          onClick={() => setAll(false)}
-          disabled={busy}
-          className="min-h-11 w-full"
-        >
-          {t("consent-public-refuse-all")}
-        </Button>
-      </Box>
 
       <Box className="flex flex-col gap-4">
         {terms.map((term) => {

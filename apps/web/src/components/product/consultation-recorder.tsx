@@ -1135,12 +1135,13 @@ export default function ConsultationRecorder({
             </Alert>
           ) : !hasRequiredConsent ? (
             <>
+              {/* Text only: the consent is registered in ONE place, the
+                  "Consentimentos" control at the top of the consultation, and
+                  this sentence says so. The same button repeated on every card
+                  made it unclear which one to press. */}
               <Typography variant="body2" className="text-text-secondary leading-6">
                 {consents.audio ? t("recorder-no-ai-consent") : t("recorder-no-consent")}
               </Typography>
-              <Button variant="outlined" color="primary" onClick={onRequestConsent} className="self-start">
-                {t("recorder-grant-consent")}
-              </Button>
             </>
           ) : needsTrial ? (
             <>
@@ -1360,10 +1361,10 @@ export default function ConsultationRecorder({
                 )}
                 {/* Consent is the only thing that unblocks this one, so that is
                     the action offered — not a retry into the same refusal. */}
-                {processingNeedsConsent && onRequestConsent && (
-                  <Button variant="contained" size="large" fullWidth color="primary" onClick={onRequestConsent}>
-                    {t("recorder-grant-consent")}
-                  </Button>
+                {processingNeedsConsent && (
+                  <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                    {t("recorder-processing-consent-hint")}
+                  </Typography>
                 )}
                 {phase === "error" && !processingFailed && pendingBlob.current && (
                   <Button
