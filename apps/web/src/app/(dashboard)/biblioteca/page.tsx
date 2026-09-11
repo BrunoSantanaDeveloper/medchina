@@ -80,7 +80,6 @@ export default function Biblioteca() {
   );
   const [patients, setPatients] = useState<PatientOption[] | null>(null);
   const [casePatient, setCasePatient] = useState<CasePatient | null>(null);
-  const [consentMissingId, setConsentMissingId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; title: string } | null>(null);
   const [deleting, setDeleting] = useState<ConversationRow | null>(null);
   const deepLinkApplied = useRef(false);
@@ -171,7 +170,6 @@ export default function Biblioteca() {
     setCasePatient(
       conversation.patientId ? { id: conversation.patientId, fullName: conversation.patientName ?? "" } : null,
     );
-    setConsentMissingId(null);
     setSendError(null);
     setThreadLoading(true);
     setMessages([]);
@@ -222,7 +220,6 @@ export default function Biblioteca() {
     setActiveConversationId(null);
     setMessages([]);
     setSendError(null);
-    setConsentMissingId(null);
     setCasePatient(patient);
   }, []);
 
@@ -266,16 +263,12 @@ export default function Biblioteca() {
             code?: string;
             used?: number;
             limit?: number;
-            patientId?: string;
           } | null;
           removeAssistantPlaceholder();
           if (payload?.code === "quota_exhausted") {
             // The upgrade signal: how often the free quota is what stops her.
             trackProductEvent("library.quota_hit");
             setQuotaExhausted({ used: payload.used ?? 0, limit: payload.limit ?? 0 });
-          } else if (payload?.code === "patient_ai_consent_missing") {
-            // Consent is the path, not a dead end: the alert links to granting it.
-            setConsentMissingId(payload.patientId ?? casePatient?.id ?? null);
           } else if (payload?.code === "case_review_not_available") {
             setSendError(t("library-case-not-available"));
           } else {
@@ -516,25 +509,6 @@ export default function Biblioteca() {
                 {t("library-quota-upgrade")}
               </Link>
             </Typography>
-          )}
-
-          {consentMissingId && (
-            <Alert
-              severity="warning"
-              onClose={() => setConsentMissingId(null)}
-              action={
-                <Button
-                  color="inherit"
-                  size="small"
-                  href={`/pacientes/${consentMissingId}/consentimentos`}
-                  LinkComponent={Link}
-                >
-                  {t("library-case-consent-cta")}
-                </Button>
-              }
-            >
-              {t("library-case-consent-missing")}
-            </Alert>
           )}
 
           {quotaExhausted && (

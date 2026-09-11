@@ -189,31 +189,26 @@ export async function POST(request: Request) {
     .maybeSingle();
   const practiceScopeContext = buildPracticeScopeContext(profile?.practice_modalities as string[] | null);
 
-  // Case review gates, enforced in code (never only in the UI):
-  // Pro entitlement (reasoning over the record IS the Pro value, same gate as
-  // hypotheses) and the patient's ACTIVE ai-processing consent (sending their
-  // record to the model is AI processing — recording consent is not enough).
+  // Case review gate, enforced in code (never only in the UI): the Pro
+  // entitlement, because reasoning over the record IS the Pro value (same gate
+  // as hypotheses).
+  //
+  // Deliberately NOT gated on `ai-processing` consent. That term authorizes
+  // CAPTURING the consultation — recording the patient's voice and sending the
+  // audio out for transcription. Case review reads back what is already in the
+  // record, written or validated by the professional herself, to help her think
+  // between consultations. Requiring a second authorization to reread her own
+  // notes blocked migrated patients (who never passed through the consent flow)
+  // from the feature with nothing for her to fix in the room.
+  //
+  // The boundaries that DO apply stay in force: RLS keeps the record inside the
+  // workspace, and every case review is written to the audit trail below.
   let caseContext = "";
   if (casePatientId) {
     const audioAllowance = await getAudioAllowance(supabase, body.orgId);
     if (!audioAllowance?.clinicalReasoning) {
       return NextResponse.json(
         { error: "Case review needs the Pro plan or an active Pro trial.", code: "case_review_not_available" },
-        { status: 403 },
-      );
-    }
-    const { data: consented } = await supabase.rpc("has_active_consent", {
-      target_org: body.orgId,
-      target_patient: casePatientId,
-      term_slug: "ai-processing",
-    });
-    if (!consented) {
-      return NextResponse.json(
-        {
-          error: "This patient has no active AI-processing consent.",
-          code: "patient_ai_consent_missing",
-          patientId: casePatientId,
-        },
         { status: 403 },
       );
     }

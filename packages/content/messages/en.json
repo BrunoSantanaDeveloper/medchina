@@ -2415,10 +2415,8 @@
     "library-case-empty-body": "Ask about the case — answers use the recorded chart and cite the library's sources. Nothing here is clinical conduct: the assessment and decision are yours.",
     "library-case-starter-1": "Summarize the case and its points of attention.",
     "library-case-starter-2": "What should I review or ask at the next consultation?",
-    "library-case-consent-missing": "This patient has no active consent for AI processing. Record the consent to study the case.",
-    "library-case-consent-cta": "Record consent",
     "library-case-not-available": "AI case review is part of the Pro plan (or the Pro trial).",
-    "library-case-upsell": "With Pro, you study your patients' cases here — with recorded consent and cited sources.",
+    "library-case-upsell": "With Pro, you study your patients’ cases here — over the record you already wrote, with cited sources.",
     "patient-study-case": "Study this case",
     "briefing-prepare": "Prepare",
     "briefing-prepare-for": "Prepare {patient}'s consultation",
@@ -3094,7 +3092,8 @@
     "plan-field-required-to-validate": "Required to validate moxibustion.",
     "previous-consultation-imported-note": "Imported from another system: the text appears as it was written there and does not fill the fields below.",
     "previous-consultation-imported-list": "Most recent imported records",
-    "previous-consultation-imported-all": "See the full history in the patient record"
+    "previous-consultation-imported-all": "See the full history in the patient record",
+    "import-issue-history_dates_per_patient": "Every patient has all their records on the same date. Check that this column is the date of the visit — if it is the date the chart was created or exported, each patient's whole history lands on a single day of the timeline."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

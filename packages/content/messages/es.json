@@ -2415,10 +2415,8 @@
     "library-case-empty-body": "Pregunta sobre el caso — las respuestas usan la historia registrada y citan las fuentes de la biblioteca. Nada de esto es conducta clínica: la evaluación y la decisión son tuyas.",
     "library-case-starter-1": "Resume el caso y sus puntos de atención.",
     "library-case-starter-2": "¿Qué debo revisar o preguntar en la próxima consulta?",
-    "library-case-consent-missing": "Este paciente no tiene consentimiento activo para procesamiento por IA. Registra el consentimiento para estudiar el caso.",
-    "library-case-consent-cta": "Registrar consentimiento",
     "library-case-not-available": "La revisión de casos con IA forma parte del plan Pro (o de la prueba Pro).",
-    "library-case-upsell": "Con Pro, estudias aquí los casos de tus pacientes — con consentimiento registrado y fuentes citadas.",
+    "library-case-upsell": "Con Pro, estudias aquí los casos de tus pacientes — sobre la historia que ya registraste y con las fuentes citadas.",
     "patient-study-case": "Estudiar este caso",
     "briefing-prepare": "Preparar",
     "briefing-prepare-for": "Preparar la consulta de {patient}",
@@ -3094,7 +3092,8 @@
     "plan-field-required-to-validate": "Obligatorio para validar la moxibustión.",
     "previous-consultation-imported-note": "Importada de otro sistema: el texto aparece tal como se escribió allí y no rellena los campos de abajo.",
     "previous-consultation-imported-list": "Registros importados más recientes",
-    "previous-consultation-imported-all": "Ver el historial completo en la ficha"
+    "previous-consultation-imported-all": "Ver el historial completo en la ficha",
+    "import-issue-history_dates_per_patient": "Cada paciente tiene todos sus registros en la misma fecha. Comprueba que esta columna sea la fecha de la consulta: si es la fecha de alta o de exportación, todo el historial de cada paciente cae en un único día de la línea de tiempo."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

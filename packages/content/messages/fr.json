@@ -2415,10 +2415,8 @@
     "library-case-empty-body": "Interrogez le cas — les réponses utilisent le dossier enregistré et citent les sources de la bibliothèque. Rien ici n'est une conduite clinique : l'évaluation et la décision vous appartiennent.",
     "library-case-starter-1": "Résumez le cas et ses points d'attention.",
     "library-case-starter-2": "Que dois-je revoir ou demander à la prochaine consultation ?",
-    "library-case-consent-missing": "Ce patient n'a pas de consentement actif pour le traitement par IA. Enregistrez le consentement pour étudier le cas.",
-    "library-case-consent-cta": "Enregistrer le consentement",
     "library-case-not-available": "La revue de cas par IA fait partie de l'offre Pro (ou de l'essai Pro).",
-    "library-case-upsell": "Avec Pro, vous étudiez ici les cas de vos patients — avec consentement enregistré et sources citées.",
+    "library-case-upsell": "Avec Pro, vous étudiez ici les cas de vos patients — à partir du dossier que vous avez déjà rédigé, avec les sources citées.",
     "patient-study-case": "Étudier ce cas",
     "briefing-prepare": "Préparer",
     "briefing-prepare-for": "Préparer la consultation de {patient}",
@@ -3094,7 +3092,8 @@
     "plan-field-required-to-validate": "Obligatoire pour valider la moxibustion.",
     "previous-consultation-imported-note": "Importée d’un autre système : le texte apparaît tel qu’il y a été écrit et ne remplit pas les champs ci-dessous.",
     "previous-consultation-imported-list": "Derniers dossiers importés",
-    "previous-consultation-imported-all": "Voir l’historique complet dans le dossier"
+    "previous-consultation-imported-all": "Voir l’historique complet dans le dossier",
+    "import-issue-history_dates_per_patient": "Chaque patient a tous ses dossiers à la même date. Vérifiez que cette colonne est bien la date de la consultation : s’il s’agit de la date de création ou d’export, tout l’historique de chaque patient se retrouve sur une seule journée de la frise."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

@@ -2415,10 +2415,8 @@
     "library-case-empty-body": "Fragen Sie zum Fall — Antworten nutzen die dokumentierte Akte und zitieren die Quellen der Bibliothek. Nichts hiervon ist klinisches Handeln: Einschätzung und Entscheidung liegen bei Ihnen.",
     "library-case-starter-1": "Fassen Sie den Fall und seine Aufmerksamkeitspunkte zusammen.",
     "library-case-starter-2": "Was sollte ich in der nächsten Konsultation prüfen oder erfragen?",
-    "library-case-consent-missing": "Für diese Patientin liegt keine aktive Einwilligung zur KI-Verarbeitung vor. Erfassen Sie die Einwilligung, um den Fall zu studieren.",
-    "library-case-consent-cta": "Einwilligung erfassen",
     "library-case-not-available": "Die KI-Fallbesprechung gehört zum Pro-Plan (oder zur Pro-Testphase).",
-    "library-case-upsell": "Mit Pro studieren Sie hier die Fälle Ihrer Patienten — mit erfasster Einwilligung und zitierten Quellen.",
+    "library-case-upsell": "Mit Pro studieren Sie hier die Fälle Ihrer Patienten — auf Basis der von Ihnen erfassten Akte, mit zitierten Quellen.",
     "patient-study-case": "Diesen Fall studieren",
     "briefing-prepare": "Vorbereiten",
     "briefing-prepare-for": "Konsultation von {patient} vorbereiten",
@@ -3094,7 +3092,8 @@
     "plan-field-required-to-validate": "Pflicht für die Validierung der Moxibustion.",
     "previous-consultation-imported-note": "Aus einem anderen System importiert: Der Text erscheint so, wie er dort geschrieben wurde, und füllt die Felder unten nicht aus.",
     "previous-consultation-imported-list": "Zuletzt importierte Einträge",
-    "previous-consultation-imported-all": "Vollständigen Verlauf in der Akte ansehen"
+    "previous-consultation-imported-all": "Vollständigen Verlauf in der Akte ansehen",
+    "import-issue-history_dates_per_patient": "Bei jeder Patientin liegen alle Einträge auf demselben Datum. Prüfen Sie, ob diese Spalte das Datum der Behandlung ist — ist es das Anlage- oder Exportdatum, fällt der gesamte Verlauf jeder Patientin auf einen einzigen Tag der Zeitleiste."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

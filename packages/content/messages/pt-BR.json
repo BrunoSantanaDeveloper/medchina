@@ -2415,10 +2415,8 @@
     "library-case-empty-body": "Pergunte sobre o caso — as respostas usam o prontuário registrado e citam as fontes da biblioteca. Nada aqui é conduta: a avaliação e a decisão clínica são suas.",
     "library-case-starter-1": "Resuma o caso e os pontos de atenção.",
     "library-case-starter-2": "O que devo revisar ou perguntar na próxima consulta?",
-    "library-case-consent-missing": "Este paciente não tem consentimento ativo para processamento por IA. Registre o consentimento para estudar o caso.",
-    "library-case-consent-cta": "Registrar consentimento",
     "library-case-not-available": "A revisão de caso com IA faz parte do plano Pro (ou do teste Pro).",
-    "library-case-upsell": "Com o Pro, você estuda os casos dos seus pacientes aqui — com consentimento registrado e fontes citadas.",
+    "library-case-upsell": "Com o Pro, você estuda os casos dos seus pacientes aqui — sobre o prontuário que você já registrou e com as fontes citadas.",
     "patient-study-case": "Estudar este caso",
     "briefing-prepare": "Preparar",
     "briefing-prepare-for": "Preparar a consulta de {patient}",
@@ -3094,7 +3092,8 @@
     "plan-field-required-to-validate": "Obrigatório para validar a moxabustão.",
     "previous-consultation-imported-note": "Importada de outro sistema: o texto aparece como foi escrito lá e não preenche os campos abaixo.",
     "previous-consultation-imported-list": "Registros importados mais recentes",
-    "previous-consultation-imported-all": "Ver o histórico completo na ficha"
+    "previous-consultation-imported-all": "Ver o histórico completo na ficha",
+    "import-issue-history_dates_per_patient": "Cada paciente tem todos os registros na mesma data. Confira se esta coluna é a data do atendimento — se for a data de cadastro ou de exportação, o histórico inteiro de cada paciente cai num único dia da linha do tempo."
   },
   "auth": {
     "invite-workspace-conflict": "Esta conta já possui um consultório. No modelo atual, cada profissional usa apenas um espaço de trabalho.",

@@ -9,8 +9,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *
  * Loaded with the USER's RLS client on purpose: a patient outside the
  * professional's workspace simply does not resolve — the database is the
- * boundary, not this module. Consent (`ai-processing`) and the Pro gate are
- * the chat route's job, BEFORE this loader runs.
+ * boundary, not this module. The Pro gate is the chat route's job, BEFORE this
+ * loader runs; no consent gate applies here (`ai-processing` authorizes
+ * CAPTURING the consultation, not rereading a record she already wrote).
  */
 
 const CONSULTATION_LIMIT = 5;
