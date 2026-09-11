@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(42);
 
 -- ============================================================
 -- Migration 0099 — deleting an account and everything that belongs to it.
@@ -41,6 +41,47 @@ select ok(
   and not has_function_privilege('authenticated', 'public.account_deletion_storage(uuid[],uuid)', 'EXECUTE')
   and not has_function_privilege('authenticated', 'public.account_deletion_counts(uuid[],uuid)', 'EXECUTE'),
   'the ungated helpers are internal: nobody calls them around the gate'
+);
+
+-- A tripwire, not a fixture. Postgres does not wait for sibling cascades to
+-- finish before checking a NO ACTION / RESTRICT reference — the first real
+-- deletion died on one (0101). So every such reference into data the deletion
+-- removes (anything reachable by cascade from a workspace or a person) must be
+-- one admin_delete_account clears FIRST, holder before held. A new one fails
+-- here until the RPC learns about it; the fixture below cannot anticipate a
+-- table that does not exist yet, the catalog can.
+select set_eq(
+  $$
+    with recursive deletable(rel) as (
+      select c.oid from pg_class c where c.oid in ('public.organizations'::regclass, 'auth.users'::regclass)
+      union
+      select k.conrelid
+      from pg_constraint k
+      join deletable d on k.confrelid = d.rel
+      where k.contype = 'f' and k.confdeltype = 'c'
+    )
+    select k.conname::text
+    from pg_constraint k
+    where k.contype = 'f'
+      and k.connamespace = 'public'::regnamespace
+      and k.confdeltype in ('a', 'r')
+      and k.confrelid in (select rel from deletable)
+  $$,
+  array[
+    -- Cleared first by admin_delete_account (0101), holder before held:
+    'patient_consent_session_items_acceptance_id_fkey',
+    'mobile_capture_authorizations_ai_acceptance_id_fkey',
+    'mobile_capture_authorizations_audio_acceptance_id_fkey',
+    'consent_acceptances_consent_session_id_fkey',
+    'documents_consultation_id_fkey',
+    'documents_parent_id_fkey',
+    'documents_patient_id_fkey',
+    'documents_plan_id_fkey',
+    -- Unreachable by construction: only a superadmin opens support sessions,
+    -- and a superadmin cannot be deleted (target_is_superadmin).
+    'impersonation_sessions_actor_id_fkey'
+  ],
+  'every NO ACTION/RESTRICT reference into deletable data is one the deletion clears first — a new one must be added to admin_delete_account'
 );
 
 -- ---------- Fixtures: people ----------
@@ -138,29 +179,54 @@ insert into public.documents (
   'b7400000-0000-4000-8000-000000000002'
 );
 
+-- The QR consent chain (0040/0053/0058): an acceptance recorded through a
+-- patient consent session, the session item that points back at it, and the
+-- capture authorization it unlocked. Two NO ACTION references hold the
+-- acceptance and one holds the session. The first real deletion died exactly
+-- here (0101): the cascade reached the acceptance before the item pointing at
+-- it, and Postgres checked the reference in between.
 insert into public.consent_terms (id, slug, title, body) values
   ('b7400000-0000-4000-8000-000000000005', 'test-term-b7', 'Termo de teste', 'Corpo do termo');
-insert into public.consent_acceptances (term_id, org_id, subject_type, subject_id) values
-  ('b7400000-0000-4000-8000-000000000005', 'b7100000-0000-4000-8000-000000000001',
-   'patient', 'b7200000-0000-4000-8000-000000000001');
+insert into public.patient_consent_sessions (id, org_id, patient_id, token_hash, client_request_id, expires_at) values
+  ('b7400000-0000-4000-8000-00000000000c', 'b7100000-0000-4000-8000-000000000001',
+   'b7200000-0000-4000-8000-000000000001', repeat('b7', 32), 'b7400000-0000-4000-8000-00000000000d',
+   now() + interval '1 day');
+insert into public.consent_acceptances (id, term_id, org_id, subject_type, subject_id, consent_session_id, manifested_by) values
+  ('b7400000-0000-4000-8000-00000000000e', 'b7400000-0000-4000-8000-000000000005',
+   'b7100000-0000-4000-8000-000000000001', 'patient', 'b7200000-0000-4000-8000-000000000001',
+   'b7400000-0000-4000-8000-00000000000c', 'patient');
+insert into public.patient_consent_session_items (
+  session_id, term_id, slug, term_title, term_body, term_version, decision, decided_at, acceptance_id
+) values
+  ('b7400000-0000-4000-8000-00000000000c', 'b7400000-0000-4000-8000-000000000005', 'audio-recording',
+   'Termo de teste', 'Corpo do termo', 1, true, now(), 'b7400000-0000-4000-8000-00000000000e');
+insert into public.mobile_capture_authorizations (org_id, user_id, consultation_id, patient_id, audio_acceptance_id, expires_at) values
+  ('b7100000-0000-4000-8000-000000000001', 'b7000000-0000-4000-8000-000000000002',
+   'b7300000-0000-4000-8000-000000000002', 'b7200000-0000-4000-8000-000000000001',
+   'b7400000-0000-4000-8000-00000000000e', now() + interval '1 hour');
+insert into public.capture_link_sessions (org_id, consultation_id, patient_id, created_by, token_hash, expires_at) values
+  ('b7100000-0000-4000-8000-000000000001', 'b7300000-0000-4000-8000-000000000002',
+   'b7200000-0000-4000-8000-000000000001', 'b7000000-0000-4000-8000-000000000002',
+   'link-hash-b7', now() + interval '1 hour');
 
 -- A recording row. Its INSERT guards (allowance, consent) belong to the
 -- capture flow, not to what is being tested here: off for the fixture only,
 -- back on before anything is deleted.
 alter table public.recordings disable trigger recordings_allowance_guard;
 alter table public.recordings disable trigger recordings_guard_consent;
-insert into public.recordings (id, org_id, patient_id) values
+insert into public.recordings (id, org_id, patient_id, consent_acceptance_id) values
   ('b7400000-0000-4000-8000-000000000006', 'b7100000-0000-4000-8000-000000000001',
-   'b7200000-0000-4000-8000-000000000001');
+   'b7200000-0000-4000-8000-000000000001', 'b7400000-0000-4000-8000-00000000000e');
 alter table public.recordings enable trigger recordings_allowance_guard;
 alter table public.recordings enable trigger recordings_guard_consent;
 
 insert into public.transcriptions (org_id, mime, status) values
   ('b7100000-0000-4000-8000-000000000001', 'audio/webm', 'ready');
 
-insert into public.consultation_attachments (org_id, consultation_id, patient_id, kind, mime, status) values
+insert into public.consultation_attachments (org_id, consultation_id, patient_id, kind, mime, status, consent_acceptance_id) values
   ('b7100000-0000-4000-8000-000000000001', 'b7300000-0000-4000-8000-000000000002',
-   'b7200000-0000-4000-8000-000000000001', 'document', 'application/pdf', 'ready');
+   'b7200000-0000-4000-8000-000000000001', 'document', 'application/pdf', 'ready',
+   'b7400000-0000-4000-8000-00000000000e');
 
 -- An import whose rows are CLOSED (their guard refuses writes once the batch
 -- finished) — the cascade still has to take them.

@@ -3091,7 +3091,10 @@
     "plan-modality-inactive": "Not in this plan",
     "plan-objective-empty": "Objective not filled in yet.",
     "recorder-processing-consent-hint": "Processing needs the patient's AI consent. Record it in Consents, at the top of the consultation, then process again in Recordings.",
-    "plan-field-required-to-validate": "Required to validate moxibustion."
+    "plan-field-required-to-validate": "Required to validate moxibustion.",
+    "previous-consultation-imported-note": "Imported from another system: the text appears as it was written there and does not fill the fields below.",
+    "previous-consultation-imported-list": "Most recent imported records",
+    "previous-consultation-imported-all": "See the full history in the patient record"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

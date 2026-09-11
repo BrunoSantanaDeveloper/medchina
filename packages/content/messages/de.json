@@ -3091,7 +3091,10 @@
     "plan-modality-inactive": "Nicht in diesem Plan",
     "plan-objective-empty": "Ziel noch nicht ausgefüllt.",
     "recorder-processing-consent-hint": "Die Verarbeitung braucht die KI-Einwilligung der Patientin. Erfassen Sie sie oben unter Einwilligungen und verarbeiten Sie dann erneut unter Aufnahmen.",
-    "plan-field-required-to-validate": "Pflicht für die Validierung der Moxibustion."
+    "plan-field-required-to-validate": "Pflicht für die Validierung der Moxibustion.",
+    "previous-consultation-imported-note": "Aus einem anderen System importiert: Der Text erscheint so, wie er dort geschrieben wurde, und füllt die Felder unten nicht aus.",
+    "previous-consultation-imported-list": "Zuletzt importierte Einträge",
+    "previous-consultation-imported-all": "Vollständigen Verlauf in der Akte ansehen"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

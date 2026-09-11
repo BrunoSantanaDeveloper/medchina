@@ -3091,7 +3091,10 @@
     "plan-modality-inactive": "Fuera de este plan",
     "plan-objective-empty": "Objetivo aún no completado.",
     "recorder-processing-consent-hint": "El procesamiento requiere el consentimiento de IA de la paciente. Regístrelo en Consentimientos, arriba de la consulta, y procese de nuevo en Grabaciones.",
-    "plan-field-required-to-validate": "Obligatorio para validar la moxibustión."
+    "plan-field-required-to-validate": "Obligatorio para validar la moxibustión.",
+    "previous-consultation-imported-note": "Importada de otro sistema: el texto aparece tal como se escribió allí y no rellena los campos de abajo.",
+    "previous-consultation-imported-list": "Registros importados más recientes",
+    "previous-consultation-imported-all": "Ver el historial completo en la ficha"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

@@ -1689,7 +1689,50 @@ export default function ConsultaPage() {
                     continuity of care is visible instead of buried in the
                     previous consultation (PRD §8.3). Purely derived from what
                     she validated last time — no AI, every plan. */}
-                {previous && (
+                {/* An IMPORTED last consultation has no answers to compare, so
+                    the field-by-field view would show nothing and promise values
+                    that never appear. Its original text is the history she has:
+                    the most recent imported records, as written there. */}
+                {previous && previous.importedHistory.length > 0 && (
+                  <Box className="bg-grey-100/60 flex flex-col gap-2 rounded-2xl px-4 py-3">
+                    <Box className="flex flex-col gap-0.5">
+                      <Typography variant="body2" className="text-text-primary text-xs leading-5 font-semibold">
+                        {t("previous-consultation-title", { date: dateLabel(previous.when) })}
+                      </Typography>
+                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                        {t("previous-consultation-imported-note")}
+                      </Typography>
+                    </Box>
+                    <Box
+                      component="ul"
+                      aria-label={t("previous-consultation-imported-list")}
+                      className="m-0 flex list-none flex-col gap-1.5 p-0"
+                    >
+                      {previous.importedHistory.map((record) => (
+                        <Box component="li" key={record.id}>
+                          <Link
+                            href={`/consultas/${record.id}`}
+                            className="bg-background-paper hover:bg-background-paper/70 flex flex-col gap-0.5 rounded-xl px-3 py-2 no-underline"
+                          >
+                            <span className="text-text-secondary text-xs leading-5 tabular-nums">
+                              {dateLabel(record.when)}
+                            </span>
+                            <span className="text-text-primary line-clamp-3 text-sm leading-5 whitespace-pre-wrap">
+                              {record.excerpt}
+                            </span>
+                          </Link>
+                        </Box>
+                      ))}
+                    </Box>
+                    <Link
+                      href={`/pacientes/${consultation.patientId}`}
+                      className="text-secondary-dark dark:text-secondary-light text-xs font-semibold"
+                    >
+                      {t("previous-consultation-imported-all")}
+                    </Link>
+                  </Box>
+                )}
+                {previous && previous.importedHistory.length === 0 && (
                   <Box className="bg-grey-100/60 flex flex-col gap-1 rounded-2xl px-4 py-3">
                     <Typography variant="body2" className="text-text-primary text-xs leading-5 font-semibold">
                       {t("previous-consultation-title", { date: dateLabel(previous.when) })}

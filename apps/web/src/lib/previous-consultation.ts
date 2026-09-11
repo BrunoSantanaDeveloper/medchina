@@ -25,6 +25,14 @@ export type PreviousAnswer = {
   source: string;
 };
 
+/** One consultation imported from another system, as its original text. */
+export type ImportedRecord = {
+  id: string;
+  when: string;
+  excerpt: string;
+  source: string | null;
+};
+
 export interface PreviousConsultation {
   id: string;
   /** When it happened (finalized consultations always have one of these). */
@@ -37,6 +45,13 @@ export interface PreviousConsultation {
    * nothing to compare. Showing the original text is the honest fallback.
    */
   legacyBody: string | null;
+  /**
+   * When the last consultation was imported, the most recent imported records
+   * (newest first, the last one included). An import often lands several
+   * visits on the same day, so "the" previous consultation alone would be an
+   * arbitrary pick among them. Empty when the last consultation was written here.
+   */
+  importedHistory: ImportedRecord[];
   answers: Record<string, PreviousAnswer>;
   /** Patterns she accepted or rewrote — her reading, not the model's draft. */
   patterns: string[];
@@ -54,9 +69,9 @@ export async function loadPreviousConsultation(
   supabase: SupabaseClient,
   input: { patientId: string; excludeConsultationId: string },
 ): Promise<PreviousConsultationResult> {
-  const { data: previous, error } = await supabase
+  const { data: recent, error } = await supabase
     .from("consultations")
-    .select("id, started_at, scheduled_for, created_at, chief_complaint, summary, ai_gaps, legacy_body")
+    .select("id, started_at, scheduled_for, created_at, chief_complaint, summary, ai_gaps, legacy_body, legacy_source")
     .eq("patient_id", input.patientId)
     .eq("status", "finalized")
     .neq("id", input.excludeConsultationId)
@@ -65,9 +80,10 @@ export async function loadPreviousConsultation(
     // import batch and label it with another visit's real date.
     .order("started_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(IMPORTED_HISTORY_LIMIT);
   if (error) return { ok: false, error: error.message };
+  const rows = (recent ?? []) as HistoryRow[];
+  const previous = rows[0];
   if (!previous) return { ok: true, data: null };
 
   const [answersResult, hypothesesResult] = await Promise.all([
@@ -102,11 +118,53 @@ export async function loadPreviousConsultation(
       chiefComplaint: (previous.chief_complaint as string | null) ?? null,
       summary: (previous.summary as string | null) ?? null,
       legacyBody: legacyExcerpt(previous.legacy_body as string | null, 400),
+      importedHistory: pickImportedHistory(rows, Object.keys(answers).length > 0),
       answers,
       patterns: (hypothesesResult.data ?? []).map((row) => row.pattern as string),
       gaps: Array.isArray(previous.ai_gaps) ? (previous.ai_gaps as string[]) : [],
     },
   };
+}
+
+/** How many imported records the return shows beside the chart. */
+export const IMPORTED_HISTORY_LIMIT = 3;
+const IMPORTED_EXCERPT_CHARS = 280;
+
+export type HistoryRow = {
+  id: string;
+  started_at: string | null;
+  scheduled_for: string | null;
+  created_at: string | null;
+  legacy_body: string | null;
+  legacy_source: string | null;
+  [column: string]: unknown;
+};
+
+/**
+ * The imported records to show when the last consultation came from another
+ * system: the unbroken run of imported rows at the top of the history, newest
+ * first. Stops at the first consultation written here, and returns nothing when
+ * the last consultation has answers — then the field-by-field comparison is
+ * the better view and the import is old context.
+ */
+export function pickImportedHistory(rows: HistoryRow[], previousHasAnswers: boolean): ImportedRecord[] {
+  if (previousHasAnswers) return [];
+  const records: ImportedRecord[] = [];
+  for (const row of rows.slice(0, IMPORTED_HISTORY_LIMIT)) {
+    const excerpt = legacyExcerpt(row.legacy_body, IMPORTED_EXCERPT_CHARS);
+    if (!excerpt) break;
+    records.push({
+      id: row.id,
+      when: consultationWhen({
+        startedAt: row.started_at,
+        scheduledFor: row.scheduled_for,
+        createdAt: row.created_at,
+      }) as string,
+      excerpt,
+      source: row.legacy_source ?? null,
+    });
+  }
+  return records;
 }
 
 export type FieldChange = "new" | "changed" | "same" | "missing";

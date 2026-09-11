@@ -163,6 +163,12 @@ function deletionMessage(raw: string): string {
   if (raw.includes("not_authorized")) {
     return "Only a platform superadmin can delete accounts, and never from a support session.";
   }
+  // The deletion is one transaction: a refusal from the database means it
+  // rolled back whole. Say so — a raw constraint name leaves the operator
+  // wondering what is already gone.
+  if (raw.includes("violates foreign key constraint")) {
+    return `The database refused the deletion and rolled it back — nothing was deleted, the account is intact. (${raw})`;
+  }
   return raw;
 }
 
