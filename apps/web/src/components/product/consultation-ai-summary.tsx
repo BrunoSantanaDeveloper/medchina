@@ -94,7 +94,7 @@ export default function ConsultationAiSummary({
         setErrorKey(
           code === "reasoning_not_available"
             ? "ai-summary-pro"
-            : code === "ai_consent_required"
+            : code === "ai_consent_refused"
               ? "ai-summary-consent"
               : code === "nothing_recorded"
                 ? "ai-summary-nothing"

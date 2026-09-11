@@ -1,7 +1,7 @@
 import { recordAudit } from "@/lib/audit";
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 
-const ALLOWED_SLUGS = new Set(["audio-recording", "ai-processing", "clinical-images"]);
+const ALLOWED_SLUGS = new Set(["audio-recording", "ai-processing", "clinical-images", "ai-record-notice"]);
 const ALLOWED_METHODS = new Set(["verbal", "in_person"]);
 type ConsentBody = { granted?: boolean; method?: string; consultationId?: string };
 

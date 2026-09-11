@@ -241,6 +241,7 @@ export const CLINICAL_ERROR_CODES = [
   "patient_unavailable",
   "audio_consent_required",
   "ai_consent_required",
+  "ai_consent_refused",
   "allowance_unavailable",
   "consultation_finalized",
   "consultation_cancelled",
@@ -488,7 +489,13 @@ export interface JourneyFacts {
   recordingStatus: RecordingStatus | null;
   isPrimaryTab: boolean;
   saveFailed: boolean;
-  consents: Fact<{ audio: boolean; ai: boolean; images: boolean }>;
+  /**
+   * `ai` is the ACTIVE authorization, needed to capture: transcribe audio,
+   * analyse an attached image. `aiRefused` is the patient having said NO —
+   * refused on her own device, or revoked. Reasoning over what she TYPED needs
+   * only the absence of that refusal: never having been asked is not a no.
+   */
+  consents: Fact<{ audio: boolean; ai: boolean; images: boolean; aiRefused: boolean }>;
   reasoningEntitled: Fact<boolean>;
   record: {
     /** Non-blank answers that are not rejected, in ANY block — what the routes call "something recorded". */
@@ -515,6 +522,7 @@ export interface JourneyFacts {
  */
 export const JOURNEY_REASONS = [
   "ai_consent_required",
+  "ai_consent_refused",
   "audio_consent_required",
   "nothing_recorded",
   "save_failed",
@@ -658,8 +666,10 @@ export function deriveConsultationJourney(facts: JourneyFacts): ConsultationJour
     if (!facts.isPrimaryTab) return blockedGate("other_tab");
     if (facts.consents.status === "loading") return { state: "loading" };
     if (facts.consents.status === "unavailable") return { state: "unknown" };
-    // Mirrors has_active_consent(..., 'ai-processing') in every AI route.
-    if (!facts.consents.value.ai) return blockedGate("ai_consent_required");
+    // Mirrors patient_refused_ai_reasoning (0102) in the reasoning routes:
+    // reading back the record she typed does not need a second authorization,
+    // but a patient who said no is not overruled by that.
+    if (facts.consents.value.aiRefused) return blockedGate("ai_consent_refused");
     return null;
   };
 
@@ -876,11 +886,10 @@ export function deriveConsultationJourney(facts: JourneyFacts): ConsultationJour
         if (counts.draftFresh > 0) return { key: "decide-hypotheses", count: counts.draftFresh, step: "hypotheses" };
         const total =
           counts.draftFresh + counts.draftStale + counts.acceptedFresh + counts.acceptedStale + counts.rejected;
-        if (total === 0) {
-          if (facts.consents.status === "ready" && !facts.consents.value.ai) {
-            return { key: "consent-for-ai", step: "hypotheses" };
-          }
-          if (prepareHypotheses.state === "available") return { key: "prepare-hypotheses", step: "hypotheses" };
+        if (total === 0 && prepareHypotheses.state === "available") {
+          // No "ask for consent" detour any more: on a typed chart the step is
+          // available, and when she refused, the gate says so where the button is.
+          return { key: "prepare-hypotheses", step: "hypotheses" };
         }
       }
     }

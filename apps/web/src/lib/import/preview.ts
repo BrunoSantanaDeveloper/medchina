@@ -7,6 +7,7 @@ import {
   normalizeNotes,
   normalizePhone,
 } from "./normalize";
+import { readCell } from "./placeholders";
 import type {
   ColumnMapping,
   ExistingPatient,
@@ -194,7 +195,7 @@ export function buildImportPreview({
 
   table.rows.forEach((row, index) => {
     const rowNumber = index + HEADER_ROW_OFFSET;
-    const cell = (position?: number) => (position === undefined ? "" : (row[position] ?? ""));
+    const cell = (position?: number) => (position === undefined ? "" : readCell(row[position]));
 
     const raw: Record<string, string> = {};
     row.forEach((value, position) => {

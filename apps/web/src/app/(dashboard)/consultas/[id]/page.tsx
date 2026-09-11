@@ -134,7 +134,7 @@ type Consultation = {
 type Addendum = { id: string; body: string; reason: string | null; createdAt: string };
 type ConsultationContext = {
   patient: { birthDate: string | null; alerts: { label: string }[] };
-  consents: { audio: boolean; ai: boolean; images: boolean };
+  consents: { audio: boolean; ai: boolean; images: boolean; aiRefused: boolean; aiNotice: boolean };
   recording: {
     id: string;
     status: RecordingStatus;
@@ -1181,7 +1181,12 @@ export default function ConsultaPage() {
       saveFailed: saveSnapshot.state === "error",
       consents:
         contextState === "ready" && context
-          ? factReady({ audio: context.consents.audio, ai: context.consents.ai, images: context.consents.images })
+          ? factReady({
+              audio: context.consents.audio,
+              ai: context.consents.ai,
+              images: context.consents.images,
+              aiRefused: context.consents.aiRefused,
+            })
           : contextState === "failed"
             ? factUnavailable()
             : factLoading(),
@@ -1350,7 +1355,7 @@ export default function ConsultaPage() {
           alerts={context?.patient.alerts ?? []}
           scheduledFor={consultation.scheduledFor ?? consultation.startedAt}
           experience={experience}
-          consents={context?.consents ?? { audio: false, ai: false, images: false }}
+          consents={context?.consents ?? { audio: false, ai: false, images: false, aiRefused: false }}
           // A missing consent is worth asking for only while the record can change.
           consentActionable={Boolean(capabilities?.canEditClinicalRecord)}
           // A failed context fetch leaves `context` null, and the fallbacks

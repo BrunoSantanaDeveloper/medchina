@@ -142,11 +142,11 @@ select ok(
   'the QR link receives a fifteen-minute validity window'
 );
 select ok(
-  (select count(*) = 3 and bool_and(term_title <> '' and term_body <> '' and term_version > 0)
+  (select count(*) = 4 and bool_and(term_title <> '' and term_body <> '' and term_version > 0)
    from public.patient_consent_session_items i
    join public.patient_consent_sessions s on s.id = i.session_id
    where s.client_request_id = '94000000-0000-4000-8000-000000000001'),
-  'creation atomically snapshots all three purposes'
+  'creation atomically snapshots the three purposes and the AI notice (0102)'
 );
 
 set local role authenticated;
@@ -197,9 +197,9 @@ select ok(
   (select payload ->> 'code' = 'pending'
           and payload ->> 'organizationName' = 'QR consent practice'
           and not (payload ? 'patientName')
-          and jsonb_array_length(payload -> 'terms') = 3
+          and jsonb_array_length(payload -> 'terms') = 4
    from qr_test_results where name = 'resolve-c'),
-  'resolution returns three snapshots and minimized organization context'
+  'resolution returns the four snapshots and minimized organization context'
 );
 select is((select payload ->> 'code' from qr_test_results where name = 'invalid-submit-c'), 'invalid_request', 'partial decisions are rejected');
 select ok(
@@ -232,13 +232,17 @@ select ok(
   'completion persists the declared signer and idempotency boundary'
 );
 select ok(
-  (select count(*) = 3
-          and count(*) filter (where decision is true) = 2
-          and count(*) filter (where decision is false) = 1
+  (select count(*) = 4
+          and count(*) filter (where i.slug <> 'ai-record-notice' and decision is true) = 2
+          and count(*) filter (where i.slug <> 'ai-record-notice' and decision is false) = 1
+          -- This submission sends only the three authorizations, as a page that
+          -- predates the ciência does: it is stored as not ticked, never as a
+          -- decision she took (0102).
+          and count(*) filter (where i.slug = 'ai-record-notice' and decision is false) = 1
    from public.patient_consent_session_items i
    join public.patient_consent_sessions s on s.id = i.session_id
    where s.token_hash = repeat('c', 64)),
-  'the three decisions remain independently queryable'
+  'the three decisions remain independently queryable, and the notice records as not ticked'
 );
 select ok(
   (select count(*) = 2

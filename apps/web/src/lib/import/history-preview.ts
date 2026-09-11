@@ -1,4 +1,5 @@
 import { type DateOrder, parseDateValue } from "./dates";
+import { readCell } from "./placeholders";
 import type { ColumnMapping, ExistingPatient, ImportPreview, ParsedTable, RowIssue, StagedRow } from "./types";
 
 import { normalizePatientName } from "@/lib/patients";
@@ -46,7 +47,7 @@ export function buildHistoryPreview({ table, mapping, dateOrder, existing }: His
   const seenExternalRef = new Map<string, number>();
   const rows: StagedRow[] = table.rows.map((row, index) => {
     const rowNumber = index + HEADER_ROW_OFFSET;
-    const cell = (position?: number) => (position === undefined ? "" : (row[position] ?? "").trim());
+    const cell = (position?: number) => (position === undefined ? "" : readCell(row[position]));
 
     const raw: Record<string, string> = {};
     row.forEach((value, position) => {
@@ -108,8 +109,57 @@ export function buildHistoryPreview({ table, mapping, dateOrder, existing }: His
     };
   });
 
+  if (mapping.date !== undefined && assessDatesPerPatient(rows).suspicious) {
+    columnWarnings.push({ code: "history_dates_per_patient", field: "date", header: table.headers[mapping.date] });
+  }
+
   const summary = { create: 0, update: 0, skip: 0, error: 0 };
   for (const row of rows) summary[row.action] += 1;
 
   return { rows, summary, columnWarnings };
+}
+
+/** A patient needs this many records before one date for all of them says anything. */
+const RECORDS_PER_PATIENT = 3;
+
+export type DateShapeVerdict = {
+  /** Patients with enough records to judge. */
+  considered: number;
+  /** Of those, how many have every record on a single date. */
+  singleDate: number;
+  suspicious: boolean;
+};
+
+/**
+ * Whether the mapped column looks like the date of the RECORD or a date the old
+ * system repeats per patient (when the chart was created, when it was exported).
+ *
+ * Read per patient, never per file: a real export has many patients on many
+ * dates, so a file-wide check sees variety and says nothing while every single
+ * patient's history is collapsed onto one day — which is exactly how this was
+ * found. Several patients, each with several records, all on one date each, is
+ * not how a practice works.
+ *
+ * A warning, never a refusal: a small practice really can have one date per
+ * patient, and only she knows which column her old system exported.
+ */
+export function assessDatesPerPatient(rows: StagedRow[]): DateShapeVerdict {
+  const datesByPatient = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const patient = row.normalized.patient_id;
+    const date = row.normalized.date;
+    if (row.action !== "create" || !patient || !date) continue;
+    datesByPatient.set(patient, (datesByPatient.get(patient) ?? new Set<string>()).add(date));
+  }
+
+  let considered = 0;
+  let singleDate = 0;
+  for (const [patient, dates] of datesByPatient) {
+    const records = rows.filter((row) => row.normalized.patient_id === patient && row.normalized.date).length;
+    if (records < RECORDS_PER_PATIENT) continue;
+    considered += 1;
+    if (dates.size === 1) singleDate += 1;
+  }
+
+  return { considered, singleDate, suspicious: considered >= 2 && singleDate === considered };
 }

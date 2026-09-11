@@ -661,7 +661,9 @@ A experiência mobile entra em Modo Consulta e prioriza nome do paciente, indica
 
 - Autorização opcional para gravação de áudio.
 
-- Autorização opcional para transcrição e processamento por IA.
+- Autorização opcional para transcrição de áudio e leitura de imagens por IA (o que COLETA dado novo).
+
+- Ciência, sem autorização, sobre a organização do prontuário com apoio de IA: raciocinar sobre o que a profissional digitou não depende de consentimento — tutela da saúde, com a profissional respondendo pelo resultado —, mas uma recusa ou revogação da paciente é respeitada e interrompe esse processamento.
 
 - Autorização de imagens clínicas, quando utilizada.
 

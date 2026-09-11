@@ -1,4 +1,5 @@
 import { type DateOrder, parseDateValue } from "./dates";
+import { readCell } from "./placeholders";
 import type { ColumnMapping, ExistingPatient, ImportPreview, ParsedTable, RowIssue, StagedRow } from "./types";
 
 import { normalizePatientName } from "@/lib/patients";
@@ -101,7 +102,7 @@ export function buildSchedulePreview({
   const seenExternalRef = new Set<string>();
   const rows: StagedRow[] = table.rows.map((row, index) => {
     const rowNumber = index + HEADER_ROW_OFFSET;
-    const cell = (position?: number) => (position === undefined ? "" : (row[position] ?? "").trim());
+    const cell = (position?: number) => (position === undefined ? "" : readCell(row[position]));
 
     const raw: Record<string, string> = {};
     row.forEach((value, position) => {

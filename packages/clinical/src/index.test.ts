@@ -97,14 +97,14 @@ test("sanitizeInternalNext accepts only same-origin absolute paths", () => {
 
 const NO_HYPOTHESES = { draftFresh: 0, draftStale: 0, acceptedFresh: 0, acceptedStale: 0, rejected: 0 };
 
-/** A Pro workspace, both consents granted, a chart with content and nothing pending. */
+/** A Pro workspace, consents granted, a chart with content and nothing pending. */
 function facts(overrides: Partial<JourneyFacts> = {}): JourneyFacts {
   const base: JourneyFacts = {
     consultationStatus: "in_progress",
     recordingStatus: null,
     isPrimaryTab: true,
     saveFailed: false,
-    consents: factReady({ audio: true, ai: true, images: true }),
+    consents: factReady({ audio: true, ai: true, images: true, aiRefused: false }),
     reasoningEntitled: factReady(true),
     record: {
       recordedAnswerCount: 6,
@@ -132,10 +132,18 @@ test("preparing hypotheses is blocked by the same facts the route checks", () =>
   ).gates.prepareHypotheses;
   assert.deepEqual(empty, { state: "blocked", reason: "nothing_recorded" });
 
-  const noConsent = deriveConsultationJourney(
-    facts({ consents: factReady({ audio: true, ai: false, images: false }) }),
+  // Never asked is not a no: reasoning over a chart she typed needs no second
+  // authorization (0102), so the step stays available.
+  const neverAsked = deriveConsultationJourney(
+    facts({ consents: factReady({ audio: true, ai: false, images: false, aiRefused: false }) }),
   ).gates.prepareHypotheses;
-  assert.deepEqual(noConsent, { state: "blocked", reason: "ai_consent_required" });
+  assert.equal(neverAsked.state, "available");
+
+  // Said no, though, is respected — and named after the server's code.
+  const refused = deriveConsultationJourney(
+    facts({ consents: factReady({ audio: true, ai: false, images: false, aiRefused: true }) }),
+  ).gates.prepareHypotheses;
+  assert.deepEqual(refused, { state: "blocked", reason: "ai_consent_refused" });
 
   const capturing = deriveConsultationJourney(facts({ recordingStatus: "processing" })).gates.prepareHypotheses;
   assert.deepEqual(capturing, { state: "blocked", reason: "capture_in_flight" });
@@ -241,11 +249,13 @@ test("the recommended next action follows the real state of the record", () => {
     deriveConsultationJourney(facts({ hypotheses: factReady({ ...NO_HYPOTHESES, acceptedStale: 1 }) })).next.key,
     "hypotheses-stale",
   );
+  // No consent recorded and nothing prepared: the next action is to prepare,
+  // not to go chase an authorization the step no longer needs.
   assert.equal(
     deriveConsultationJourney(
-      facts({ consents: factReady({ audio: true, ai: false, images: false }) }),
+      facts({ consents: factReady({ audio: true, ai: false, images: false, aiRefused: false }) }),
     ).next.key,
-    "consent-for-ai",
+    "prepare-hypotheses",
   );
   const withDraftPlan = facts({
     hypotheses: factReady({ ...NO_HYPOTHESES, acceptedFresh: 1 }),

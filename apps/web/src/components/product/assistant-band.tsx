@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { Box, Button, Card, CardContent, Typography } from "@mui/material";
 
-import { TONE } from "@/components/marketing/tone";
+import { TILE_TONE, type TileTone } from "@/components/product/tile-tone";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import NiAi from "@/icons/nexture/ni-ai";
@@ -26,7 +26,7 @@ const NEW_PATIENT_HREF = getProductAction("new-patient").href;
 type Suggestion = {
   key: string;
   icon: React.ReactNode;
-  tone: keyof typeof TONE;
+  tone: TileTone;
   href?: string;
   onClick?: () => void;
 };
@@ -68,19 +68,26 @@ export default function AssistantBand({
       ? [
           {
             key: "briefing",
-            icon: <NiCalendarClock />,
+            icon: <NiCalendarClock size="large" />,
             tone: "accent-2" as const,
             onClick: onPrepareBriefing,
           },
         ]
       : []),
     ...(recordHref
-      ? [{ key: "record", icon: <NiMicrophone />, tone: "primary" as const, href: recordHref }]
+      ? [{ key: "record", icon: <NiMicrophone size="large" />, tone: "primary" as const, href: recordHref }]
       : hasPatients
         ? []
-        : [{ key: "first-patient", icon: <NiMicrophone />, tone: "primary" as const, href: NEW_PATIENT_HREF }]),
-    { key: "library", icon: <NiBook />, tone: "accent-4", href: LIBRARY_HREF },
-    { key: "acervo", icon: <NiSearch />, tone: "accent-1", href: ACERVO_HREF },
+        : [
+            {
+              key: "first-patient",
+              icon: <NiMicrophone size="large" />,
+              tone: "primary" as const,
+              href: NEW_PATIENT_HREF,
+            },
+          ]),
+    { key: "library", icon: <NiBook size="large" />, tone: "accent-4", href: LIBRARY_HREF },
+    { key: "acervo", icon: <NiSearch size="large" />, tone: "accent-1", href: ACERVO_HREF },
   ];
 
   // Branch on the NAMED cause, never on the flags (migration 0054): a failed
@@ -95,9 +102,9 @@ export default function AssistantBand({
         <Box className="flex flex-row items-start gap-3">
           <span
             aria-hidden
-            className="bg-primary/10 text-primary flex h-10 w-10 flex-none items-center justify-center rounded-2xl [&_svg]:h-5 [&_svg]:w-5"
+            className="bg-primary-light/10 text-primary flex h-12 w-12 flex-none items-center justify-center rounded-2xl"
           >
-            <NiAi />
+            <NiAi size="large" />
           </span>
           <Box className="min-w-0">
             <Typography variant="h5" component="h2" className="card-title mb-0">
@@ -105,38 +112,42 @@ export default function AssistantBand({
             </Typography>
             {/* The differentiator in one line — and it is the CAPTURE, not the
                 chat: the chat is the easiest part of this product to copy. */}
-            <Typography variant="body2" className="text-text-secondary leading-6">
+            <Typography variant="body1" className="text-text-secondary">
               {hasPatients ? t("assistant-band-body") : t("assistant-band-body-empty")}
             </Typography>
           </Box>
         </Box>
 
-        <Box className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {/* The same tile language as the quick actions and the stats: a tinted
+            rounded-2xl band holding the icon, then the label in body size. */}
+        <Box className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           {suggestions.map((suggestion) => {
-            const toneStyle = TONE[suggestion.tone];
+            const toneStyle = TILE_TONE[suggestion.tone];
             const content = (
-              <CardContent className="flex flex-col items-center gap-1.5 py-3! text-center">
-                <span
+              <>
+                <Box
                   aria-hidden
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl [&_svg]:h-4 [&_svg]:w-4",
-                    toneStyle.softBg,
+                    "flex h-14 w-full flex-none items-center justify-center rounded-2xl",
+                    toneStyle.bg,
                     toneStyle.text,
                   )}
                 >
                   {suggestion.icon}
-                </span>
-                <Typography variant="body2" className="text-text-primary text-xs leading-4 font-medium">
-                  {t(`assistant-suggestion-${suggestion.key}`)}
-                </Typography>
-              </CardContent>
+                </Box>
+                <CardContent className="px-2! py-3! text-center">
+                  <Typography variant="body2" className="text-text-primary leading-5 font-medium">
+                    {t(`assistant-suggestion-${suggestion.key}`)}
+                  </Typography>
+                </CardContent>
+              </>
             );
             return suggestion.href ? (
               <Card
                 key={suggestion.key}
                 component={Link}
                 href={suggestion.href}
-                className="hover:shadow-darker-sm transition-shadow"
+                className="flex flex-col p-1 transition-transform hover:scale-[1.02]"
               >
                 {content}
               </Card>
@@ -146,7 +157,7 @@ export default function AssistantBand({
                 component="button"
                 type="button"
                 onClick={suggestion.onClick}
-                className="hover:shadow-darker-sm cursor-pointer text-left transition-shadow"
+                className="flex cursor-pointer flex-col p-1 text-left transition-transform hover:scale-[1.02]"
               >
                 {content}
               </Card>
@@ -159,7 +170,7 @@ export default function AssistantBand({
             would be two places to disagree about the same allowance. */}
         {paymentBlocked ? (
           <Box className="flex flex-row flex-wrap items-center gap-2">
-            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+            <Typography variant="body2" className="text-text-secondary leading-5">
               {t("assistant-band-past-due")}
             </Typography>
             <Button
@@ -174,7 +185,7 @@ export default function AssistantBand({
           </Box>
         ) : trialInvite ? (
           <Box className="flex flex-row flex-wrap items-center gap-2">
-            <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+            <Typography variant="body2" className="text-text-secondary leading-5">
               {trialParams
                 ? t("assistant-band-trial", { days: trialParams.days, minutes: trialParams.minutes })
                 : t("assistant-band-trial-generic")}

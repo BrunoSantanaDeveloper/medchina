@@ -21,6 +21,7 @@ const STATUS_BY_CODE: Partial<Record<ClinicalErrorCode, number>> = {
   consent_required: 422,
   audio_consent_required: 422,
   ai_consent_required: 422,
+  ai_consent_refused: 422,
   consent_acceptance_mismatch: 409,
   consent_term_missing: 422,
   consent_link_invalid: 410,

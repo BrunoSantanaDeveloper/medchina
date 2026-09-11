@@ -115,4 +115,77 @@ describe("history import preview", () => {
     expect(preview.columnWarnings.map((warning) => warning.code)).toEqual(["date_order_unresolved"]);
     expect(preview.rows[0].action).toBe("error");
   });
+
+  it("reads a written-down absence as no text at all", () => {
+    // "NULL" in the evolution column is not a record — it is the old system
+    // saying there is nothing here.
+    const table = parseSpreadsheet(
+      new TextEncoder().encode(["Código;Paciente;Data;Evolução", "H-9;Ana Prado;02/12/2020;NULL"].join("\n")),
+    );
+    const { mapping } = guessColumnMapping(table.headers, "history");
+    const preview = buildHistoryPreview({ table, mapping, dateOrder: "dmy", existing });
+    expect(preview.rows[0]).toMatchObject({ action: "error", errorCode: "legacy_body_required" });
+  });
+});
+
+function previewOfDates(lines: string[]) {
+  const table = parseSpreadsheet(new TextEncoder().encode(["Código;Paciente;Data;Evolução", ...lines].join("\n")));
+  const { mapping } = guessColumnMapping(table.headers, "history");
+  return buildHistoryPreview({ table, mapping, dateOrder: "dmy", existing });
+}
+
+const codes = (preview: ReturnType<typeof previewOfDates>) => preview.columnWarnings.map((warning) => warning.code);
+
+describe("a date column that is not the date of the visit", () => {
+  it("warns when every patient's whole history lands on one date", () => {
+    // The reported case: each patient's records all carried the same day.
+    const preview = previewOfDates([
+      "H-1;Márcia da Silva;14/03/2019;Lombalgia",
+      "H-2;Márcia da Silva;14/03/2019;Retorno",
+      "H-3;Márcia da Silva;14/03/2019;Retorno 2",
+      "H-4;Ana Prado;02/12/2020;Insônia",
+      "H-5;Ana Prado;02/12/2020;Retorno",
+      "H-6;Ana Prado;02/12/2020;Retorno 2",
+    ]);
+    expect(codes(preview)).toEqual(["history_dates_per_patient"]);
+    // A warning, never a refusal: the records still import.
+    expect(preview.summary).toMatchObject({ create: 6, error: 0 });
+  });
+
+  it("says nothing when a patient's records spread over real dates", () => {
+    expect(
+      codes(
+        previewOfDates([
+          "H-1;Márcia da Silva;14/03/2019;Lombalgia",
+          "H-2;Márcia da Silva;21/03/2019;Retorno",
+          "H-3;Márcia da Silva;28/03/2019;Retorno 2",
+          "H-4;Ana Prado;02/12/2020;Insônia",
+          "H-5;Ana Prado;02/12/2020;Retorno",
+          "H-6;Ana Prado;02/12/2020;Retorno 2",
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("stays quiet on too little evidence — one patient, or two records each", () => {
+    expect(
+      codes(
+        previewOfDates([
+          "H-1;Márcia da Silva;14/03/2019;Lombalgia",
+          "H-2;Márcia da Silva;14/03/2019;Retorno",
+          "H-3;Márcia da Silva;14/03/2019;Retorno 2",
+        ]),
+      ),
+    ).toEqual([]);
+    expect(
+      codes(
+        previewOfDates([
+          "H-1;Márcia da Silva;14/03/2019;Lombalgia",
+          "H-2;Márcia da Silva;14/03/2019;Retorno",
+          "H-4;Ana Prado;02/12/2020;Insônia",
+          "H-5;Ana Prado;02/12/2020;Retorno",
+        ]),
+      ),
+    ).toEqual([]);
+  });
 });

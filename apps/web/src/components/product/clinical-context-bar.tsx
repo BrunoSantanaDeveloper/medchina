@@ -22,7 +22,12 @@ export type ClinicalContextBarProps = {
   scheduledFor: string | null;
   experience: ConsultationExperienceState;
   /** `images` is optional: screens that only care about capture may omit it. */
-  consents: { audio: boolean; ai: boolean; images?: boolean };
+  /**
+   * `aiRefused` and `aiNotice` are not authorizations to chase: the first is
+   * the patient having said no, the second the ciência she was given (0102).
+   * Neither raises the callout — only what gates capture does.
+   */
+  consents: { audio: boolean; ai: boolean; images?: boolean; aiRefused?: boolean; aiNotice?: boolean };
   /**
    * The clinical context could not be loaded — a network failure, not an empty
    * patient. Without this the bar states the FALLBACKS as facts: "sem alertas
@@ -196,6 +201,10 @@ export default function ClinicalContextBar({
         ]),
   ];
   const missingConsents = consentStates.filter((item) => !item.granted).length;
+  // Listed with the rest so she can see it was given, never counted as pending:
+  // a missing ciência blocks nothing, and a chip that nags for it would lie.
+  const noticeLabel = t(consents.aiNotice ? "context-notice-granted" : "context-notice-missing");
+  const consentSummary = [...consentStates.map((item) => item.label), noticeLabel];
   // Audio and AI are the ones that gate the flow (recording, hypotheses, plan,
   // summary). Images only gate photos, so they count on the chip but never
   // raise the callout on their own.
@@ -259,7 +268,7 @@ export default function ClinicalContextBar({
                 {t("context-consents-unavailable")}
               </span>
             ) : (
-              <Tooltip title={consentStates.map((item) => item.label).join(" · ")}>
+              <Tooltip title={consentSummary.join(" · ")}>
                 <Chip
                   size="small"
                   icon={<NiShieldCheck size="tiny" />}
@@ -270,7 +279,7 @@ export default function ClinicalContextBar({
                   }
                   onClick={onManageConsents}
                   clickable={Boolean(onManageConsents)}
-                  aria-label={`${t("context-consents")}: ${consentStates.map((item) => item.label).join(", ")}`}
+                  aria-label={`${t("context-consents")}: ${consentSummary.join(", ")}`}
                   className={cn(
                     "text-xs font-semibold",
                     missingConsents > 0

@@ -22,7 +22,15 @@ import NiCheck from "@/icons/nexture/ni-check";
 import NiRefresh from "@/icons/nexture/ni-refresh";
 import NiShieldCheck from "@/icons/nexture/ni-shield-check";
 
-const CONSENT_SLUGS = ["audio-recording", "ai-processing", "clinical-images"] as const;
+/** The decisions she must take, each one a separate purpose. */
+const AUTHORIZATION_SLUGS = ["audio-recording", "ai-processing", "clinical-images"] as const;
+/**
+ * The ciência is shown with them but is NOT a decision: it authorizes nothing,
+ * so it never holds the button hostage. Not ticking it is recorded as such —
+ * the text was on her screen either way, which is what it is evidence of.
+ */
+const NOTICE_SLUG = "ai-record-notice";
+const CONSENT_SLUGS = [...AUTHORIZATION_SLUGS, NOTICE_SLUG] as const;
 type ConsentSlug = (typeof CONSENT_SLUGS)[number];
 type Decision = boolean | null;
 type SignerRole = "patient" | "legal_representative";
@@ -57,6 +65,7 @@ const emptyDecisions = (): Record<ConsentSlug, Decision> => ({
   "audio-recording": null,
   "ai-processing": null,
   "clinical-images": null,
+  "ai-record-notice": null,
 });
 
 const isConsentSlug = (value: unknown): value is ConsentSlug =>
@@ -136,9 +145,11 @@ export default function PatientConsentForm() {
           typeof term.body === "string" &&
           typeof term.version === "number",
       );
+      // The three authorizations must be there; a link created before the
+      // ciência existed carries only those, and must still open.
       if (
-        normalizedTerms.length !== CONSENT_SLUGS.length ||
-        new Set(normalizedTerms.map((term) => term.slug)).size !== CONSENT_SLUGS.length
+        !AUTHORIZATION_SLUGS.every((slug) => normalizedTerms.some((term) => term.slug === slug)) ||
+        new Set(normalizedTerms.map((term) => term.slug)).size !== normalizedTerms.length
       ) {
         setErrorKey("consent-public-load-error");
         setState("error");
@@ -182,7 +193,7 @@ export default function PatientConsentForm() {
     return () => window.clearInterval(timer);
   }, [expiresAt, state]);
 
-  const allDecided = CONSENT_SLUGS.every((slug) => decisions[slug] !== null);
+  const allDecided = AUTHORIZATION_SLUGS.every((slug) => decisions[slug] !== null);
   const validIdentity = signerName.trim().length > 0 && (signerRole === "patient" || relationship.trim().length > 0);
   const canSubmit = state === "ready" && allDecided && validIdentity && confirmed;
   const busy = state === "submitting";
@@ -199,7 +210,8 @@ export default function PatientConsentForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          decisions,
+          // The ciência travels as a boolean, never as "not answered".
+          decisions: { ...decisions, [NOTICE_SLUG]: decisions[NOTICE_SLUG] === true },
           idempotencyKey: idempotencyKey.current,
           signerRole,
           signerName: signerName.trim(),
@@ -333,6 +345,41 @@ export default function PatientConsentForm() {
       <Box className="flex flex-col gap-4">
         {terms.map((term) => {
           const decision = decisions[term.slug];
+          if (term.slug === NOTICE_SLUG) {
+            return (
+              <FormControl
+                key={term.slug}
+                component="fieldset"
+                className="bg-grey-100/50 rounded-2xl p-4"
+                disabled={busy}
+              >
+                <FormLabel component="legend" className="text-text-primary! text-base! font-semibold!">
+                  {term.title}
+                </FormLabel>
+                <Typography variant="caption" className="text-text-primary mt-1">
+                  {t("consent-public-term-version", { version: term.version })}
+                </Typography>
+                <Typography variant="body2" className="text-text-primary mt-3 leading-6 whitespace-pre-line">
+                  {term.body}
+                </Typography>
+                <FormControlLabel
+                  className="mt-3 min-h-11"
+                  control={
+                    <Checkbox
+                      checked={decision === true}
+                      onChange={(event) =>
+                        setDecisions((current) => ({ ...current, [term.slug]: event.target.checked }))
+                      }
+                    />
+                  }
+                  label={t("consent-public-notice-ack")}
+                />
+                <Typography variant="caption" className="text-text-secondary mt-1">
+                  {t("consent-public-notice-hint")}
+                </Typography>
+              </FormControl>
+            );
+          }
           return (
             <FormControl
               key={term.slug}

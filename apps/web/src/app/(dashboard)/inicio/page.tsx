@@ -2,19 +2,28 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useState } from "react";
 
+import Timeline from "@mui/lab/Timeline";
+import TimelineConnector from "@mui/lab/TimelineConnector";
+import TimelineContent from "@mui/lab/TimelineContent";
+import TimelineDot from "@mui/lab/TimelineDot";
+import TimelineItem from "@mui/lab/TimelineItem";
+import TimelineSeparator from "@mui/lab/TimelineSeparator";
 import { Alert, Box, Breadcrumbs, Button, Card, CardContent, Grid, Skeleton, Typography } from "@mui/material";
 
-import { TONE } from "@/components/marketing/tone";
 import AssistantBand from "@/components/product/assistant-band";
 import AudioUsageCard from "@/components/product/audio-usage-card";
 import ConsultationBriefingDialog from "@/components/product/consultation-briefing-dialog";
+import ConsultationStatusChip from "@/components/product/consultation-status-chip";
 import ConversionOfferCard from "@/components/product/conversion-offer-card";
-import EmptyState from "@/components/product/empty-state";
+import HomeEmptyBanner from "@/components/product/home-empty-banner";
+import { QuickActionTile, StatTile } from "@/components/product/home-tiles";
 import OnboardingChecklistCard from "@/components/product/onboarding-checklist-card";
+import type { TileTone } from "@/components/product/tile-tone";
+import WeekSchedule, { dayKey, type ScheduleItem } from "@/components/product/week-schedule";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { useProfile } from "@/hooks/use-profile";
 import NiBook from "@/icons/nexture/ni-book";
@@ -22,38 +31,60 @@ import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiListCheck from "@/icons/nexture/ni-list-check";
+import NiMicrophone from "@/icons/nexture/ni-microphone";
 import NiUsers from "@/icons/nexture/ni-users";
-import { calendarDayRange, calendarOverdueRange, startAppointment } from "@/lib/agenda";
+import { calendarOverdueRange, calendarUpcomingRange, startAppointment } from "@/lib/agenda";
 import { getProductAction, type ProductActionId } from "@/lib/product-actions";
-import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
-/** Home shortcuts: short tile labels (the command-palette copy is too long for
- * a 4-up grid), href resolved from the shared PRODUCT_ACTIONS registry. */
-const QUICK_ACTIONS: { id: ProductActionId; labelKey: string; icon: React.ReactNode; tone: keyof typeof TONE }[] = [
-  { id: "new-patient", labelKey: "home-quick-new-patient", icon: <NiUsers />, tone: "accent-2" },
-  { id: "new-appointment", labelKey: "home-quick-new-appointment", icon: <NiCalendarClock />, tone: "primary" },
-  { id: "agenda", labelKey: "home-quick-agenda", icon: <NiCalendar />, tone: "accent-1" },
-  { id: "library", labelKey: "home-quick-library", icon: <NiBook />, tone: "accent-4" },
+/** Home shortcuts: short tile label + one-line hint (the command-palette copy
+ * is written for a wide list and gets clamped in a 4-up grid); the href comes
+ * from the shared PRODUCT_ACTIONS registry so the two never disagree. */
+const QUICK_ACTIONS: {
+  id: ProductActionId;
+  labelKey: string;
+  hintKey: string;
+  icon: React.ReactNode;
+  tone: TileTone;
+}[] = [
+  {
+    id: "new-patient",
+    labelKey: "home-quick-new-patient",
+    hintKey: "home-quick-new-patient-hint",
+    icon: <NiUsers size="large" />,
+    tone: "accent-2",
+  },
+  {
+    id: "new-appointment",
+    labelKey: "home-quick-new-appointment",
+    hintKey: "home-quick-new-appointment-hint",
+    icon: <NiCalendarClock size="large" />,
+    tone: "primary",
+  },
+  {
+    id: "agenda",
+    labelKey: "home-quick-agenda",
+    hintKey: "home-quick-agenda-hint",
+    icon: <NiCalendar size="large" />,
+    tone: "accent-1",
+  },
+  {
+    id: "library",
+    labelKey: "home-quick-library",
+    hintKey: "home-quick-library-hint",
+    icon: <NiBook size="large" />,
+    tone: "accent-4",
+  },
 ];
-
-/** Colored status signal reused across every consultation row on Home, so the
- * two lists (in-progress vs recent) read apart without duplicating the label. */
-const STATUS_DOT: Record<string, string> = {
-  scheduled: "bg-accent-2",
-  in_progress: "bg-primary",
-  awaiting_review: "bg-accent-2",
-  draft: "bg-grey-300",
-  finalized: "bg-accent-1",
-};
 
 type HomeConsultation = {
   id: string;
   status: string;
   startedAt: string;
   scheduledFor: string | null;
+  finalizedAt: string | null;
   appointmentNote: string | null;
   patientId: string | null;
   patientName: string;
@@ -62,37 +93,49 @@ type HomeConsultation = {
 type HomeData = {
   patients: number;
   finalized: number;
-  today: HomeConsultation[];
+  /** Scheduled and live visits from today's midnight through the next six days. */
+  week: HomeConsultation[];
   work: HomeConsultation[];
   recent: HomeConsultation[];
   overdue: HomeConsultation[];
 };
 
+type BriefingTarget = { patientId: string; patientName: string; appointmentNote: string | null };
+
+const EMPTY_DATA: HomeData = { patients: 0, finalized: 0, week: [], work: [], recent: [], overdue: [] };
 const WORK_PRIORITY: Record<string, number> = { in_progress: 0, awaiting_review: 1, draft: 2 };
 
+/** The schedule card offers a strip of this many days, today first. */
+const WEEK_DAYS = 7;
 /** How far back the "left behind" check scans for never-started appointments. */
 const OVERDUE_LOOKBACK_DAYS = 60;
 const NEW_PATIENT_HREF = getProductAction("new-patient").href;
 const NEW_APPOINTMENT_HREF = getProductAction("new-appointment").href;
+const AGENDA_HREF = getProductAction("agenda").href;
+const PATIENTS_HREF = getProductAction("patients").href;
 
-/** The Home answers, in order: what happens today, what is unfinished, and
- * what happened recently. Counts stay supporting context instead of taking
- * the prime screen real estate from the practitioner's next action. */
+const consultationDate = (consultation: HomeConsultation) => consultation.scheduledFor ?? consultation.startedAt;
+
+/** The Home answers, in order: what happens this week (today selected), what
+ * is unfinished, and what was finalized recently. Counts stay supporting
+ * context at the bottom instead of taking the prime screen real estate from
+ * the practitioner's next action. */
 export default function Inicio() {
   const t = useTranslations("product");
   const locale = useLocale();
+  const format = useFormatter();
   const router = useRouter();
   const { enqueueSnackbar } = useSnackbar();
   const { displayName } = useProfile();
   const { orgId, timezone, loading: orgLoading, error: orgError, reload: reloadOrg } = useCurrentOrg();
   const [homeState, setHomeState] = useState<RemoteState<HomeData, string>>(() => remoteLoading());
   const [startingId, setStartingId] = useState<string | null>(null);
-  const [briefingFor, setBriefingFor] = useState<HomeConsultation | null>(null);
+  const [briefingFor, setBriefingFor] = useState<BriefingTarget | null>(null);
 
   const load = useCallback(async () => {
     setHomeState(remoteLoading());
     if (!isSupabaseConfigured) {
-      setHomeState(remoteSuccess({ patients: 0, finalized: 0, today: [], work: [], recent: [], overdue: [] }));
+      setHomeState(remoteSuccess(EMPTY_DATA));
       return;
     }
     if (orgLoading) return;
@@ -106,10 +149,10 @@ export default function Inicio() {
     }
 
     const supabase = createClient();
-    const { start, end } = calendarDayRange(new Date(), timezone);
+    const week = calendarUpcomingRange(new Date(), WEEK_DAYS, timezone);
     const overdueRange = calendarOverdueRange(new Date(), OVERDUE_LOOKBACK_DAYS, timezone);
     const consultationFields =
-      "id, status, started_at, scheduled_for, appointment_note, patient_id, patients(full_name)";
+      "id, status, started_at, scheduled_for, finalized_at, appointment_note, patient_id, patients(full_name)";
     const results = await Promise.all([
       supabase
         .from("patients")
@@ -126,10 +169,10 @@ export default function Inicio() {
         .select(consultationFields)
         .eq("org_id", orgId)
         .in("status", ["scheduled", "in_progress"])
-        .gte("scheduled_for", start.toISOString())
-        .lt("scheduled_for", end.toISOString())
+        .gte("scheduled_for", week.start.toISOString())
+        .lt("scheduled_for", week.end.toISOString())
         .order("scheduled_for", { ascending: true })
-        .limit(20),
+        .limit(60),
       supabase
         .from("consultations")
         .select(consultationFields)
@@ -160,12 +203,12 @@ export default function Inicio() {
       return;
     }
 
-    const [patientsResult, finalizedResult, todayResult, workResult, recentResult, overdueResult] = results;
+    const [patientsResult, finalizedResult, weekResult, workResult, recentResult, overdueResult] = results;
 
     if (
       patientsResult.error ||
       finalizedResult.error ||
-      todayResult.error ||
+      weekResult.error ||
       workResult.error ||
       recentResult.error ||
       overdueResult.error
@@ -174,7 +217,7 @@ export default function Inicio() {
       return;
     }
 
-    const mapRows = (rows: typeof todayResult.data): HomeConsultation[] =>
+    const mapRows = (rows: typeof weekResult.data): HomeConsultation[] =>
       (rows ?? []).map((row) => {
         const patient = row.patients as unknown as { full_name: string } | null;
         return {
@@ -182,32 +225,31 @@ export default function Inicio() {
           status: row.status,
           startedAt: row.started_at,
           scheduledFor: row.scheduled_for,
+          finalizedAt: row.finalized_at,
           appointmentNote: row.appointment_note,
           patientId: (row.patient_id as string | null) ?? null,
           patientName: patient?.full_name ?? t("patient-unknown"),
         };
       });
 
-    const today = mapRows(todayResult.data);
-    const todayIds = new Set(today.map((row) => row.id));
+    const weekRows = mapRows(weekResult.data);
+    const weekIds = new Set(weekRows.map((row) => row.id));
     const work = mapRows(workResult.data)
-      .filter((row) => !todayIds.has(row.id))
+      .filter((row) => !weekIds.has(row.id))
       .sort((a, b) => {
         const status = WORK_PRIORITY[a.status] - WORK_PRIORITY[b.status];
         return status || consultationDate(b).localeCompare(consultationDate(a));
       })
       .slice(0, 6);
-    const recent = mapRows(recentResult.data);
-    const overdue = mapRows(overdueResult.data);
 
     setHomeState(
       remoteSuccess({
         patients: patientsResult.count ?? 0,
         finalized: finalizedResult.count ?? 0,
-        today,
+        week: weekRows,
         work,
-        recent,
-        overdue,
+        recent: mapRows(recentResult.data),
+        overdue: mapRows(overdueResult.data),
       }),
     );
   }, [orgError, orgId, orgLoading, t, timezone]);
@@ -216,10 +258,14 @@ export default function Inicio() {
     load();
   }, [load]);
 
-  const startScheduled = async (consultation: HomeConsultation) => {
+  const openConsultation = async (item: Pick<ScheduleItem, "id" | "status">) => {
+    if (item.status !== "scheduled") {
+      router.push(`/consultas/${item.id}`);
+      return;
+    }
     if (!orgId || startingId) return;
-    setStartingId(consultation.id);
-    const result = await startAppointment(createClient(), orgId, consultation.id);
+    setStartingId(item.id);
+    const result = await startAppointment(createClient(), orgId, item.id);
     setStartingId(null);
     if (result.ok && result.consultationId) {
       router.push(`/consultas/${result.consultationId}`);
@@ -237,12 +283,29 @@ export default function Inicio() {
   const greeting = displayName ? t("home-greeting", { name: displayName.split(" ")[0] }) : t("home-greeting-generic");
   const data = homeState.status === "success" ? homeState.data : null;
 
-  // The band's two contextual suggestions, derived from what the home already
-  // loaded — it must not issue queries of its own for a decorative rail.
-  // "Record" points at a consultation that is actually startable today; the
-  // briefing needs a patient, since it is assembled from her record.
-  const nextToRecord = data?.today.find((consultation) => consultation.status === "scheduled") ?? null;
-  const briefingCandidate = data?.today.find((consultation) => consultation.patientId) ?? null;
+  // Today is a slice of the week window, so the band, the stats and the
+  // schedule card all agree on who is next without a second query.
+  const now = new Date();
+  const todayKey = dayKey(now, timezone);
+  const today = (data?.week ?? []).filter(
+    (consultation) => dayKey(new Date(consultationDate(consultation)), timezone) === todayKey,
+  );
+  const nextToRecord = today.find((consultation) => consultation.status === "scheduled") ?? null;
+  const briefingCandidate = today.find((consultation) => consultation.patientId) ?? null;
+  const scheduleItems: ScheduleItem[] = (data?.week ?? []).map((consultation) => ({
+    id: consultation.id,
+    status: consultation.status,
+    at: consultationDate(consultation),
+    patientId: consultation.patientId,
+    patientName: consultation.patientName,
+    note: consultation.appointmentNote,
+  }));
+  // The briefing is assembled from the record, so it needs a patient.
+  const briefingFrom = (item: { patientId: string | null; patientName: string; note: string | null }) => {
+    if (item.patientId) {
+      setBriefingFor({ patientId: item.patientId, patientName: item.patientName, appointmentNote: item.note });
+    }
+  };
 
   return (
     <Grid container spacing={5}>
@@ -269,36 +332,21 @@ export default function Inicio() {
         </Box>
       </Grid>
 
-      <Grid size={12}>
-        <Box className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {QUICK_ACTIONS.map((action) => {
-            const definition = getProductAction(action.id);
-            const toneStyle = TONE[action.tone];
-            return (
-              <Card
-                key={action.id}
-                component={Link}
+      <Grid container size={12} spacing={2.5}>
+        {QUICK_ACTIONS.map((action) => {
+          const definition = getProductAction(action.id);
+          return (
+            <Grid key={action.id} size={{ xs: 12, sm: 6, lg: 3 }}>
+              <QuickActionTile
                 href={definition.href}
-                className="hover:shadow-darker-sm transition-shadow"
-              >
-                <CardContent className="flex flex-col items-center gap-2 py-4! text-center">
-                  <span
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-2xl [&_svg]:h-5 [&_svg]:w-5",
-                      toneStyle.softBg,
-                      toneStyle.text,
-                    )}
-                  >
-                    {action.icon}
-                  </span>
-                  <Typography variant="body2" className="text-text-primary font-medium">
-                    {t(action.labelKey)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Box>
+                icon={action.icon}
+                tone={action.tone}
+                title={t(action.labelKey)}
+                description={t(action.hintKey)}
+              />
+            </Grid>
+          );
+        })}
       </Grid>
 
       {homeState.status === "error" && (
@@ -321,22 +369,16 @@ export default function Inicio() {
           <Skeleton variant="rounded" height={300} className="rounded-3xl" />
         </Grid>
       ) : homeState.status === "empty" ? null : data!.patients === 0 ? (
-        <Grid size={12} className="empty:hidden">
-          <OnboardingChecklistCard
-            fallback={
-              <Card component="section">
-                <CardContent>
-                  <EmptyState
-                    icon={<NiUsers />}
-                    title={t("home-empty-title")}
-                    description={t("home-empty-body")}
-                    action={{ label: t("home-empty-cta"), href: NEW_PATIENT_HREF }}
-                  />
-                </CardContent>
-              </Card>
-            }
-          />
-        </Grid>
+        <>
+          {/* The illustrated card is the zero-data state of the whole home:
+              nothing else here has anything to show before the first patient. */}
+          <Grid size={12}>
+            <HomeEmptyBanner />
+          </Grid>
+          <Grid size={12} className="empty:hidden">
+            <OnboardingChecklistCard />
+          </Grid>
+        </>
       ) : (
         <>
           {data!.overdue.length > 0 && (
@@ -350,21 +392,16 @@ export default function Inicio() {
               >
                 <Box className="flex flex-col gap-2">
                   <Box>
-                    <Typography variant="body2" className="font-semibold">
+                    <Typography variant="subtitle2">
                       {t("home-overdue-title", { count: data!.overdue.length })}
                     </Typography>
-                    <Typography variant="body2" className="text-text-secondary text-xs">
+                    <Typography variant="body2" className="text-text-secondary">
                       {t("home-overdue-body")}
                     </Typography>
                   </Box>
                   {data!.overdue.map((consultation) => {
                     const instant = new Date(consultation.scheduledFor ?? consultation.startedAt);
-                    const dia = new Intl.DateTimeFormat("en-CA", {
-                      timeZone: timezone,
-                      year: "numeric",
-                      month: "2-digit",
-                      day: "2-digit",
-                    }).format(instant);
+                    const dia = dayKey(instant, timezone);
                     return (
                       <Box key={consultation.id} className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1">
                         <Typography variant="body2" className="tabular-nums">
@@ -399,6 +436,7 @@ export default function Inicio() {
               </Alert>
             </Grid>
           )}
+
           {/* What this product does differently, above the day's work but
               deliberately compact — the scannable answer stays in reach.
               See docs/HOME-ASSISTENTE.md for why this is a band, not a chat. */}
@@ -406,131 +444,147 @@ export default function Inicio() {
             <AssistantBand
               hasPatients={data!.patients > 0}
               recordHref={nextToRecord ? `/consultas/${nextToRecord.id}` : undefined}
-              onPrepareBriefing={briefingCandidate ? () => setBriefingFor(briefingCandidate) : undefined}
+              onPrepareBriefing={
+                briefingCandidate
+                  ? () =>
+                      briefingFrom({
+                        patientId: briefingCandidate.patientId,
+                        patientName: briefingCandidate.patientName,
+                        note: briefingCandidate.appointmentNote,
+                      })
+                  : undefined
+              }
             />
-          </Grid>
-
-          <Grid size={12}>
-            <Card component="section">
-              <CardContent className="flex flex-col gap-3">
-                <Box className="flex flex-row flex-wrap items-start justify-between gap-2">
-                  <SectionHeader
-                    icon={<NiCalendar />}
-                    tone="primary"
-                    title={t("home-today-title")}
-                    subtitle={t("home-today-subtitle")}
-                  />
-                  <Button size="small" href="/agenda" LinkComponent={Link}>
-                    {t("home-open-agenda")}
-                  </Button>
-                </Box>
-                {data!.today.length === 0 ? (
-                  <EmptyState
-                    icon={<NiCalendar />}
-                    title={t("home-today-empty-title")}
-                    description={t("home-today-empty-body")}
-                    action={{ label: t("home-schedule-cta"), href: NEW_APPOINTMENT_HREF }}
-                    className="border-none py-8"
-                  />
-                ) : (
-                  <Box className="grid gap-2 lg:grid-cols-2">
-                    {data!.today.map((consultation) => (
-                      <ConsultationRow
-                        key={consultation.id}
-                        consultation={consultation}
-                        locale={locale}
-                        timeZone={timezone}
-                        label={consultation.status === "scheduled" ? t("agenda-start") : t("home-open-draft")}
-                        busy={startingId === consultation.id}
-                        onAction={consultation.status === "scheduled" ? () => startScheduled(consultation) : undefined}
-                        secondary={
-                          consultation.patientId
-                            ? { label: t("briefing-prepare"), onClick: () => setBriefingFor(consultation) }
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
           </Grid>
 
           <Grid size={12} className="empty:hidden">
             <OnboardingChecklistCard />
           </Grid>
 
-          {data!.work.length > 0 && (
-            <Grid size={{ xs: 12, lg: data!.recent.length > 0 ? 7 : 12 }}>
-              <Card component="section" className="h-full">
-                <CardContent className="flex flex-col gap-3">
-                  <SectionHeader
-                    icon={<NiListCheck />}
-                    tone="accent-3"
-                    title={t("home-work-title")}
-                    subtitle={t("home-work-subtitle")}
-                  />
-                  <Box className="flex flex-col gap-1">
-                    {data!.work.map((consultation) => (
-                      <ConsultationRow
-                        key={consultation.id}
-                        consultation={consultation}
-                        locale={locale}
-                        timeZone={timezone}
-                        label={
-                          consultation.status === "awaiting_review" ? t("home-review-draft") : t("home-open-draft")
-                        }
-                      />
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
+          {/* Template layout: the week and the pending work take the wide
+              column; the activity timeline reads down the narrow one. */}
+          <Grid container size={{ xs: 12, lg: data!.recent.length > 0 ? 8 : 12 }} spacing={5}>
+            <Grid size={12}>
+              <WeekSchedule
+                items={scheduleItems}
+                timeZone={timezone}
+                locale={locale}
+                agendaHref={AGENDA_HREF}
+                scheduleHref={NEW_APPOINTMENT_HREF}
+                startingId={startingId}
+                onStart={openConsultation}
+                onBriefing={briefingFrom}
+              />
             </Grid>
-          )}
+
+            {data!.work.length > 0 && (
+              <Grid size={12}>
+                <Card component="section" className="h-full">
+                  <Typography variant="h5" component="h2" className="card-title px-4 pt-4">
+                    {t("home-work-title")}
+                  </Typography>
+                  <CardContent className="pt-0!">
+                    <Box className="flex flex-col gap-4">
+                      {data!.work.map((consultation) => (
+                        <PendingRow
+                          key={consultation.id}
+                          consultation={consultation}
+                          locale={locale}
+                          timeZone={timezone}
+                          label={
+                            consultation.status === "awaiting_review" ? t("home-review-draft") : t("home-open-draft")
+                          }
+                        />
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
+          </Grid>
 
           {data!.recent.length > 0 && (
-            <Grid size={{ xs: 12, lg: data!.work.length > 0 ? 5 : 12 }}>
+            <Grid size={{ xs: 12, lg: 4 }}>
               <Card component="section" className="h-full">
-                <CardContent className="flex flex-col gap-3">
-                  <SectionHeader
-                    icon={<NiCheckSquare />}
-                    tone="accent-1"
-                    title={t("home-recent-title")}
-                    subtitle={t("home-recent-subtitle")}
-                  />
-                  <Box className="flex flex-col gap-1">
-                    {data!.recent.map((consultation) => (
-                      <ConsultationRow
-                        key={consultation.id}
-                        consultation={consultation}
-                        locale={locale}
-                        timeZone={timezone}
-                        label={t("home-open-record")}
-                      />
+                <Typography variant="h5" component="h2" className="card-title px-4 pt-4">
+                  {t("home-recent-title")}
+                </Typography>
+                <CardContent className="pt-0! pr-0!">
+                  {/* The template's activity timeline: "what happened recently"
+                      is a sequence, and the connector says so at a glance. */}
+                  <Timeline className="items-start">
+                    {data!.recent.map((consultation, index) => (
+                      <TimelineItem key={consultation.id}>
+                        <TimelineSeparator>
+                          <TimelineDot variant="outlined" className="border-accent-1!" />
+                          {index < data!.recent.length - 1 && <TimelineConnector />}
+                        </TimelineSeparator>
+                        <TimelineContent>
+                          <Typography variant="subtitle2" className="text-text-primary break-words">
+                            {consultation.patientName}
+                          </Typography>
+                          <Typography variant="body2" className="text-text-secondary line-clamp-1">
+                            <Link href={`/consultas/${consultation.id}`} className="link-text-secondary">
+                              {t("home-open-record")}
+                            </Link>
+                          </Typography>
+                          {/* Secondary, not disabled: "há 3 dias" is information, and
+                              the disabled tone measures 1.6:1 on the card. */}
+                          <Typography variant="body2" className="text-text-secondary">
+                            {format.relativeTime(
+                              new Date(consultation.finalizedAt ?? consultationDate(consultation)),
+                              now,
+                            )}
+                          </Typography>
+                        </TimelineContent>
+                      </TimelineItem>
                     ))}
-                  </Box>
+                  </Timeline>
                 </CardContent>
               </Card>
             </Grid>
           )}
 
-          <Grid size={12}>
-            <Box className="grid gap-4 sm:grid-cols-2">
-              <Metric
-                icon={<NiUsers />}
+          {/* Four real counts, every one of them already loaded above — no
+              extra query, and nothing invented: the PRD forbids unproven
+              metrics, so there is no trend arrow and no percentage here. */}
+          <Grid container size={12} spacing={2.5}>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <StatTile
+                href={AGENDA_HREF}
+                icon={<NiCalendar size="large" />}
+                tone="primary"
+                label={t("home-metric-today")}
+                value={today.length}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <StatTile
+                href={PATIENTS_HREF}
+                icon={<NiListCheck size="large" />}
+                tone="accent-3"
+                label={t("home-metric-pending")}
+                value={data!.work.length}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <StatTile
+                href={PATIENTS_HREF}
+                icon={<NiUsers size="large" />}
                 tone="accent-2"
-                value={data!.patients}
                 label={t("home-metric-patients")}
-                href="/pacientes"
+                value={data!.patients}
               />
-              <Metric
-                icon={<NiCheckSquare />}
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <StatTile
+                href={PATIENTS_HREF}
+                icon={<NiCheckSquare size="large" />}
                 tone="accent-1"
-                value={data!.finalized}
                 label={t("home-metric-finalized")}
-                href="/pacientes"
+                value={data!.finalized}
               />
-            </Box>
+            </Grid>
           </Grid>
         </>
       )}
@@ -541,7 +595,7 @@ export default function Inicio() {
         </Grid>
       )}
 
-      {briefingFor?.patientId && (
+      {briefingFor && (
         <ConsultationBriefingDialog
           open
           onClose={() => setBriefingFor(null)}
@@ -554,123 +608,39 @@ export default function Inicio() {
   );
 }
 
-const consultationDate = (consultation: HomeConsultation) => consultation.scheduledFor ?? consultation.startedAt;
-
-/** Section header: icon in a tinted chip + title/subtitle — the same language
- * as the quick-action tiles and the metric cards, so color carries through
- * the whole page instead of pooling only at the very top and bottom. */
-function SectionHeader({
-  icon,
-  tone,
-  title,
-  subtitle,
-}: {
-  icon: React.ReactNode;
-  tone: keyof typeof TONE;
-  title: string;
-  subtitle?: string;
-}) {
-  const toneStyle = TONE[tone];
-  return (
-    <Box className="flex flex-row items-center gap-3">
-      <span
-        aria-hidden
-        className={cn(
-          "flex h-10 w-10 flex-none items-center justify-center rounded-2xl [&_svg]:h-5 [&_svg]:w-5",
-          toneStyle.softBg,
-          toneStyle.text,
-        )}
-      >
-        {icon}
-      </span>
-      <Box>
-        <Typography variant="h5" component="h2" className="card-title mb-0">
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="body2" className="text-text-secondary">
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
-function Metric({
-  icon,
-  tone,
-  value,
-  label,
-  href,
-}: {
-  icon: React.ReactNode;
-  tone: keyof typeof TONE;
-  value: number;
-  label: string;
-  href: string;
-}) {
-  const toneStyle = TONE[tone];
-  return (
-    <Card component={Link} href={href} className="hover:shadow-darker-sm transition-shadow">
-      <CardContent className="flex flex-row items-center gap-4">
-        <span
-          className={cn(
-            "flex h-12 w-12 flex-none items-center justify-center rounded-2xl [&_svg]:h-6 [&_svg]:w-6",
-            toneStyle.softBg,
-            toneStyle.text,
-          )}
-        >
-          {icon}
-        </span>
-        <Box>
-          <Typography variant="h3" component="p" className="text-text-primary leading-none">
-            {value}
-          </Typography>
-          <Typography variant="body2" className="text-text-secondary">
-            {label}
-          </Typography>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ConsultationRow({
+/** One unfinished record, in the template's schedule-row idiom: a stage icon,
+ * the patient with a named status badge, the when/what line, and the single
+ * action that moves it forward. */
+function PendingRow({
   consultation,
   label,
   locale,
   timeZone,
-  busy = false,
-  onAction,
-  secondary,
 }: {
   consultation: HomeConsultation;
   label: string;
   locale: string;
   timeZone: string;
-  busy?: boolean;
-  onAction?: () => void;
-  /** Optional second affordance (e.g. the pre-consultation briefing). */
-  secondary?: { label: string; onClick: () => void };
 }) {
+  const icon =
+    consultation.status === "in_progress" ? (
+      <NiMicrophone className="text-primary mt-0.5 flex-none" />
+    ) : consultation.status === "awaiting_review" ? (
+      <NiListCheck className="text-accent-3 mt-0.5 flex-none" />
+    ) : (
+      <NiCheckSquare className="text-text-secondary mt-0.5 flex-none" />
+    );
   return (
-    <Box className="hover:bg-grey-25 flex flex-col items-stretch gap-3 rounded-2xl px-3 py-3 transition-colors sm:flex-row sm:items-center sm:py-2.5">
+    <Box className="flex flex-row gap-2.5">
+      {icon}
       <Box className="min-w-0 flex-1">
-        <Typography
-          variant="body1"
-          className="text-text-primary flex items-center gap-2 font-medium break-words sm:truncate"
-        >
-          <span
-            aria-hidden
-            className={cn(
-              "border-background-paper h-2.5 w-2.5 flex-none rounded-full border-2",
-              STATUS_DOT[consultation.status] ?? "bg-grey-300",
-            )}
-          />
-          {consultation.patientName}
-        </Typography>
-        <Typography variant="body2" className="text-text-secondary break-words sm:truncate">
+        <Box className="flex flex-row flex-wrap items-center gap-2">
+          <Typography variant="subtitle2" className="break-words">
+            {consultation.patientName}
+          </Typography>
+          <ConsultationStatusChip status={consultation.status} />
+        </Box>
+        <Typography variant="body2" className="text-text-secondary line-clamp-1">
           {new Intl.DateTimeFormat(locale, {
             dateStyle: "short",
             timeStyle: consultation.scheduledFor ? "short" : undefined,
@@ -679,36 +649,16 @@ function ConsultationRow({
           {consultation.appointmentNote ? ` · ${consultation.appointmentNote}` : ""}
         </Typography>
       </Box>
-      <Box className="flex w-full flex-col gap-2 min-[420px]:flex-row sm:w-auto">
-        {secondary && (
-          <Button size="small" variant="text" color="grey" onClick={secondary.onClick} className="flex-1 sm:flex-none">
-            {secondary.label}
-          </Button>
-        )}
-        {onAction ? (
-          <Button
-            size="small"
-            variant="text"
-            color="primary"
-            onClick={onAction}
-            disabled={busy}
-            className="flex-1 sm:flex-none"
-          >
-            {label}
-          </Button>
-        ) : (
-          <Button
-            size="small"
-            variant="text"
-            color="primary"
-            href={`/consultas/${consultation.id}`}
-            LinkComponent={Link}
-            className="flex-1 sm:flex-none"
-          >
-            {label}
-          </Button>
-        )}
-      </Box>
+      <Button
+        size="small"
+        variant="text"
+        color="primary"
+        href={`/consultas/${consultation.id}`}
+        LinkComponent={Link}
+        className="flex-none self-center"
+      >
+        {label}
+      </Button>
     </Box>
   );
 }

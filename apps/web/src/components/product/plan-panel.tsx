@@ -288,7 +288,7 @@ export default function PlanPanel({
         setActionError(
           code === "reasoning_not_available"
             ? t("plan-not-available")
-            : code === "ai_consent_required"
+            : code === "ai_consent_refused"
               ? t("plan-consent")
               : code === "plan_validated"
                 ? t("plan-already-validated")

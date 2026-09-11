@@ -1,6 +1,14 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
-export const PATIENT_CONSENT_SLUGS = ["audio-recording", "ai-processing", "clinical-images"] as const;
+/** The AUTHORIZATIONS she grants or refuses. All three are always decided. */
+export const PATIENT_AUTHORIZATION_SLUGS = ["audio-recording", "ai-processing", "clinical-images"] as const;
+
+/**
+ * Everything shown on her device. The ciência (0102) is the fourth item and
+ * the only optional one: it authorizes nothing, and a link opened before it
+ * existed — or a page still running the previous version — must keep working.
+ */
+export const PATIENT_CONSENT_SLUGS = [...PATIENT_AUTHORIZATION_SLUGS, "ai-record-notice"] as const;
 
 export type PatientConsentSlug = (typeof PATIENT_CONSENT_SLUGS)[number];
 export type PatientConsentDecisions = Record<PatientConsentSlug, boolean>;
@@ -47,16 +55,18 @@ export function hashPatientConsentToken(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
-/** All three independent purposes must be present, even for "authorize all". */
+/** Every authorization must be decided; the ciência defaults to not ticked. */
 export function parsePatientConsentDecisions(value: unknown): PatientConsentDecisions | null {
   if (!isJsonObject(value) || !hasOnlyKeys(value, PATIENT_CONSENT_SLUGS)) return null;
-  if (Object.keys(value).length !== PATIENT_CONSENT_SLUGS.length) return null;
-  if (!PATIENT_CONSENT_SLUGS.every((slug) => typeof value[slug] === "boolean")) return null;
+  if (!PATIENT_AUTHORIZATION_SLUGS.every((slug) => typeof value[slug] === "boolean")) return null;
+  const notice = value["ai-record-notice"];
+  if (notice !== undefined && typeof notice !== "boolean") return null;
 
   return {
     "audio-recording": value["audio-recording"] as boolean,
     "ai-processing": value["ai-processing"] as boolean,
     "clinical-images": value["clinical-images"] as boolean,
+    "ai-record-notice": notice === true,
   };
 }
 

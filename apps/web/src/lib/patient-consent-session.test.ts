@@ -31,7 +31,14 @@ describe("patient consent session boundaries", () => {
       "clinical-images": false,
     };
 
-    expect(parsePatientConsentDecisions(decisions)).toEqual(decisions);
+    // The ciência is optional and defaults to not ticked: a page that does not
+    // know about it must keep submitting (0102).
+    expect(parsePatientConsentDecisions(decisions)).toEqual({ ...decisions, "ai-record-notice": false });
+    expect(parsePatientConsentDecisions({ ...decisions, "ai-record-notice": true })).toEqual({
+      ...decisions,
+      "ai-record-notice": true,
+    });
+    expect(parsePatientConsentDecisions({ ...decisions, "ai-record-notice": "sim" })).toBeNull();
     expect(parsePatientConsentDecisions({ ...decisions, extra: true })).toBeNull();
     expect(parsePatientConsentDecisions({ "audio-recording": true, "ai-processing": true })).toBeNull();
     expect(parsePatientConsentDecisions({ ...decisions, "clinical-images": "yes" })).toBeNull();

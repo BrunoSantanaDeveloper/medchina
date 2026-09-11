@@ -326,7 +326,7 @@ export default function HypothesesPanel({
         setActionError(
           code === "reasoning_not_available"
             ? t("hypotheses-not-available")
-            : code === "ai_consent_required"
+            : code === "ai_consent_refused"
               ? t("hypotheses-consent")
               : code === "nothing_recorded"
                 ? t("hypotheses-nothing-recorded")

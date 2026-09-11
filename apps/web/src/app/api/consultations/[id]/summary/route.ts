@@ -9,7 +9,8 @@ export const maxDuration = 120;
 
 /**
  * Generate (or refresh) the AI-suggested clinical summary for review. Writes
- * ONLY `ai_summary` — never her `summary`. Pro-gated + ai-processing consent.
+ * ONLY `ai_summary` — never her `summary`. Pro-gated; no consent needed to
+ * reread the record, but a patient who refused AI is respected (0102).
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,12 +33,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const allowance = await getAudioAllowance(supabase, consultation.org_id);
   if (!allowance?.clinicalReasoning) return clinicalError("reasoning_not_available");
 
-  const { data: aiConsent } = await supabase.rpc("has_active_consent", {
+  // Reasoning over what is already in the record does not need a second
+  // authorization: 'ai-processing' authorizes CAPTURING the consultation —
+  // recording her voice, sending the audio out to be transcribed. What this
+  // does need is that the patient has not said NO (refused on her own device
+  // or revoked): patient_refused_ai_reasoning, migration 0102.
+  const { data: aiRefused } = await supabase.rpc("patient_refused_ai_reasoning", {
     target_org: consultation.org_id,
     target_patient: consultation.patient_id,
-    term_slug: "ai-processing",
   });
-  if (!aiConsent) return clinicalError("ai_consent_required");
+  if (aiRefused) return clinicalError("ai_consent_refused");
 
   const { data: answers } = await supabase
     .from("anamnesis_answers")

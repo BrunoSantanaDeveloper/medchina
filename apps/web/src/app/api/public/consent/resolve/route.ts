@@ -6,6 +6,7 @@ import {
   hasSameOrigin,
   isJsonObject,
   isPatientConsentToken,
+  PATIENT_AUTHORIZATION_SLUGS,
   PATIENT_CONSENT_SLUGS,
   readBoundedJsonObject,
   readStringField,
@@ -19,8 +20,13 @@ type PublicConsentTerm = {
   body: string;
 };
 
+/**
+ * The three authorizations must all be there; the ciência may not be, so a link
+ * created before migration 0102 still opens instead of reading as tampered-with.
+ */
 function normalizeTerms(value: unknown): PublicConsentTerm[] | null {
-  if (!Array.isArray(value) || value.length !== PATIENT_CONSENT_SLUGS.length) return null;
+  if (!Array.isArray(value) || value.length < PATIENT_AUTHORIZATION_SLUGS.length) return null;
+  if (value.length > PATIENT_CONSENT_SLUGS.length) return null;
 
   const terms = value.flatMap((entry): PublicConsentTerm[] => {
     if (!isJsonObject(entry)) return [];
@@ -41,9 +47,11 @@ function normalizeTerms(value: unknown): PublicConsentTerm[] | null {
     return [{ slug: slug as PublicConsentTerm["slug"], version, title, body }];
   });
 
-  if (terms.length !== PATIENT_CONSENT_SLUGS.length) return null;
-  if (new Set(terms.map((term) => term.slug)).size !== PATIENT_CONSENT_SLUGS.length) return null;
-  return PATIENT_CONSENT_SLUGS.map((slug) => terms.find((term) => term.slug === slug) as PublicConsentTerm);
+  if (terms.length !== value.length) return null;
+  if (new Set(terms.map((term) => term.slug)).size !== terms.length) return null;
+  if (!PATIENT_AUTHORIZATION_SLUGS.every((slug) => terms.some((term) => term.slug === slug))) return null;
+  // Shown in a fixed order, whatever order the database returned them in.
+  return PATIENT_CONSENT_SLUGS.flatMap((slug) => terms.filter((term) => term.slug === slug));
 }
 
 export async function POST(request: Request) {

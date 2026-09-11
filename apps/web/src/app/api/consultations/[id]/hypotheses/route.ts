@@ -29,16 +29,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const allowance = await getAudioAllowance(supabase, consultation.org_id);
   if (!allowance?.clinicalReasoning) return clinicalError("reasoning_not_available");
 
-  // Sending her record to the model IS AI processing, so the Pro entitlement is
-  // not enough on its own — the same gate the summary and the attachment
-  // analysis have always applied. Without it this route reasoned over the chart
-  // of a patient who had consented to nothing.
-  const { data: aiConsent } = await supabase.rpc("has_active_consent", {
+  // Reasoning over what is already in the record does not need a second
+  // authorization: 'ai-processing' authorizes CAPTURING the consultation —
+  // recording her voice, sending the audio out to be transcribed. What this
+  // does need is that the patient has not said NO (refused on her own device
+  // or revoked): patient_refused_ai_reasoning, migration 0102.
+  const { data: aiRefused } = await supabase.rpc("patient_refused_ai_reasoning", {
     target_org: consultation.org_id,
     target_patient: consultation.patient_id,
-    term_slug: "ai-processing",
   });
-  if (!aiConsent) return clinicalError("ai_consent_required");
+  if (aiRefused) return clinicalError("ai_consent_refused");
 
   // Everything the reasoning is allowed to see, gathered in one round trip.
   // `patient` and the decided hypotheses were previously fetched only by the
