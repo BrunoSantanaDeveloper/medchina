@@ -894,6 +894,70 @@
   object-position: top center;
 }
 
+/*
+  The same window frame, holding a running screencast instead of a still.
+
+  `contain` where the stills use `cover`: a capture may be cropped without
+  losing its point, but cropping a screen recording of the product hides the
+  part of the interface the audience is being shown. The dark ground is there
+  for the frames the letterbox leaves over and for the moment before the first
+  frame decodes - `<video>` paints nothing until then, and on this deck a black
+  rectangle would be the only pure black on screen.
+*/
+.deck-window--video .deck-window-body {
+  /* The clip's own picture aspect, published by the media spec — NOT the file's
+     frame. See `AmbientMedia.aspect`: a screen recording arrives padded into a
+     standard frame, and `cover` against the picture aspect crops that padding
+     away instead of projecting it. */
+  aspect-ratio: var(--shot-aspect, 16 / 9);
+
+  /* The body is a flex item, so its automatic minimum size is its content's
+     min-content height — a 1080-tall video would win over the aspect ratio and
+     the crop above would never happen. Taking the video out of flow (below)
+     removes the content; this removes the floor. */
+  min-height: 0;
+  background: #04211f;
+}
+
+.deck-window--video video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  background: #04211f;
+}
+
+.deck-window--video .deck-video-standby {
+  aspect-ratio: auto;
+  height: 100%;
+}
+
+/*
+  Only ever seen when autoplay was refused. It is a button because at that point
+  the clip genuinely needs a click - not an ornament over a playing video.
+*/
+.deck-window-play {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: rgba(4, 33, 31, 0.42);
+  color: #fff;
+  cursor: pointer;
+}
+
+.deck-window-play svg {
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(8, 103, 97, 0.85);
+  box-sizing: content-box;
+}
+
 .deck-window figcaption {
   padding: 8px 12px;
   border-top: 1px solid var(--line);
@@ -1144,8 +1208,8 @@
   display: grid;
   flex: none;
   place-items: center;
-  width: 74px;
-  height: 74px;
+  width: 174px;
+  height: 174px;
   overflow: hidden;
   border: 2px solid var(--accent);
   border-radius: 20px;
@@ -1589,33 +1653,63 @@
 /* Slide 13 · the motto                                                */
 /* ------------------------------------------------------------------ */
 
-.deck-motto-grid {
+/*
+  The motto reads across the top; underneath it, the problem and the product
+  share one row — the three thieves of attention on the left, the consultation
+  running on the right, in that reading order.
+
+  This slide used to be centred type over three cards. It is the slide where the
+  platform starts being presented, so the platform is now on it, and a
+  screencast needs most of the canvas width to be legible from the back of a
+  congress hall. The cards became a narrow column to give it that width.
+*/
+.deck-motto {
   width: 100%;
-  margin-top: 36px;
-  text-align: left;
+  margin-top: 26px;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: 30px;
+  align-items: center;
 }
 
-.deck-motto-card {
-  position: relative;
+.deck-motto-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-/* The card's index sits big and quiet in the corner, like a chapter number. */
-.deck-motto-card > b {
-  position: absolute;
-  top: 14px;
-  right: 18px;
-  color: var(--line);
-  font-family: "TT Chocolates", sans-serif;
-  font-size: 26px;
-  font-weight: 800;
+/*
+  A row, not a card. Three bordered boxes stacked in one column read as a form;
+  a hairline between rows reads as an enumeration, which is what these are -
+  the three ways a screen steals the practitioner's attention.
+*/
+.deck-motto-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 15px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
-.deck--dark .deck-motto-card > b {
-  color: var(--edge);
+.deck--dark .deck-motto-row {
+  box-shadow: none;
 }
 
-.deck-motto-card .deck-card-icon {
-  margin-bottom: 10px;
+.deck-motto-row .deck-card-icon {
+  flex: none;
+}
+
+.deck-motto-row p {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: var(--t-body);
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 /* ------------------------------------------------------------------ */

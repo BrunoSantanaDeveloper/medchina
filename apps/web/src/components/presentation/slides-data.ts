@@ -61,7 +61,7 @@ export const FOUNDERS: FounderCard[] = [
       pt: "Terapeuta desde 2017 · 25 anos em gestão de marketing e vendas",
       zh: "2017年起执业 · 25年市场与销售管理经验",
     },
-    photo: "/images/palestra/fundadora-debora.webp",
+    photo: "/images/palestra/fundadora-debora.jpg",
     monogram: "DG",
     accent: "primary",
     facts: [
@@ -79,14 +79,17 @@ export const FOUNDERS: FounderCard[] = [
   {
     name: "Bruno Santana",
     role: { pt: "Sócio · Engenharia", zh: "合伙人 · 技术负责人" },
-    line: { pt: "Engenheiro de software com 15 anos de experiência · TriboDEV", zh: "15年经验的软件工程师 · TriboDEV" },
-    photo: "/images/palestra/fundador-bruno.webp",
+    line: {
+      pt: "Engenheiro de software com mais de 15 anos de experiência · Especialista em Inteligencia artificial aplicada",
+      zh: "15年以上经验的软件工程师 · 应用于产品的智能专家",
+    },
+    photo: "/images/palestra/fundador-bruno.jpg",
     monogram: "BS",
     accent: "secondary",
     facts: [
       { pt: "Lidera toda a tecnologia do MedChina", zh: "全面负责 MedChina 的技术研发" },
       { pt: "Arquitetura de IA sob regras clínicas estritas e LGPD", zh: "在严格临床规则与巴西数据保护法下的AI架构" },
-      { pt: "TriboDEV, a casa de desenvolvimento responsável pela plataforma", zh: "TriboDEV：负责平台开发的技术团队" },
+      { pt: "Responsável pelo desenvolvimento da plataforma", zh: "负责平台的开发" },
     ],
   },
 ];
@@ -639,7 +642,7 @@ export const FLOW_STEPS: FlowStep[] = [
       pt: "O que aconteceu na última sessão, quais padrões foram registrados, quais técnicas foram aplicadas, como o paciente respondeu, e quais alertas existem: alergias, medicamentos em uso, contraindicações.",
       zh: "上次诊疗的经过、已记录的证型、施用的技术、患者的反应，以及既有的警示：过敏、在用药物、禁忌症。",
     },
-    image: "/images/medchina-flow-consulta-real.webp",
+    image: "/images/agenda-preparar-atendimento.jpg",
     imageAlt: "Tela do MedChina para preparar a consulta e registrar o consentimento",
     imageFocus: "50% 8%",
   },
@@ -651,7 +654,7 @@ export const FLOW_STEPS: FlowStep[] = [
       pt: "Com o consentimento do paciente registrado, o aplicativo captura o áudio. A profissional não digita: olha nos olhos, escuta, observa e examina, ditando em voz alta o que vê na língua e sente no pulso.",
       zh: "在患者同意已登记的前提下，应用采集诊疗录音。医者无需打字：她注视、倾听、观察、诊察，并口述所见舌象与所感脉象。",
     },
-    image: "/images/medchina-flow-anamnese-real.webp",
+    image: "/images/audio-capta-mobile.jpg",
     imageAlt: "Tela da anamnese estruturada no prontuário MedChina",
     imageFocus: "50% 0%",
   },
@@ -663,7 +666,7 @@ export const FLOW_STEPS: FlowStep[] = [
       pt: "A plataforma transcreve a conversa separando a fala da profissional e a do paciente, e preenche a anamnese: queixa e história; sono, energia, alimentação, digestão; aspectos emocionais; e a avaliação própria da medicina chinesa.",
       zh: "平台转写对话并区分医者与患者的话语，继而填写问诊：主诉与现病史；睡眠、精力、饮食、消化；情志；以及中医自身的辨证内容。",
     },
-    image: "/images/medchina-flow-plano-real.webp",
+    image: "/images/anamnese-automatica.jpg",
     imageAlt: "Tela do MedChina com validação do plano terapêutico",
     // The left half of this capture is an empty panel; crop to the right side.
     imageFocus: "100% 4%",
@@ -1267,32 +1270,6 @@ Em 2026, voltamos com mais recursos e mais tecnologia — justamente no ano em q
 Com isso aprendi ainda mais a respeitar o tempo das coisas.`,
   },
   {
-    key: "testimony-cnaa",
-    block: 6,
-    blockTitle: { pt: "A pausa e o renascimento", zh: "暂停与重生" },
-    timeRange: "22:30–26:00",
-    kicker: { pt: "Depoimento", zh: "证言" },
-    title: { pt: "Uma voz do novo momento brasileiro", zh: "来自巴西新阶段的声音" },
-    tone: "solemn",
-    stageNote: "Vídeo 1 · Alexander Assunção (CNAA), 60–90s, legendado. Após o vídeo, dizer a frase de fecho.",
-    script: `Quero que vocês ouçam agora uma voz importante desse novo momento do Brasil: Alexander Assunção, presidente do Conselho Nacional de Autorregulamentação da Acupuntura.
-
-[Após o vídeo] Esse é o espírito do momento que o Brasil vive. E é nesse momento que o MedChina renasceu.`,
-    media: {
-      kind: "video",
-      label: {
-        pt: "Depoimento · Conselho Nacional de Autorregulamentação da Acupuntura",
-        zh: "证言 · 巴西针灸自律全国委员会",
-      },
-      duration: "60–90s",
-      sourceUrl: "/videos/palestra/depoimento-1-alexander-assuncao.mp4",
-      speaker: { pt: "Alexander da Silveira Assunção", zh: "Alexander da Silveira Assunção" },
-      role: { pt: "Presidente do CNAA", zh: "CNAA 主席" },
-      productionNote:
-        "Vídeo legendado em mandarim, 16:9, 60–90s. Salvar em apps/web/public/videos/palestra/depoimento-1-alexander-assuncao.mp4.",
-    },
-  },
-  {
     key: "motto",
     roteiroSlide: 13,
     block: 7,
@@ -1301,7 +1278,9 @@ Com isso aprendi ainda mais a respeitar o tempo das coisas.`,
     kicker: { pt: "O que rouba a atenção do terapeuta", zh: "什么夺走了医者的专注" },
     title: { pt: "Atenda olhando para o paciente", zh: "目视患者，全心诊疗" },
     subtitle: { pt: "O MedChina organiza o restante", zh: "其余的记录，交给 MedChina" },
-    stageNote: 'Slide 13 · MedChina AI — "Atenda olhando para o paciente. O MedChina organiza o restante."',
+    stageNote:
+      'Slide 13 · MedChina AI — "Atenda olhando para o paciente. O MedChina organiza o restante." O vídeo da consulta ' +
+      "começa sozinho, sem som, e roda em loop à direita: fale por cima, não espere por ele e não o aponte como demonstração.",
     script: `E é nesse novo momento que nasce o MedChina AI.
 
 O MedChina de hoje nasceu de uma pergunta simples: o que rouba a atenção do terapeuta durante a consulta?
@@ -1310,7 +1289,28 @@ O computador. A tela. A digitação.
 
 Enquanto registra, o profissional pode perder contato visual, fragmentar a escuta e levar trabalho para casa.
 
-O MedChina AI foi criado para devolver essa atenção ao paciente.`,
+O MedChina AI foi criado para devolver essa atenção ao paciente.
+
+Deixem-me levar vocês para dentro de uma consulta. É o que está acontecendo nesta tela, em velocidade acelerada.`,
+    media: {
+      kind: "ambient",
+      label: {
+        pt: "Uma consulta registrada no MedChina, em velocidade acelerada",
+        zh: "一次在 MedChina 中完成的诊疗记录，加速播放",
+      },
+      sourceUrl: "/videos/palestra/consulta-acelerada.mp4",
+      // The picture is 1920x879 inside a 1920x1080 file (100px of black baked
+      // in above, 101 below). 872 rather than 879 so the crop clears the band
+      // with a few pixels to spare instead of leaving a dark hairline.
+      aspect: "1920 / 872",
+      caption: {
+        pt: "Consulta registrada na plataforma · velocidade acelerada",
+        zh: "平台中的诊疗记录 · 加速播放",
+      },
+      standby: { pt: "Uma consulta, do áudio à anamnese", zh: "一次诊疗：从录音到问诊" },
+      productionNote:
+        "Loop muto, sem controles, reinicia a cada entrada no slide. Arquivo: apps/web/public/videos/palestra/consulta-acelerada.mp4 (1920×1080 com tarja preta embutida, imagem útil 1920×879, 55s, 17 MB).",
+    },
   },
   {
     key: "flow",
@@ -1395,14 +1395,19 @@ Essa separação é essencial.`,
 
 Mas ninguém explica isso melhor do que quem usa. Ouçam a Hellen.`,
     media: {
-      kind: "video",
+      kind: "testimony",
       label: { pt: "Depoimento · usuária do MedChina", zh: "证言 · MedChina 使用者" },
       duration: "60–90s",
-      sourceUrl: "/videos/palestra/depoimento-2-hellen.mp4",
+      // Served off the site instead of from `public/`: the file is 149 MiB and
+      // GitHub refuses any blob over 100 MiB, so it cannot ship in the repo.
+      // A remote source is NOT probed (see `useAssetAvailable`) and needs the
+      // room to have internet — if the venue does not, this slide falls back to
+      // the composed standby card.
+      sourceUrl: "https://medchinaprontuarios.com.br/depo-hellen.mp4",
       speaker: { pt: "Hellen", zh: "Hellen" },
       role: { pt: "Terapeuta de MTC · usuária do MedChina", zh: "中医治疗师 · MedChina 用户" },
       productionNote:
-        "Vídeo legendado em mandarim, 16:9, 60–90s. Salvar em apps/web/public/videos/palestra/depoimento-2-hellen.mp4.",
+        "Vídeo legendado em mandarim, 16:9, 60–90s. Hospedado em https://medchinaprontuarios.com.br/depo-hellen.mp4 (149 MB, fora do repositório). DEPENDE DE INTERNET na sala: teste o link no wi-fi do evento antes de subir ao palco.",
     },
   },
   {

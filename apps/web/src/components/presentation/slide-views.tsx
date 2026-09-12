@@ -53,8 +53,8 @@ import {
   V1_GALLERY,
   V1_MILESTONES,
 } from "./slides-data";
-import { Bi, DeckLang, GalleryFrame, SlideData } from "./types";
-import { CSSProperties, useEffect, useState } from "react";
+import { AmbientMedia, Bi, DeckLang, GalleryFrame, SlideData } from "./types";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 
 import Logo from "@/components/logo/logo";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
@@ -304,11 +304,24 @@ const ASSET_PROBE_MS = 1500;
  * that cannot answer in a second and a half is not going on a projector.
  */
 function useAssetAvailable(url: string, kind: "image" | "video") {
+  // A source served off this origin is never probed. A cross-origin HEAD needs
+  // CORS headers the host may not send, and a blocked probe is indistinguishable
+  // from a missing file — it would hide a video that is perfectly there. Those
+  // are trusted here and checked by the element's own `error` event instead,
+  // which does work cross-origin. The probe exists for LOCAL files, where the
+  // three failure modes above have no other instrument.
+  const remote = /^https?:\/\//i.test(url);
+
   // Optimistic for images: render at once, retract if the probe says missing.
   // Pessimistic for video: a missing file must never show a black player.
-  const [available, setAvailable] = useState(kind === "image");
+  const [available, setAvailable] = useState(kind === "image" || remote);
 
   useEffect(() => {
+    if (remote) {
+      setAvailable(true);
+      return;
+    }
+
     let settled = false;
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), ASSET_PROBE_MS);
@@ -329,7 +342,7 @@ function useAssetAvailable(url: string, kind: "image" | "video") {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [url, kind]);
+  }, [url, kind, remote]);
 
   return available;
 }
@@ -436,13 +449,18 @@ function WindowShot({
  */
 function VideoBlock({ slide, lang }: ViewProps) {
   const media = slide.media;
-  const available = useAssetAvailable(media?.sourceUrl ?? "", "video");
+  const probed = useAssetAvailable(media?.sourceUrl ?? "", "video");
+  // The only signal left for an off-origin source: the element failed to load
+  // it. On stage that is usually the venue's wi-fi, not a missing file, and
+  // either way the slide owes the room a composed frame rather than a black
+  // rectangle with a broken-media icon in it.
+  const [failed, setFailed] = useState(false);
 
-  if (!media) return null;
+  if (media?.kind !== "testimony") return null;
 
   return (
     <div className="deck-video deck-reveal" style={at(1)}>
-      {!available ? (
+      {!probed || failed ? (
         <div className="deck-video-standby">
           <span className="deck-video-standby-icon">
             <PlayCircle size={40} weight="duotone" aria-hidden="true" />
@@ -451,9 +469,122 @@ function VideoBlock({ slide, lang }: ViewProps) {
           <span>{media.role[lang]}</span>
         </div>
       ) : (
-        <video src={media.sourceUrl} controls playsInline preload="auto" aria-label={media.label[lang]} />
+        <video
+          src={media.sourceUrl}
+          controls
+          playsInline
+          preload="auto"
+          aria-label={media.label[lang]}
+          onError={() => setFailed(true)}
+        />
       )}
     </div>
+  );
+}
+
+/**
+ * Does this machine ask for less movement?
+ *
+ * The CSS kill switch at the bottom of `palestra.css` stops the deck's own
+ * animations, but a looping screencast is not an animation CSS can stop - and
+ * it is exactly the kind of motion the preference is about. Read once, at
+ * mount: the projector's setting does not change mid-talk, and re-rendering a
+ * playing `<video>` on a media-query event would restart it.
+ */
+function usePrefersCalm() {
+  const [calm, setCalm] = useState(false);
+
+  useEffect(() => {
+    setCalm(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
+
+  return calm;
+}
+
+/**
+ * The product, running behind the narration.
+ *
+ * Not the testimony player above, and the difference is the whole point: this
+ * one has no controls, no sound and no end - it starts itself when the slide
+ * arrives, loops until she moves on, and never becomes the thing the room is
+ * waiting for. Only the current slide is mounted, so entering the slide starts
+ * it and leaving stops it; there is no hidden video playing three slides away.
+ *
+ * Three things it refuses to fake:
+ *
+ * - **the speed is projected**, because a consultation replayed at speed with
+ *   no word about it claims a pace the product does not have;
+ * - **a blocked autoplay says so** with a play affordance, instead of standing
+ *   frozen on frame one and leaving her to wonder why nothing moves;
+ * - **`prefers-reduced-motion` is honoured** by handing her the controls rather
+ *   than by hiding the clip - on a machine that asked for less movement a loop
+ *   she did not start is the wrong default, and an empty frame is worse.
+ */
+function AmbientShot({ media, lang, index }: { media: AmbientMedia; lang: DeckLang; index: number }) {
+  const available = useAssetAvailable(media.sourceUrl, "video");
+  const calm = usePrefersCalm();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!element || calm) return;
+
+    // Muted autoplay is allowed everywhere this deck can run, but a policy or
+    // an extension can still refuse it. `play()` is the only honest test.
+    const attempt = element.play();
+    if (!attempt) return;
+    attempt.then(() => setBlocked(false)).catch(() => setBlocked(true));
+  }, [available, calm]);
+
+  return (
+    <figure
+      className="deck-window deck-window--video deck-reveal"
+      style={{ ...at(index), "--shot-aspect": media.aspect } as CSSProperties}
+    >
+      <span className="deck-window-bar" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+      <div className="deck-window-body">
+        {available ? (
+          <video
+            ref={videoRef}
+            src={media.sourceUrl}
+            muted
+            loop={!calm}
+            controls={calm}
+            playsInline
+            preload="auto"
+            aria-label={media.label[lang]}
+          />
+        ) : (
+          <div className="deck-video-standby">
+            <span className="deck-video-standby-icon">
+              <PlayCircle size={34} weight="duotone" aria-hidden="true" />
+            </span>
+            <strong>{media.standby[lang]}</strong>
+          </div>
+        )}
+        {available && blocked && (
+          <button
+            className="deck-window-play"
+            type="button"
+            onClick={() => {
+              void videoRef.current?.play();
+              setBlocked(false);
+            }}
+            aria-label={media.label[lang]}
+          >
+            <Play size={26} weight="fill" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+      <figcaption>
+        <span>{media.caption[lang]}</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -495,7 +626,7 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
             </div>
             <div>
               <span>{pt ? "Plataforma" : "研发团队"}</span>
-              <strong>MedChina · TriboDEV</strong>
+              <strong>MedChina</strong>
               <small>
                 {pt ? "Prontuário e apoio ao raciocínio clínico para MTC" : "面向中医的电子病历与临床推理辅助平台"}
               </small>
@@ -914,9 +1045,17 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
       );
 
     /* ---------------------------------------------------------- */
+    /*
+      The slide where the platform starts being presented - so the platform is
+      on it, running. The motto and the three thieves of attention make the
+      claim on the left; a consultation plays itself out on the right while she
+      says it. The clip is scenery, not a demo: she never turns to it, and the
+      three numbered cards became a list so the frame could be big enough to
+      read from the back of the hall.
+    */
     case "motto":
       return (
-        <div className="deck-slide-inner deck-slide-inner--center">
+        <div className="deck-slide-inner">
           <span className="deck-eyebrow deck-reveal" style={at(0)}>
             {slide.kicker[lang]}
           </span>
@@ -924,19 +1063,22 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
             {MOTTO[lang]}
             <em>{MOTTO_EM[lang]}</em>
           </h2>
-          <div className="deck-grid deck-grid--3 deck-motto-grid">
-            {ATTENTION_THIEVES.map((item, index) => {
-              const ThiefIcon = [Eye, Ear, MoonStars][index];
-              return (
-                <article className="deck-card deck-motto-card deck-reveal" key={item.pt} style={at(index + 2)}>
-                  <span className="deck-card-icon">
-                    <ThiefIcon size={22} weight="duotone" aria-hidden="true" />
-                  </span>
-                  <b>{String(index + 1).padStart(2, "0")}</b>
-                  <p>{item[lang]}</p>
-                </article>
-              );
-            })}
+          {/* Problem on the left, product on the right, in that reading order. */}
+          <div className="deck-grid deck-motto">
+            <ul className="deck-motto-list">
+              {ATTENTION_THIEVES.map((item, index) => {
+                const ThiefIcon = [Eye, Ear, MoonStars][index];
+                return (
+                  <li className="deck-motto-row deck-reveal" key={item.pt} style={at(index + 3)}>
+                    <span className="deck-card-icon">
+                      <ThiefIcon size={20} weight="duotone" aria-hidden="true" />
+                    </span>
+                    <p>{item[lang]}</p>
+                  </li>
+                );
+              })}
+            </ul>
+            {slide.media?.kind === "ambient" && <AmbientShot media={slide.media} lang={lang} index={2} />}
           </div>
         </div>
       );

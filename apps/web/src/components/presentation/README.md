@@ -13,7 +13,7 @@ sentence that is not there will not be said on stage.
 | File                              | What it holds                                                                     |
 | --------------------------------- | --------------------------------------------------------------------------------- |
 | `types.ts`                        | `Bi` (a pt/zh pair), `DeckLang`, `SlideData`                                      |
-| `slides-data.ts`                  | All content: the 24 steps plus the per-slide payloads (timeline, stats, columns…) |
+| `slides-data.ts`                  | All content: the 22 steps plus the per-slide payloads (timeline, stats, columns…) |
 | `slide-views.tsx`                 | One view per step, composed from the deck's class vocabulary                      |
 | `slide-deck.tsx`                  | The shell: canvas scaling, keyboard, timer, presenter window, overlays            |
 | `deck-sync.ts`                    | Cross-device sync: transport choice, room code, connect/publish                   |
@@ -96,6 +96,49 @@ Practical notes for the day:
 - The phone holds a **Wake Lock** so the screen does not sleep mid-block, and
   re-acquires it after every tab switch (browsers drop it silently).
 
+## Video: two kinds, and they behave differently
+
+`SlideMediaSpec` is a union, because on stage a video is one of two things.
+
+A **testimony** (`kind: "testimony"`) is watched: a speaker, a running time,
+controls, and Debora stops talking until it ends. That is Hellen's depoimento in
+Bloco 7 — the only one left in the deck.
+
+An **ambient** clip (`kind: "ambient"`) is not watched, it runs. The slide where
+she starts presenting the platform (roteiro 13, "Atenda olhando para o
+paciente") carries a screencast of a real consultation, muted, looping, without
+controls, while she delivers the motto over it. Only the current slide is mounted, so entering the slide starts the
+clip and leaving it stops it; there is no video playing three slides away, and
+coming back starts it over.
+
+Three things it will not fake:
+
+- **the speed is on the slide.** The clip is sped up, and a consultation
+  replayed at speed with no word about it claims a pace the product does not
+  have. `caption` says so in the projected language, and the teleprompter line
+  says it out loud.
+- **a blocked autoplay says so.** Muted autoplay is allowed everywhere this
+  deck runs, but a policy or an extension can still refuse it; `play()` is the
+  only honest test, and a refusal renders a play affordance instead of standing
+  frozen on frame one.
+- **`prefers-reduced-motion` is honoured** by handing her the controls — not by
+  hiding the clip. On a machine that asked for less movement a loop she did not
+  start is the wrong default, and an empty frame is worse. If the projector
+  laptop has that setting on, that slide shows the first frame with controls and
+  she presses play.
+
+`aspect` on the spec is the geometry of the PICTURE, not of the file: a screen
+recording usually arrives padded into a standard frame (this one is 1920×1080
+around a 1920×879 window, with a 100px black band baked in above and below).
+The window body is framed on the picture and `object-fit: cover` crops the
+padding away, because a projected slide showing someone else's letterbox reads
+as a mistake — and it would be the only pure black on screen.
+
+**`/videos` is skipped by the middleware** (`src/middleware.ts`), the same way
+`/images` is. Without that line every `<video>` on this deck answered a 307 to
+`/auth/sign-in`: a file under `public/` has no session to refresh, and the deck
+is meant to be openable with nobody signed in.
+
 ## Charts
 
 Three, each picked by what the data has to do — and stopping there. The other
@@ -127,20 +170,37 @@ against the deck surface:
 Coral marks the 6,8% as _emphasis within one series_, never as a second
 category, and values wear text tokens rather than the bar colour.
 
-## Assets to drop before the talk
+## Assets
 
-Everything below degrades to a composed placeholder, so the deck is presentable
-without any of it. Availability is decided by probing the URL with a deadline,
-because `next dev` answers a missing file with 200 and an HTML body and the
-media `error` event never fires.
+`public/videos/palestra/consulta-acelerada.mp4` (1920×1080, 55s, 17 MB) is the
+only media that SHIPS with the deck — the accelerated consultation on slide 15.
+It is committed on purpose: the slide is built around it, and an asset that has
+to be remembered on the day is an asset that will be missing.
 
-| Path                                                                   | Slide          |
-| ---------------------------------------------------------------------- | -------------- |
-| `public/videos/palestra/depoimento-1-alexander-assuncao.mp4`           | Bloco 6 · CNAA |
-| `public/videos/palestra/depoimento-2-hellen.mp4`                       | Bloco 7 · user |
-| `public/images/palestra/fundadora-debora.webp`                         | Slide 2        |
-| `public/images/palestra/fundador-bruno.webp`                           | Slide 2        |
-| `public/images/palestra/v1-{cadastro,agenda,anamnese,financeiro}.webp` | Slide 11       |
+Everything below is dropped in before the talk and degrades to a composed
+placeholder until then, so the deck is presentable without any of it.
+Availability is decided by probing the URL with a deadline, because `next dev`
+answers a missing file with 200 and an HTML body and the media `error` event
+never fires.
+
+| Path                                                                   | Slide    |
+| ---------------------------------------------------------------------- | -------- |
+| `public/images/palestra/v1-{cadastro,agenda,anamnese,financeiro}.webp` | Slide 11 |
+
+**Hellen's testimony is served off the site**, not from `public/`:
+`https://medchinaprontuarios.com.br/depo-hellen.mp4`. The file is 149 MiB and
+GitHub refuses any blob over 100 MiB, so it cannot live in the repo — the local
+copy is gitignored. Two consequences:
+
+- **it needs internet in the room.** Everything else on this deck runs from the
+  laptop; this one slide does not. Open the URL on the venue's wi-fi before
+  going on stage, and remember the recommended setup (the phone's hotspot) is
+  what makes it work when the guest network does not.
+- **a remote source is not probed.** `useAssetAvailable` only HEAD-probes local
+  files: a cross-origin probe needs CORS headers the host may not send, and a
+  blocked probe cannot be told apart from a missing file, which would hide a
+  video that is perfectly there. Off-origin sources render straight away and
+  fall back to the composed standby card on the element's `error` event.
 
 `public/images/palestra/qr-medchina.svg` is a real, scannable QR for
 `medchinaprontuarios.com.br` — regenerate it if the domain changes.
@@ -152,3 +212,7 @@ media `error` event never fires.
   production and update `PLATFORM_STATS`.
 - **The domain and e-mail** on the closing slide (`CONTACT` in `slides-data.ts`)
   — the repo has no committed `NEXT_PUBLIC_SITE_URL`.
+- **Watch the consultation clip through once on the venue's projector.** It is a real
+  recording of a real consultation: the interface in it is in Portuguese (the
+  product has no Chinese locale), and the patient data in it is whatever was on
+  screen when it was recorded. Both are hers to accept or to re-record.

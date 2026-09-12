@@ -28,20 +28,60 @@ export interface Bi {
 }
 
 /**
- * Media the deck expects but does not ship. Drop the file at `sourceUrl` and it
- * plays / renders; without the file the slide degrades to a composed card that
- * still looks deliberate on stage. Production instructions stay in the speaker
- * notes — a projected slide never confesses that it is a placeholder.
+ * Media a slide carries. Drop the file at `sourceUrl` and it plays; without the
+ * file the slide degrades to a composed card that still looks deliberate on
+ * stage. Production instructions stay in the speaker notes — a projected slide
+ * never confesses that it is a placeholder.
+ *
+ * Two kinds, because on stage they are two different objects:
+ *
+ * - a **testimony** is WATCHED. It has a speaker, a running time and controls;
+ *   the room goes quiet and Debora stops talking until it ends.
+ * - an **ambient** clip is not watched, it RUNS. Muted, looping, no controls,
+ *   underneath her narration — the accelerated consultation on slide 13 is the
+ *   scenery for what she is saying, not an item on the programme.
  */
-export interface SlideMediaSpec {
-  kind: "video";
+export type SlideMediaSpec = TestimonyMedia | AmbientMedia;
+
+/** A person speaking to the room. Played deliberately, with controls. */
+export interface TestimonyMedia {
+  kind: "testimony";
   label: Bi;
   duration?: string;
-  /** Local file, e.g. `/videos/palestra/depoimento-1.mp4`. */
+  /** Local file, or an absolute URL when the file is too big to ship. */
   sourceUrl: string;
   /** Shown on the fallback card when the file is not there yet. */
   speaker: Bi;
   role: Bi;
+  /** Speaker notes only. Never rendered on the slide. */
+  productionNote: string;
+}
+
+/** A screencast of the product, running while she talks over it. */
+export interface AmbientMedia {
+  kind: "ambient";
+  label: Bi;
+  /** Local file, e.g. `/videos/palestra/consulta-acelerada.mp4`. */
+  sourceUrl: string;
+  /**
+   * Aspect ratio of the PICTURE inside the file, as a CSS `aspect-ratio`.
+   *
+   * A screen recording usually arrives padded into a standard frame — this one
+   * is a 1920x1080 file whose picture is a 1920x879 window with a black band
+   * baked in above and below it. Framing the window on the picture and letting
+   * `object-fit: cover` fill it crops those bands away; without this the deck
+   * projects someone else's letterbox, which on a slide reads as a mistake and
+   * would be the only pure black on screen.
+   */
+  aspect: string;
+  /**
+   * Projected under the frame, and NOT decoration: the clip is sped up, so a
+   * consultation replayed at speed without saying so claims a pace the product
+   * does not have.
+   */
+  caption: Bi;
+  /** Shown on the fallback card when the file is not there yet. */
+  standby: Bi;
   /** Speaker notes only. Never rendered on the slide. */
   productionNote: string;
 }

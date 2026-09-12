@@ -225,6 +225,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Skip static assets and image optimization; run everywhere else.
-    "/((?!_next/static|_next/image|favicon|images|initial-loader|assets|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
+    // `videos` belongs here for the same reason `images` does: a file under
+    // `public/` has no session to refresh, and without it every <video> on a
+    // public page (the congress deck) answered a 307 to /auth/sign-in.
+    "/((?!_next/static|_next/image|favicon|images|videos|initial-loader|assets|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
   ],
 };

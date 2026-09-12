@@ -16,17 +16,17 @@ As marcações entre colchetes são instruções de palco, não são para ler em
 
 **Quadro de tempos**
 
-| Bloco | Tempo | Conteúdo |
-| :---- | :---- | :---- |
-| 1 | 0:00–3:00 | Abertura e apresentação |
-| 2 | 3:00–9:00 | Dois séculos de agulhas no Brasil |
-| 3 | 9:00–13:00 | A lei que esperamos por 22 anos |
-| 4 | 13:00–16:00 | O paciente brasileiro e o terapeuta brasileiro |
-| 5 | 16:00–22:30 | Como tudo começou: do papel ao MedChina |
-| 6 | 22:30–26:00 | A pausa e o renascimento |
-| 7 | 26:00–34:30 | O MedChina hoje: o prontuário que escuta |
-| 8 | 34:30–37:00 | Tecnologia que respeita a tradição |
-| 9 | 37:00–40:00 | A ponte Brasil–China e encerramento |
+| Bloco | Tempo        | Conteúdo                                      |
+| :---- | :----------- | :--------------------------------------------- |
+| 1     | 0:00–3:00   | Abertura e apresentação                      |
+| 2     | 3:00–9:00   | Dois séculos de agulhas no Brasil             |
+| 3     | 9:00–13:00  | A lei que esperamos por 22 anos                |
+| 4     | 13:00–16:00 | O paciente brasileiro e o terapeuta brasileiro |
+| 5     | 16:00–22:30 | Como tudo começou: do papel ao MedChina       |
+| 6     | 22:30–26:00 | A pausa e o renascimento                       |
+| 7     | 26:00–34:30 | O MedChina hoje: o prontuário que escuta      |
+| 8     | 34:30–37:00 | Tecnologia que respeita a tradição           |
+| 9     | 37:00–40:00 | A ponte Brasil–China e encerramento           |
 
 **BLOCO 1 · 0:00–3:00 · Abertura e apresentação**
 
@@ -40,7 +40,7 @@ Eu atravessei o mundo para chegar até aqui. São quase 15 mil quilômetros entr
 
 Meu nome é Debora Giovanella. Sou terapeuta desde 2017\. Antes disso, trabalhei 25 anos com gestão de marketing e vendas, como empreendedora. Em 2020 organizei o primeiro Congresso de Práticas da Sabedoria Milenar do Brasil, totalmente online, e hoje sou fundadora do MedChina, uma plataforma de prontuário eletrônico e gestão criada exclusivamente para os profissionais de medicina chinesa do meu país.
 
-Não construí isso sozinha. Meu sócio, Bruno Santana, é engenheiro de software com 15 anos de experiência e lidera toda a tecnologia do MedChina à frente da TriboDEV, a casa de desenvolvimento responsável pela plataforma. Ele representa uma parte desta história que vocês vão ouvir bastante hoje: o encontro entre a sabedoria milenar e a engenharia moderna.
+Não construí isso sozinha. Meu sócio, Bruno Santana, é engenheiro de software com 15 anos de experiência e lidera toda a tecnologia do MedChina, a casa de desenvolvimento responsável pela plataforma. Ele representa uma parte desta história que vocês vão ouvir bastante hoje: o encontro entre a sabedoria milenar e a engenharia moderna.
 
 **\[SLIDE 2 · Foto dos fundadores \+ logo MedChina\]**
 
@@ -326,14 +326,13 @@ Obrigada. Xièxie.
 
 **Checklist de produção (preparar antes da palestra)**
 
-| Item | O que preparar |
-| :---- | :---- |
-| Slides 1–20 | Conforme marcações no roteiro |
-| Telas da versão inicial (2021) | 3 ou 4 capturas: cadastro, agenda, anamnese, financeiro |
-| Imagens do sistema atual | Anamnese preenchida com origem do áudio, hipóteses de padrões, plano terapêutico |
-| Vídeo 1 | Depoimento Alexander Assunção (CNAA), 60–90s, legendado |
-| Vídeo 2 | Depoimento Hellen (usuária), 60–90s, legendado |
-| Vídeo 3 | Depoimento Prof. Francisco (Instituto Confúcio), 60–90s, legendado |
-| Números atuais | Preencher no Bloco 5: total de inscritos, usuários ativos, atendimentos registrados |
-| Tradução | Confirmar se simultânea ou consecutiva (ver nota no início) |
-
+| Item                            | O que preparar                                                                       |
+| :------------------------------ | :----------------------------------------------------------------------------------- |
+| Slides 1–20                    | Conforme marcações no roteiro                                                      |
+| Telas da versão inicial (2021) | 3 ou 4 capturas: cadastro, agenda, anamnese, financeiro                              |
+| Imagens do sistema atual        | Anamnese preenchida com origem do áudio, hipóteses de padrões, plano terapêutico |
+| Vídeo 1                        | Depoimento Alexander Assunção (CNAA), 60–90s, legendado                           |
+| Vídeo 2                        | Depoimento Hellen (usuária), 60–90s, legendado                                     |
+| Vídeo 3                        | Depoimento Prof. Francisco (Instituto Confúcio), 60–90s, legendado                 |
+| Números atuais                 | Preencher no Bloco 5: total de inscritos, usuários ativos, atendimentos registrados |
+| Tradução                      | Confirmar se simultânea ou consecutiva (ver nota no início)                        |

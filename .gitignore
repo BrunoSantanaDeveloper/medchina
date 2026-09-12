@@ -57,3 +57,7 @@ next-env.d.ts
 .claude/settings.local.json
 
 .vercel
+
+# The Hellen testimony (149 MiB) is served off the site instead — GitHub
+# refuses any blob over 100 MiB. See components/presentation/README.md.
+/apps/web/public/videos/palestra/depo-hellen.mp4
