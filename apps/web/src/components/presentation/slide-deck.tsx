@@ -109,6 +109,32 @@ function slideLabel(slide: SlideData) {
   return slide.roteiroSlide ? `Slide ${slide.roteiroSlide}` : slide.kicker.pt;
 }
 
+/**
+ * How long the TALK is, and where she stands in it.
+ *
+ * The annex sits in the same deck but is not part of the forty minutes, so it
+ * is counted separately: a progress bar that reads 81% at the closing line
+ * would be telling the room there is a fifth of the talk still to come, right
+ * at the moment the talk is supposed to land.
+ */
+const TALK_SLIDES = SLIDES_DATA.filter((slide) => !slide.annex);
+const ANNEX_SLIDES = SLIDES_DATA.filter((slide) => slide.annex);
+
+/** "07 / 23" inside the talk; "Anexo 2 / 4" past its end. */
+function position(index: number) {
+  const slide = SLIDES_DATA[index];
+  if (slide.annex) {
+    const place = ANNEX_SLIDES.indexOf(slide) + 1;
+    return { label: `Anexo ${place} / ${ANNEX_SLIDES.length}`, share: 1, step: TALK_SLIDES.length };
+  }
+  const place = TALK_SLIDES.indexOf(slide) + 1;
+  return {
+    label: `${String(place).padStart(2, "0")} / ${TALK_SLIDES.length}`,
+    share: place / TALK_SLIDES.length,
+    step: place,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Shared state, across both windows                                   */
 /* ------------------------------------------------------------------ */
@@ -282,11 +308,17 @@ function PresenterView({
           {formatClock(ms)}
           <small>/ {TOTAL_MINUTES}:00</small>
         </span>
-        <span className={`presenter-pace presenter-pace--${standing}`}>
-          Bloco {slide.block} · {slide.timeRange}
-          {standing === "ahead" && " · adiantada"}
-          {standing === "behind" && " · atrasada"}
-          {standing === "ontime" && " · no ritmo"}
+        <span className={cx("presenter-pace", !slide.annex && `presenter-pace--${standing}`)}>
+          {slide.annex ? (
+            "Anexo · fora dos 40 minutos"
+          ) : (
+            <>
+              Bloco {slide.block} · {slide.timeRange}
+              {standing === "ahead" && " · adiantada"}
+              {standing === "behind" && " · atrasada"}
+              {standing === "ontime" && " · no ritmo"}
+            </>
+          )}
         </span>
         {/* She has to be able to tell, at a glance, whether the screen is still
             following her — a teleprompter that quietly stopped syncing is worse
@@ -345,7 +377,7 @@ function PresenterView({
         <div className="presenter-panel">
           <h1 className="presenter-title">
             <span>
-              {slideLabel(slide)} · {state.index + 1} de {SLIDES_DATA.length}
+              {slideLabel(slide)} · {position(state.index).label}
             </span>
             {slide.title.pt}
           </h1>
@@ -808,18 +840,16 @@ export default function SlideDeck() {
           </button>
         </div>
 
-        <span className="deck-counter">
-          {String(state.index + 1).padStart(2, "0")} / {total}
-        </span>
+        <span className="deck-counter">{position(state.index).label}</span>
 
         <div
           className="deck-progress"
           role="progressbar"
           aria-valuemin={1}
-          aria-valuemax={total}
-          aria-valuenow={state.index + 1}
+          aria-valuemax={TALK_SLIDES.length}
+          aria-valuenow={position(state.index).step}
         >
-          <i style={{ width: `${((state.index + 1) / total) * 100}%` }} />
+          <i style={{ width: `${position(state.index).share * 100}%` }} />
         </div>
 
         <div className="deck-chrome-group deck-chrome-group--end">

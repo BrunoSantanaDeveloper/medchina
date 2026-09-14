@@ -2371,6 +2371,201 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* The four guarantees (slide outside the roteiro)                     */
+/* ------------------------------------------------------------------ */
+
+/* Same chapter-number device the deck uses wherever a card is one of a
+   numbered set: big, quiet, in the corner, never competing with the title. */
+.deck-guarantee {
+  position: relative;
+  padding-right: 58px;
+}
+
+.deck-guarantee > b {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  color: var(--line);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.deck--dark .deck-guarantee > b {
+  color: var(--edge);
+}
+
+.deck-guarantee .deck-card-icon {
+  margin-bottom: 10px;
+}
+
+/* What the absence costs the hypothesis — set apart from the list of gaps
+   above it, because it is a consequence, not a fourth gap. */
+.deck-column-note {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--edge);
+  color: var(--ink-soft);
+  font-size: var(--t-small);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------------ */
+/* Annex · the organisation's four questions                           */
+/* ------------------------------------------------------------------ */
+
+/*
+  One form for all four answers: a term and what it means.
+
+  Rules instead of cards. These slides are reference material read during the
+  questions, not claims projected at a room, and twenty bordered boxes would
+  make a dense answer look like a product pitch. The hairline is enough
+  structure to scan by.
+*/
+.deck-annex {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border-top: 1px solid var(--edge);
+}
+
+.deck-annex-row {
+  display: grid;
+  grid-template-columns: 218px minmax(0, 1fr);
+  gap: 0 24px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--edge);
+}
+
+.deck-annex-term {
+  margin: 0;
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: var(--t-body);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+}
+
+/* "Plano Pro" qualifies the term; it is not part of its name. */
+.deck-annex-term em {
+  display: block;
+  margin-top: 2px;
+  color: var(--accent);
+  font-size: var(--t-small);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.deck-annex-body {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--t-body);
+  line-height: 1.45;
+}
+
+.deck-annex-body strong {
+  display: block;
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.deck[data-lang="zh"] .deck-annex-term,
+.deck[data-lang="zh"] .deck-annex-body strong {
+  letter-spacing: 0;
+}
+
+/*
+  The reading size for the longest answer.
+
+  Six full answers overflow the canvas, and left alone the fit guard shrinks
+  the whole slide — heading included — to hold them. Setting the body a step
+  smaller instead keeps the title at its size and the hierarchy intact, which
+  is the right trade for reference material read from two metres away rather
+  than projected at a hall.
+
+  Two columns were tried first and bought nothing: half the rows at half the
+  width is the same number of lines.
+*/
+.deck-annex--dense .deck-annex-row {
+  padding: 10px 0;
+}
+
+.deck-annex--dense .deck-annex-body {
+  font-size: 15px;
+  line-height: 1.38;
+}
+
+.deck-annex--dense .deck-annex-body strong {
+  font-size: 17px;
+}
+
+.deck-annex-notes {
+  margin-top: 16px;
+}
+
+/* The corpus: numbers that add up, and one row that honestly adds nothing. */
+.deck-corpus {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--edge);
+}
+
+.deck-corpus-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 0 24px;
+  align-items: baseline;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--edge);
+}
+
+.deck-corpus-n {
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-align: right;
+}
+
+.deck-corpus-what {
+  color: var(--ink-soft);
+  font-size: var(--t-body);
+  line-height: 1.4;
+}
+
+.deck-corpus-row--total .deck-corpus-n {
+  color: var(--accent);
+  font-size: 34px;
+}
+
+.deck-corpus-row--total .deck-corpus-what {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+/* A collection the architecture provides for and nothing has filled yet. Said
+   plainly, because claiming an empty shelf is stocked is the one thing this
+   deck must never do — and on the bridge slide that shelf IS the invitation. */
+.deck-corpus-row--pending .deck-corpus-n,
+.deck-corpus-row--pending .deck-corpus-what {
+  color: var(--ink-soft);
+  opacity: 0.75;
+}
+
+.deck-corpus-row--pending .deck-corpus-n {
+  font-size: 22px;
+}
+
+/* ------------------------------------------------------------------ */
 /* Video                                                               */
 /* ------------------------------------------------------------------ */
 

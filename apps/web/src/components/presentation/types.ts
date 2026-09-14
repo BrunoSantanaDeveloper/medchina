@@ -116,5 +116,12 @@ export interface SlideData {
    * "sem slide, tela escura ou neutra, falar devagar" for the illness passage.
    */
   tone?: "solemn";
+  /**
+   * Outside the forty minutes: the written answers kept after the closing for
+   * the questions. They are excluded from the counter and the progress bar,
+   * because a talk that reads "22 of 27" at its climax is lying about how much
+   * of it is left.
+   */
+  annex?: boolean;
   media?: SlideMediaSpec;
 }

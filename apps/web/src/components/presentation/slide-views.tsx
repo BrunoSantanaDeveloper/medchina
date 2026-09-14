@@ -2,6 +2,15 @@
 
 import {
   AI_LIMITS,
+  ANNEX_CITATION,
+  ANNEX_CORPUS,
+  ANNEX_HONESTY,
+  ANNEX_ISOLATION,
+  ANNEX_RETURNS,
+  ANNEX_RETURNS_NOTE,
+  ANNEX_SCOPES,
+  ANNEX_STAGES,
+  type AnnexRow,
   ATTENTION_THIEVES,
   BRIDGE_LINE,
   CLOSING_LINE,
@@ -19,6 +28,8 @@ import {
   FOUR_EXAMINATIONS,
   FREE_TIER_NOTE,
   FREE_TIER_PLEDGE,
+  GUARANTEES,
+  GUARANTEES_NOTE,
   HYPOTHESIS_COLUMNS,
   HYPOTHESIS_FRAMING,
   INFORMATION_LAYERS,
@@ -77,6 +88,7 @@ import {
   Heart,
   Info,
   LockKey,
+  MagnifyingGlass,
   MapPin,
   MicrophoneStage,
   MinusCircle,
@@ -585,6 +597,49 @@ function AmbientShot({ media, lang, index }: { media: AmbientMedia; lang: DeckLa
         <span>{media.caption[lang]}</span>
       </figcaption>
     </figure>
+  );
+}
+
+/**
+ * One annex answer.
+ *
+ * All four of the congress organisation's questions have the same shape — a
+ * term and what it means — so they get one renderer rather than four layouts
+ * that would drift apart the first time any of them is edited.
+ */
+function AnnexList({
+  rows,
+  lang,
+  from = 1,
+  dense,
+}: {
+  rows: AnnexRow[];
+  lang: DeckLang;
+  from?: number;
+  /**
+   * A smaller reading size for the answer with the most to say.
+   *
+   * Set deliberately rather than left to the fit guard: the guard scales the
+   * WHOLE slide, title included, so a slide that overflows arrives with its
+   * hierarchy flattened. Choosing the body size keeps the heading where it was.
+   */
+  dense?: boolean;
+}) {
+  return (
+    <dl className={cx("deck-annex", dense && "deck-annex--dense")}>
+      {rows.map((row, index) => (
+        <div className="deck-annex-row deck-reveal" key={row.term.pt} style={at(from + index)}>
+          <dt className="deck-annex-term">
+            {row.term[lang]}
+            {row.tag && <em>{row.tag[lang]}</em>}
+          </dt>
+          <dd className="deck-annex-body">
+            {row.heading && <strong>{row.heading[lang]}</strong>}
+            <span>{row.body[lang]}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -1224,6 +1279,42 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
       );
 
     /* ---------------------------------------------------------- */
+    /*
+      Not in the printed roteiro. It exists because the deck could describe
+      what the AI produces and had nowhere to say who CHECKS it — and "the
+      software checks, not the model" is the strongest sentence the product
+      owns. Four cards, because there are exactly four rules and each is
+      enforced in `lib/clinical-extraction.ts`; a fifth would be padding.
+    */
+    case "guarantees":
+      return (
+        <div className="deck-slide-inner">
+          <Head slide={slide} lang={lang} center />
+          <div className="deck-body">
+            <div className="deck-grid deck-grid--2">
+              {GUARANTEES.map((rule, index) => {
+                const RuleIcon = [MagnifyingGlass, Stethoscope, MinusCircle, WarningCircle][index];
+                return (
+                  <article className="deck-card deck-guarantee deck-reveal" key={rule.index} style={at(index + 1)}>
+                    <span className="deck-card-icon">
+                      <RuleIcon size={22} weight="duotone" aria-hidden="true" />
+                    </span>
+                    <b>{rule.index}</b>
+                    <h3>{rule.title[lang]}</h3>
+                    <p>{rule.body[lang]}</p>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="deck-note deck-reveal" style={at(5)}>
+              <SealCheck size={22} weight="duotone" aria-hidden="true" />
+              <p>{GUARANTEES_NOTE[lang]}</p>
+            </div>
+          </div>
+        </div>
+      );
+
+    /* ---------------------------------------------------------- */
     case "hypotheses":
       return (
         <div className="deck-slide-inner">
@@ -1247,6 +1338,7 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
                       <li key={item.pt}>{item[lang]}</li>
                     ))}
                   </ul>
+                  {column.note && <p className="deck-column-note">{column.note[lang]}</p>}
                 </article>
               ))}
             </div>
@@ -1383,6 +1475,85 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
             <div className="deck-note deck-reveal" style={at(3)}>
               <Buildings size={22} weight="duotone" aria-hidden="true" />
               <p>{BRIDGE_LINE[lang]}</p>
+            </div>
+          </div>
+        </div>
+      );
+
+    /* ---------------------------------------------------------- */
+    case "annex-stages":
+      return (
+        <div className="deck-slide-inner">
+          <Head slide={slide} lang={lang} />
+          <div className="deck-body">
+            <AnnexList rows={ANNEX_STAGES} lang={lang} />
+          </div>
+        </div>
+      );
+
+    /* ---------------------------------------------------------- */
+    case "annex-scope":
+      return (
+        <div className="deck-slide-inner">
+          <Head slide={slide} lang={lang} />
+          <div className="deck-body">
+            <AnnexList rows={ANNEX_SCOPES} lang={lang} />
+            <div className="deck-note deck-reveal" style={at(4)}>
+              <LockKey size={22} weight="duotone" aria-hidden="true" />
+              <p>{ANNEX_ISOLATION[lang]}</p>
+            </div>
+          </div>
+        </div>
+      );
+
+    /* ---------------------------------------------------------- */
+    case "annex-returns":
+      return (
+        <div className="deck-slide-inner">
+          <Head slide={slide} lang={lang} />
+          <div className="deck-body">
+            <AnnexList rows={ANNEX_RETURNS} lang={lang} dense />
+            <div className="deck-note deck-reveal" style={at(7)}>
+              <SealCheck size={22} weight="duotone" aria-hidden="true" />
+              <p>{ANNEX_RETURNS_NOTE[lang]}</p>
+            </div>
+          </div>
+        </div>
+      );
+
+    /* ---------------------------------------------------------- */
+    case "annex-corpus":
+      return (
+        <div className="deck-slide-inner">
+          <Head slide={slide} lang={lang} />
+          <div className="deck-body">
+            <div className="deck-corpus deck-reveal" style={at(1)}>
+              {ANNEX_CORPUS.map((row) => (
+                <div
+                  className={cx(
+                    "deck-corpus-row",
+                    row.total && "deck-corpus-row--total",
+                    row.pending && "deck-corpus-row--pending",
+                  )}
+                  key={row.what.pt}
+                >
+                  <span className="deck-corpus-n">{row.n}</span>
+                  <span className="deck-corpus-what">{row.what[lang]}</span>
+                </div>
+              ))}
+            </div>
+            <div className="deck-grid deck-grid--2 deck-annex-notes">
+              <div className="deck-note deck-reveal" style={at(2)}>
+                <Books size={22} weight="duotone" aria-hidden="true" />
+                <p>{ANNEX_CITATION[lang]}</p>
+              </div>
+              {/* The paragraph that answers "but the model read the whole
+                  internet, didn't it?" — kept as written, because hedging it
+                  would cost exactly the credibility it buys. */}
+              <div className="deck-note deck-reveal" style={at(3)}>
+                <Scales size={22} weight="duotone" aria-hidden="true" />
+                <p>{ANNEX_HONESTY[lang]}</p>
+              </div>
             </div>
           </div>
         </div>

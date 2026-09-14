@@ -10,15 +10,15 @@ sentence that is not there will not be said on stage.
 
 ## Files
 
-| File                              | What it holds                                                                     |
-| --------------------------------- | --------------------------------------------------------------------------------- |
-| `types.ts`                        | `Bi` (a pt/zh pair), `DeckLang`, `SlideData`                                      |
-| `slides-data.ts`                  | All content: the 22 steps plus the per-slide payloads (timeline, stats, columns…) |
-| `slide-views.tsx`                 | One view per step, composed from the deck's class vocabulary                      |
-| `slide-deck.tsx`                  | The shell: canvas scaling, keyboard, timer, presenter window, overlays            |
-| `deck-sync.ts`                    | Cross-device sync: transport choice, room code, connect/publish                   |
-| `deck-connect.tsx`                | The QR panel that pairs the phone                                                 |
-| `../../app/palestra/palestra.css` | The deck's design system                                                          |
+| File                              | What it holds                                                                                              |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `types.ts`                        | `Bi` (a pt/zh pair), `DeckLang`, `SlideData`                                                               |
+| `slides-data.ts`                  | All content: the 23 talk steps + the 4-slide annex plus the per-slide payloads (timeline, stats, columns…) |
+| `slide-views.tsx`                 | One view per step, composed from the deck's class vocabulary                                               |
+| `slide-deck.tsx`                  | The shell: canvas scaling, keyboard, timer, presenter window, overlays                                     |
+| `deck-sync.ts`                    | Cross-device sync: transport choice, room code, connect/publish                                            |
+| `deck-connect.tsx`                | The QR panel that pairs the phone                                                                          |
+| `../../app/palestra/palestra.css` | The deck's design system                                                                                   |
 
 ## Which design system this is
 
@@ -95,6 +95,33 @@ Practical notes for the day:
   hotspot puts both on one network and needs no internet at all.
 - The phone holds a **Wake Lock** so the screen does not sleep mid-block, and
   re-acquires it after every tab switch (browsers drop it silently).
+
+## The annex (and why the counter ignores it)
+
+Four slides sit after the closing, answering the congress organisation's four
+written questions in full: how the AI analyses a consultation, what it reads,
+what it returns, and where the knowledge comes from. They are **not part of the
+forty minutes** — they exist to be jumped to from the "Ir para" list when the
+questions start, so a regulator's question is answered from inside the deck
+instead of from a PDF opened in front of the room.
+
+`SlideData.annex` keeps them out of the counter and the progress bar, which
+follow the TALK: at the closing line the bar reads 100% and the counter
+"23 / 23", not "23 / 27". A progress bar claiming a fifth of the talk is still
+to come, at the exact moment it is supposed to land, is a lie the room can see.
+Inside the annex the counter reads "Anexo 2 / 4" and the presenter panel says
+"Anexo · fora dos 40 minutos" instead of a pace it cannot be late for.
+
+Everything on those four slides is verified against the code that implements
+it (`lib/clinical-extraction.ts`, `lib/clinical-reasoning.ts`,
+`packages/knowledge`) — they are answers to a technical question from an
+institution, so a claim that drifts from the implementation is worse there than
+anywhere else in the deck.
+
+The slide **"Quatro garantias que não dependem do modelo"** (between the
+traceable anamnesis and the hypotheses) is the same material at stage scale,
+and it is the one slide in Bloco 7 that can be cut for time without losing
+anything: the whole argument comes back in the annex.
 
 ## Video: two kinds, and they behave differently
 
@@ -207,6 +234,12 @@ copy is gitignored. Two consequences:
 
 ## Confirm before the talk
 
+- **The corpus numbers on the annex slide** (393 points / 64 formulas / 2 Tung
+  = 459). They are the real contents of the `mtc-fontes-tradicionais`
+  collection; re-count them if anything was ingested since. The row that says
+  scientific evidence and internal protocols are _empty_ must stay honest — it
+  is what the invitation on the bridge slide is asking Chinese institutions to
+  fill.
 - **Slide 12's numbers.** They come from the previous platform's database
   (1.046 registered professionals, 222 who paid). Pull the current totals from
   production and update `PLATFORM_STATS`.

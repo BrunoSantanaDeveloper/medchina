@@ -709,8 +709,8 @@ export const TRACE_PRINCIPLES: Principle[] = [
     index: "03",
     title: { pt: "O sistema aponta lacunas e contradições", zh: "系统标示缺漏与矛盾" },
     body: {
-      pt: "Duas datas diferentes para o início da dor ficam destacadas. Um sintoma importante não investigado vira uma pergunta sugerida. E a consulta é comparada com o histórico: o que mudou, o que persiste, o que melhorou.",
-      zh: "疼痛起始出现两个不同日期时会被标出；重要症状未加追问时，系统会提出应问之题。并与既往病史比对：何者改变、何者持续、何者好转。",
+      pt: "Duas datas diferentes para o início da dor ficam destacadas. Um sintoma importante não investigado vira uma pergunta sugerida — no máximo cinco por consulta, sempre como pergunta, nunca como resposta. E a consulta é comparada com o histórico: o que mudou, o que persiste, o que melhorou.",
+      zh: "疼痛起始出现两个不同日期时会被标出；重要症状未加追问时，系统会提出应问之题——每次诊疗至多五问，且始终以问句呈现，绝不写成答案。并与既往病史比对：何者改变、何者持续、何者好转。",
     },
   },
 ];
@@ -795,6 +795,58 @@ export const EVIDENCE = {
 };
 
 /* ------------------------------------------------------------------ */
+/* The four guarantees (not in the printed roteiro)                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The answers to the congress organisation's first question, and the part of
+ * it the deck had no slide for: what happens AFTER the model replies.
+ *
+ * Every one of these is enforced in `lib/clinical-extraction.ts`, in code —
+ * which is the whole claim. A rule asked of a model is a hope; a rule checked
+ * by software is a guarantee, and that distinction is what this slide sells.
+ */
+export const GUARANTEES: Principle[] = [
+  {
+    index: "01",
+    title: { pt: "A citação é procurada na transcrição real", zh: "引文须在真实转写中查得" },
+    body: {
+      pt: "Se a frase apresentada como origem não for encontrada no áudio transcrito, o valor é marcado como não confirmado e destacado para revisão.",
+      zh: "若作为出处的语句在转写的录音中查不到，该值即标为未经确认，并提请复核。",
+    },
+  },
+  {
+    index: "02",
+    title: { pt: "Exame só vale na voz da profissional", zh: "诊察所见，只认医者之言" },
+    body: {
+      pt: "Língua, pulso, palpação e padrão são conferidos contra a separação de vozes. Um achado de exame atribuído à fala do paciente é descartado, não registrado.",
+      zh: "舌象、脉象、按诊与证型，皆对照说话人的区分加以核验。凡归于患者之口的诊察所见，一律弃去，不予记录。",
+    },
+  },
+  {
+    index: "03",
+    title: { pt: "Silêncio nunca vira registro", zh: "沉默绝不写成记录" },
+    body: {
+      pt: "Um valor que diga “não informado” é descartado. Um campo sobre o qual ninguém falou permanece vazio — ausência de dado nunca é escrita como achado negativo.",
+      zh: "凡写作“未告知”的值一律弃去。无人提及的字段保持留白——资料的缺失，绝不写成否定的所见。",
+    },
+  },
+  {
+    index: "04",
+    title: { pt: "Tema sensível sempre volta para conferência", zh: "敏感事项一律回到复核" },
+    body: {
+      pt: "Medicamentos, gestação, anticoagulantes, marca-passo, cirurgias e alergias são marcados para revisão independentemente do que o modelo tenha decidido.",
+      zh: "用药、妊娠、抗凝药、起搏器、手术与过敏，无论模型作何判定，一律标记待复核。",
+    },
+  },
+];
+
+export const GUARANTEES_NOTE: Bi = {
+  pt: "São garantias do sistema, não pedidos feitos ao modelo. E em nenhum momento a inteligência artificial sobrescreve algo que a profissional tenha digitado.",
+  zh: "这是系统的保障，而非对模型的请求。人工智能在任何时候都不会覆盖医者亲手写下的内容。",
+};
+
+/* ------------------------------------------------------------------ */
 /* Slide 16 · hypotheses                                               */
 /* ------------------------------------------------------------------ */
 
@@ -802,6 +854,8 @@ export interface HypothesisColumn {
   title: Bi;
   tone: "support" | "attention" | "missing";
   items: Bi[];
+  /** What the absence costs the hypothesis, when the absence is load-bearing. */
+  note?: Bi;
 }
 
 export const HYPOTHESIS_COLUMNS: HypothesisColumn[] = [
@@ -829,12 +883,19 @@ export const HYPOTHESIS_COLUMNS: HypothesisColumn[] = [
       { pt: "Palpação do ponto Mu do Baço", zh: "脾之募穴按诊" },
       { pt: "Horário em que a fadiga se agrava", zh: "疲乏加重的时辰" },
     ],
+    // 望 and 切 are the professional's own hands and eyes: when they are not in
+    // the record, the system is required to say the reading is incomplete
+    // rather than quietly conclude without them.
+    note: {
+      pt: "Sem língua e pulso registrados, a hipótese é obrigada a se declarar uma leitura parcial.",
+      zh: "若舌象与脉象未曾记录，该假说必须声明自己只是一次不完整的判读。",
+    },
   },
 ];
 
 export const HYPOTHESIS_FRAMING: Bi = {
-  pt: "O sistema nunca diz “o paciente tem Deficiência de Qi do Baço”. Ele diz: os dados registrados têm correspondência com este padrão; estes sinais apoiam; este sinal contradiz; falta investigar isto.",
-  zh: "系统绝不会说“患者为脾气虚”。它说的是：已记录的资料与此证型存在对应；这些征象支持；这一征象不支持；此项尚待查证。",
+  pt: "O sistema nunca diz “o paciente tem Deficiência de Qi do Baço”. Ele diz: os dados registrados têm correspondência com este padrão; estes sinais apoiam; este sinal contradiz; falta investigar isto. O grau é sempre correspondência com o que foi registrado — fraca, moderada ou forte —, nunca confiança nem probabilidade.",
+  zh: "系统绝不会说“患者为脾气虚”。它说的是：已记录的资料与此证型存在对应；这些征象支持；这一征象不支持；此项尚待查证。其程度始终是与已记录资料的对应度——弱、中或强——绝非“置信度”，也不是概率。",
 };
 
 export const INFORMATION_LAYERS: Bi[] = [
@@ -861,10 +922,10 @@ export interface FeatureCard {
 
 export const LIBRARY_SECURITY: FeatureCard[] = [
   {
-    title: { pt: "Biblioteca clínica com fontes citadas", zh: "带出处引用的临床知识库" },
+    title: { pt: "Biblioteca curada, não a internet aberta", zh: "经甄选的知识库，而非开放互联网" },
     body: {
-      pt: "Estudar e tirar dúvidas conversando com uma base curada, que separa três naturezas de conteúdo: as fontes tradicionais, os protocolos internos e as evidências científicas. Cada profissional adiciona os próprios protocolos, que passam a alimentar as sugestões do seu consultório.",
-      zh: "以对话方式研习与释疑，知识库经过甄选，并将三类内容分立：传统文献、内部方案与现代科研证据。每位医者可加入自己的方案，用于其诊所的建议生成。",
+      pt: "A IA não navega na web: consulta um acervo dentro da plataforma — 459 documentos de fontes tradicionais, entre fichas de pontos, fórmulas e pontos de Tung. Os trechos vão numerados ao modelo, que só pode citar pelo número, e cada citação é conferida contra o que foi entregue: fonte inventada é descartada, não exibida.",
+      zh: "AI 不上网检索，它查阅的是平台内部的馆藏：459 份传统文献，含腧穴条目、中药方剂与董氏奇穴。相关片段以编号交予模型，模型只能按编号引用，其后每一处引用都对照实际交付的片段核验：凭空杜撰的出处一律弃去，不予显示。",
     },
     tone: "primary",
   },
@@ -879,8 +940,8 @@ export const LIBRARY_SECURITY: FeatureCard[] = [
   {
     title: { pt: "Dado clínico é o dado mais sensível que existe", zh: "临床数据是最敏感的数据" },
     body: {
-      pt: "Tudo é criptografado, cada acesso fica em trilha de auditoria e nenhum áudio ou conteúdo clínico é usado para treinar modelos públicos de IA. Seguimos a lei brasileira de proteção de dados desde a concepção do sistema.",
-      zh: "全程加密，每次访问留有审计轨迹；任何录音或临床内容都不用于训练公开的AI模型。系统自设计之初即遵循巴西数据保护法。",
+      pt: "Tudo é criptografado e cada acesso fica em trilha de auditoria. Nenhum áudio ou conteúdo clínico treina modelos públicos de IA. E a IA nunca alcança o dado de outro paciente nem de outro profissional: cada consultório é isolado no banco. Seguimos a lei brasileira de proteção de dados desde a concepção.",
+      zh: "全程加密，每次访问留有审计轨迹。任何录音或临床内容都不用于训练公开的AI模型。AI 也绝不触及其他患者或其他医者的资料：每一间诊所在数据库中彼此隔离。系统自设计之初即遵循巴西数据保护法。",
     },
     tone: "jade",
   },
@@ -993,6 +1054,174 @@ export const CLOSING_LINE: Bi = {
 export const CLOSING_PLEDGE: Bi = {
   pt: "Estaremos sempre trabalhando para honrar os ancestrais que escreveram cada ideograma e que ensinam, há milênios, essa arte e essa sabedoria.",
   zh: "我们将始终努力，以不负先贤——是他们写下这一个个汉字，并将这门技艺与智慧传承了数千年。",
+};
+
+/* ------------------------------------------------------------------ */
+/* Annex · the congress organisation's four questions                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four answers, in full, on four slides that sit AFTER the closing.
+ *
+ * They are not part of the forty minutes and are not meant to be. The talk
+ * makes the claims that earn attention; these hold the detail an engineer or a
+ * regulator asks for afterwards, reachable from the "Ir para" list without
+ * leaving the deck or opening a PDF in front of the room.
+ *
+ * One shape serves all four, because all four answers are the same shape: a
+ * term on the left, what it means on the right.
+ */
+export interface AnnexRow {
+  term: Bi;
+  /** A title inside the body — the stages have one, the scopes do not. */
+  heading?: Bi;
+  body: Bi;
+  /** A qualifier on the term ("Plano Pro"), never part of the term itself. */
+  tag?: Bi;
+}
+
+export const ANNEX_STAGES: AnnexRow[] = [
+  {
+    term: { pt: "Etapa 1", zh: "步骤一" },
+    heading: { pt: "Transcrição com separação de vozes", zh: "转写并区分说话人" },
+    body: {
+      pt: "O áudio vira texto e cada trecho recebe quem falou e o minuto exato. A instrução é transcrever integralmente, sem resumir e sem inventar: um trecho inaudível é marcado como tal. O sistema confere se a transcrição cobriu toda a duração da gravação — se parou antes, pede o restante automaticamente.",
+      zh: "录音转为文字，每一片段都标注说话人与确切分秒。指令是完整转写，不作删节，也不作臆补：听不清之处如实标明。系统还会核对转写是否覆盖录音全程——若中途而止，自动索取其余部分。",
+    },
+  },
+  {
+    term: { pt: "Etapa 2", zh: "步骤二" },
+    heading: { pt: "Preenchimento do prontuário", zh: "填写病历" },
+    body: {
+      pt: "Uma segunda leitura percorre a transcrição e preenche apenas campos de uma lista fechada do prontuário. Cada valor vem acompanhado da frase exata que o originou, do minuto e de quem falou.",
+      zh: "第二遍阅读通读转写稿，只填写病历中一份封闭清单内的字段。每个值都附带其出处的原句、分秒与说话人。",
+    },
+  },
+  {
+    term: { pt: "Etapa 3", zh: "步骤三" },
+    heading: { pt: "Verificação feita por software, não pela IA", zh: "由软件核验，而非由AI核验" },
+    body: {
+      pt: "Depois que o modelo responde, regras programadas conferem o resultado: a citação é procurada na transcrição real; exame só vale na voz da profissional; silêncio nunca vira registro; tema sensível sempre volta para conferência.",
+      zh: "模型给出结果之后，由既定规则逐条核验：引文须在真实转写中查得；诊察所见只认医者之言；沉默绝不写成记录；敏感事项一律回到复核。",
+    },
+  },
+  {
+    term: { pt: "Etapa 4", zh: "步骤四" },
+    heading: { pt: "Hipóteses e plano, sob solicitação", zh: "假说与方案，须经请求" },
+    body: {
+      pt: "Apenas quando a profissional pede, e apenas nos planos que incluem o recurso: hipóteses de padrões de desarmonia e rascunho de plano terapêutico.",
+      zh: "仅在医者请求时，且仅限包含该功能的订阅方案：证型假说与治疗方案草稿。",
+    },
+  },
+];
+
+export const ANNEX_SCOPES: AnnexRow[] = [
+  {
+    term: { pt: "Transcrição e preenchimento", zh: "转写与填写" },
+    body: { pt: "Exclusivamente o áudio daquela gravação. Nada mais.", zh: "仅限该次录音本身。别无其他。" },
+  },
+  {
+    term: { pt: "Hipóteses de padrões", zh: "证型假说" },
+    body: {
+      pt: "O que está registrado no prontuário daquela consulta: queixa principal, respostas da anamnese, idade, alertas clínicos permanentes (alergias, gestação, uso de anticoagulante), o resumo escrito pela própria profissional, valores lidos de exames anexados, os padrões que ela já validou para aquele paciente e os que ela rejeitou nesta consulta — para que não sejam propostos de novo.",
+      zh: "该次诊疗病历中已记录的内容：主诉、问诊答录、年龄、长期临床警示（过敏、妊娠、抗凝药使用）、医者本人写下的小结、所附检查中读取的数值，以及她此前为该患者确认过的证型，和本次已被她否定的证型——以免重复提出。",
+    },
+  },
+  {
+    term: { pt: "Plano terapêutico", zh: "治疗方案" },
+    body: {
+      pt: "Apenas as hipóteses que ela aceitou, o caso registrado e as modalidades que ela pratica. O plano segue a direção clínica dela — não refaz o diagnóstico.",
+      zh: "仅限她已采纳的假说、已记录的病案，以及她所执业的技术门类。方案循其临床判断而行——不另作诊断。",
+    },
+  },
+];
+
+export const ANNEX_ISOLATION: Bi = {
+  pt: "A IA nunca acessa dados de outros pacientes nem de outros profissionais. Cada consultório é isolado no banco de dados.",
+  zh: "人工智能绝不访问其他患者或其他医者的资料。每一间诊所在数据库中彼此隔离。",
+};
+
+export const ANNEX_RETURNS: AnnexRow[] = [
+  {
+    term: { pt: "Uma transcrição", zh: "一份转写稿" },
+    body: { pt: "dividida em trechos, com falante e minuto.", zh: "分为片段，标明说话人与分秒。" },
+  },
+  {
+    term: { pt: "Um rascunho de anamnese", zh: "一份问诊草稿" },
+    body: {
+      pt: "em quatro blocos: queixa (início, intensidade, fatores de melhora e piora, tratamentos anteriores, medicamentos), rotina (sono, energia, alimentação, digestão, intestino, urina, sede, atividade física), emocional (estado e contexto de vida) e medicina chinesa (língua, pulso, palpação, padrão).",
+      zh: "分为四部分：主诉（起始、程度、缓解与加重因素、既往治疗、用药）、起居（睡眠、精力、饮食、消化、二便、口渴、运动）、情志（状态与生活处境），以及中医辨证（舌、脉、按诊、证型）。",
+    },
+  },
+  {
+    term: { pt: "Perguntas a investigar", zh: "待查之问" },
+    body: {
+      pt: "no máximo cinco, sempre como perguntas, nunca como respostas.",
+      zh: "至多五条，始终以问句呈现，绝不写成答案。",
+    },
+  },
+  {
+    term: { pt: "Hipóteses de padrões de desarmonia", zh: "证型假说" },
+    tag: { pt: "Plano Pro", zh: "Pro 方案" },
+    body: {
+      pt: "cada uma com o nome do padrão, uma justificativa curta, o grau de correspondência com os dados registrados — fraca, moderada ou forte, nunca “confiança” nem probabilidade —, os sinais a favor, os sinais contra, o que falta investigar e as fontes consultadas. Sem língua e pulso registrados, a hipótese carrega obrigatoriamente a ressalva de que é uma leitura parcial.",
+      zh: "每条载明证型名称、简要依据、与已记录资料的对应度——弱、中或强，绝非“置信度”，也不是概率——支持的征象、不支持的征象、尚待查证之项，以及所参考的出处。若舌象与脉象未曾记录，该假说必须附上不完整判读的声明。",
+    },
+  },
+  {
+    term: { pt: "Rascunho de plano terapêutico", zh: "治疗方案草稿" },
+    tag: { pt: "Plano Pro", zh: "Pro 方案" },
+    body: {
+      pt: "por modalidade — acupuntura, dietoterapia chinesa, moxabustão, auriculoterapia e ventosaterapia — acompanhado dos pontos de atenção de segurança extraídos do prontuário.",
+      zh: "按门类分列——针刺、中医食疗、艾灸、耳穴与拔罐——并附从病历中提取的安全注意事项。",
+    },
+  },
+  {
+    term: { pt: "Um resumo da consulta", zh: "一份诊疗小结" },
+    body: {
+      pt: "e, quando há exames anexados, a leitura do documento: o que ele é, achados observáveis, valores extraídos e as limitações daquela leitura.",
+      zh: "若附有检查报告，另附该文件的判读：是何种文件、可观察到的所见、提取的数值，以及此次判读的局限。",
+    },
+  },
+];
+
+export const ANNEX_RETURNS_NOTE: Bi = {
+  pt: "Tudo isso é rascunho. Nada entra no prontuário como fato até a profissional revisar — e quando ela edita um valor da IA, o registro passa a constar como dela.",
+  zh: "凡此皆为草稿。未经医者复核，任何内容都不会作为事实进入病历——她一旦修改AI填写的值，该记录即归于她本人名下。",
+};
+
+export interface CorpusRow {
+  n: string;
+  what: Bi;
+  /** The sum of the rows above it. */
+  total?: boolean;
+  /** A collection the architecture provides for and nothing has filled yet. */
+  pending?: boolean;
+}
+
+export const ANNEX_CORPUS: CorpusRow[] = [
+  { n: "393", what: { pt: "fichas de pontos de acupuntura", zh: "腧穴条目" } },
+  { n: "64", what: { pt: "fórmulas chinesas", zh: "中药方剂" } },
+  { n: "2", what: { pt: "pontos de Tung", zh: "董氏奇穴" } },
+  { n: "459", what: { pt: "documentos em fontes tradicionais", zh: "传统文献文档" }, total: true },
+  {
+    n: "—",
+    what: {
+      pt: "evidência científica e protocolos internos — coleções previstas, hoje vazias",
+      zh: "现代科研证据与内部方案——已设分类，目前尚空",
+    },
+    pending: true,
+  },
+];
+
+export const ANNEX_CITATION: Bi = {
+  pt: "Antes de responder, o sistema busca na biblioteca os trechos relacionados ao caso e os entrega ao modelo numerados. O modelo só pode citar pelo número, e depois cada citação é conferida contra os trechos realmente entregues: uma fonte inventada é descartada, não exibida. As fontes aparecem para a profissional classificadas por tipo, sem hierarquia entre elas.",
+  zh: "作答之前，系统先在知识库中检索与该病案相关的片段，编号后交予模型。模型只能按编号引用；其后每一处引用都对照实际交付的片段核验：凭空杜撰的出处一律弃去，不予显示。出处按类别呈现——传统文献、内部方案、科研证据——彼此之间不分高下。",
+};
+
+export const ANNEX_HONESTY: Bi = {
+  pt: "Uma observação de honestidade que fazemos questão de registrar: além da biblioteca, o modelo carrega o conhecimento geral do próprio treinamento. É exatamente por isso que o sistema fala em correspondência com os dados registrados e não em certeza, que apresenta os sinais contrários junto dos favoráveis, que exige validação profissional em tudo — e que uma hipótese sem fonte de apoio diz isso explicitamente, em vez de omitir.",
+  zh: "有一点出于诚实，我们坚持载明：除知识库之外，模型还携带其自身训练所得的一般知识。正因如此，系统所言始终是与已记录资料的对应度，而非确定；正因如此，它把不支持的征象与支持的征象一并列出；正因如此，凡事皆须医者验证——也正因如此，一条没有出处支撑的假说会明说此事，而不是略去不提。",
 };
 
 /* ------------------------------------------------------------------ */
@@ -1353,6 +1582,35 @@ Se o paciente não informou alguma coisa, o sistema não transforma silêncio em
 O sistema também pode apontar lacunas, contradições e mudanças em relação ao histórico.`,
   },
   {
+    key: "guarantees",
+    block: 7,
+    blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
+    timeRange: "26:00–34:30",
+    kicker: { pt: "O que o software confere sozinho", zh: "软件自行核验之事" },
+    title: { pt: "Quatro garantias que não dependem do modelo", zh: "四项不依赖模型的保障" },
+    subtitle: {
+      pt: "Depois que a IA responde, regras programadas conferem o resultado",
+      zh: "AI 给出结果之后，由既定规则逐条核验",
+    },
+    stageNote:
+      "Slide novo, fora do roteiro impresso · responde a pergunta 1 da organização do congresso. Se o tempo apertar, é o corte mais barato do Bloco 7: o conteúdo inteiro volta no anexo, depois do encerramento.",
+    script: `Há uma etapa aqui que eu preciso mostrar, porque é o que nos diferencia.
+
+Depois que o modelo responde, não é a inteligência artificial que confere o resultado. É o software.
+
+São quatro regras programadas.
+
+A citação é procurada na transcrição real: se a frase não estiver lá, o valor é marcado como não confirmado. Uma citação inventada é pior do que nenhuma, porque ela fabrica prova.
+
+Língua, pulso e palpação só valem na voz da profissional — um achado de exame atribuído à fala do paciente é descartado, não registrado.
+
+Silêncio nunca vira registro.
+
+E os temas sensíveis, como medicamentos, gestação, anticoagulantes, marca-passo, cirurgias e alergias, sempre voltam para conferência, independentemente do que o modelo tenha decidido.
+
+São garantias do sistema. Não são pedidos feitos ao modelo.`,
+  },
+  {
     key: "hypotheses",
     roteiroSlide: 16,
     block: 7,
@@ -1423,7 +1681,9 @@ Mas ninguém explica isso melhor do que quem usa. Ouçam a Hellen.`,
       zh: "出处可引 · 分项授权 · 不用于公开模型",
     },
     stageNote: "Slide 17 · Biblioteca clínica e segurança.",
-    script: `A plataforma também possui uma biblioteca clínica com base de conhecimento de medicina chinesa e respostas acompanhadas de fontes.
+    script: `A plataforma também possui uma biblioteca clínica com base de conhecimento de medicina chinesa e respostas acompanhadas de fontes. A inteligência artificial não navega na internet: ela consulta esse acervo, e cada citação é conferida contra o trecho que foi realmente entregue a ela.
+
+Cada profissional também cadastra os próprios protocolos, que passam a alimentar as sugestões do seu consultório e que só ela recupera.
 
 E existe uma questão que não pode ser secundária: segurança.
 
@@ -1521,5 +1781,84 @@ Mas queremos continuar expandindo, divulgando, ensinando e praticando a medicina
 Que a tecnologia nos ajude a preservar aquilo que é essencialmente humano na nossa profissão.
 
 Muito obrigada. 谢谢 — Xièxie.`,
+  },
+
+  /*
+    Everything below is the annex: four slides answering the congress
+    organisation's four written questions, in full. They are outside the forty
+    minutes (`annex` keeps them out of the counter and the progress bar) and
+    exist to be jumped to during the questions.
+  */
+  {
+    key: "annex-stages",
+    annex: true,
+    block: 10,
+    blockTitle: { pt: "Anexo · perguntas da organização", zh: "附录 · 主办方提问" },
+    timeRange: "Depois da palestra",
+    kicker: { pt: "Pergunta 1", zh: "问题一" },
+    title: { pt: "Como a IA analisa os dados da consulta", zh: "AI 如何分析诊疗数据" },
+    subtitle: {
+      pt: "Quatro etapas, nesta ordem. As três primeiras são automáticas; a quarta só acontece quando a profissional pede.",
+      zh: "四个步骤，依此顺序。前三步自动进行；第四步仅在医者请求时才发生。",
+    },
+    stageNote: "Anexo 1 · resposta completa à pergunta 1. Não faz parte dos quarenta minutos.",
+    script: `Resposta completa à primeira pergunta da organização: o processamento acontece em quatro etapas, nesta ordem.
+
+As três primeiras são automáticas. A quarta só acontece quando a profissional pede, e apenas nos planos que incluem o recurso.`,
+  },
+  {
+    key: "annex-scope",
+    annex: true,
+    block: 10,
+    blockTitle: { pt: "Anexo · perguntas da organização", zh: "附录 · 主办方提问" },
+    timeRange: "Depois da palestra",
+    kicker: { pt: "Pergunta 2", zh: "问题二" },
+    title: { pt: "Qual conteúdo da consulta entra na análise", zh: "哪些诊疗内容进入分析" },
+    subtitle: {
+      pt: "Depende da etapa, e cada uma enxerga apenas o necessário",
+      zh: "视步骤而定，每一步只看其所需",
+    },
+    stageNote:
+      "Anexo 2 · resposta completa à pergunta 2. O ponto que mais costuma ser perguntado é o isolamento entre consultórios, no rodapé.",
+    script: `Resposta completa à segunda pergunta: depende da etapa, e cada uma enxerga apenas o necessário.
+
+E, em nenhuma delas, a inteligência artificial acessa dados de outros pacientes ou de outros profissionais.`,
+  },
+  {
+    key: "annex-returns",
+    annex: true,
+    block: 10,
+    blockTitle: { pt: "Anexo · perguntas da organização", zh: "附录 · 主办方提问" },
+    timeRange: "Depois da palestra",
+    kicker: { pt: "Pergunta 3", zh: "问题三" },
+    title: { pt: "O que exatamente a IA devolve", zh: "AI 究竟返回什么" },
+    subtitle: {
+      pt: "Cada campo chega com a origem, o estado e a procedência — a frase, o minuto, quem falou e se foi confirmada na transcrição",
+      zh: "每一字段都附带来源、状态与出处——原句、分秒、说话人，以及是否已在转写中得到确认",
+    },
+    stageNote: "Anexo 3 · resposta completa à pergunta 3.",
+    script: `Resposta completa à terceira pergunta: o que a análise devolve.
+
+Tudo isso é rascunho. Nada entra no prontuário como fato até a profissional revisar.`,
+  },
+  {
+    key: "annex-corpus",
+    annex: true,
+    block: 10,
+    blockTitle: { pt: "Anexo · perguntas da organização", zh: "附录 · 主办方提问" },
+    timeRange: "Depois da palestra",
+    kicker: { pt: "Pergunta 4", zh: "问题四" },
+    title: { pt: "De onde vem o conhecimento", zh: "知识从何而来" },
+    subtitle: {
+      pt: "De uma biblioteca clínica curada dentro da plataforma — não da internet aberta",
+      zh: "来自平台内部经甄选的临床知识库——而非开放互联网",
+    },
+    stageNote:
+      "Anexo 4 · resposta completa à pergunta 4. A nota de honestidade no rodapé é a resposta pronta para “mas o modelo não foi treinado na internet inteira?”.",
+    script: `Resposta completa à quarta pergunta: de onde vem o conteúdo.
+
+A biblioteca é curada e vive dentro da plataforma. A inteligência artificial não navega na internet.
+
+E há uma observação de honestidade que fazemos questão de registrar: além da biblioteca, o modelo carrega o conhecimento geral do próprio treinamento. É exatamente por isso que tudo aqui é apresentado como correspondência, com os sinais contrários à vista, e exigindo validação profissional.`,
   },
 ];
