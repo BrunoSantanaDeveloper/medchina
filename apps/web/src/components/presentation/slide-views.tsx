@@ -1337,57 +1337,39 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
 
     /* ---------------------------------------------------------- */
     /*
-      The library, on its own. The corpus is the same `ANNEX_CORPUS` the
-      annex shows, so the number on stage and the number in the written
-      answer are one number. The right column is the life of one citation —
-      the claim the room will doubt, told in the order it happens.
+      The library, on its own: the life of one citation, told in the order it
+      happens. That sequence is the claim the room will doubt, and the only
+      thing this slide argues; the size of the acervo is a number for the
+      annex, where someone can read it instead of watching it go by.
     */
     case "library":
       return (
         <div className="deck-slide-inner">
           <Head slide={slide} lang={lang} />
           <div className="deck-body">
-            <div className="deck-grid deck-library">
-              <div className="deck-card deck-library-corpus deck-reveal" style={at(1)}>
-                <span className="deck-card-icon">
-                  <Books size={22} weight="duotone" aria-hidden="true" />
-                </span>
-                <div className="deck-corpus">
-                  {ANNEX_CORPUS.map((row) => (
-                    <div
-                      className={cx(
-                        "deck-corpus-row",
-                        row.total && "deck-corpus-row--total",
-                        row.pending && "deck-corpus-row--pending",
-                      )}
-                      key={row.what.pt}
-                    >
-                      <span className="deck-corpus-n">{row.n}</span>
-                      <span className="deck-corpus-what">{row.what[lang]}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {/*
+              Three steps across, in the order a citation actually travels.
+              They were a narrow column beside the corpus card; with the card
+              gone they take the width, and the arrows between them carry the
+              sequence the vertical rail used to carry.
+            */}
+            <ol className="deck-steps">
+              {LIBRARY_STEPS.map((step, index) => {
+                const StepIcon = [MagnifyingGlass, ListNumbers, SealCheck][index];
+                return (
+                  <li className="deck-step deck-reveal" key={step.index} style={at(index + 1)}>
+                    <span className="deck-card-icon">
+                      <StepIcon size={26} weight="duotone" aria-hidden="true" />
+                    </span>
+                    <b>{step.index}</b>
+                    <h3>{step.title[lang]}</h3>
+                    <p>{step.body[lang]}</p>
+                  </li>
+                );
+              })}
+            </ol>
 
-              <ol className="deck-steps">
-                {LIBRARY_STEPS.map((step, index) => {
-                  const StepIcon = [MagnifyingGlass, ListNumbers, SealCheck][index];
-                  return (
-                    <li className="deck-step deck-reveal" key={step.index} style={at(index + 2)}>
-                      <span className="deck-card-icon">
-                        <StepIcon size={20} weight="duotone" aria-hidden="true" />
-                      </span>
-                      <div>
-                        <h3>{step.title[lang]}</h3>
-                        <p>{step.body[lang]}</p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
-
-            <div className="deck-note deck-reveal" style={at(5)}>
+            <div className="deck-note deck-reveal" style={at(4)}>
               <NotePencil size={22} weight="duotone" aria-hidden="true" />
               <p>{OWN_PROTOCOLS_NOTE[lang]}</p>
             </div>

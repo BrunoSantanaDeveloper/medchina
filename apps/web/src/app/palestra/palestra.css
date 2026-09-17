@@ -2255,52 +2255,63 @@
 /* Slide 17 · library, and 17b · consent and security                  */
 /* ------------------------------------------------------------------ */
 
-/* The corpus on the left, the life of a citation on the right. */
-.deck-library {
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 22px;
-  align-items: stretch;
-}
-
-.deck-library-corpus .deck-card-icon {
-  margin-bottom: 8px;
-}
-
-/* Inside a card the corpus loses its outer rules; the card is the frame. */
-.deck-library-corpus .deck-corpus {
-  border-top: 0;
-}
-
-.deck-library-corpus .deck-corpus-row:last-child {
-  border-bottom: 0;
-}
-
 /*
-  A numbered path, not three cards: the steps are one process, and a rail
-  between the icons says so. The rail is drawn by the list, behind the chips.
+  A path, not three cards: the steps are one process, so an arrow sits between
+  them. Drawn on the gap with ::after, never on the last one.
 */
 .deck-steps {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 30px;
+  margin: 26px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.deck-steps::before {
+.deck-step::after {
   position: absolute;
-  top: 28px;
-  bottom: 28px;
-  left: 33px;
-  width: 2px;
-  background: linear-gradient(var(--accent-soft), var(--accent), var(--accent-soft));
-  content: "";
+  top: 50%;
+  right: -22px;
+  color: var(--accent);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  content: "›";
+  transform: translateY(-50%);
 }
 
-.deck-step,
+.deck-step:last-child::after {
+  content: none;
+}
+
+/* The step's ordinal, quiet in the corner — the deck's numbered-card device. */
+.deck-step > b {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  color: var(--line);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.deck--dark .deck-step > b {
+  color: var(--edge);
+}
+
+.deck-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 24px;
+  border: 1px solid var(--edge);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
 .deck-protection {
   position: relative;
   display: flex;
@@ -2318,16 +2329,15 @@
   box-shadow: none;
 }
 
-/* The dark surface is translucent, so the rail behind the steps showed
-   through them. This is the same surface, flattened onto the dark ground. */
-.deck--dark .deck-step {
-  background: #122d2b;
-}
-
 .deck-step .deck-card-icon,
 .deck-protection .deck-card-icon {
   flex: none;
   margin: 0;
+}
+
+.deck-step .deck-card-icon {
+  width: 48px;
+  height: 48px;
 }
 
 .deck-step h3,
@@ -2335,7 +2345,7 @@
   margin: 0 0 3px;
   color: var(--ink-strong);
   font-family: "TT Chocolates", sans-serif;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;
@@ -2347,6 +2357,15 @@
   color: var(--ink-soft);
   font-size: 15px;
   line-height: 1.4;
+}
+
+.deck-step h3 {
+  padding-right: 34px;
+}
+
+.deck-step p {
+  font-size: 16px;
+  line-height: 1.45;
 }
 
 .deck[data-lang="zh"] .deck-step h3,
