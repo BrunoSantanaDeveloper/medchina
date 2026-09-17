@@ -18,6 +18,9 @@ sentence that is not there will not be said on stage.
 | `slide-deck.tsx`                  | The shell: canvas scaling, keyboard, timer, presenter window, overlays                                     |
 | `deck-sync.ts`                    | Cross-device sync: transport choice, room code, connect/publish                                            |
 | `deck-connect.tsx`                | The QR panel that pairs the phone                                                                          |
+| `deck-export.tsx`                 | `/palestra/exportar`: the deck as a PDF, in the language chosen                                            |
+| `deck-fit.ts`                     | The fit rule, shared by the stage and the exporter                                                         |
+| `deck-mode.ts`                    | Tells a view whether it renders on stage or on a PDF page                                                  |
 | `../../app/palestra/palestra.css` | The deck's design system                                                                                   |
 
 ## Which design system this is
@@ -95,6 +98,33 @@ Practical notes for the day:
   hotspot puts both on one network and needs no internet at all.
 - The phone holds a **Wake Lock** so the screen does not sleep mid-block, and
   re-acquires it after every tab switch (browsers drop it silently).
+
+## Exporting a PDF
+
+**Exportar** in the deck's top bar opens `/palestra/exportar` in the language on
+screen; the page lets you switch between PT and 中文, include or drop the
+annex, and **Gerar PDF** opens the browser's print dialog (Destino: Salvar como
+PDF). `?idioma=zh` and `?anexo=0` preselect the options.
+
+- **The browser prints; nothing runs on the server.** Vercel has no headless
+  browser, and the print pipeline already embeds the fonts exactly as they
+  render — Chinese included, from the machine's own CJK face.
+- **One page per slide, at the canvas size.** `@page` is 1280×720 CSS px,
+  which is 13.33×7.5 in — PowerPoint's 16:9 widescreen — so the file opens on
+  any projector or viewer without letterboxing. Text stays selectable.
+- **Same renderer, same fit.** The pages are the stage's `SlideRenderer`, fitted
+  by the same `fitSlide` (`deck-fit.ts`), measured only after the fonts load —
+  a slide measured in the fallback face is measured wrong, and the error would
+  only show on paper. The button stays disabled until that is done.
+- **Nothing moves on paper.** Entrance animations are off, the ambient clip
+  prints as its still (`AmbientMedia.poster`, which also covers the moment
+  before the first frame decodes on stage) and a testimony prints as its
+  speaker card. `useDeckMode()` is how a view tells the two apart.
+- **Backgrounds are forced** with `print-color-adjust: exact`, so the slides
+  keep their ground even when "Gráficos de plano de fundo" is unchecked.
+- **The file name is the document title at print time.** Next re-applies the
+  route's metadata title after hydration, so the exporter sets it again on
+  `beforeprint`.
 
 ## The annex (and why the counter ignores it)
 

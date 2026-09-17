@@ -749,43 +749,45 @@ export const EVIDENCE = {
 export const GUARANTEES: Principle[] = [
   {
     index: "01",
-    title: { pt: "A transcrição do audio corresponde à fala real", zh: "转写内容真实反映患者原话" },
+    title: { pt: "Todo dado corresponde à fala real", zh: "每项资料都对应真实话语" },
     body: {
-      pt: "O agente de IA transcreve a fala do paciente e atribui o trecho à fonte. Qualquer conteúdo gerado é sempre vinculado ao registro do áudio, garantindo rastreabilidade e fidelidade.",
-      zh: "AI转录患者的语言，并将其与来源关联。所有生成的内容都与录音记录相连，确保了可追溯性和准确性。",
+      pt: "Cada valor traz a frase, o minuto e quem falou. O sistema procura essa frase na transcrição: se não a encontra, marca o valor como não confirmado.",
+      zh: "每个值都附带原句、分秒与说话人。系统会在转写中查找该原句：若查不到，即标为未经确认。",
     },
   },
   {
     index: "02",
-    title: {
-      pt: "Exames da MTC são considerados pelo agente de IA somente na voz do profissional.",
-      zh: "诊察所见，只认医者之言",
-    },
+    title: { pt: "Exame de MTC só vale na voz do profissional", zh: "中医诊察，只认医者之言" },
     body: {
-      pt: "Língua, pulso, palpação, escuta, odor e padrão sindrômico são considerados somente na fala do profissional. Se o paciente falar alguma coisa relacionada ao exame de MTC, de competência do acupunturista, não é registrado.",
-      zh: "舌象、脉象、按诊、听诊、嗅诊与证型，皆对照说话人的区分加以核验。凡归于患者之口的诊察所见，一律弃去，不予记录。",
+      // Exactly the four fields `PROFESSIONAL_OBSERVATION_FIELDS` enforces in
+      // lib/anamnesis.ts. The anamnesis has no listening or smell field, so the
+      // slide does not claim one.
+      pt: "Língua, pulso, palpação e padrão só entram quando ditados pelo profissional. Achado de exame atribuído à fala do paciente é descartado.",
+      zh: "舌象、脉象、按诊与证型，只有医者口述时才会写入。凡归于患者之口的诊察所见，一律弃去。",
     },
   },
   {
     index: "03",
     title: { pt: "Silêncio nunca vira registro", zh: "沉默绝不写成记录" },
     body: {
-      pt: "Uma informação que não foi digitada pelo acupunturista ou transcrita pelo agente de IA no campo correspondente permanece vazio — ausência de dado não é considerado negação.",
-      zh: "凡写作“未告知”的值一律弃去。无人提及的字段保持留白——资料的缺失，不等于否定的所见。",
+      pt: "Se nada foi dito nem digitado sobre um tema, o campo fica vazio, como “não informado”. A ausência de dado nunca é registrada como negação.",
+      zh: "若某项既无人提及、也无人填写，该字段即保持留白，标注为“未告知”。资料的缺失，绝不记录为否定。",
     },
   },
   {
     index: "04",
     title: { pt: "Tema sensível sempre volta para conferência", zh: "敏感事项一律回到复核" },
     body: {
-      pt: "Medicamentos, gestação, anticoagulantes, marca-passo, cirurgias, alergias, diagnósticos e condições de alerta do paciente são destacados fortemente pelo agente de IA na anamnese",
-      zh: "用药、妊娠、抗凝药、起搏器、手术与过敏、诊疗、以及患者的警示状态，在病历采集的环节中，皆被系统高亮标记并置于待复核状态。",
+      // The families `SENSITIVE` (lib/clinical-safety.ts) and the always-review
+      // anamnesis fields cover. Diagnoses are not one of them, so not listed.
+      pt: "Medicamentos, gestação, anticoagulantes, marca-passo, cirurgias, alergias, lesões e uso de substâncias são sempre marcados para revisão, seja qual for a leitura do modelo.",
+      zh: "用药、妊娠、抗凝药、起搏器、手术、过敏、皮损与物质使用，无论模型作何判定，一律标记待复核。",
     },
   },
 ];
 
 export const GUARANTEES_NOTE: Bi = {
-  pt: "E em nenhum momento a inteligência artificial sobrescreve algo que a profissional tenha digitado.",
+  pt: "Em nenhum momento a inteligência artificial sobrescreve o que o profissional digitou.",
   zh: "人工智能在任何时候都不会覆盖医者亲手写下的内容。",
 };
 
@@ -1535,6 +1537,9 @@ Deixem-me levar vocês para dentro de uma consulta. É o que está acontecendo n
         zh: "一次在 MedChina 中完成的诊疗记录，加速播放",
       },
       sourceUrl: "/videos/palestra/consulta-acelerada.mp4",
+      // 0:30 of the clip: filled anamnesis fields with their provenance, next
+      // to the hypotheses panel that asks for clinical validation.
+      poster: "/videos/palestra/consulta-acelerada-poster.jpg",
       // The picture is 1920x879 inside a 1920x1080 file (100px of black baked
       // in above, 101 below). 872 rather than 879 so the crop clears the band
       // with a few pixels to spare instead of leaving a dark hairline.
@@ -1607,11 +1612,11 @@ Depois que o modelo responde, não é a inteligência artificial que confere o r
 
 São quatro regras programadas.
 
-A citação é procurada na transcrição real: se a frase não estiver lá, o valor é marcado como não confirmado. Uma citação inventada é pior do que nenhuma, porque ela fabrica prova.
+Todo dado corresponde à fala real. Cada valor traz a frase, o minuto e quem falou, e o sistema procura essa frase na transcrição: se ela não estiver lá, o valor é marcado como não confirmado. Uma citação inventada é pior do que nenhuma, porque ela fabrica prova.
 
-Língua, pulso e palpação só valem na voz da profissional — um achado de exame atribuído à fala do paciente é descartado, não registrado.
+Exame de medicina chinesa só vale na voz do profissional. Língua, pulso, palpação e padrão só entram quando ditados por ele; um achado atribuído à fala do paciente é descartado.
 
-Silêncio nunca vira registro.
+Silêncio nunca vira registro. O que ninguém disse fica vazio, como não informado.
 
 E os temas sensíveis, como medicamentos, gestação, anticoagulantes, marca-passo, cirurgias e alergias, sempre voltam para conferência, independentemente do que o modelo tenha decidido.
 

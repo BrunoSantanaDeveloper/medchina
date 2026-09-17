@@ -65,6 +65,12 @@ export interface AmbientMedia {
   /** Local file, e.g. `/videos/palestra/consulta-acelerada.mp4`. */
   sourceUrl: string;
   /**
+   * A still from the clip, already cropped to the picture. Shown before the
+   * first frame decodes on stage, and printed in its place in the PDF — a
+   * `<video>` prints as an empty box.
+   */
+  poster?: string;
+  /**
    * Aspect ratio of the PICTURE inside the file, as a CSS `aspect-ratio`.
    *
    * A screen recording usually arrives padded into a standard frame — this one

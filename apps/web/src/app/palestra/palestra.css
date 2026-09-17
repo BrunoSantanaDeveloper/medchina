@@ -205,6 +205,8 @@
 
 .deck-btn {
   display: inline-flex;
+  /* Also used on the export link. */
+  text-decoration: none;
   align-items: center;
   gap: 7px;
   min-height: 32px;
@@ -921,6 +923,16 @@
   display: block;
   object-fit: cover;
   background: #04211f;
+}
+
+/* The clip's still, printed where the video would be. Same crop as the video. */
+.deck-window-still {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .deck-window--video .deck-video-standby {
@@ -3426,6 +3438,211 @@
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 12px;
   font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ */
+/* Export — the deck as a PDF (/palestra/exportar)                     */
+/* ------------------------------------------------------------------ */
+
+/*
+  One page per slide, at the canvas size. 1280×720 CSS px is 13.33×7.5 in, the
+  16:9 widescreen PowerPoint and every projector expect, so the PDF is never
+  letterboxed. Margins are zero because the slide carries its own padding.
+*/
+@page {
+  size: 1280px 720px;
+  margin: 0;
+}
+
+/* The deck root is a full-viewport, non-scrolling stage; the export scrolls. */
+.deck.deck--export {
+  display: block;
+  height: auto;
+  min-height: 100dvh;
+  overflow: visible;
+  background: var(--paper);
+  user-select: text;
+}
+
+.deck-export-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--chrome-edge);
+  background: var(--chrome-bg);
+  backdrop-filter: blur(12px);
+}
+
+.deck-export-heading {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-right: auto;
+  color: var(--accent);
+}
+
+.deck-export-heading strong {
+  display: block;
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 17px;
+}
+
+.deck-export-heading span {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.deck-export-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.deck-export-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--jade);
+}
+
+.deck-export-bar .deck-btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.deck-export-spin {
+  animation: deck-export-spin 900ms linear infinite;
+}
+
+@keyframes deck-export-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.deck-export-hint {
+  display: flex;
+  flex-basis: 100%;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.deck-export-hint svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.deck-export-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  padding: 28px 32px 64px;
+}
+
+.deck-export-caption {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.deck-export-caption b {
+  color: var(--accent);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 14px;
+}
+
+/* The sheet is the canvas at screen scale; the canvas inside stays 1280×720. */
+.deck-export-sheet {
+  width: calc(1280px * var(--export-scale, 1));
+  height: calc(720px * var(--export-scale, 1));
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+}
+
+.deck-export-canvas {
+  width: 1280px;
+  height: 720px;
+  transform: scale(var(--export-scale, 1));
+  transform-origin: top left;
+}
+
+/* A page is a still: no entrance, no stagger, nothing caught mid-animation. */
+.deck--export .deck-slide,
+.deck--export .deck-reveal {
+  animation: none !important;
+}
+
+.deck--export .deck-slide {
+  border-radius: 0;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .deck.deck--export {
+    min-height: 0;
+    background: none;
+  }
+
+  /* Backgrounds are the design here, not decoration the printer may drop. */
+  .deck--export,
+  .deck--export * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .deck-export-bar,
+  .deck-export-caption {
+    display: none !important;
+  }
+
+  .deck-export-pages {
+    display: block;
+    padding: 0;
+  }
+
+  .deck-export-page {
+    break-after: page;
+    break-inside: avoid;
+  }
+
+  .deck-export-page:last-child {
+    break-after: auto;
+  }
+
+  .deck-export-sheet {
+    width: 1280px;
+    height: 720px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .deck-export-canvas {
+    transform: none;
+  }
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,6 +1,7 @@
 "use client";
 
 import DeckConnect from "./deck-connect";
+import { fitSlide } from "./deck-fit";
 import { resolveRoom, type SyncStatus, type SyncTransport, useRemoteSync } from "./deck-sync";
 import { SlideRenderer } from "./slide-views";
 import { SLIDES_DATA } from "./slides-data";
@@ -18,6 +19,7 @@ import {
   Clock,
   DeviceMobile,
   EyeSlash,
+  FilePdf,
   MonitorPlay,
   Moon,
   Pause,
@@ -663,32 +665,13 @@ export default function SlideDeck() {
     else prev();
   };
 
-  /*
-    Nothing gets clipped on stage.
-
-    A slide is composed against a fixed canvas, but the same slide carries
-    Portuguese and Chinese, and Portuguese runs roughly a third longer — the
-    hypotheses slide overflowed in pt-BR and lost the bottom of the ethical
-    disclaimer, which is the one line on it that must be read. Rather than
-    hand-tuning each slide for the longer language, the frame measures the
-    composed block and shrinks only what does not fit. The floor is 0.72:
-    below that the slide is genuinely overloaded and should lose content, not
-    legibility.
-  */
+  // Nothing gets clipped on stage — see `deck-fit.ts` for the rule, which the
+  // exporter shares so a PDF page is fitted exactly like the projected slide.
   useLayoutEffect(() => {
     const section = slideRef.current;
     if (!section) return;
-    const inner = section.querySelector<HTMLElement>(".deck-slide-inner");
-    if (!inner) return;
-
     section.style.setProperty("--fit", "1");
-    const frame = requestAnimationFrame(() => {
-      const style = getComputedStyle(section);
-      const available = section.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-      const needed = inner.offsetHeight;
-      const fit = needed > available ? Math.max(0.72, available / needed) : 1;
-      section.style.setProperty("--fit", String(fit));
-    });
+    const frame = requestAnimationFrame(() => fitSlide(section));
     return () => cancelAnimationFrame(frame);
   }, [slide.key, state.lang]);
 
@@ -764,6 +747,12 @@ export default function SlideDeck() {
             Celular
             {sync.status === "live" && <i className="deck-btn-dot" aria-hidden="true" />}
           </button>
+
+          {/* The PDF, in the language on screen — changeable on the export page. */}
+          <a className="deck-btn" href={`/palestra/exportar?idioma=${state.lang}`} target="_blank" rel="noopener">
+            <FilePdf size={15} weight="duotone" aria-hidden="true" />
+            Exportar
+          </a>
 
           {/* One language on screen at a time — this switches, it does not add. */}
           <div className="deck-langswitch" role="group" aria-label="Idioma dos slides">

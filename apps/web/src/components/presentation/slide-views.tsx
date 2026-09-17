@@ -1,5 +1,6 @@
 "use client";
 
+import { useDeckMode } from "./deck-mode";
 import {
   AI_LIMITS,
   ANNEX_CITATION,
@@ -430,6 +431,7 @@ function WindowShot({
  */
 function VideoBlock({ slide, lang }: ViewProps) {
   const media = slide.media;
+  const mode = useDeckMode();
   const probed = useAssetAvailable(media?.sourceUrl ?? "", "video");
   // The only signal left for an off-origin source: the element failed to load
   // it. On stage that is usually the venue's wi-fi, not a missing file, and
@@ -441,7 +443,7 @@ function VideoBlock({ slide, lang }: ViewProps) {
 
   return (
     <div className="deck-video deck-reveal" style={at(1)}>
-      {!probed || failed ? (
+      {mode === "export" || !probed || failed ? (
         <div className="deck-video-standby">
           <span className="deck-video-standby-icon">
             <PlayCircle size={40} weight="duotone" aria-hidden="true" />
@@ -502,6 +504,7 @@ function usePrefersCalm() {
  *   she did not start is the wrong default, and an empty frame is worse.
  */
 function AmbientShot({ media, lang, index }: { media: AmbientMedia; lang: DeckLang; index: number }) {
+  const mode = useDeckMode();
   const available = useAssetAvailable(media.sourceUrl, "video");
   const calm = usePrefersCalm();
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -529,10 +532,13 @@ function AmbientShot({ media, lang, index }: { media: AmbientMedia; lang: DeckLa
         <i />
       </span>
       <div className="deck-window-body">
-        {available ? (
+        {mode === "export" && media.poster ? (
+          <img className="deck-window-still" src={media.poster} alt={media.label[lang]} decoding="sync" />
+        ) : available && mode === "stage" ? (
           <video
             ref={videoRef}
             src={media.sourceUrl}
+            poster={media.poster}
             muted
             loop={!calm}
             controls={calm}
@@ -548,7 +554,7 @@ function AmbientShot({ media, lang, index }: { media: AmbientMedia; lang: DeckLa
             <strong>{media.standby[lang]}</strong>
           </div>
         )}
-        {available && blocked && (
+        {mode === "stage" && available && blocked && (
           <button
             className="deck-window-play"
             type="button"
