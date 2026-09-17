@@ -44,7 +44,7 @@ Gaps the library cannot express yet: <list or "none"> → extend components/mark
 | 3 | 3-step how-it-works with numbered cards | ProcessSteps variant per direction |
 | ... | every remaining section, no skips, no reordering | ... |
 ```
-2. **Structure is decided by the blueprint; identity stays ours.** Skip the direction-exploration previews (Pass 0.B.2–3) for layout — the blueprint IS the layout decision. Typography/palette still come from the brand tokens (run only the type/palette part of the engine); copy is always ours, in all 5 locales; the reference's text, images, logos and mascots are NEVER reproduced.
+2. **Structure is decided by the blueprint; identity stays ours.** Skip the direction-exploration previews (Pass 0.B.2–3) for layout — the blueprint IS the layout decision. Typography/palette still come from the brand tokens (run only the type/palette part of the engine); copy is always ours, in all 6 locales; the reference's text, images, logos and mascots are NEVER reproduced.
 3. A blueprint section the library cannot express is a **blocking gap**: build the primitive in `components/marketing/` first (register it in `catalog.json`), then compose the page. Never approximate a blueprint section with a "close enough" archetype without flagging it to the user.
 4. Deviations are allowed only where a premium-bar or hard-constraint rule would be violated (e.g. the reference hero is text-only, or uses horizontal-scroll patterns that break at 375px) — list every deviation in the blueprint table (a `Deviation:` note on the row), never deviate silently.
 5. **Keep the reference files in `attachments/` until the blueprint comparison passes** in marketing-verify (it needs them for the side-by-side); delete them only after the page is approved.
@@ -94,7 +94,7 @@ A page can follow every rule below and still look like a beginner site if it is 
 - **Structure:** every content block sits in `<Section>` / `<Container>` / `<SectionHeader>` from `apps/web/src/components/marketing/` — never hand-tuned paddings, widths or `max-w-*` per page. New sections extend the library, not the page.
 - **Tokens only:** colors/radii/shadows via `hsl(var(--token))` Tailwind classes; spacing/type/motion via the marketing tokens (`packages/design-tokens/css/marketing.css`). The page must look right in all 4 color themes × light/dark.
 - **Type:** headings use `font-display text-display-{2xl,xl,lg,md}` (fluid clamp scale — no `text-[3rem] md:text-[5rem]` breakpoint jumps). Optional display font: load in root layout, set `--font-display`.
-- **i18n:** every string through the `marketing` namespace in ALL locale files (`de,en,es,fr,pt-BR`). No hardcoded copy.
+- **i18n:** every string through the `marketing` namespace in ALL locale files (`de,en,es,fr,pt-BR,zh-CN`). No hardcoded copy.
 - **Icons:** the template ships more than one icon set (Nexture native; Phosphor and others via adapters — see `apps/web/src/icons/README.md`). The set is a per-project decision made once (init-project or tsconfig alias remap), NOT per page. Pages always import through the alias `@/icons/nexture/ni-*` regardless of the chosen set, and never import an icon library (Phosphor, Lucide, MUI icons) directly. If the project hasn't decided yet, ask before the first page — don't mix sets.
 - **Responsive:** mobile-first — the base layout is the phone; breakpoints only add columns/space. No horizontal scroll at 375px. Verify 375/768/1440.
 - **Routes:** a new public page must be added to `PUBLIC_PREFIXES` in `apps/web/src/middleware.ts` and to `apps/web/src/app/sitemap.ts`, and export its own `metadata`/`generateMetadata`.
@@ -178,6 +178,6 @@ Rules:
 
 ## Before finishing
 
-Run the `marketing-verify` skill — it renders the page and judges the premium bar on actual screenshots (375/768/1440 × light/dark, reduced motion, fired reveals). Code that was never rendered is not verified. Additionally: confirm every string resolves in all 5 locales; run `npm run build` and `npm run lint:fix`.
+Run the `marketing-verify` skill — it renders the page and judges the premium bar on actual screenshots (375/768/1440 × light/dark, reduced motion, fired reveals). Code that was never rendered is not verified. Additionally: confirm every string resolves in all 6 locales; run `npm run build` and `npm run lint:fix`.
 
 **SEO pass:** exactly one `<h1>`; `generateMetadata` exports a localized title (target term + value, not just the brand) and a distinct 150–160-char description; the route is in `PUBLIC_PREFIXES` and `sitemap.ts`; structured data is present where applicable (FAQ, pricing, article); every image has descriptive `alt`; the page links to the money page. View source and confirm the JSON-LD and `<h1>` are in the server-rendered HTML.

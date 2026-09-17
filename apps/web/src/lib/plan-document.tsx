@@ -9,6 +9,7 @@
 // runtime and harmless.
 import React from "react";
 
+import { safetyFlagTerm } from "@/lib/clinical-safety";
 import { credentialLines } from "@/lib/professional-credentials";
 import type { IssueContext } from "@flyee/documents";
 import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
@@ -184,7 +185,10 @@ function PlanDocument({ data, t, ctx }: { data: PlanDocumentData; t: Labels; ctx
             <Text style={styles.safetyTitle}>{t("plan-safety-title")}</Text>
             {data.safetyFlags.map((flag, index) => (
               <Text key={index} style={styles.safetyItem}>
-                • {t(`plan-safety-${flag.category}`)}: {flag.matchedText}
+                {/* The category and the word that raised it — never the whole
+                    recorded sentence: this sheet leaves with the patient. */}
+                • {t(`plan-safety-${flag.category}`)}
+                {safetyFlagTerm(flag) ? `: ${safetyFlagTerm(flag)}` : ""}
               </Text>
             ))}
           </View>

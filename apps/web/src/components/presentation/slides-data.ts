@@ -147,7 +147,7 @@ export const TIMELINE_BARRIER: Bi = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Slide 4 · public health milestones                                  */
+/* Slide 5 · public health milestones                                  */
 /* ------------------------------------------------------------------ */
 
 export interface Milestone {
@@ -199,7 +199,7 @@ export const MILESTONES_NOTE: Bi = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Slide 5 · the scale in Brazil                                       */
+/* Slide 6 · the scale in Brazil                                       */
 /* ------------------------------------------------------------------ */
 
 export interface StatCard {
@@ -244,57 +244,13 @@ export const SUS_STATS: StatCard[] = [
 ];
 
 export const SUS_FOOTNOTE: Bi = {
-  pt: "Os conselhos profissionais apontam subnotificação nos registros: estes números oficiais são o piso, não o teto.",
-  zh: "各专业委员会指出登记存在漏报：官方数字是下限，而非上限。",
+  pt: "O SUS – Sistema Único de Saúde, é um sistema do  governo brasileiro que atende uma população de mais de 210 milhões de brasileiros, e a maioria da população não possui plano de saúde privado.",
+  zh: "巴西卫生系统（SUS）是巴西政府运营的体系，服务超过2.1亿人口，且多数人口没有私人医疗保险。",
 };
 
 /* ------------------------------------------------------------------ */
-/* Slide 6 · the law                                                   */
+/* Slide 4 · the law                                                   */
 /* ------------------------------------------------------------------ */
-
-/**
- * The 22 years, plotted instead of asserted.
- *
- * `at` is the position on the rail as a share of the elapsed time between the
- * bill's presentation (July 2003) and the signature (January 2026) — 270 months
- * in all. Spacing the markers by real elapsed time is the whole point: the
- * 16-year silence between 2003 and the Chamber vote is the argument, and evenly
- * spaced markers would erase it.
- */
-export interface LawMilestone {
-  year: string;
-  at: number;
-  label: Bi;
-  detail: Bi;
-  emphasis?: boolean;
-}
-
-export const LAW_TRACK: LawMilestone[] = [
-  {
-    year: "2003",
-    at: 0,
-    label: { pt: "Projeto apresentado", zh: "提案提出" },
-    detail: { pt: "Julho · dep. Celso Russomanno", zh: "7月 · 众议员 Celso Russomanno" },
-  },
-  {
-    year: "2019",
-    at: 71,
-    label: { pt: "Aprovado na Câmara", zh: "众议院通过" },
-    detail: { pt: "16 anos depois", zh: "历时16年" },
-  },
-  {
-    year: "2026",
-    at: 100,
-    label: { pt: "Sancionada", zh: "签署生效" },
-    detail: { pt: "12 de janeiro · Lei 15.345", zh: "1月12日 · 第15345号法律" },
-    emphasis: true,
-  },
-];
-
-export const LAW_SPAN: Bi = {
-  pt: "22 anos de tramitação no Congresso Nacional",
-  zh: "国会审议历时22年",
-};
 
 export const LAW_FACTS: StatCard[] = [
   {
@@ -342,7 +298,7 @@ export const CULTURES: CultureColumn[] = [
     title: { pt: "Na China", zh: "在中国" },
     subtitle: { pt: "Tradição hospitalar", zh: "医院与师承传统" },
     items: [
-      { pt: "O tratamento pode ser diário, às vezes por semanas seguidas.", zh: "治疗可每日进行，有时持续数周。" },
+      { pt: "Acupuntura está nos hospitais (atenção terciária)", zh: "医院（三级诊疗）" },
       {
         pt: "Formação universitária com hospital-escola e supervisão direta.",
         zh: "大学教育、附属医院实习与带教督导。",
@@ -355,14 +311,7 @@ export const CULTURES: CultureColumn[] = [
     title: { pt: "No Brasil", zh: "在巴西" },
     subtitle: { pt: "Consultório privado", zh: "独立诊所" },
     items: [
-      {
-        pt: "Uma sessão por semana — pelo custo, pelas distâncias, pela rotina de trabalho.",
-        zh: "每周一次——受费用、距离与工作节奏所限。",
-      },
-      {
-        pt: "Cada sessão precisa render mais, e o raciocínio clínico precisa ser mais preciso.",
-        zh: "每次诊疗都须更有效，辨证也须更精准。",
-      },
+      { pt: "Acupuntura está na atenção primária e secundária de saúde.", zh: "社区与二级医疗机构" },
       {
         pt: "Formação pulverizada em centenas de cursos, sem padrão nacional; experiência construída na solidão do consultório.",
         zh: "培训分散于数百个课程，缺乏全国标准；临床经验在独自执业中积累。",
@@ -586,15 +535,6 @@ export const PLATFORM_STATS: StatCard[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/* Bloco 6 · the pause                                                 */
-/* ------------------------------------------------------------------ */
-
-export const PAUSE_LINE: Bi = {
-  pt: "Para eu estar aqui hoje, foi preciso parar. Foi preciso olhar para a vida depois do diagnóstico e decidir.",
-  zh: "为了今天能站在这里，我必须停下来；必须在确诊之后重新审视生命，决定什么值得我的时间。",
-};
-
-/* ------------------------------------------------------------------ */
 /* Slide 13 · the motto                                                */
 /* ------------------------------------------------------------------ */
 
@@ -809,45 +749,48 @@ export const EVIDENCE = {
 export const GUARANTEES: Principle[] = [
   {
     index: "01",
-    title: { pt: "A citação é procurada na transcrição real", zh: "引文须在真实转写中查得" },
+    title: { pt: "A transcrição do audio corresponde à fala real", zh: "转写内容真实反映患者原话" },
     body: {
-      pt: "Se a frase apresentada como origem não for encontrada no áudio transcrito, o valor é marcado como não confirmado e destacado para revisão.",
-      zh: "若作为出处的语句在转写的录音中查不到，该值即标为未经确认，并提请复核。",
+      pt: "O agente de IA transcreve a fala do paciente e atribui o trecho à fonte. Qualquer conteúdo gerado é sempre vinculado ao registro do áudio, garantindo rastreabilidade e fidelidade.",
+      zh: "AI转录患者的语言，并将其与来源关联。所有生成的内容都与录音记录相连，确保了可追溯性和准确性。",
     },
   },
   {
     index: "02",
-    title: { pt: "Exame só vale na voz da profissional", zh: "诊察所见，只认医者之言" },
+    title: {
+      pt: "Exames da MTC são considerados pelo agente de IA somente na voz do profissional.",
+      zh: "诊察所见，只认医者之言",
+    },
     body: {
-      pt: "Língua, pulso, palpação e padrão são conferidos contra a separação de vozes. Um achado de exame atribuído à fala do paciente é descartado, não registrado.",
-      zh: "舌象、脉象、按诊与证型，皆对照说话人的区分加以核验。凡归于患者之口的诊察所见，一律弃去，不予记录。",
+      pt: "Língua, pulso, palpação, escuta, odor e padrão sindrômico são considerados somente na fala do profissional. Se o paciente falar alguma coisa relacionada ao exame de MTC, de competência do acupunturista, não é registrado.",
+      zh: "舌象、脉象、按诊、听诊、嗅诊与证型，皆对照说话人的区分加以核验。凡归于患者之口的诊察所见，一律弃去，不予记录。",
     },
   },
   {
     index: "03",
     title: { pt: "Silêncio nunca vira registro", zh: "沉默绝不写成记录" },
     body: {
-      pt: "Um valor que diga “não informado” é descartado. Um campo sobre o qual ninguém falou permanece vazio — ausência de dado nunca é escrita como achado negativo.",
-      zh: "凡写作“未告知”的值一律弃去。无人提及的字段保持留白——资料的缺失，绝不写成否定的所见。",
+      pt: "Uma informação que não foi digitada pelo acupunturista ou transcrita pelo agente de IA no campo correspondente permanece vazio — ausência de dado não é considerado negação.",
+      zh: "凡写作“未告知”的值一律弃去。无人提及的字段保持留白——资料的缺失，不等于否定的所见。",
     },
   },
   {
     index: "04",
     title: { pt: "Tema sensível sempre volta para conferência", zh: "敏感事项一律回到复核" },
     body: {
-      pt: "Medicamentos, gestação, anticoagulantes, marca-passo, cirurgias e alergias são marcados para revisão independentemente do que o modelo tenha decidido.",
-      zh: "用药、妊娠、抗凝药、起搏器、手术与过敏，无论模型作何判定，一律标记待复核。",
+      pt: "Medicamentos, gestação, anticoagulantes, marca-passo, cirurgias, alergias, diagnósticos e condições de alerta do paciente são destacados fortemente pelo agente de IA na anamnese",
+      zh: "用药、妊娠、抗凝药、起搏器、手术与过敏、诊疗、以及患者的警示状态，在病历采集的环节中，皆被系统高亮标记并置于待复核状态。",
     },
   },
 ];
 
 export const GUARANTEES_NOTE: Bi = {
-  pt: "São garantias do sistema, não pedidos feitos ao modelo. E em nenhum momento a inteligência artificial sobrescreve algo que a profissional tenha digitado.",
-  zh: "这是系统的保障，而非对模型的请求。人工智能在任何时候都不会覆盖医者亲手写下的内容。",
+  pt: "E em nenhum momento a inteligência artificial sobrescreve algo que a profissional tenha digitado.",
+  zh: "人工智能在任何时候都不会覆盖医者亲手写下的内容。",
 };
 
 /* ------------------------------------------------------------------ */
-/* Slide 16 · hypotheses                                               */
+/* Slide 16 · hypotheses                                               
 /* ------------------------------------------------------------------ */
 
 export interface HypothesisColumn {
@@ -911,7 +854,7 @@ export const LAYERS_NOTE: Bi = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Slide 17 · library and security                                     */
+/* Slide 17 · the clinical library                                     */
 /* ------------------------------------------------------------------ */
 
 export interface FeatureCard {
@@ -920,32 +863,113 @@ export interface FeatureCard {
   tone: "primary" | "secondary" | "jade";
 }
 
-export const LIBRARY_SECURITY: FeatureCard[] = [
+/**
+ * How one citation travels, in the order it happens. Three steps because the
+ * guarantee lives in the third: the model never gets to name a source the
+ * system did not hand it. The corpus beside it is `ANNEX_CORPUS` — one source
+ * for the numbers, so the stage and the annex can never disagree.
+ */
+export const LIBRARY_STEPS: Principle[] = [
   {
-    title: { pt: "Biblioteca curada, não a internet aberta", zh: "经甄选的知识库，而非开放互联网" },
+    index: "01",
+    title: { pt: "Busca no acervo, não na internet", zh: "检索馆藏，而非互联网" },
     body: {
-      pt: "A IA não navega na web: consulta um acervo dentro da plataforma — 459 documentos de fontes tradicionais, entre fichas de pontos, fórmulas e pontos de Tung. Os trechos vão numerados ao modelo, que só pode citar pelo número, e cada citação é conferida contra o que foi entregue: fonte inventada é descartada, não exibida.",
-      zh: "AI 不上网检索，它查阅的是平台内部的馆藏：459 份传统文献，含腧穴条目、中药方剂与董氏奇穴。相关片段以编号交予模型，模型只能按编号引用，其后每一处引用都对照实际交付的片段核验：凭空杜撰的出处一律弃去，不予显示。",
+      pt: "Antes de responder, o sistema procura na biblioteca da plataforma os trechos ligados ao caso.",
+      zh: "作答之前，系统先在平台知识库中查找与病案相关的片段。",
     },
-    tone: "primary",
   },
   {
-    title: { pt: "Consentimento específico e versionado", zh: "分项且带版本的知情同意" },
+    index: "02",
+    title: { pt: "O modelo só cita pelo número", zh: "模型只能按编号引用" },
     body: {
-      pt: "Uma autorização para a gravação, outra para o processamento por inteligência artificial. A recusa nunca impede o atendimento manual.",
-      zh: "录音一项授权，人工智能处理另一项授权。拒绝授权绝不妨碍以人工方式完成诊疗。",
+      pt: "Os trechos chegam numerados. A resposta aponta o número do trecho que a sustenta.",
+      zh: "片段以编号交付，答案须标明所依据片段的编号。",
     },
-    tone: "secondary",
   },
   {
-    title: { pt: "Dado clínico é o dado mais sensível que existe", zh: "临床数据是最敏感的数据" },
+    index: "03",
+    title: { pt: "Cada citação é conferida", zh: "每一处引用都经核验" },
     body: {
-      pt: "Tudo é criptografado e cada acesso fica em trilha de auditoria. Nenhum áudio ou conteúdo clínico treina modelos públicos de IA. E a IA nunca alcança o dado de outro paciente nem de outro profissional: cada consultório é isolado no banco. Seguimos a lei brasileira de proteção de dados desde a concepção.",
-      zh: "全程加密，每次访问留有审计轨迹。任何录音或临床内容都不用于训练公开的AI模型。AI 也绝不触及其他患者或其他医者的资料：每一间诊所在数据库中彼此隔离。系统自设计之初即遵循巴西数据保护法。",
+      pt: "O número é checado contra o que foi realmente entregue. Fonte inventada é descartada, não exibida.",
+      zh: "编号须与实际交付的片段相符。凭空杜撰的出处一律弃去，不予显示。",
     },
-    tone: "jade",
   },
 ];
+
+export const OWN_PROTOCOLS_NOTE: Bi = {
+  pt: "Cada profissional também cadastra os próprios protocolos. Eles passam a alimentar as sugestões do consultório dela — e só ela os recupera.",
+  zh: "每位医者亦可录入自己的方案，用于其诊所的建议生成——且仅本人可检索到。",
+};
+
+/* ------------------------------------------------------------------ */
+/* Slide 17b · consent and clinical-data protection                    */
+/* ------------------------------------------------------------------ */
+
+/** The two separate authorizations — shown as two, because that IS the point. */
+export const CONSENT_ITEMS: Principle[] = [
+  {
+    index: "01",
+    title: { pt: "Gravação do áudio", zh: "诊疗录音" },
+    body: { pt: "Autoriza capturar a consulta.", zh: "授权采集诊疗录音。" },
+  },
+  {
+    index: "02",
+    title: { pt: "Processamento por IA", zh: "人工智能处理" },
+    body: { pt: "Autoriza transcrever e organizar.", zh: "授权转写与整理。" },
+  },
+];
+
+export const CONSENT_CARD = {
+  title: { pt: "Consentimento específico e versionado", zh: "分项且带版本的知情同意" } as Bi,
+  body: {
+    pt: "O paciente autoriza cada finalidade em separado, e cada aceite guarda a versão do termo que foi lido. Revogar fica registrado — nunca é apagado.",
+    zh: "患者按用途分别授权，每一次同意都记录所阅读条款的版本。撤回会被记录在案——绝不删除。",
+  } as Bi,
+  refusal: {
+    pt: "A recusa nunca impede o atendimento manual.",
+    zh: "拒绝授权绝不妨碍以人工方式完成诊疗。",
+  } as Bi,
+};
+
+export const DATA_PROTECTIONS: Principle[] = [
+  {
+    index: "01",
+    title: { pt: "Criptografado", zh: "全程加密" },
+    body: {
+      pt: "Na transmissão e no armazenamento.",
+      zh: "传输与存储均加密。",
+    },
+  },
+  {
+    index: "02",
+    title: { pt: "Cada acesso em trilha de auditoria", zh: "每次访问留有审计轨迹" },
+    body: {
+      pt: "Quem viu, quem mudou e quando — em registro que não se reescreve.",
+      zh: "谁查看、谁修改、何时——记录不可改写。",
+    },
+  },
+  {
+    index: "03",
+    title: { pt: "Nada treina modelos públicos", zh: "不用于训练公开模型" },
+    body: {
+      pt: "Nenhum áudio ou conteúdo clínico é usado para treinar IA pública.",
+      zh: "任何录音或临床内容都不用于训练公开的人工智能。",
+    },
+  },
+  {
+    index: "04",
+    title: { pt: "Cada consultório isolado", zh: "诊所之间彼此隔离" },
+    body: {
+      pt: "A IA nunca alcança o dado de outro paciente nem de outro profissional.",
+      zh: "人工智能绝不触及其他患者或其他医者的资料。",
+    },
+  },
+];
+
+export const LGPD_NOTE: Bi = {
+  pt: "Seguimos a lei brasileira de proteção de dados (LGPD) desde a concepção do sistema.",
+  zh: "系统自设计之初即遵循巴西《通用数据保护法》（LGPD）。",
+};
 
 export const MANAGEMENT_NOTE: Bi = {
   pt: "E toda a gestão que fez o MedChina nascer continua lá: agenda, financeiro do consultório e a história completa de cada paciente organizada em linha do tempo.",
@@ -974,13 +998,13 @@ export const FOUR_EXAMINATIONS: Examination[] = [
     glyph: "望",
     pinyin: "Wàng",
     meaning: { pt: "Observar", zh: "观察" },
-    note: { pt: "Não pode ser delegado", zh: "不可假手于机器" },
+    note: { pt: "Profissional humano", zh: "不可假手于机器" },
   },
   {
     glyph: "闻",
     pinyin: "Wén",
     meaning: { pt: "Ouvir e cheirar", zh: "闻声嗅气" },
-    note: { pt: "Não pode ser delegado", zh: "不可假手于机器" },
+    note: { pt: "Profissional humano", zh: "不可假手于机器" },
   },
   {
     glyph: "问",
@@ -993,7 +1017,7 @@ export const FOUR_EXAMINATIONS: Examination[] = [
     glyph: "切",
     pinyin: "Qiè",
     meaning: { pt: "Palpar", zh: "切脉按诊" },
-    note: { pt: "Não pode ser delegado", zh: "不可假手于机器" },
+    note: { pt: "Profissional humano", zh: "不可假手于机器" },
   },
 ];
 
@@ -1002,14 +1026,9 @@ export const AI_LIMITS: Bi = {
   zh: "我们的AI不观察、不触诊、不做决定。它只倾听、整理、提醒与发问，把文书所夺走的东西还给医者：时间与专注。",
 };
 
-export const DISCIPLE_QUOTE: Bi = {
-  pt: "Durante séculos, esse alguém foi o discípulo que acompanhava o mestre e anotava. A nossa tecnologia faz o papel do discípulo. A medicina continua sendo do mestre.",
-  zh: "数百年来，担此任者是随师抄录的门徒。我们的技术只做门徒的角色，医道仍属于医者。",
-};
-
 export const DUTY_NOTE: Bi = {
-  pt: "Com a profissão regulamentada, o registro clínico deixou de ser uma escolha pessoal e virou um dever profissional. Prontuário bem-feito protege o paciente, protege o profissional e dignifica a profissão.",
-  zh: "职业获得立法规范之后，临床记录不再是个人选择，而成为专业义务。完善的病历保护患者、保护医者，也让这门职业更有尊严。",
+  pt: "Com a regulamentação da profissão, o registro clínico deixará de ser uma escolha pessoal muito em breve. Ele será um dever de todo o profissional de acupuntura no Brasil. E nós, através do MedChina, apoiamos e dignificamos os profissionais de medicina chinesa no Brasil.",
+  zh: "随着职业制度化进程，临床记录将很快不再是个人选择。它将成为巴西所有针灸从业者的法定义务。而我们通过 MedChina，在支持并提升巴西中医从业者专业地位的同时，也为这一古老医学的传承和发展注入新的活力。",
 };
 
 /* ------------------------------------------------------------------ */
@@ -1029,17 +1048,17 @@ export const CONFUCIUS_CARD: FeatureCard = {
 };
 
 export const INVITATION_CARD: FeatureCard = {
-  title: { pt: "Um convite concreto às instituições chinesas", zh: "向中国机构发出的具体邀请" },
+  title: { pt: "Construindo pontes - Nosso convite às instituições chinesas", zh: "构建桥梁 - 我们向中国机构的邀请" },
   body: {
-    pt: "Universidades, professores e instituições que queiram alcançar o público brasileiro encontram no MedChina um canal direto com essa comunidade — em eventos e cursos, ou levando conteúdo de referência, com a devida curadoria e licença, para dentro da biblioteca clínica que os nossos profissionais consultam todos os dias.",
-    zh: "希望触达巴西受众的高校、教师与机构，可通过 MedChina 直达这一专业群体——或以活动与课程的形式，或在恰当的甄选与授权之下，将权威内容纳入我们的医者每日查阅的临床知识库。",
+    pt: "Eu, em nome do MedChina, convido: universidades, professores e instituições que queiram contribuir, cooperar e fomentar o ensino da medicina chinesa no Brasil pois encontrarão, em nós, um canal direto com essa comunidade. Através de eventos, cursos e conferências, online ou presenciais. Ou ainda compartilhando seus preciosos conteúdos, de referência em medicina chinesa, em nossa biblioteca clínica, beneficiando assim os profissionais brasileiros que a consultam diariamente.",
+    zh: "我谨代表 MedChina，诚挚邀请：所有希望与巴西受众建立联系的高校、教师及机构，通过 MedChina 这个渠道，直接触达巴西本地中医社群。我们可以携手举办线上或线下的活动、课程与讲座。此外，若您愿将权威的中文医学参考内容，通过适宜的评估与授权，纳入我们的临床知识库，将使无数巴西医生在日常诊疗中直接受益，这无疑是对巴西中医药事业最宝贵的贡献。",
   },
   tone: "primary",
 };
 
 export const BRIDGE_LINE: Bi = {
-  pt: "A medicina chinesa cresceu no Brasil por dois séculos sem falar português. Imaginem o que ela pode fazer agora que aprendeu.",
-  zh: "两个世纪以来，中医药在巴西生长，却从未说过葡萄牙语。如今它学会了，请想象它能走多远。",
+  pt: "Por dois séculos a medicina chinesa cresceu no Brasil mesmo sem falar português e sem tecnologia. O que podemos fazer agora, quando nossos países se relacionam amigavelmente e temos a tecnologia integrada à tradição?",
+  zh: "两个世纪以来，中医药在巴西生长，却从未说过葡萄牙语，也没有技术辅助。而如今，当我们的两个国家友好往来，且技术又能融入传统，我们能创造怎样的未来？",
 };
 
 /* ------------------------------------------------------------------ */
@@ -1047,12 +1066,12 @@ export const BRIDGE_LINE: Bi = {
 /* ------------------------------------------------------------------ */
 
 export const CLOSING_LINE: Bi = {
-  pt: "Comecei falando de uma ficha de papel que rasgava e se perdia. Termino falando de um prontuário que escuta, organiza e prepara, para que o terapeuta brasileiro possa fazer o que os mestres desta terra fazem há milênios: olhar para o paciente.",
+  pt: "Comecei falando de uma ficha de papel que rasgava e se perdia. Termino falando de um prontuário que escuta, organiza e prepara, para que o acupunturista brasileiro possa fazer o que os mestres desta terra fazem há milênios: olhar para o paciente.",
   zh: "开场时我讲的是一张会撕破、会遗失的纸卡；此刻我讲的是一份会倾听、会整理、会预备的病历，好让巴西的治疗师能做这片土地上的先师们做了数千年的事：看着患者。",
 };
 
 export const CLOSING_PLEDGE: Bi = {
-  pt: "Estaremos sempre trabalhando para honrar os ancestrais que escreveram cada ideograma e que ensinam, há milênios, essa arte e essa sabedoria.",
+  pt: "Estaremos sempre trabalhando para honrar os ancestrais que escreveram cada ideograma e que ensinam, há milênios, essa sabedoria.",
   zh: "我们将始终努力，以不负先贤——是他们写下这一个个汉字，并将这门技艺与智慧传承了数千年。",
 };
 
@@ -1270,12 +1289,12 @@ Vamos começar pelo princípio.`,
     roteiroSlide: 3,
     block: 2,
     blockTitle: { pt: "Dois séculos de agulhas no Brasil", zh: "巴西的两百年银针" },
-    timeRange: "3:00–9:00",
+    timeRange: "3:00–5:30",
     kicker: { pt: "1808 → 2026", zh: "1808 → 2026" },
     title: { pt: "218 anos de agulhas em solo brasileiro", zh: "银针在巴西土地上的218年" },
     subtitle: {
-      pt: "De Macau até o ensino formal de 1958",
-      zh: "从澳门医者到1958年的正规教学",
+      pt: "De Macau à regulamentação da profissão",
+      zh: "从澳门医者到职业规范化",
     },
     stageNote: "Slide 3 · Linha do tempo: 1808 → 2026.",
     optionalCut: `[CORTE OPCIONAL] Quem quebrou esse isolamento foi um personagem improvável: Friedrich Spaeth, um fisioterapeuta nascido em Luxemburgo, que fugiu do nazismo, estudou acupuntura na Alemanha e se naturalizou brasileiro. Em 1958, Spaeth começou a ensinar acupuntura no Rio de Janeiro e em São Paulo. Naquele mesmo ano nasceu a Sociedade Brasileira de Acupuntura. É esse o marco do ensino formal da medicina chinesa no meu país.`,
@@ -1290,63 +1309,70 @@ Os mestres orientais não conseguiam ensinar em português. Durante mais de um s
 E, mesmo assim, ela cresceu.`,
   },
   {
-    key: "milestones",
-    roteiroSlide: 4,
-    block: 2,
-    blockTitle: { pt: "Dois séculos de agulhas no Brasil", zh: "巴西的两百年银针" },
-    timeRange: "3:00–9:00",
-    kicker: { pt: "Marcos institucionais", zh: "制度里程碑" },
-    title: { pt: "A entrada na saúde pública", zh: "进入公共卫生体系" },
-    subtitle: {
-      pt: "1988 SUS · 1995 conselhos · 2006 PNPIC · 2018 prática multiprofissional",
-      zh: "1988 纳入SUS · 1995 专业委员会 · 2006 PNPIC · 2018 多专业实践",
-    },
-    stageNote: "Slide 4 · Marcos: 1988 SUS · 1995 conselhos · 2006 PNPIC.",
-    script: `Em 1988, a acupuntura entrou na rede pública de saúde, inicialmente restrita à aplicação por médicos.
-
-Em 2018, foi consolidada como prática multiprofissional no Sistema Único de Saúde, o SUS.
-
-Segundo os dados apresentados nesta palestra, entre 2008 e 2018 foram realizados mais de cinco milhões de atendimentos, e as práticas integrativas chegaram a 83% dos municípios brasileiros.`,
-  },
-  {
-    key: "sus-numbers",
-    roteiroSlide: 5,
-    block: 2,
-    blockTitle: { pt: "Dois séculos de agulhas no Brasil", zh: "巴西的两百年银针" },
-    timeRange: "3:00–9:00",
-    kicker: { pt: "Números do SUS e do setor privado", zh: "公共体系与私立市场的数据" },
-    title: { pt: "A dimensão da acupuntura no Brasil", zh: "针灸在巴西的规模" },
-    subtitle: {
-      pt: "A prática integrativa mais usada em toda a rede pública brasileira",
-      zh: "巴西公立医疗系统中应用最广的整合疗法",
-    },
-    stageNote: "Slide 5 · Números do SUS.",
-    script: `A acupuntura é a prática integrativa mais usada no sistema público brasileiro. Na década encerrada em 2018, foram mais de cinco milhões de sessões. Em 2024, foram 1,1 milhão de sessões em um único ano.
-
-As práticas integrativas chegaram a 83% dos municípios brasileiros.
-
-E somando quatro décadas de difusão, as estimativas apontam que entre 20 e 35 milhões de brasileiros já se trataram com acupuntura — algo entre um em cada dez e um em cada seis habitantes do país.`,
-  },
-  {
     key: "law",
-    roteiroSlide: 6,
+    roteiroSlide: 4,
     block: 3,
     blockTitle: { pt: "A lei que esperamos por 22 anos", zh: "等待了22年的立法" },
-    timeRange: "9:00–13:00",
+    timeRange: "5:30–9:30",
     kicker: { pt: "Um novo profissional está nascendo", zh: "一种新的专业身份正在诞生" },
     title: { pt: "12 de janeiro de 2026 · Lei 15.345", zh: "2026年1月12日 · 第15345号法律" },
     subtitle: {
       pt: "A regulamentação da profissão de acupunturista no Brasil",
       zh: "针灸师职业在巴西的立法规范",
     },
-    stageNote: "Slide 6 · 12 de janeiro de 2026 — Lei 15.345.",
+    stageNote: "Slide 4 · 12 de janeiro de 2026 — Lei 15.345.",
     optionalCut: `[CORTE OPCIONAL] A lei não resolveu tudo, e é honesto dizer isso. Ainda não temos um conselho profissional próprio nem diretrizes nacionais de formação. A graduação superior em acupuntura ainda é rara no país, então a porta de entrada mais usada será a comprovação dos cinco anos de prática. Dois pontos do texto foram vetados, entre eles o que permitia o exercício por técnicos de nível médio, um veto negociado justamente para valorizar a formação superior. E nem todos comemoraram: o Conselho Federal de Medicina segue entendendo a acupuntura como ato médico, enquanto os conselhos de fisioterapia, enfermagem e farmácia celebraram a conquista e já publicam as suas normas. O debate continua. Mas agora ele acontece dentro de uma moldura legal.`,
     script: `Em 12 de janeiro de 2026, segundo a trajetória apresentada nesta palestra, foi sancionada a Lei 15.345, que regulamenta a profissão de acupunturista no Brasil.
 
-Assim, 218 anos depois das primeiras referências à presença da acupuntura chinesa no Brasil, a profissão entra em um novo momento: com mais reconhecimento, mas também com mais responsabilidade e deveres.
-
-E quem honra essa ciência precisa de ferramentas à altura dessa responsabilidade.`,
+Assim, 218 anos depois das primeiras referências à presença da acupuntura chinesa no Brasil, a profissão entra em um novo momento: com mais reconhecimento, mas também com mais responsabilidade e deveres.`,
   },
+  {
+    key: "milestones",
+    roteiroSlide: 5,
+    block: 2,
+    blockTitle: { pt: "Dois séculos de agulhas no Brasil", zh: "巴西的两百年银针" },
+    timeRange: "9:30–13:00",
+    kicker: { pt: "Marcos institucionais", zh: "制度里程碑" },
+    title: { pt: "A entrada na saúde pública", zh: "进入公共卫生体系" },
+    subtitle: {
+      pt: "1988 SUS · 1995 conselhos · 2006 PNPIC · 2018 prática multiprofissional",
+      zh: "1988 纳入SUS · 1995 专业委员会 · 2006 PNPIC · 2018 多专业实践",
+    },
+    stageNote: "Slide 5 · Marcos: 1988 SUS · 1995 conselhos · 2006 PNPIC.",
+    script: `Essa lei não nasceu do nada. Muito antes dela, a acupuntura já tinha conquistado espaço na saúde pública.
+
+Em 1988, a acupuntura entrou na rede pública de saúde, inicialmente restrita à aplicação por médicos.
+
+Em 1995, o Conselho Federal de Medicina a reconheceu como especialidade médica, e os conselhos de enfermagem, fisioterapia e biomedicina fizeram o mesmo em seus territórios. Foram quase três décadas de disputa sobre uma única pergunta: quem pode segurar a agulha?
+
+Em 2006, a Política Nacional de Práticas Integrativas abriu o sistema público aos profissionais não médicos.
+
+E em 2018, a acupuntura foi consolidada como prática multiprofissional no Sistema Único de Saúde, o SUS.`,
+  },
+  {
+    key: "sus-numbers",
+    roteiroSlide: 6,
+    block: 2,
+    blockTitle: { pt: "Dois séculos de agulhas no Brasil", zh: "巴西的两百年银针" },
+    timeRange: "9:30–13:00",
+    kicker: { pt: "Números do SUS e do setor privado", zh: "公共体系与私立市场的数据" },
+    title: { pt: "A dimensão da acupuntura no Brasil", zh: "针灸在巴西的规模" },
+    subtitle: {
+      pt: "A prática integrativa mais usada em toda a rede pública brasileira",
+      zh: "巴西公立医疗系统中应用最广的整合疗法",
+    },
+    stageNote: "Slide 6 · Números do SUS.",
+    script: `E o que aconteceu quando o sistema público abriu as portas? Os números respondem.
+
+A acupuntura é a prática integrativa mais usada no sistema público brasileiro. Na década encerrada em 2018, foram mais de cinco milhões de sessões. Em 2024, foram 1,1 milhão de sessões em um único ano.
+
+As práticas integrativas chegaram a 83% dos municípios brasileiros.
+
+E somando quatro décadas de difusão, as estimativas apontam que entre 20 e 35 milhões de brasileiros já se trataram com acupuntura — algo entre um em cada dez e um em cada seis habitantes do país.
+
+O Brasil é, possivelmente, um dos maiores territórios de medicina chinesa fora da Ásia. E agora que essa prática tem uma lei, quem honra essa ciência precisa de ferramentas à altura dela.`,
+  },
+
   {
     key: "cultures",
     roteiroSlide: 7,
@@ -1477,40 +1503,21 @@ Decidimos manter uma versão gratuita porque nossa missão é contribuir para el
       "Slide 12 · Números atuais. Os valores exibidos vêm do banco da plataforma anterior (1.046 cadastros, 222 pagantes). CONFERIR NO DIA: puxar os totais atuais de produção antes da palestra e atualizar PLATFORM_STATS.",
     script: `Hoje, são 1.046 profissionais cadastrados na plataforma e 222 deles já assinaram planos pagos.
 
-Então a vida me pediu uma pausa.`,
-  },
-  {
-    key: "pause",
-    block: 6,
-    blockTitle: { pt: "A pausa e o renascimento", zh: "暂停与重生" },
-    timeRange: "22:30–26:00",
-    kicker: { pt: "Bloco 6", zh: "第六段" },
-    title: { pt: "A pausa", zh: "暂停" },
-    tone: "solemn",
-    stageNote: "Sem slide. Tela escura ou neutra. Falar devagar.",
-    script: `Em 2025, recebi um diagnóstico muito difícil: câncer de endométrio.
-
-Passei por cirurgia, quimioterapia, radioterapia e braquiterapia.
-
-O tratamento foi um sucesso.
-
-Em 2026, voltamos com mais recursos e mais tecnologia — justamente no ano em que a profissão de acupunturista foi reconhecida no Brasil.
-
-Com isso aprendi ainda mais a respeitar o tempo das coisas.`,
+Em 2026, voltamos com mais recursos e mais tecnologia — justamente no ano em que a profissão de acupunturista foi reconhecida no Brasil.`,
   },
   {
     key: "motto",
     roteiroSlide: 13,
     block: 7,
     blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
-    timeRange: "26:00–34:30",
+    timeRange: "22:30–34:30",
     kicker: { pt: "O que rouba a atenção do terapeuta", zh: "什么夺走了医者的专注" },
     title: { pt: "Atenda olhando para o paciente", zh: "目视患者，全心诊疗" },
     subtitle: { pt: "O MedChina organiza o restante", zh: "其余的记录，交给 MedChina" },
     stageNote:
       'Slide 13 · MedChina AI — "Atenda olhando para o paciente. O MedChina organiza o restante." O vídeo da consulta ' +
       "começa sozinho, sem som, e roda em loop à direita: fale por cima, não espere por ele e não o aponte como demonstração.",
-    script: `E é nesse novo momento que nasce o MedChina AI.
+    script: `E é nesse novo momento, com a profissão regulamentada, que nasce o MedChina AI.
 
 O MedChina de hoje nasceu de uma pergunta simples: o que rouba a atenção do terapeuta durante a consulta?
 
@@ -1546,7 +1553,7 @@ Deixem-me levar vocês para dentro de uma consulta. É o que está acontecendo n
     roteiroSlide: 14,
     block: 7,
     blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
-    timeRange: "26:00–34:30",
+    timeRange: "22:30–34:30",
     kicker: { pt: "Uma consulta, do começo ao fim", zh: "一次完整的诊疗" },
     title: { pt: "Antes, durante e depois da consulta", zh: "诊前、诊中、诊后" },
     subtitle: {
@@ -1567,7 +1574,7 @@ São estruturados dados como queixa principal, história atual, sono, energia, a
     roteiroSlide: 15,
     block: 7,
     blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
-    timeRange: "26:00–34:30",
+    timeRange: "22:30–34:30",
     kicker: { pt: "Respeito pela clínica", zh: "对临床的敬重" },
     title: { pt: "Anamnese preenchida com origem rastreável", zh: "可溯源的结构化问诊" },
     subtitle: {
@@ -1585,7 +1592,7 @@ O sistema também pode apontar lacunas, contradições e mudanças em relação 
     key: "guarantees",
     block: 7,
     blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
-    timeRange: "26:00–34:30",
+    timeRange: "22:30–34:30",
     kicker: { pt: "O que o software confere sozinho", zh: "软件自行核验之事" },
     title: { pt: "Quatro garantias que não dependem do modelo", zh: "四项不依赖模型的保障" },
     subtitle: {
@@ -1615,7 +1622,7 @@ São garantias do sistema. Não são pedidos feitos ao modelo.`,
     roteiroSlide: 16,
     block: 7,
     blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
-    timeRange: "26:00–34:30",
+    timeRange: "22:30–34:30",
     kicker: { pt: "Apoio ao raciocínio clínico", zh: "临床推理辅助" },
     title: { pt: "Hipóteses de padrões de desarmonia", zh: "证型假说" },
     subtitle: {
@@ -1641,7 +1648,7 @@ Essa separação é essencial.`,
     key: "testimony-user",
     block: 7,
     blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
-    timeRange: "26:00–34:30",
+    timeRange: "22:30–34:30",
     kicker: { pt: "Depoimento", zh: "证言" },
     title: { pt: "Como ter um colega na sala", zh: "仿佛诊室里多了一位同道" },
     subtitle: {
@@ -1669,29 +1676,46 @@ Mas ninguém explica isso melhor do que quem usa. Ouçam a Hellen.`,
     },
   },
   {
-    key: "library-security",
+    key: "library",
     roteiroSlide: 17,
     block: 7,
     blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
-    timeRange: "26:00–34:30",
-    kicker: { pt: "Dois pontos finais sobre a plataforma", zh: "关于平台的最后两点" },
-    title: { pt: "Biblioteca clínica e segurança", zh: "临床知识库与数据安全" },
+    timeRange: "22:30–34:30",
+    kicker: { pt: "Conteúdo e fontes", zh: "内容与来源" },
+    title: { pt: "Biblioteca clínica, não a internet aberta", zh: "临床知识库，而非开放互联网" },
     subtitle: {
-      pt: "Fontes citadas, consentimento por finalidade e nenhum dado em modelos públicos",
-      zh: "出处可引 · 分项授权 · 不用于公开模型",
+      pt: "Cada resposta vem com a fonte citada — e cada fonte é conferida",
+      zh: "每个答案都附出处——每一处出处都经核验",
     },
-    stageNote: "Slide 17 · Biblioteca clínica e segurança.",
-    script: `A plataforma também possui uma biblioteca clínica com base de conhecimento de medicina chinesa e respostas acompanhadas de fontes. A inteligência artificial não navega na internet: ela consulta esse acervo, e cada citação é conferida contra o trecho que foi realmente entregue a ela.
+    stageNote:
+      "Slide 17 (1ª parte) · Biblioteca clínica. Se perguntarem “mas o modelo não foi treinado na internet inteira?”: sim, além da biblioteca o modelo carrega o conhecimento geral do próprio treinamento — é exatamente por isso que o sistema fala em correspondência com os dados registrados e não em certeza, apresenta os sinais contrários junto dos favoráveis, exige validação em tudo, e uma hipótese sem fonte de apoio diz isso explicitamente.",
+    script: `Dois pontos finais sobre a plataforma.
 
-Cada profissional também cadastra os próprios protocolos, que passam a alimentar as sugestões do seu consultório e que só ela recupera.
+O primeiro é a biblioteca clínica. O profissional pode estudar e tirar dúvidas conversando com uma base de conhecimento de medicina chinesa com curadoria, e cada resposta vem com as fontes citadas.
 
-E existe uma questão que não pode ser secundária: segurança.
+A inteligência artificial não navega na internet: ela consulta esse acervo, e cada citação é conferida contra o trecho que foi realmente entregue a ela.
 
-Com o consentimento do paciente, os dados são criptografados, os acessos ficam registrados em trilha de auditoria e, segundo a arquitetura do sistema, os áudios e conteúdos clínicos não são utilizados para treinar modelos públicos de inteligência artificial.
+E cada profissional pode adicionar os próprios protocolos, que passam a alimentar as sugestões do seu consultório.`,
+  },
+  {
+    key: "consent-security",
+    block: 7,
+    blockTitle: { pt: "O prontuário que escuta", zh: "会倾听的病历" },
+    timeRange: "22:30–34:30",
+    kicker: { pt: "Segurança", zh: "数据安全" },
+    title: { pt: "Dado clínico é o dado mais sensível que existe", zh: "临床数据是最敏感的数据" },
+    subtitle: {
+      pt: "Autorização por finalidade, e proteção que não depende de boa vontade",
+      zh: "按用途授权，保护不靠自觉",
+    },
+    stageNote: "Slide 17 (2ª parte) · Consentimento e segurança.",
+    script: `O segundo é a segurança, porque dado clínico é o dado mais sensível que existe.
 
-O MedChina também mantém uma versão gratuita com prontuário manual, cadastro de pacientes e registros ilimitados.
+O consentimento do paciente é específico e versionado: uma autorização para a gravação, outra para o processamento por inteligência artificial, e a recusa nunca impede o atendimento manual.
 
-O que se paga é a automação: o tempo que a tecnologia devolve ao profissional.`,
+Tudo é criptografado, cada acesso fica em trilha de auditoria e nenhum áudio ou conteúdo clínico é usado para treinar modelos públicos de IA. Seguimos a lei brasileira de proteção de dados desde a concepção do sistema.
+
+E uma decisão de que me orgulho: o plano gratuito do MedChina oferece o prontuário manual completo, com pacientes e registros ilimitados, para sempre. O que se paga é a automação: o tempo que a tecnologia devolve ao profissional.`,
   },
   {
     key: "four-examinations",
@@ -1700,10 +1724,10 @@ O que se paga é a automação: o tempo que a tecnologia devolve ao profissional
     blockTitle: { pt: "Tecnologia que respeita a tradição", zh: "尊重传统的技术" },
     timeRange: "34:30–37:00",
     kicker: { pt: "望 · 闻 · 问 · 切", zh: "四诊合参" },
-    title: { pt: "O que a inteligência artificial não faz", zh: "人工智能不做的事" },
+    title: { pt: "O que a IA do MedChina não faz", zh: "MedChina 不做的事" },
     subtitle: {
-      pt: "A tecnologia faz o papel do discípulo. A medicina continua sendo do mestre.",
-      zh: "技术只做门徒的角色，医道仍属于医者",
+      pt: "",
+      zh: "",
     },
     stageNote: "Slide 18 · O que a IA não faz (望闻问切 em destaque).",
     script: `Eu sei que falar de inteligência artificial em medicina tradicional chinesa pode parecer uma contradição.
@@ -1776,7 +1800,7 @@ Um prontuário que escuta, organiza e prepara, para que o terapeuta brasileiro p
 
 Nossa caminhada ainda é longa.
 
-Mas queremos continuar expandindo, divulgando, ensinando e praticando a medicina chinesa no Brasil, sempre com respeito aos ancestrais que construíram essa arte e essa sabedoria.
+Mas queremos continuar expandindo, divulgando, ensinando e praticando a medicina chinesa no Brasil, sempre com respeito aos ancestrais que construíram essa sabedoria.
 
 Que a tecnologia nos ajude a preservar aquilo que é essencialmente humano na nossa profissão.
 

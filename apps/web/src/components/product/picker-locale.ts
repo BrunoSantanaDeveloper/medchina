@@ -4,11 +4,12 @@ import "dayjs/locale/de";
 import "dayjs/locale/es";
 import "dayjs/locale/fr";
 import "dayjs/locale/pt-br";
+import "dayjs/locale/zh-cn";
 
-import { deDE, enUS, esES, frFR, ptBR } from "@mui/x-date-pickers/locales";
+import { deDE, enUS, esES, frFR, ptBR, zhCN } from "@mui/x-date-pickers/locales";
 
 /** The picker's own chrome (action buttons, aria labels) ships per locale in MUI X. */
-const PICKER_LOCALES = { "pt-BR": ptBR, en: enUS, es: esES, fr: frFR, de: deDE } as const;
+const PICKER_LOCALES = { "pt-BR": ptBR, en: enUS, es: esES, fr: frFR, de: deDE, "zh-CN": zhCN } as const;
 
 export const pickerLocaleText = (locale: string) =>
   (PICKER_LOCALES[locale as keyof typeof PICKER_LOCALES] ?? ptBR).components.MuiLocalizationProvider.defaultProps

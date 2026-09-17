@@ -416,12 +416,6 @@
   background: var(--ground);
 }
 
-/* The Bloco 6 pause: the roteiro asks for a dark, quiet screen. */
-.deck-slide--solemn {
-  background: #04211f;
-  color: #eaf5f2;
-}
-
 /*
   The inner block takes its NATURAL height and the slide centres it. That is
   what makes the fit guard below measurable: a centred flex child that fills
@@ -1459,114 +1453,6 @@
   color: #ffb9a7;
 }
 
-/* A time rail: markers sit at their real share of the elapsed years. */
-.deck-track {
-  position: relative;
-  height: 112px;
-  margin: 2px 0 14px;
-  padding: 0 4px;
-}
-
-.deck-track-rail {
-  position: absolute;
-  top: 7px;
-  right: 4px;
-  left: 4px;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--line), var(--jade));
-}
-
-.deck-track-stop {
-  position: absolute;
-  top: 0;
-  width: 260px;
-  margin-left: -8px;
-}
-
-/*
-  The last marker would run off the canvas if it kept growing rightwards, so it
-  hangs from its anchor instead: translateX(-100%) lands the box's right edge
-  exactly on the 100% point, and the dot re-centres on that same point.
-*/
-.deck-track-stop--end {
-  margin-left: 0;
-  transform: translateX(-100%);
-  text-align: right;
-}
-
-.deck-track-stop i {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 16px;
-  height: 16px;
-  border: 4px solid var(--ivory);
-  border-radius: 999px;
-  background: var(--jade);
-  box-shadow: 0 0 0 2px var(--jade);
-}
-
-.deck-track-stop--end i {
-  right: -8px;
-  left: auto;
-}
-
-.deck-track-stop--emphasis i {
-  background: var(--coral);
-  box-shadow: 0 0 0 2px var(--coral);
-}
-
-.deck--dark .deck-track-stop i {
-  border-color: var(--ground);
-}
-
-.deck-track-stop b {
-  display: block;
-  margin-top: 22px;
-  font-family: "TT Chocolates", sans-serif;
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-
-.deck-track-stop--emphasis b {
-  color: var(--coral);
-}
-
-.deck-track-stop strong {
-  display: block;
-  margin-top: 5px;
-  color: var(--jade);
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.deck--dark .deck-track-stop strong {
-  color: var(--mint);
-}
-
-.deck-track-stop small {
-  display: block;
-  margin-top: 2px;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
-
-.deck-track-span {
-  position: absolute;
-  right: 4px;
-  bottom: 0;
-  left: 4px;
-  padding-top: 7px;
-  border-top: 1px dashed var(--edge);
-  color: var(--ink-soft);
-  font-size: 14px;
-  font-weight: 700;
-  text-align: center;
-}
-
 /* One ratio against its whole — the figure alone had no denominator. */
 .deck-meter {
   display: block;
@@ -2229,7 +2115,6 @@
   line-height: 1.3;
 }
 
-.deck-library-foot,
 .deck-exams-foot {
   margin-top: 14px;
 }
@@ -2366,8 +2251,191 @@
   color: #04211f;
 }
 
-.deck-exams-quote {
-  margin-top: 14px;
+/* ------------------------------------------------------------------ */
+/* Slide 17 · library, and 17b · consent and security                  */
+/* ------------------------------------------------------------------ */
+
+/* The corpus on the left, the life of a citation on the right. */
+.deck-library {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.deck-library-corpus .deck-card-icon {
+  margin-bottom: 8px;
+}
+
+/* Inside a card the corpus loses its outer rules; the card is the frame. */
+.deck-library-corpus .deck-corpus {
+  border-top: 0;
+}
+
+.deck-library-corpus .deck-corpus-row:last-child {
+  border-bottom: 0;
+}
+
+/*
+  A numbered path, not three cards: the steps are one process, and a rail
+  between the icons says so. The rail is drawn by the list, behind the chips.
+*/
+.deck-steps {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deck-steps::before {
+  position: absolute;
+  top: 28px;
+  bottom: 28px;
+  left: 33px;
+  width: 2px;
+  background: linear-gradient(var(--accent-soft), var(--accent), var(--accent-soft));
+  content: "";
+}
+
+.deck-step,
+.deck-protection {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--edge);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.deck--dark .deck-step,
+.deck--dark .deck-protection {
+  box-shadow: none;
+}
+
+/* The dark surface is translucent, so the rail behind the steps showed
+   through them. This is the same surface, flattened onto the dark ground. */
+.deck--dark .deck-step {
+  background: #122d2b;
+}
+
+.deck-step .deck-card-icon,
+.deck-protection .deck-card-icon {
+  flex: none;
+  margin: 0;
+}
+
+.deck-step h3,
+.deck-protection h3 {
+  margin: 0 0 3px;
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.deck-step p,
+.deck-protection p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.deck[data-lang="zh"] .deck-step h3,
+.deck[data-lang="zh"] .deck-protection h3 {
+  letter-spacing: 0;
+}
+
+/* Consent on the left, four protections as a 2x2 on the right. */
+.deck-security {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.deck-protections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.deck-protection {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* The two authorizations: two rows, each with its own number. */
+.deck-consents {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deck-consents li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.deck-consents li > svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.deck-consents li span {
+  flex: 1;
+}
+
+.deck-consents strong {
+  display: block;
+  color: var(--ink-strong);
+  font-size: 15px;
+}
+
+.deck-consents em {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.deck-consent-refusal {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 0 !important;
+  color: var(--ink-strong) !important;
+  font-weight: 700;
+}
+
+.deck-consent-refusal svg {
+  flex: none;
+  color: var(--accent);
 }
 
 /* ------------------------------------------------------------------ */
@@ -2581,12 +2649,6 @@
   box-shadow: var(--shadow-md);
 }
 
-/* On the solemn (dark) slides the frame needs its own ground to read at all. */
-.deck-slide--solemn .deck-video {
-  border-color: rgba(255, 255, 255, 0.18);
-  background: #063b39;
-}
-
 .deck-video video {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -2633,32 +2695,6 @@
 .deck-video-standby span {
   color: #a9c4bf;
   font-size: 15px;
-}
-
-/* ------------------------------------------------------------------ */
-/* Bloco 6 · the pause                                                 */
-/* ------------------------------------------------------------------ */
-
-.deck-solemn-line {
-  max-width: 900px;
-  margin: 0;
-  font-family: "TT Chocolates", sans-serif;
-  font-size: 36px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.34;
-}
-
-.deck-slide--solemn .deck-eyebrow {
-  color: var(--mint);
-}
-
-.deck-slide--solemn .deck-title {
-  color: #eaf5f2;
-}
-
-.deck-slide--solemn .deck-sub {
-  color: #a9c4bf;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2769,8 +2805,7 @@
 .deck[data-lang="zh"] .deck-card h3,
 .deck[data-lang="zh"] .deck-flow-step h3,
 .deck[data-lang="zh"] .deck-culture-head strong,
-.deck[data-lang="zh"] .deck-quote p,
-.deck[data-lang="zh"] .deck-solemn-line {
+.deck[data-lang="zh"] .deck-quote p {
   font-family: var(--font-zh);
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -2792,10 +2827,6 @@
 
 .deck[data-lang="zh"] .deck-quote p {
   font-size: 20px;
-}
-
-.deck[data-lang="zh"] .deck-solemn-line {
-  font-size: 31px;
 }
 
 .deck[data-lang="zh"] .deck-eyebrow,

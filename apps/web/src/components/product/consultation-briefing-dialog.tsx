@@ -19,6 +19,7 @@ import {
 
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import { complaintTitle } from "@/lib/chief-complaint";
 import { loadPatientBriefing, type PatientBriefing } from "@/lib/patient-briefing";
 import { trackProductEvent } from "@/lib/product-events";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -138,7 +139,7 @@ export default function ConsultationBriefingDialog({
                       })}
                     </Typography>
                     {briefing.lastFinalized.chiefComplaint && (
-                      <Typography variant="body2">
+                      <Typography variant="body2" className="line-clamp-3 whitespace-pre-line">
                         <span className="text-text-secondary">{t("briefing-chief-complaint")}</span>{" "}
                         {briefing.lastFinalized.chiefComplaint}
                       </Typography>
@@ -196,7 +197,7 @@ export default function ConsultationBriefingDialog({
                       <Box key={consultation.id} className="flex flex-row flex-wrap items-center gap-2">
                         <Typography variant="body2" className="text-text-primary">
                           {t(OPEN_STATUS_KEY[consultation.status] ?? "briefing-open-draft")}
-                          {consultation.chiefComplaint ? ` — ${consultation.chiefComplaint}` : ""}
+                          {consultation.chiefComplaint ? ` — ${complaintTitle(consultation.chiefComplaint, 120)}` : ""}
                         </Typography>
                         <Button
                           size="tiny"

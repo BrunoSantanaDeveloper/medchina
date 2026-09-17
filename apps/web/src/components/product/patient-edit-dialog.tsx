@@ -9,16 +9,20 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   TextField,
+  Typography,
 } from "@mui/material";
 
 import { CpfField, PhoneField } from "@/components/product/fields";
+import { usePracticeAreas } from "@/hooks/use-practice-areas";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { updatePatientDetails } from "@/lib/patients";
 import { createClient } from "@flyee/auth/client";
@@ -35,6 +39,8 @@ export type PatientEditData = {
   email: string | null;
   notes: string | null;
   alerts: { label: string }[];
+  /** Cycle/fertility follow-up (0103). */
+  fertilityCare: boolean;
 };
 
 export default function PatientEditDialog({
@@ -53,6 +59,10 @@ export default function PatientEditDialog({
   const [alerts, setAlerts] = useState<{ label: string }[]>(patient.alerts);
   const [alertDraft, setAlertDraft] = useState("");
   const todayIso = new Date().toISOString().slice(0, 10);
+  const practiceAreas = usePracticeAreas();
+  // Offered where the practice follows fertility; a patient already marked
+  // keeps the control so the mark can always be seen and removed.
+  const offerFertilityCare = practiceAreas.fertilityCare || patient.fertilityCare;
 
   const formik = useFormik({
     enableReinitialize: true,
@@ -63,6 +73,7 @@ export default function PatientEditDialog({
       document: patient.document ?? "",
       email: patient.email ?? "",
       notes: patient.notes ?? "",
+      fertilityCare: patient.fertilityCare,
     },
     validationSchema: yup.object({
       fullName: yup
@@ -85,6 +96,7 @@ export default function PatientEditDialog({
         (values.email.trim() || null) !== patient.email ? "email" : null,
         (values.notes.trim() || null) !== patient.notes ? "notes" : null,
         JSON.stringify(alerts) !== JSON.stringify(patient.alerts) ? "alerts" : null,
+        values.fertilityCare !== patient.fertilityCare ? "fertilityCare" : null,
       ].filter((field): field is string => field !== null);
 
       if (changedFields.length === 0) {
@@ -104,6 +116,7 @@ export default function PatientEditDialog({
           email: values.email,
           notes: values.notes,
           alerts,
+          fertilityCare: values.fertilityCare,
         },
         changedFields,
       );
@@ -241,6 +254,30 @@ export default function PatientEditDialog({
             onChange={formik.handleChange}
             onBlur={formik.handleBlur}
           />
+
+          {offerFertilityCare && (
+            <FormControlLabel
+              className="items-start"
+              control={
+                <Checkbox
+                  name="fertilityCare"
+                  checked={formik.values.fertilityCare}
+                  onChange={formik.handleChange}
+                  className="-mt-1"
+                />
+              }
+              label={
+                <Box className="flex flex-col">
+                  <Typography variant="body2" className="text-text-primary">
+                    {t("patient-fertility-care")}
+                  </Typography>
+                  <Typography variant="caption" className="text-text-secondary leading-5">
+                    {t("patient-fertility-care-hint")}
+                  </Typography>
+                </Box>
+              }
+            />
+          )}
 
           {serverError && (
             <Alert severity="error" className="neutral bg-background-paper/60!">

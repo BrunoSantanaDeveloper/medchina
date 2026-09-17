@@ -237,4 +237,4 @@ revisão**, nunca diagnostica. Vale igualmente para as sugestões da faixa.
 
 ### 6.4 i18n
 
-Toda string nova nos 5 catálogos (`de, en, es, fr, pt-BR`), namespace `product`.
+Toda string nova nos 6 catálogos (`de, en, es, fr, pt-BR, zh-CN`), namespace `product`.

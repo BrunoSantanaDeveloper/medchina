@@ -1,3 +1,4 @@
+import { complaintOnOneLine } from "@/lib/chief-complaint";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 
 /**
@@ -43,7 +44,7 @@ const RESULT_SCHEMA = {
 
 function describeCase(input: SummaryInput): string {
   const lines: string[] = [];
-  if (input.chiefComplaint) lines.push(`Queixa principal: ${input.chiefComplaint}`);
+  if (input.chiefComplaint) lines.push(`Queixa principal: ${complaintOnOneLine(input.chiefComplaint)}`);
   for (const answer of input.answers) {
     // A value the extraction itself flagged as ambiguous, contradictory or
     // clinically sensitive must not reach the model dressed like a reviewed

@@ -168,21 +168,20 @@ is meant to be openable with nobody signed in.
 
 ## Charts
 
-Three, each picked by what the data has to do — and stopping there. The other
+Two, each picked by what the data has to do — and stopping there. The other
 number slides are KPI rows, which is the correct form for a handful of headline
 figures; a chart there would be decoration.
 
-| Slide           | Form                                                        | Why                                                                                                                                                     |
-| --------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 10 · the survey | horizontal bars on a shared 0–100% axis                     | four percentages off ONE base (3.800 respondents); as separate cards the reader had to compare them in their head, and the comparison _is_ the argument |
-| 6 · the law     | milestone rail, markers at their real share of elapsed time | makes "22 anos" visceral — the 16-year silence before the Chamber vote takes most of the rail                                                           |
-| 12 · paid plans | meter                                                       | 222 means nothing without its denominator (of 1.046)                                                                                                    |
+| Slide           | Form                                    | Why                                                                                                                                                     |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 10 · the survey | horizontal bars on a shared 0–100% axis | four percentages off ONE base (3.800 respondents); as separate cards the reader had to compare them in their head, and the comparison _is_ the argument |
+| 12 · paid plans | meter                                   | 222 means nothing without its denominator (of 1.046)                                                                                                    |
 
 **Drawn by hand, not with `@mui/x-charts`** — which IS installed and licensed
 (MUI X Premium) and is the right tool for the product's dashboards and patient
 evolution charts. On a projected slide it would be the wrong trade: no tooltip,
 legend or axis machinery is wanted, the deck needs its own display face and
-colours, and the fixed canvas scales a CSS bar perfectly. Three CSS forms cost
+colours, and the fixed canvas scales a CSS bar perfectly. Two CSS forms cost
 less than theming a chart library into a design system it does not share.
 
 Colour was **validated, not eyeballed**, with the dataviz skill's checker

@@ -19,13 +19,29 @@ export interface AnamnesisField {
    * here rather than in i18n because it instructs a model, not a person.
    */
   hint: string;
+  /**
+   * Every value the extraction writes here comes back for her review, whatever
+   * the model decided. Medications have always had this (PRD §10.10); it used
+   * to be a comparison against the field NAME inside the extraction, which a
+   * new field silently escaped. Declared here, it travels with the field.
+   */
+  alwaysReview?: boolean;
 }
+
+/** What decides whether a conditional block applies to a consultation. */
+export type AnamnesisCondition = "fertility";
 
 export interface AnamnesisBlock {
   key: string;
   /** i18n key for the block title. */
   title: string;
   fields: AnamnesisField[];
+  /**
+   * A block that does not apply to every patient. It is shown, counted and
+   * offered to the extraction only when its condition holds — see
+   * `anamnesisBlocksFor`.
+   */
+  when?: AnamnesisCondition;
 }
 
 export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
@@ -51,15 +67,28 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
         key: "treatments",
         label: "field-treatments",
         multiline: true,
-        hint: "Tratamentos já tentados para esta queixa e o resultado deles.",
+        // The label says "relatados" on purpose: when she types the value the
+        // origin becomes "professional", and the label is the only thing left
+        // saying the diagnosis is the patient's report, not her conclusion.
+        hint:
+          "Tratamentos já tentados para esta queixa e o resultado; exames já feitos e o que a paciente disse deles; " +
+          "diagnósticos que ELA RELATA ter recebido de outro profissional (ex.: 'o médico disse que é hérnia'). " +
+          "Escreva sempre como relato ('relata diagnóstico de ...'). NUNCA deduza nem escreva um diagnóstico a partir dos sintomas.",
       },
       // Medications are clinically load-bearing (PRD §10.10: they must be
       // highlighted alongside pregnancy, anticoagulants, pacemaker, allergies).
+      // One field for both, on purpose: the line between "a vitamin D the
+      // doctor prescribed" and "a supplement" is not clean, and splitting it
+      // would scatter the same item across consultations.
       {
         key: "medications",
         label: "field-medications",
         multiline: true,
-        hint: "Medicamentos e suplementos em uso, com dose quando dita. Inclui anticoncepcional e fitoterápicos.",
+        alwaysReview: true,
+        hint:
+          "Medicamentos E suplementos em uso, com dose e frequência quando ditas: remédios contínuos ou recentes, " +
+          "anticoncepcional, fitoterápicos, chás medicinais, vitaminas, minerais, antioxidantes, ômega-3, probióticos e " +
+          "outros suplementos. Um item por linha; não omita um suplemento por parecer 'natural'.",
       },
     ],
   },
@@ -83,6 +112,120 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
         hint: "Sede e boca seca: quantidade, preferência por bebida quente/fria.",
       },
       { key: "activity", label: "field-activity", hint: "Atividade física e trabalho: tipo, frequência, esforço." },
+      // Substances (PRD §9.6). Always reviewed: it is the topic where speech
+      // about OTHER people ("meu marido bebe") is most common, and the
+      // pipeline checks who spoke, not whom the sentence is about.
+      {
+        key: "tobacco",
+        label: "field-tobacco",
+        alwaysReview: true,
+        hint:
+          "Uso de tabaco pela PRÓPRIA paciente: cigarro, cigarro eletrônico/vape, narguilé; quantidade, frequência, " +
+          "há quanto tempo e, se parou, quando. Fala sobre outra pessoa (familiar que fuma) não entra aqui.",
+      },
+      {
+        key: "alcohol",
+        label: "field-alcohol",
+        alwaysReview: true,
+        hint:
+          "Consumo de álcool pela PRÓPRIA paciente: tipo de bebida, quantidade, frequência e contexto, nas palavras dela. " +
+          "Fala sobre outra pessoa não entra aqui.",
+      },
+      {
+        key: "substances",
+        label: "field-substances",
+        alwaysReview: true,
+        hint:
+          "Uso de outras substâncias pela PRÓPRIA paciente (maconha, estimulantes, uso de remédio sem prescrição etc.): " +
+          "o quê, frequência e há quanto tempo, apenas como ela relatou. Nunca inferir uso a partir de comportamento ou " +
+          "sintoma; fala sobre outra pessoa não entra aqui.",
+      },
+    ],
+  },
+  {
+    // Conditional (0103): only when the patient is marked for fertility care
+    // AND the practice declares the area. "gyneco", not "fertility": the key is
+    // forever and the block serves every patient who menstruates, including
+    // the climacteric — not only someone trying to conceive.
+    key: "gyneco",
+    title: "block-gyneco",
+    when: "fertility",
+    fields: [
+      {
+        key: "lmp",
+        label: "field-lmp",
+        hint:
+          "Data da última menstruação (DUM) como foi dita: uma data, 'faz X dias/semanas' ou 'está atrasada há...'. " +
+          "Nunca calcular nem inferir a data.",
+      },
+      {
+        key: "cycle",
+        label: "field-cycle",
+        hint: "Ciclo menstrual: intervalo entre as menstruações, quantos dias dura o fluxo, regularidade, adiantamentos ou atrasos.",
+      },
+      {
+        key: "flow",
+        label: "field-flow",
+        multiline: true,
+        hint: "Fluxo menstrual: volume, cor do sangue e presença e tamanho de coágulos, nas palavras da paciente.",
+      },
+      {
+        key: "symptoms",
+        label: "field-cycle-symptoms",
+        multiline: true,
+        hint:
+          "Cólica e sintomas do ciclo (TPM): quando dói (antes, durante, depois), tipo de dor, o que melhora (calor, " +
+          "pressão), sintomas nas mamas, humor, inchaço e intestino ligados ao ciclo.",
+      },
+      {
+        key: "discharge",
+        label: "field-discharge",
+        multiline: true,
+        hint:
+          "Corrimento e muco cervical: quantidade, cor, consistência (elástico, cremoso, aquoso), odor e em que fase do " +
+          "ciclo aparece.",
+      },
+      {
+        key: "contraception",
+        label: "field-contraception",
+        hint:
+          "Método contraceptivo em uso ou recém-interrompido (pílula, DIU, implante, preservativo) e há quanto tempo. " +
+          "O remédio também pertence a Medicamentos e suplementos — não repita a dose aqui.",
+      },
+      {
+        key: "obstetric",
+        label: "field-obstetric",
+        multiline: true,
+        alwaysReview: true,
+        hint:
+          "História obstétrica como a paciente relatou: gestações, partos (normal ou cesárea), abortos e perdas, " +
+          "puerpério e amamentação. Assunto sensível: registre só o que foi dito.",
+      },
+      {
+        key: "fertility",
+        label: "field-fertility",
+        multiline: true,
+        hint:
+          "Tentativa de engravidar: há quanto tempo, investigações e diagnósticos que ela RELATA ter recebido (ex.: SOP, " +
+          "endometriose, fator masculino), tratamentos (indução, inseminação, FIV) e em que etapa está. Registre " +
+          "diagnósticos como relato, nunca como conclusão.",
+      },
+      {
+        key: "menopause",
+        label: "field-menopause",
+        multiline: true,
+        hint:
+          "Climatério e menopausa: idade da última menstruação, fogachos, suores noturnos, secura, alterações de sono e " +
+          "humor ligadas ao climatério, reposição hormonal (o remédio também vai em Medicamentos e suplementos).",
+      },
+      {
+        key: "libido",
+        label: "field-libido",
+        alwaysReview: true,
+        hint:
+          "Libido/desejo sexual como a paciente relatou (aumentado, diminuído, variação ao longo do ciclo). Só o que ela " +
+          "disser; nunca inferir nem registrar detalhes além do que foi dito.",
+      },
     ],
   },
   {
@@ -149,3 +292,43 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
  * diagnosis into the chart on the strength of a layperson's guess.
  */
 export const PROFESSIONAL_OBSERVATION_FIELDS = new Set(["tcm.tongue", "tcm.pulse", "tcm.palpation", "tcm.pattern"]);
+
+/** "block.field" keys whose extracted values always come back for review. */
+export const ALWAYS_REVIEW_FIELDS = new Set(
+  ANAMNESIS_BLOCKS.flatMap((block) =>
+    block.fields.filter((field) => field.alwaysReview).map((field) => `${block.key}.${field.key}`),
+  ),
+);
+
+/** The facts that decide whether a conditional block applies. */
+export interface AnamnesisApplicability {
+  /**
+   * The patient is marked for fertility care AND the practice declares the
+   * area — `fertility_care_applies` (0103), delivered by the consultation
+   * context. Anything else (loading, failed) must be passed as false.
+   */
+  fertilityCare: boolean;
+}
+
+/**
+ * The blocks of THIS consultation, in catalog order.
+ *
+ * A conditional block is included when its condition holds — or when it
+ * already holds an answer (`answeredKeys`, "block.field"), because hiding what
+ * was recorded, say after the patient's mark was removed, would show a chart
+ * as "não informado" about something that WAS informed.
+ *
+ * The extraction passes no `answeredKeys`: the model only ever writes into a
+ * block that applies now.
+ */
+export function anamnesisBlocksFor(
+  applicability: AnamnesisApplicability,
+  answeredKeys: Iterable<string> = [],
+): AnamnesisBlock[] {
+  const answered = new Set(answeredKeys);
+  return ANAMNESIS_BLOCKS.filter((block) => {
+    if (!block.when) return true;
+    if (block.when === "fertility" && applicability.fertilityCare) return true;
+    return block.fields.some((field) => answered.has(`${block.key}.${field.key}`));
+  });
+}

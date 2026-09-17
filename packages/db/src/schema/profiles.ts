@@ -9,6 +9,8 @@ export const profiles = pgTable("profiles", {
   displayName: text("display_name"),
   avatarUrl: text("avatar_url"),
   practiceModalities: text("practice_modalities").array().notNull().default([]),
+  /** Areas she follows (0103). Only "fertility" today — it enables the cycle/fertility anamnesis block. */
+  practiceAreas: text("practice_areas").array().notNull().default([]),
   isSuperadmin: boolean("is_superadmin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

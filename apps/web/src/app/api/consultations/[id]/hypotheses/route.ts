@@ -44,39 +44,46 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // `patient` and the decided hypotheses were previously fetched only by the
   // PANEL, so the professional could read her own history while the model that
   // wrote the hypotheses could not.
-  const [answersResult, patientResult, decidedResult, priorResult, attachmentsResult] = await Promise.all([
-    supabase
-      .from("anamnesis_answers")
-      .select("block_key, field_key, value, source, state")
-      // A draft she rejected is not part of the record it was rejected from.
-      .neq("state", "rejected")
-      .eq("consultation_id", id),
-    // `alerts` is what the context bar pins to the top of the very same screen
-    // — allergies, pregnancy, anticoagulants, a pacemaker. Fetching only the
-    // birth date is why a hypothesis could be prepared around a pregnancy the
-    // professional was looking at while she waited for it.
-    supabase.from("patients").select("birth_date, alerts").eq("id", consultation.patient_id).maybeSingle(),
-    supabase
-      .from("consultation_hypotheses")
-      .select("pattern, status")
-      .eq("consultation_id", id)
-      .eq("status", "rejected"),
-    supabase
-      .from("consultation_hypotheses")
-      .select("pattern, status, consultations!inner(patient_id)")
-      .eq("consultations.patient_id", consultation.patient_id)
-      .neq("consultation_id", id)
-      .in("status", ["accepted", "edited"])
-      .limit(10),
-    // She attached an exam and asked the AI to read it. Leaving that reading
-    // out of the reasoning means the document she supplied influenced nothing.
-    supabase
-      .from("consultation_attachments")
-      .select("caption, analysis")
-      .eq("consultation_id", id)
-      .eq("analysis_status", "ready")
-      .is("deleted_at", null),
-  ]);
+  const [answersResult, patientResult, decidedResult, priorResult, attachmentsResult, fertilityResult] =
+    await Promise.all([
+      supabase
+        .from("anamnesis_answers")
+        .select("block_key, field_key, value, source, state")
+        // A draft she rejected is not part of the record it was rejected from.
+        .neq("state", "rejected")
+        .eq("consultation_id", id),
+      // `alerts` is what the context bar pins to the top of the very same screen
+      // — allergies, pregnancy, anticoagulants, a pacemaker. Fetching only the
+      // birth date is why a hypothesis could be prepared around a pregnancy the
+      // professional was looking at while she waited for it.
+      supabase.from("patients").select("birth_date, alerts").eq("id", consultation.patient_id).maybeSingle(),
+      supabase
+        .from("consultation_hypotheses")
+        .select("pattern, status")
+        .eq("consultation_id", id)
+        .eq("status", "rejected"),
+      supabase
+        .from("consultation_hypotheses")
+        .select("pattern, status, consultations!inner(patient_id)")
+        .eq("consultations.patient_id", consultation.patient_id)
+        .neq("consultation_id", id)
+        .in("status", ["accepted", "edited"])
+        .limit(10),
+      // She attached an exam and asked the AI to read it. Leaving that reading
+      // out of the reasoning means the document she supplied influenced nothing.
+      supabase
+        .from("consultation_attachments")
+        .select("caption, analysis")
+        .eq("consultation_id", id)
+        .eq("analysis_status", "ready")
+        .is("deleted_at", null),
+      // Whether the cycle/fertility block applies (0103): only then are its empty
+      // fields worth reporting to the model as "not recorded".
+      supabase.rpc("fertility_care_applies", {
+        target_org: consultation.org_id,
+        target_patient: consultation.patient_id,
+      }),
+    ]);
 
   const birthDate = patientResult.data?.birth_date as string | null | undefined;
   const ageYears = birthDate ? Math.floor((Date.now() - new Date(birthDate).getTime()) / 31_557_600_000) : null;
@@ -97,6 +104,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .map((alert) => (alert as { label?: string } | null)?.label)
       .filter((label): label is string => Boolean(label)),
     professionalSummary: consultation.summary,
+    fertilityCare: fertilityResult.data === true,
     attachmentFindings: (attachmentsResult.data ?? []).flatMap((row) => {
       const analysis = row.analysis as { extractedValues?: { label?: string; value?: string }[] } | null;
       return (analysis?.extractedValues ?? [])

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { complaintOnOneLine } from "@/lib/chief-complaint";
 import { consultationWhen, legacyExcerpt } from "@/lib/consultation-when";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -162,7 +163,7 @@ function describeConsultation(consultation: PatientCase["consultations"][number]
   const lines: string[] = [];
   const when = consultationWhen(consultation) ?? consultation.createdAt;
   lines.push(`Consulta de ${when.slice(0, 10)} (${STATUS_LABEL[consultation.status] ?? consultation.status}):`);
-  if (consultation.chiefComplaint) lines.push(`  Queixa principal: ${consultation.chiefComplaint}`);
+  if (consultation.chiefComplaint) lines.push(`  Queixa principal: ${complaintOnOneLine(consultation.chiefComplaint)}`);
   if (consultation.summary) lines.push(`  Resumo da profissional: ${consultation.summary}`);
   if (consultation.legacyBody) {
     // Kept as the previous system wrote it and labelled as such: chart data to

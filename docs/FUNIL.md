@@ -186,7 +186,7 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 
 1. **Toda tabela nova**: migração em `packages/db/migrations` com RLS + `select public.enable_row_versioning('public.<tabela>')`; **testes pgtap** em `packages/db/tests` para RPCs/policies novas (padrão do commit 3996a02 — os testes pinam funções por `regprocedure`).
 2. **Toda mutação server-side**: `recordAudit` (`apps/web/src/lib/audit.ts`).
-3. **Toda rota pública nova**: adicionar a `PUBLIC_PREFIXES` em `apps/web/src/middleware.ts` (senão redireciona para login) + `apps/web/src/app/sitemap.ts` (ou exceção noindex — D10); copy no namespace `marketing` nos **5 locales** de `packages/content/messages/` (só pt-BR é indexado); `generateMetadata` com canonical; exatamente um `<h1>`; JsonLd via componente. Os hooks `marketing-guard`/`marketing-lint` impõem a skill e o contrato automaticamente.
+3. **Toda rota pública nova**: adicionar a `PUBLIC_PREFIXES` em `apps/web/src/middleware.ts` (senão redireciona para login) + `apps/web/src/app/sitemap.ts` (ou exceção noindex — D10); copy no namespace `marketing` nos **6 locales** de `packages/content/messages/` (só pt-BR é indexado); `generateMetadata` com canonical; exatamente um `<h1>`; JsonLd via componente. Os hooks `marketing-guard`/`marketing-lint` impõem a skill e o contrato automaticamente.
 4. **Direção visual**: `docs/DESIGN.md` é ESTRITA e herdada por toda página nova. Se /fundadores exigir estética de resposta direta divergente, pedir explicitamente "redesign" dessa página — senão a skill construirá no padrão comprometido. Depoimentos/métricas fabricados são proibidos (`docs/DESIGN.md` + HOME-SPEC §33.5) — publicar exige material real E atualizar esses contratos junto.
 5. **Preços/limites/vagas/datas**: linhas de banco, nunca constantes. `platform_settings` é o mecanismo de flag sem deploy — leitura **pública por design** (nunca segredos); cada flag de campanha precisa de card de edição num console admin (hoje só a key `support` tem UI — ver T6.6).
 6. **`sendEvent` (Inngest) nunca lança**: todo caller precisa de fallback inline; drip/cron **não roda sem chaves Inngest** configuradas.
@@ -299,7 +299,7 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 
 ## EPIC 3 — Landing pages
 
-**Estado geral: confirmado** — nenhuma das 6 páginas existe; o site é 100% orientado a tráfego frio/auto-cadastro (todos os CTAs do chrome → `/auth/sign-up`). As páginas novas seguem as convenções §0.5 (PUBLIC_PREFIXES, i18n 5 locales, canonical, DESIGN.md estrita).
+**Estado geral: confirmado** — nenhuma das 6 páginas existe; o site é 100% orientado a tráfego frio/auto-cadastro (todos os CTAs do chrome → `/auth/sign-up`). As páginas novas seguem as convenções §0.5 (PUBLIC_PREFIXES, i18n 6 locales, canonical, DESIGN.md estrita).
 
 ### T3.1 — `/fundadores` (prioridade máxima)
 **Estado: ⬜**. Destino final de todas as ondas.
@@ -320,7 +320,7 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
   4. Vídeo de demonstração (T3.5).
   5. CTA único: `/agendar`. Não "criar conta", não "falar com o suporte".
 - Duas variantes por parâmetro `?v=pagante` / `?v=cadastro`. **Sem problema de cache**: as páginas de marketing são dinâmicas por request (cookies de consent/locale no layout) — basta ler `searchParams` (Promise no Next 15). Canonical único em `/voltar` para as duas variantes.
-- **Redirect**: `async redirects()` em `apps/web/next.config.mjs` (`{source:'/migracao', destination:'/voltar', permanent:true}` — query preservada por padrão; `permanent:true` responde 308, equivalente a 301 para SEO; usar `statusCode:301` se o literal importar). Atualizar `PUBLIC_PREFIXES` (+`/voltar`), `sitemap.ts` (trocar a rota) e o link do footer (`marketing-footer.tsx`). Aposentar as 16 chaves `mig-*` nos 5 locales juntas.
+- **Redirect**: `async redirects()` em `apps/web/next.config.mjs` (`{source:'/migracao', destination:'/voltar', permanent:true}` — query preservada por padrão; `permanent:true` responde 308, equivalente a 301 para SEO; usar `statusCode:301` se o literal importar). Atualizar `PUBLIC_PREFIXES` (+`/voltar`), `sitemap.ts` (trocar a rota) e o link do footer (`marketing-footer.tsx`). Aposentar as 16 chaves `mig-*` nos 6 locales juntas.
 - **Aceite:** as duas variantes renderizam textos distintos e o redirect preserva parâmetros de URL.
 
 ### T3.3 — `/masterclass` e `/masterclass/replay` — Onda 2

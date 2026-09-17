@@ -14,8 +14,10 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   FormControl,
+  FormControlLabel,
   FormHelperText,
   FormLabel,
   Grid,
@@ -24,6 +26,7 @@ import {
 } from "@mui/material";
 
 import { CpfField, PhoneField } from "@/components/product/fields";
+import { usePracticeAreas } from "@/hooks/use-practice-areas";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
@@ -45,6 +48,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 export default function NovoPaciente() {
   const router = useRouter();
   const t = useTranslations("product");
+  const practiceAreas = usePracticeAreas();
   const [serverError, setServerError] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<string[]>([]);
   const [alertDraft, setAlertDraft] = useState("");
@@ -61,7 +65,15 @@ export default function NovoPaciente() {
   });
 
   const formik = useFormik({
-    initialValues: { fullName: "", birthDate: "", phone: "", email: "", document: "", notes: "" },
+    initialValues: {
+      fullName: "",
+      birthDate: "",
+      phone: "",
+      email: "",
+      document: "",
+      notes: "",
+      fertilityCare: false,
+    },
     validationSchema,
     validateOnBlur: false,
     onSubmit: async (values) => {
@@ -96,6 +108,7 @@ export default function NovoPaciente() {
           email: values.email.trim() || null,
           notes: values.notes.trim() || null,
           alerts: alerts.map((label) => ({ label })),
+          fertility_care: practiceAreas.fertilityCare && values.fertilityCare,
           created_by: user?.id ?? null,
         })
         .select("id")
@@ -279,6 +292,32 @@ export default function NovoPaciente() {
                   onChange={formik.handleChange}
                 />
               </FormControl>
+
+              {/* Only for a practice that follows fertility (0103): the mark
+                  opens the cycle/fertility block in this patient's consultations. */}
+              {practiceAreas.fertilityCare && (
+                <FormControlLabel
+                  className="mt-2 items-start"
+                  control={
+                    <Checkbox
+                      name="fertilityCare"
+                      checked={formik.values.fertilityCare}
+                      onChange={formik.handleChange}
+                      className="-mt-1"
+                    />
+                  }
+                  label={
+                    <Box className="flex flex-col">
+                      <Typography variant="body2" className="text-text-primary">
+                        {t("patient-fertility-care")}
+                      </Typography>
+                      <Typography variant="caption" className="text-text-secondary leading-5">
+                        {t("patient-fertility-care-hint")}
+                      </Typography>
+                    </Box>
+                  }
+                />
+              )}
 
               {serverError && (
                 <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! my-3">

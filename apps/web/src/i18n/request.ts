@@ -13,6 +13,7 @@ const MESSAGES: Record<LocaleOption, () => Promise<{ default: Record<string, unk
   es: () => import("@flyee/content/messages/es.json"),
   fr: () => import("@flyee/content/messages/fr.json"),
   "pt-BR": () => import("@flyee/content/messages/pt-BR.json"),
+  "zh-CN": () => import("@flyee/content/messages/zh-CN.json"),
 };
 
 export default getRequestConfig(async () => {

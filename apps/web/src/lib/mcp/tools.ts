@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { mcpAuthFromExtra } from "@/lib/mcp/context";
 import { runMcpTool, type ToolOutcome, type ToolResult } from "@/lib/mcp/gates";
@@ -300,7 +301,10 @@ export function registerMcpTools(server: McpServer): void {
           const rel = row.patients as { full_name?: string } | { full_name?: string }[] | null;
           const name = (Array.isArray(rel) ? rel[0]?.full_name : rel?.full_name) ?? "Paciente";
           const when = format.format(new Date(row.started_at as string));
-          const complaint = row.chief_complaint ? ` — motivo registrado: ${row.chief_complaint}` : "";
+          // One line per appointment: only the complaint's title fits here.
+          const complaint = row.chief_complaint
+            ? ` — motivo registrado: ${complaintTitle(row.chief_complaint as string, 160)}`
+            : "";
           return `- ${when} (${row.duration_minutes ?? 50} min): ${name}${complaint}`;
         });
         return {

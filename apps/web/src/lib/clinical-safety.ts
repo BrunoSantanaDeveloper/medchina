@@ -79,6 +79,34 @@ export interface SafetyFlag {
 }
 
 /**
+ * The word that raised a flag — what a document that LEAVES the practice may
+ * show.
+ *
+ * `matchedText` keeps the whole recorded value, because on her screen it is
+ * the evidence she checks. The printed plan the patient takes home used to copy
+ * it too, so a sentence like "usa ansiolítico e fuma maconha desde os 20" came
+ * out whole under "Medicamentos" — and the flags are immutable, so she could
+ * not remove it. The term is the full word around the match: the pattern
+ * "ansiol[íi]tic" prints as "ansiolítico", "Xarelto 20mg" as "Xarelto".
+ *
+ * Empty when the text no longer matches its category (an old or edited flag):
+ * the document then shows the category alone.
+ */
+export function safetyFlagTerm(flag: { category: string; matchedText?: string | null }): string {
+  const entry = CATEGORY_PATTERNS.find((candidate) => candidate.category === flag.category);
+  const text = flag.matchedText ?? "";
+  if (!entry || !text) return "";
+  const match = new RegExp(entry.pattern.source, entry.pattern.flags.replace("g", "")).exec(text);
+  if (!match) return "";
+  const wordChar = /[\p{L}\p{N}-]/u;
+  let start = match.index;
+  let end = match.index + match[0].length;
+  while (start > 0 && wordChar.test(text[start - 1])) start -= 1;
+  while (end < text.length && wordChar.test(text[end])) end += 1;
+  return text.slice(start, end);
+}
+
+/**
  * Scan recorded values for sensitive factors. Deduplicated by category — one
  * pregnancy flag, not one per mention — keeping the most specific matched text.
  */

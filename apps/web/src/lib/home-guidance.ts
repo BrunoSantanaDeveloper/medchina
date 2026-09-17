@@ -59,13 +59,21 @@ const GUIDANCE_FIELDS: { modality: string; field: string; label: string; kind: "
   { modality: "auriculotherapy", field: "reassessment", label: "guidance-reassessment", kind: "text" },
 ];
 
+/**
+ * Only a modality she left ON reaches the patient — the same rule the printed
+ * plan applies (and the database, `(enabled)::boolean`). The sheet used to
+ * skip this check, so a diet she switched off still printed on a signed,
+ * QR-verifiable handout while the clinical plan left it out.
+ */
+const isEnabled = (modality: Modality): boolean => modality.enabled === true || modality.enabled === "true";
+
 export function buildHomeGuidance(modalities: Record<string, Modality> | null | undefined): GuidanceSection[] {
   const sections: GuidanceSection[] = [];
   if (!modalities) return sections;
 
   for (const descriptor of GUIDANCE_FIELDS) {
     const modality = modalities[descriptor.modality];
-    if (!modality || typeof modality !== "object") continue;
+    if (!modality || typeof modality !== "object" || !isEnabled(modality as Modality)) continue;
     const raw = (modality as Modality)[descriptor.field];
 
     if (descriptor.kind === "list") {

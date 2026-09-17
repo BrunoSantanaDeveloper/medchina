@@ -679,9 +679,11 @@ A experiência mobile entra em Modo Consulta e prioriza nome do paciente, indica
 
 A anamnese será estruturada em blocos expansíveis e configuráveis. Deve permitir preenchimento manual, extração automática e registro por voz.
 
-- Queixa principal e história atual: início, intensidade, localização, qualidade, fatores de melhora/piora, tratamentos, exames e diagnósticos existentes.
+- Queixa principal e história atual: início, intensidade, localização, qualidade, fatores de melhora/piora, tratamentos, exames e diagnósticos existentes (diagnósticos sempre registrados como relato da paciente, nunca deduzidos). A queixa principal aceita várias linhas; a primeira é o título da consulta. Medicamentos e suplementos ficam no mesmo campo.
 
-- Rotina e estilo de vida: sono, energia, alimentação, digestão, evacuação, urina, trabalho, atividade física, hidratação e substâncias.
+- Rotina e estilo de vida: sono, energia, alimentação, digestão, evacuação, urina, trabalho, atividade física, hidratação e substâncias (tabagismo, álcool e outras substâncias, cada um em seu campo e sempre revisados pela profissional).
+
+- Ciclo menstrual e fertilidade (bloco condicional): data da última menstruação, ciclo, fluxo, cólica e sintomas, corrimento e muco cervical, contracepção, gestações e perdas, fertilidade, climatério e libido. Aparece — e é preenchido pela IA — só quando a profissional declara atender fertilidade no perfil E a paciente está marcada no cadastro para esse acompanhamento.
 
 - Aspectos emocionais e contexto: preocupação, medo, raiva, tristeza, frustração, sobrecarga, relações, trabalho, perdas e eventos.
 

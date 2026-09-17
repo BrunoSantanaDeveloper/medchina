@@ -1,5 +1,6 @@
+import { complaintOnOneLine, complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
-import { detectSafetyFlags, type SafetyFlag } from "@/lib/clinical-safety";
+import { detectSafetyFlags, type SafetyFlag, safetyFlagTerm } from "@/lib/clinical-safety";
 import { PRACTICE_MODALITIES, type PracticeModality } from "@/lib/practice-context";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 import { type KnowledgeSearchResult, resolveCollectionIds, searchKnowledge } from "@flyee/knowledge";
@@ -212,7 +213,7 @@ function buildResultSchema(scope: readonly PracticeModality[]) {
 
 function describeCase(input: PlanInput): string {
   const lines: string[] = [];
-  if (input.chiefComplaint) lines.push(`Queixa principal: ${input.chiefComplaint}`);
+  if (input.chiefComplaint) lines.push(`Queixa principal: ${complaintOnOneLine(input.chiefComplaint)}`);
   for (const answer of input.answers) {
     // Origin travels with the value here too: the hypotheses prompt has always
     // distinguished the patient's report from the practitioner's observation,
@@ -321,7 +322,7 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       const queries = [
         ...input.acceptedPatterns,
         ...modalityQueries,
-        [input.chiefComplaint, describeCase(input)].filter(Boolean).join("\n"),
+        [complaintTitle(input.chiefComplaint), describeCase(input)].filter(Boolean).join("\n"),
       ].filter((query) => query.trim());
       const outcomes = await Promise.allSettled(
         queries
@@ -437,7 +438,9 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
     // the requirement cannot be silently skipped — the professional edits it.
     if (checklist.length === 0) {
       checklist.push("Revisar contraindicações locais e sistêmicas antes da aplicação.");
-      for (const flag of safetyFlags) checklist.push(`Verificar: ${flag.matchedText}`);
+      // The term, not the recorded sentence: this checklist is printed on the
+      // plan the patient takes home.
+      for (const flag of safetyFlags) checklist.push(`Verificar: ${safetyFlagTerm(flag) || flag.category}`);
     }
     modalities.moxibustion = {
       enabled: true,

@@ -3,18 +3,28 @@ import plugin from "tailwindcss/plugin";
 
 import type { Screens } from "@/types";
 
+/**
+ * Chinese (zh-CN) has no glyphs in any of the three brand faces (Mulish,
+ * Urbanist, TT Chocolates), so every Han character would fall through to the
+ * browser default — a serif, next to a sans UI. Appending the platform CJK
+ * families fixes that WITHOUT a webfont download: a font stack is resolved per
+ * GLYPH, so Latin text still renders in the brand face and only the Han
+ * characters reach these. Order is macOS/iOS, Windows, Android/Linux.
+ */
+const CJK = ["PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC"];
+
 const config: Config = {
   important: "html",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-body)", "ui-sans-serif"],
-        heading: ["var(--font-heading)", "ui-sans-serif"],
-        body: ["var(--font-body)", "ui-sans-serif"],
+        sans: ["var(--font-body)", ...CJK, "ui-sans-serif"],
+        heading: ["var(--font-heading)", ...CJK, "ui-sans-serif"],
+        body: ["var(--font-body)", ...CJK, "ui-sans-serif"],
         // Marketing display slot: defaults to the heading font; derived projects
         // may load a display font in the root layout and set --font-display.
-        display: ["var(--font-display, var(--font-heading))", "ui-sans-serif"],
+        display: ["var(--font-display, var(--font-heading))", ...CJK, "ui-sans-serif"],
         // Instrument/data slot (mono eyebrows, readouts, metric indexes).
         // Optional: derived projects load a mono font via next/font and set
         // --font-mono; without it this degrades to the system mono stack.

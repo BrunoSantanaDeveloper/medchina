@@ -13,7 +13,7 @@ You are building a native app screen that must feel like a phone app AND look li
 - **Dimensions from the `native` tokens export** (`import { native } from "@flyee/design-tokens"`): radii (`native.radius`), spacing base, display sizes (`{min,max}` px — use `min` on phones), motion durations and `Easing.bezier(...native.motion.ease)`.
 - **Type discipline: max 4 font sizes and 2 weights per screen** (Paper variants subset defined in the theme). More sizes = visual noise, not hierarchy.
 - **Components: React Native Paper first.** Before building custom, check Paper's catalog. Custom components still consume the theme via `useTheme()`.
-- **Copy through the `mobile` i18n namespace** in ALL 5 locales (`packages/content/messages/*`), same anti-AI-copy rules as the `marketing-page` skill (especially pt-BR).
+- **Copy through the `mobile` i18n namespace** in ALL 6 catalogs (`packages/content/messages/*`), same anti-AI-copy rules as the `marketing-page` skill (especially pt-BR).
 - **Icons via the RN adapter contract**: `apps/mobile/src/icons/nexture/ni-*` (react-native-svg, same filenames + `NextureIconsProps` as web). Missing icon? Port it from `apps/web/src/icons/nexture/` — never import an icon library directly in a screen.
 
 ## Anti-"shrunken web" list (never ship these)

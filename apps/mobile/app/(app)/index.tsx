@@ -151,7 +151,7 @@ export default function Today() {
               </View>
               <Text variant="bodyLarge">{consultation.patientName}</Text>
               {consultation.reason ? (
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                <Text variant="bodySmall" numberOfLines={2} style={{ color: theme.colors.onSurfaceVariant }}>
                   {consultation.reason}
                 </Text>
               ) : null}

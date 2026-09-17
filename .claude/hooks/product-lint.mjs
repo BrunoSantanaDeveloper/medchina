@@ -94,7 +94,7 @@ function lint(filePath, content) {
       const text = line.match(JSX_TEXT);
       if (text)
         advisories.push(
-          `[hardcoded-copy?] ${at}: JSX text "${text[1].slice(0, 60)}" — product copy goes through the product i18n namespace in ALL 5 locales.`,
+          `[hardcoded-copy?] ${at}: JSX text "${text[1].slice(0, 60)}" — product copy goes through the product i18n namespace in ALL 6 locales.`,
         );
     }
   });

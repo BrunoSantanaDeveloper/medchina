@@ -39,7 +39,7 @@ import {
   QuickFilterControl,
   Toolbar,
 } from "@mui/x-data-grid";
-import { deDE, esES, frFR, ptBR } from "@mui/x-data-grid/locales";
+import { deDE, esES, frFR, ptBR, zhCN } from "@mui/x-data-grid/locales";
 
 import { DataGridPaginationFullPage } from "@/components/data-grid/data-grid-pagination";
 import NiArrowDown from "@/icons/nexture/ni-arrow-down";
@@ -102,6 +102,7 @@ const GRID_LOCALES: Record<string, (typeof ptBR)["components"]["MuiDataGrid"]["d
   es: esES.components.MuiDataGrid.defaultProps.localeText,
   fr: frFR.components.MuiDataGrid.defaultProps.localeText,
   de: deDE.components.MuiDataGrid.defaultProps.localeText,
+  "zh-CN": zhCN.components.MuiDataGrid.defaultProps.localeText,
 };
 
 type DataTableToolbarProps = {

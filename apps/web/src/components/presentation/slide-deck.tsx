@@ -104,7 +104,7 @@ function pace(slide: SlideData, ms: number): "ahead" | "ontime" | "behind" {
   return "ontime";
 }
 
-/** "Slide 12" for a roteiro slide; the block name for the pause and the videos. */
+/** "Slide 12" for a roteiro slide; the kicker for slides the roteiro does not number. */
 function slideLabel(slide: SlideData) {
   return slide.roteiroSlide ? `Slide ${slide.roteiroSlide}` : slide.kicker.pt;
 }
@@ -807,7 +807,7 @@ export default function SlideDeck() {
       >
         <div className="deck-canvas" style={{ "--deck-scale": scale } as CSSProperties}>
           <section
-            className={cx("deck-slide", slide.tone === "solemn" && "deck-slide--solemn")}
+            className="deck-slide"
             ref={slideRef}
             key={slide.key}
             data-direction={direction}

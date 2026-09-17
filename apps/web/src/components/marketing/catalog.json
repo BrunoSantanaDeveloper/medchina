@@ -4,7 +4,7 @@
     "Every content block sits in <Section>/<Container>/<SectionHeader> — spacing/width come from marketing tokens, never per-page values",
     "Tokens only: hsl(var(--token)) / token Tailwind classes; must look right in 4 color themes × light/dark",
     "Headings: font-display text-display-{2xl,xl,lg,md} (fluid clamp scale, no breakpoint font jumps)",
-    "Copy through the marketing i18n namespace in ALL 5 locales (de,en,es,fr,pt-BR)",
+    "Copy through the marketing i18n namespace in ALL 6 locales (de,en,es,fr,pt-BR,zh-CN)",
     "Icons only via @/icons/nexture/ni-* alias; meaningful concept icons, never decoration",
     "Exactly one <h1> per page (Hero, or SectionHeader/PricingSection as/headingAs=\"h1\")",
     "New public routes: PUBLIC_PREFIXES (src/middleware.ts) + src/app/sitemap.ts + generateMetadata",

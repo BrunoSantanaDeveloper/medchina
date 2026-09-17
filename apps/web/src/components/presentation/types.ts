@@ -10,8 +10,9 @@
  *    never projected.
  * 2. **The roteiro is the source of truth.** `roteiroSlide` is the number
  *    printed in `attachments/Palestra-MedChina-Congresso-MTC-Xinjiang.docx.md`,
- *    so rehearsing with the paper in hand matches the screen. The Bloco 6 pause
- *    has no number on purpose — the roteiro says "sem slide".
+ *    so rehearsing with the paper in hand matches the screen. Slides the
+ *    printed roteiro does not number (the videos, the guarantees, the
+ *    consent slide, the annex) have none, on purpose.
  */
 
 /**
@@ -97,7 +98,7 @@ export interface GalleryFrame {
 export interface SlideData {
   /** Stable identifier — selects the view in `slide-views.tsx`. */
   key: string;
-  /** Slide number in the printed roteiro; absent for the Bloco 6 pause. */
+  /** Slide number in the printed roteiro; absent for slides it does not number. */
   roteiroSlide?: number;
   block: number;
   blockTitle: Bi;
@@ -111,11 +112,6 @@ export interface SlideData {
   optionalCut?: string;
   /** Stage direction from the roteiro. Notes only. */
   stageNote: string;
-  /**
-   * `solemn` strips the slide to bare type on a deep ground — the roteiro's
-   * "sem slide, tela escura ou neutra, falar devagar" for the illness passage.
-   */
-  tone?: "solemn";
   /**
    * Outside the forty minutes: the written answers kept after the closing for
    * the questions. They are excluded from the counter and the progress bar,

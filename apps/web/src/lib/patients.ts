@@ -65,6 +65,8 @@ export type UpdatePatientInput = {
   email?: string;
   notes?: string;
   alerts: { label: string }[];
+  /** The cycle/fertility follow-up mark (0103). Left out = not touched. */
+  fertilityCare?: boolean;
 };
 
 /**
@@ -88,6 +90,7 @@ export async function updatePatientDetails(
       email: input.email?.trim() || null,
       notes: input.notes?.trim() || null,
       alerts: input.alerts,
+      ...(input.fertilityCare === undefined ? {} : { fertility_care: input.fertilityCare }),
     })
     .eq("id", input.patientId)
     .eq("org_id", input.orgId);

@@ -1,4 +1,9 @@
-import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
+import {
+  ALWAYS_REVIEW_FIELDS,
+  type AnamnesisApplicability,
+  anamnesisBlocksFor,
+  PROFESSIONAL_OBSERVATION_FIELDS,
+} from "@/lib/anamnesis";
 import { SENSITIVE } from "@/lib/clinical-safety";
 import { transcriptTimestampSeconds } from "@/lib/transcript";
 import type { TranscriptResult } from "@flyee/transcribe";
@@ -27,7 +32,7 @@ const DEFAULT_MODEL = "gemini-3.6-flash";
 const EXTRACTION_MAX_MS = Number(process.env.EXTRACTION_TIMEOUT_MS) || 90_000;
 
 /** Bump when the prompt or the verification changes — recorded per answer. */
-export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-09-02";
+export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-09-16";
 
 /** Below this share of the quote's words found in a segment, it is not a quote. */
 const QUOTE_MATCH_THRESHOLD = 0.7;
@@ -106,14 +111,26 @@ export function isPipelineUpdatable(answer: ExistingAnswer): boolean {
   return answer.source === "professional_voice" && Boolean(answer.provenance?.transcriptionId);
 }
 
-/** The field catalog the model may fill — nothing outside it is accepted. */
-const fieldCatalog = () =>
-  ANAMNESIS_BLOCKS.flatMap((block) =>
-    block.fields.map((field) => ({
-      key: `${block.key}.${field.key}`,
-      hint: field.hint,
-      observationOnly: PROFESSIONAL_OBSERVATION_FIELDS.has(`${block.key}.${field.key}`),
-    })),
+/** A consultation where no conditional block applies — the safe default. */
+const NO_CONDITIONAL_BLOCKS: AnamnesisApplicability = { fertilityCare: false };
+
+/**
+ * The field catalog the model may fill — nothing outside it is accepted. A
+ * conditional block (fertility) is in it only when it applies to this
+ * consultation, so a field that does not exist on her screen can neither be
+ * asked for nor written.
+ */
+const fieldCatalog = (applicability: AnamnesisApplicability) =>
+  anamnesisBlocksFor(applicability).flatMap((block) =>
+    block.fields.map((field) => {
+      const key = `${block.key}.${field.key}`;
+      return {
+        key,
+        hint: field.hint,
+        observationOnly: PROFESSIONAL_OBSERVATION_FIELDS.has(key),
+        alwaysReview: ALWAYS_REVIEW_FIELDS.has(key),
+      };
+    }),
   );
 
 /**
@@ -301,8 +318,12 @@ const RESULT_SCHEMA = {
   required: ["practitionerSpeaker", "answers", "chiefComplaint", "gaps"],
 };
 
-export function buildPrompt(transcript: TranscriptResult, existing: ExistingAnswer[] = []): string {
-  const catalog = fieldCatalog();
+export function buildPrompt(
+  transcript: TranscriptResult,
+  existing: ExistingAnswer[] = [],
+  applicability: AnamnesisApplicability = NO_CONDITIONAL_BLOCKS,
+): string {
+  const catalog = fieldCatalog(applicability);
   const observationOnly = catalog.filter((f) => f.observationOnly).map((f) => f.key);
   // A second recording of the SAME consultation used to see only its own audio,
   // so a field it mentioned replaced what the first one had captured. Telling
@@ -382,6 +403,11 @@ export async function extractAnamnesis(
    * update are used (see `isPipelineUpdatable`).
    */
   existing: ExistingAnswer[] = [],
+  /**
+   * Which conditional blocks apply to this consultation (`fertility_care_applies`,
+   * 0103). Defaults to none, so a caller that does not know never opens them.
+   */
+  applicability: AnamnesisApplicability = NO_CONDITIONAL_BLOCKS,
 ): Promise<ExtractionResult> {
   const key = process.env.GEMINI_API_KEY;
   const model = process.env.EXTRACTION_MODEL || process.env.TRANSCRIBE_MODEL || DEFAULT_MODEL;
@@ -412,7 +438,7 @@ export async function extractAnamnesis(
   });
   const response = await client.models.generateContent({
     model,
-    contents: [{ role: "user", parts: [{ text: buildPrompt(transcript, existing) }] }],
+    contents: [{ role: "user", parts: [{ text: buildPrompt(transcript, existing, applicability) }] }],
     config: {
       responseMimeType: "application/json",
       responseJsonSchema: RESULT_SCHEMA,
@@ -438,7 +464,7 @@ export async function extractAnamnesis(
     gaps?: string[];
   };
 
-  const allowed = new Map(fieldCatalog().map((f) => [f.key, f]));
+  const allowed = new Map(fieldCatalog(applicability).map((f) => [f.key, f]));
   const segments = transcript.segments;
   const practitionerSpeaker = raw.practitionerSpeaker?.trim() || null;
   const answers: ExtractedAnswer[] = [];
@@ -491,7 +517,7 @@ export async function extractAnamnesis(
     // back for review, whatever the model decided (PRD §10.10). Prompts drift;
     // this does not. The quote is scanned too — a summarised value can lose the
     // very word (an anticoagulant's name) that makes the passage sensitive.
-    const alwaysAttention = fieldKey === "medications" || SENSITIVE.test(value) || SENSITIVE.test(claimedQuote);
+    const alwaysAttention = field.alwaysReview || SENSITIVE.test(value) || SENSITIVE.test(claimedQuote);
     // A value whose evidence could not be located is exactly the one a human
     // must look at first.
     const state = item.state === "attention" || alwaysAttention || !anchor ? "attention" : "clear";

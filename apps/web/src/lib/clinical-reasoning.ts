@@ -1,4 +1,5 @@
-import { ANAMNESIS_BLOCKS } from "@/lib/anamnesis";
+import { anamnesisBlocksFor } from "@/lib/anamnesis";
+import { complaintOnOneLine, complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 import { type KnowledgeSearchResult, resolveCollectionIds, searchKnowledge } from "@flyee/knowledge";
@@ -103,6 +104,13 @@ export interface RecordedCase {
   professionalSummary?: string | null;
   /** Values the AI read out of documents she attached (exams, reports). */
   attachmentFindings?: { label: string; value: string }[];
+  /**
+   * Whether the fertility block applies (`fertility_care_applies`, 0103). Its
+   * empty fields are only reported as "not recorded" when it does — telling
+   * the model that the cycle was not recorded for a patient it does not apply
+   * to is noise, not information.
+   */
+  fertilityCare?: boolean;
 }
 
 /**
@@ -181,7 +189,7 @@ const fieldLabel = (blockKey: string, fieldKey: string) => `${blockKey}.${fieldK
 function describeCase(recorded: RecordedCase): string {
   const lines: string[] = [];
   if (recorded.ageYears != null) lines.push(`Paciente: ${recorded.ageYears} anos`);
-  if (recorded.chiefComplaint) lines.push(`Queixa principal: ${recorded.chiefComplaint}`);
+  if (recorded.chiefComplaint) lines.push(`Queixa principal: ${complaintOnOneLine(recorded.chiefComplaint)}`);
   for (const answer of recorded.answers) {
     const key = fieldLabel(answer.blockKey, answer.fieldKey);
     const origin =
@@ -198,7 +206,7 @@ function describeCase(recorded: RecordedCase): string {
 /** Which anamnesis fields exist in the catalog but have no recorded value. */
 function absentFields(recorded: RecordedCase): string[] {
   const present = new Set(recorded.answers.map((a) => fieldLabel(a.blockKey, a.fieldKey)));
-  return ANAMNESIS_BLOCKS.flatMap((block) =>
+  return anamnesisBlocksFor({ fertilityCare: recorded.fertilityCare === true }, present).flatMap((block) =>
     block.fields.map((field) => fieldLabel(block.key, field.key)).filter((key) => !present.has(key)),
   );
 }
@@ -310,12 +318,17 @@ function retrievalQueries(recorded: RecordedCase): string[] {
       .join(". ");
 
   const queries = [
-    [recorded.chiefComplaint, pick(["complaint.onset", "complaint.factors", "complaint.intensity"])]
+    // The TITLE of the complaint, not the whole story: a multi-line narrative
+    // at the head of this query dilutes the embedding (lib/chief-complaint.ts).
+    [complaintTitle(recorded.chiefComplaint), pick(["complaint.onset", "complaint.factors", "complaint.intensity"])]
       .filter(Boolean)
       .join(". "),
     pick(["tcm.tongue", "tcm.pulse", "tcm.palpation"]),
     pick(["routine.sleep", "routine.digestion", "routine.bowel", "routine.urine", "routine.thirst"]),
     pick(["emotional.state", "routine.energy"]),
+    // Cycle and fertility retrieve for what they are about (0103). Empty for
+    // every patient the block does not apply to, so it costs nothing there.
+    pick(["gyneco.cycle", "gyneco.flow", "gyneco.symptoms", "gyneco.fertility", "gyneco.menopause"]),
     ...(recorded.priorPatterns ?? []),
   ].filter((query): query is string => Boolean(query && query.trim()));
 

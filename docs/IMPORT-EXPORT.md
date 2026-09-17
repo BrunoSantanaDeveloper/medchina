@@ -278,7 +278,7 @@ Assistente em 5 passos:
    importação" enquanto a janela permitir (§3).
 
 Contrato do product lint: erro nunca é renderizado como vazio; i18n no namespace
-`product`, nos 5 locales; sem valores de tema crus; nomes acessíveis em
+`product`, nos 6 locales; sem valores de tema crus; nomes acessíveis em
 controles de ícone.
 
 Na ficha da paciente e na consulta, o conteúdo legado aparece em bloco próprio

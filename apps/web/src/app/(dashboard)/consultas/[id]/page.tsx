@@ -56,7 +56,7 @@ import NiPlay from "@/icons/nexture/ni-play";
 import NiProgress from "@/icons/nexture/ni-progress";
 import NiSearch from "@/icons/nexture/ni-search";
 import { calendarDateInTimeZone, defaultAppointmentStart, startAppointment, weeklyOccurrences } from "@/lib/agenda";
-import { ANAMNESIS_BLOCKS, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
+import { anamnesisBlocksFor, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
 import { CONSENT_KINDS } from "@/lib/consents";
 import {
@@ -133,7 +133,8 @@ type Consultation = {
 
 type Addendum = { id: string; body: string; reason: string | null; createdAt: string };
 type ConsultationContext = {
-  patient: { birthDate: string | null; alerts: { label: string }[] };
+  /** `fertilityCare`: the cycle/fertility block applies to this patient (0103). */
+  patient: { birthDate: string | null; alerts: { label: string }[]; fertilityCare?: boolean };
   consents: { audio: boolean; ai: boolean; images: boolean; aiRefused: boolean; aiNotice: boolean };
   recording: {
     id: string;
@@ -1040,15 +1041,29 @@ export default function ConsultaPage() {
   // kept the source rows), and counting those would report more filled fields
   // than the total. Chief complaint lives on the consultation row, not among
   // these fields, so it is out of the count too.
+  //
+  // The blocks are THIS consultation's: the cycle/fertility block (0103) only
+  // when it applies — or when it already holds something, so nothing recorded
+  // is ever hidden — which also keeps it out of the "X de Y" total for every
+  // patient it does not concern.
+  const answeredKeys = useMemo(
+    () =>
+      Object.entries(fields)
+        .filter(([, meta]) => meta.value.trim())
+        .map(([key]) => key),
+    [fields],
+  );
+  const fertilityCare = context?.patient.fertilityCare === true;
+  const blocks = useMemo(() => anamnesisBlocksFor({ fertilityCare }, answeredKeys), [fertilityCare, answeredKeys]);
   const blockFieldKeys = useMemo(
-    () => new Set(ANAMNESIS_BLOCKS.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`))),
-    [],
+    () => new Set(blocks.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`))),
+    [blocks],
   );
   const filledCount = useMemo(
     () => Object.entries(fields).filter(([key, meta]) => blockFieldKeys.has(key) && meta.value.trim()).length,
     [fields, blockFieldKeys],
   );
-  const totalFieldCount = useMemo(() => ANAMNESIS_BLOCKS.reduce((sum, block) => sum + block.fields.length, 0), []);
+  const totalFieldCount = useMemo(() => blocks.reduce((sum, block) => sum + block.fields.length, 0), [blocks]);
   const attentionCount = useMemo(
     () => Object.entries(fields).filter(([key, meta]) => blockFieldKeys.has(key) && meta.state === "attention").length,
     [fields, blockFieldKeys],
@@ -1060,7 +1075,7 @@ export default function ConsultaPage() {
   // fields that need her judgement meant opening every block and reading it.
   const blockStats = useMemo(() => {
     const stats: Record<string, { filled: number; attention: number }> = {};
-    for (const block of ANAMNESIS_BLOCKS) {
+    for (const block of blocks) {
       let filled = 0;
       let attention = 0;
       for (const field of block.fields) {
@@ -1072,7 +1087,7 @@ export default function ConsultaPage() {
       stats[block.key] = { filled, attention };
     }
     return stats;
-  }, [fields]);
+  }, [fields, blocks]);
 
   // Most consultations in this practice are RETURNS, and a return used to start
   // from an empty chart: to recall what she recorded about sleep or pulse she
@@ -1102,9 +1117,9 @@ export default function ConsultaPage() {
     return summarizeChanges(
       currentValues,
       previous,
-      ANAMNESIS_BLOCKS.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`)),
+      blocks.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`)),
     );
-  }, [fields, previous]);
+  }, [fields, previous, blocks]);
 
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({ complaint: true });
   const autoExpandedRef = useRef(false);
@@ -1114,14 +1129,14 @@ export default function ConsultaPage() {
   useEffect(() => {
     if (autoExpandedRef.current) return;
     if (consultation?.status !== "awaiting_review") return;
-    const withContent = ANAMNESIS_BLOCKS.filter((block) => (blockStats[block.key]?.filled ?? 0) > 0);
+    const withContent = blocks.filter((block) => (blockStats[block.key]?.filled ?? 0) > 0);
     if (withContent.length === 0) return;
     autoExpandedRef.current = true;
     setExpandedBlocks((current) => ({
       ...current,
       ...Object.fromEntries(withContent.map((block) => [block.key, true])),
     }));
-  }, [consultation?.status, blockStats]);
+  }, [consultation?.status, blockStats, blocks]);
 
   /**
    * Put ONE field in view, wherever it is. The hypotheses panel names the
@@ -1141,9 +1156,9 @@ export default function ConsultaPage() {
 
   /** Jump to the first field the extraction flagged — the review, in one click. */
   const focusFirstAttention = useCallback(() => {
-    const target = ANAMNESIS_BLOCKS.flatMap((block) =>
-      block.fields.map((field) => ({ block, field, meta: fields[`${block.key}.${field.key}`] })),
-    ).find((entry) => entry.meta?.state === "attention");
+    const target = blocks
+      .flatMap((block) => block.fields.map((field) => ({ block, field, meta: fields[`${block.key}.${field.key}`] })))
+      .find((entry) => entry.meta?.state === "attention");
     if (!target) return;
     setExpandedBlocks((current) => ({ ...current, [target.block.key]: true }));
     window.setTimeout(() => {
@@ -1151,7 +1166,7 @@ export default function ConsultaPage() {
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
       element?.focus({ preventScroll: true });
     }, 0);
-  }, [fields]);
+  }, [fields, blocks]);
   /**
    * The journey: one derivation from the record's DATA (`@flyee/clinical`),
    * feeding the bar, the step headers and every disabled button — so the screen
@@ -1681,6 +1696,9 @@ export default function ConsultaPage() {
                   </FormLabel>
                   <Input
                     id="consultation-chief-complaint"
+                    multiline
+                    minRows={2}
+                    maxRows={8}
                     value={headerDraft.chiefComplaint}
                     placeholder={t("consultation-chief-complaint-placeholder")}
                     readOnly={isReadOnly}
@@ -1793,7 +1811,7 @@ export default function ConsultaPage() {
                 </CardContent>
               </Card>
             ) : (
-              ANAMNESIS_BLOCKS.map((block) => {
+              blocks.map((block) => {
                 const expanded = expandedBlocks[block.key] ?? false;
                 return (
                   <Card key={block.key} component="section">

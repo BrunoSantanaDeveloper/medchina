@@ -71,7 +71,7 @@ _None ingested — direction chosen from generated candidates (A · Cuidado Sere
 
 - **The stylesheet is the DS.** `app/(marketing)/clinical-source-home.css` (~3.900 lines) defines a global class vocabulary — `.section`, `.section-heading`, `.eyebrow`, `.button` (`--sm`/`--secondary`/`--light`), `.hero`, `.price-card`, `.plan-*`, `.faq-section`, `.final-cta`, `.check-list`, `.site-footer` — almost none of it scoped under `.clinical-source-home` (only 2 references in the whole file). A new landing page **imports this stylesheet and composes those classes**; it does not invent per-page CSS beyond what its own sections genuinely need.
 - **Icons**: direct `@phosphor-icons/react` imports, `weight="duotone"` for feature/section marks, `weight="fill"` for status ticks. NOT the `@/icons/nexture/ni-*` alias.
-- **Copy**: hardcoded pt-BR. Landing pages sell to one market; routing campaign copy through five locale catalogs buys nothing and slows every edit.
+- **Copy**: hardcoded pt-BR. Landing pages sell to one market; routing campaign copy through six locale catalogs buys nothing and slows every edit.
 - **Colour**: the CSS custom properties of the DS (`--jade`, `--mint`, `--blue`, `--coral`, `--ink`…), not `hsl(var(--token))`.
 - **Imagery**: real photography and real product screenshots from `public/images/medchina-*.webp`.
 - **Commercial data is still DATA**: prices, limits and plan copy come from the database through `getDisplayPlans()` (fixed 2026-08-10, decision D12 in `docs/FUNIL.md`) — the DS governs the LOOK, never the numbers.

@@ -17,16 +17,17 @@ import {
   CLOSING_PLEDGE,
   CONFUCIUS_CARD,
   CONGRESS_CARDS,
+  CONSENT_CARD,
+  CONSENT_ITEMS,
   CONTACT,
   CULTURES,
-  DISCIPLE_QUOTE,
+  DATA_PROTECTIONS,
   DUTY_NOTE,
   ETHICAL_DISCLAIMER,
   EVIDENCE,
   FLOW_STEPS,
   FOUNDERS,
   FOUR_EXAMINATIONS,
-  FREE_TIER_NOTE,
   FREE_TIER_PLEDGE,
   GUARANTEES,
   GUARANTEES_NOTE,
@@ -38,21 +39,19 @@ import {
   LAW_GROUPS,
   LAW_GROUPS_NOTE,
   LAW_QUOTE,
-  LAW_SPAN,
-  LAW_TRACK,
   LAYERS_NOTE,
-  LIBRARY_SECURITY,
-  MANAGEMENT_NOTE,
+  LGPD_NOTE,
+  LIBRARY_STEPS,
   MILESTONES,
   MILESTONES_NOTE,
   MOTTO,
   MOTTO_EM,
   OFFLINE_NOTE,
+  OWN_PROTOCOLS_NOTE,
   PAPER_DECISION,
   PAPER_PAINS,
   PAPER_SEARCH,
   PATIENT_NOTE,
-  PAUSE_LINE,
   PLATFORM_STATS,
   SURVEY_CONCLUSION,
   SURVEY_STATS,
@@ -87,15 +86,17 @@ import {
   Handshake,
   Heart,
   Info,
+  ListNumbers,
   LockKey,
   MagnifyingGlass,
   MapPin,
   MicrophoneStage,
   MinusCircle,
   MoonStars,
+  NotePencil,
   Play,
   PlayCircle,
-  Quotes,
+  Prohibit,
   Rocket,
   Scales,
   SealCheck,
@@ -259,38 +260,6 @@ function SurveyChart({ lang }: { lang: DeckLang }) {
           </span>
         </div>
       ))}
-    </div>
-  );
-}
-
-/**
- * The 22 years, plotted rather than asserted. Markers sit at their real share of
- * the elapsed time, so the 16-year silence between the bill and the Chamber vote
- * takes up most of the rail — which is the whole point of the number.
- */
-function LawTrack({ lang }: { lang: DeckLang }) {
-  return (
-    <div className="deck-track deck-reveal" style={at(1)}>
-      <span className="deck-track-rail" aria-hidden="true" />
-      {LAW_TRACK.map((milestone) => (
-        <span
-          className={cx(
-            "deck-track-stop",
-            // A stop anchored at the far end has to hang leftwards or it
-            // overflows the canvas — geometry, not "is it the last item".
-            milestone.at >= 100 && "deck-track-stop--end",
-            milestone.emphasis && "deck-track-stop--emphasis",
-          )}
-          key={milestone.year}
-          style={{ left: `${milestone.at}%` }}
-        >
-          <i aria-hidden="true" />
-          <b>{milestone.year}</b>
-          <strong>{milestone.label[lang]}</strong>
-          <small>{milestone.detail[lang]}</small>
-        </span>
-      ))}
-      <span className="deck-track-span">{LAW_SPAN[lang]}</span>
     </div>
   );
 }
@@ -825,7 +794,6 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
         <div className="deck-slide-inner">
           <Head slide={slide} lang={lang} />
           <div className="deck-body">
-            <LawTrack lang={lang} />
             <div className="deck-grid deck-grid--split deck-grid--stretch deck-law-grid">
               <article className="deck-card deck-reveal" style={at(2)}>
                 <span className="deck-card-icon">
@@ -1050,8 +1018,8 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
                 product itself.
               */}
               <WindowShot
-                src="/images/medchina-flow-anamnese-real.webp"
-                alt={pt ? "Anamnese estruturada no MedChina" : "MedChina 的结构化问诊界面"}
+                src="/images/plataforma.jpg"
+                alt={pt ? "A plataforma em produção" : "生产环境中的平台"}
                 caption={{ pt: "A plataforma em produção", zh: "生产环境中的平台" }}
                 lang={lang}
                 index={1}
@@ -1078,17 +1046,6 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
       );
 
     /* ---------------------------------------------------------- */
-    case "pause":
-      return (
-        <div className="deck-slide-inner deck-slide-inner--center">
-          <p className="deck-solemn-line deck-reveal" style={at(0)}>
-            {PAUSE_LINE[lang]}
-          </p>
-        </div>
-      );
-
-    /* ---------------------------------------------------------- */
-    case "testimony-cnaa":
     case "testimony-user":
       return (
         <div className="deck-slide-inner">
@@ -1379,33 +1336,126 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
       );
 
     /* ---------------------------------------------------------- */
-    case "library-security":
+    /*
+      The library, on its own. The corpus is the same `ANNEX_CORPUS` the
+      annex shows, so the number on stage and the number in the written
+      answer are one number. The right column is the life of one citation —
+      the claim the room will doubt, told in the order it happens.
+    */
+    case "library":
       return (
         <div className="deck-slide-inner">
-          <Head slide={slide} lang={lang} center />
+          <Head slide={slide} lang={lang} />
           <div className="deck-body">
-            <div className="deck-grid deck-grid--3">
-              {LIBRARY_SECURITY.map((card, index) => (
-                <article className="deck-card deck-reveal" key={card.title.pt} style={at(index + 1)}>
-                  <span className="deck-card-icon">
-                    {index === 0 && <Books size={22} weight="duotone" aria-hidden="true" />}
-                    {index === 1 && <ShieldCheck size={22} weight="duotone" aria-hidden="true" />}
-                    {index === 2 && <LockKey size={22} weight="duotone" aria-hidden="true" />}
-                  </span>
-                  <h3>{card.title[lang]}</h3>
-                  <p>{card.body[lang]}</p>
-                </article>
-              ))}
+            <div className="deck-grid deck-library">
+              <div className="deck-card deck-library-corpus deck-reveal" style={at(1)}>
+                <span className="deck-card-icon">
+                  <Books size={22} weight="duotone" aria-hidden="true" />
+                </span>
+                <div className="deck-corpus">
+                  {ANNEX_CORPUS.map((row) => (
+                    <div
+                      className={cx(
+                        "deck-corpus-row",
+                        row.total && "deck-corpus-row--total",
+                        row.pending && "deck-corpus-row--pending",
+                      )}
+                      key={row.what.pt}
+                    >
+                      <span className="deck-corpus-n">{row.n}</span>
+                      <span className="deck-corpus-what">{row.what[lang]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <ol className="deck-steps">
+                {LIBRARY_STEPS.map((step, index) => {
+                  const StepIcon = [MagnifyingGlass, ListNumbers, SealCheck][index];
+                  return (
+                    <li className="deck-step deck-reveal" key={step.index} style={at(index + 2)}>
+                      <span className="deck-card-icon">
+                        <StepIcon size={20} weight="duotone" aria-hidden="true" />
+                      </span>
+                      <div>
+                        <h3>{step.title[lang]}</h3>
+                        <p>{step.body[lang]}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
-            <div className="deck-grid deck-grid--2 deck-library-foot">
-              <div className="deck-note deck-reveal" style={at(4)}>
-                <ClockCounterClockwise size={22} weight="duotone" aria-hidden="true" />
-                <p>{MANAGEMENT_NOTE[lang]}</p>
+
+            <div className="deck-note deck-reveal" style={at(5)}>
+              <NotePencil size={22} weight="duotone" aria-hidden="true" />
+              <p>{OWN_PROTOCOLS_NOTE[lang]}</p>
+            </div>
+          </div>
+        </div>
+      );
+
+    /* ---------------------------------------------------------- */
+    /*
+      Consent and protection, split from the library so each gets a slide it
+      can be read on. The consent card shows the two authorizations as two
+      separate items, because "one for recording, another for AI" is the
+      design, and a sentence hides it.
+    */
+    case "consent-security":
+      return (
+        <div className="deck-slide-inner">
+          <Head slide={slide} lang={lang} />
+          <div className="deck-body">
+            <div className="deck-grid deck-security">
+              <article className="deck-card deck-card--accent deck-reveal" style={at(1)}>
+                <span className="deck-card-icon">
+                  <ShieldCheck size={22} weight="duotone" aria-hidden="true" />
+                </span>
+                <h3>{CONSENT_CARD.title[lang]}</h3>
+                <p>{CONSENT_CARD.body[lang]}</p>
+                <ul className="deck-consents">
+                  {CONSENT_ITEMS.map((item, index) => {
+                    const ConsentIcon = [MicrophoneStage, Sparkle][index];
+                    return (
+                      <li key={item.index}>
+                        <ConsentIcon size={18} weight="duotone" aria-hidden="true" />
+                        <span>
+                          <strong>{item.title[lang]}</strong>
+                          {item.body[lang]}
+                        </span>
+                        <em>{lang === "pt" ? `Autorização ${item.index}` : `授权 ${item.index}`}</em>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="deck-consent-refusal">
+                  <Heart size={16} weight="duotone" aria-hidden="true" />
+                  {CONSENT_CARD.refusal[lang]}
+                </p>
+              </article>
+
+              <div className="deck-protections">
+                {DATA_PROTECTIONS.map((item, index) => {
+                  const ProtectionIcon = [LockKey, Fingerprint, Prohibit, Buildings][index];
+                  return (
+                    <div className="deck-protection deck-reveal" key={item.index} style={at(index + 2)}>
+                      <span className="deck-card-icon">
+                        <ProtectionIcon size={20} weight="duotone" aria-hidden="true" />
+                      </span>
+                      <div>
+                        <h3>{item.title[lang]}</h3>
+                        <p>{item.body[lang]}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="deck-note deck-reveal" style={at(5)}>
-                <Heart size={22} weight="duotone" aria-hidden="true" />
-                <p>{FREE_TIER_NOTE[lang]}</p>
-              </div>
+            </div>
+
+            <div className="deck-note deck-reveal" style={at(6)}>
+              <Scales size={22} weight="duotone" aria-hidden="true" />
+              <p>{LGPD_NOTE[lang]}</p>
             </div>
           </div>
         </div>
@@ -1441,11 +1491,6 @@ export function SlideRenderer({ slide, lang }: ViewProps) {
                 <p>{DUTY_NOTE[lang]}</p>
               </div>
             </div>
-            <blockquote className="deck-quote deck-reveal deck-exams-quote" style={at(7)}>
-              <p>
-                <Quotes size={18} weight="fill" aria-hidden="true" /> {DISCIPLE_QUOTE[lang]}
-              </p>
-            </blockquote>
           </div>
         </div>
       );

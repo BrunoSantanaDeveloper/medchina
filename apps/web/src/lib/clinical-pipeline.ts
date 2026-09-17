@@ -261,9 +261,17 @@ export async function processRecording(
     provenance: (row.provenance as { transcriptionId?: unknown } | null) ?? null,
   }));
 
+  // Whether the fertility block applies (0103) — the same function the screen
+  // reads, so the model never writes into a block she cannot see. A failed
+  // lookup keeps it closed.
+  const { data: fertilityCare } = await supabase.rpc("fertility_care_applies", {
+    target_org: recording.org_id,
+    target_patient: recording.patient_id,
+  });
+
   let extraction;
   try {
-    extraction = await extractAnamnesis(transcript, deadlineAt, existing);
+    extraction = await extractAnamnesis(transcript, deadlineAt, existing, { fertilityCare: fertilityCare === true });
   } catch {
     return reject("provider_unavailable", "extraction");
   }

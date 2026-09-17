@@ -70,6 +70,8 @@ type Patient = {
   archivedAt: string | null;
   deletionRequestedAt: string | null;
   deletionRequestReason: string | null;
+  /** Cycle/fertility follow-up (0103) — opens that block in her consultations. */
+  fertilityCare: boolean;
   /**
    * Set when the record came from another system (0076). A chart we cannot
    * vouch for must never look like one she typed and checked, so the origin
@@ -250,6 +252,7 @@ export default function PacienteFicha() {
       archivedAt: row.archived_at,
       deletionRequestedAt: row.deletion_requested_at,
       deletionRequestReason: row.deletion_request_reason,
+      fertilityCare: row.fertility_care === true,
       importedFrom,
     });
     setVisits(
@@ -787,6 +790,9 @@ export default function PacienteFicha() {
             <Field label={t("patient-cpf")} value={patient.document ? formatCpf(patient.document) : null} />
             <Field label={t("patient-email")} value={patient.email} />
             <Field label={t("patient-notes")} value={patient.notes} />
+            {patient.fertilityCare && (
+              <Field label={t("patient-fertility-care")} value={t("patient-fertility-care-on")} />
+            )}
             <Button
               variant="text"
               className="self-start"
