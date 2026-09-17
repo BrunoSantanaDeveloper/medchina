@@ -1256,7 +1256,7 @@
     "practice-scope-hint": "您所实践的诊疗方式会指导治疗方案（只提出您真正会用的）与临床文献库。留空表示不设限制。",
     "practice-scope-field": "我实践的诊疗方式",
     "practice-scope-field-help": "您的实践发生变化时，随时可以修改。",
-    "practice-scope-saved": "诊疗方式已更新。",
+    "practice-scope-saved": "治疗方式与关注领域已更新。",
     "practice-scope-error": "保存失败。请重试。",
     "practice-scope-load-error": "无法加载您的诊疗方式。",
     "practice-context-modality-invalid": "所选诊疗方式中有一项无效。",

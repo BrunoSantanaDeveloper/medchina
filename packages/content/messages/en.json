@@ -1256,7 +1256,7 @@
     "practice-scope-hint": "The modalities you practise guide the therapeutic plan (it only proposes what you apply) and the clinical library. Leaving it empty means no restriction.",
     "practice-scope-field": "Modalities in my practice",
     "practice-scope-field-help": "You can change this whenever your practice changes.",
-    "practice-scope-saved": "Modalities updated.",
+    "practice-scope-saved": "Modalities and areas updated.",
     "practice-scope-error": "Could not save. Try again.",
     "practice-scope-load-error": "Could not load your modalities.",
     "practice-context-modality-invalid": "One of the selected modalities is invalid.",

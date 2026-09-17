@@ -1256,7 +1256,7 @@
     "practice-scope-hint": "Les modalités que vous pratiquez orientent le plan thérapeutique (il ne propose que ce que vous appliquez) et la bibliothèque clinique. Laisser vide signifie sans restriction.",
     "practice-scope-field": "Modalités de ma pratique",
     "practice-scope-field-help": "Vous pouvez le modifier dès que votre pratique change.",
-    "practice-scope-saved": "Modalités mises à jour.",
+    "practice-scope-saved": "Modalités et domaines mis à jour.",
     "practice-scope-error": "Impossible d'enregistrer. Réessayez.",
     "practice-scope-load-error": "Impossible de charger vos modalités.",
     "practice-context-modality-invalid": "Une modalité sélectionnée n’est pas valide.",

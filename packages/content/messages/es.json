@@ -1256,7 +1256,7 @@
     "practice-scope-hint": "Las modalidades que practicas guían el plan terapéutico (solo propone lo que aplicas) y la biblioteca clínica. Dejarlo vacío significa sin restricción.",
     "practice-scope-field": "Modalidades de mi práctica",
     "practice-scope-field-help": "Puedes cambiarlo siempre que tu práctica cambie.",
-    "practice-scope-saved": "Modalidades actualizadas.",
+    "practice-scope-saved": "Modalidades y áreas actualizadas.",
     "practice-scope-error": "No se pudo guardar. Inténtalo de nuevo.",
     "practice-scope-load-error": "No se pudieron cargar tus modalidades.",
     "practice-context-modality-invalid": "Una de las modalidades seleccionadas no es válida.",

@@ -1256,7 +1256,7 @@
     "practice-scope-hint": "Die von Ihnen praktizierten Methoden steuern den Therapieplan (er schlägt nur vor, was Sie anwenden) und die klinische Bibliothek. Leer lassen bedeutet keine Einschränkung.",
     "practice-scope-field": "Methoden meiner Praxis",
     "practice-scope-field-help": "Sie können dies jederzeit ändern, wenn sich Ihre Praxis ändert.",
-    "practice-scope-saved": "Methoden aktualisiert.",
+    "practice-scope-saved": "Modalitäten und Bereiche aktualisiert.",
     "practice-scope-error": "Speichern nicht möglich. Erneut versuchen.",
     "practice-scope-load-error": "Ihre Methoden konnten nicht geladen werden.",
     "practice-context-modality-invalid": "Eine ausgewählte Methode ist ungültig.",
