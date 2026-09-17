@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
+import { resolveBillingWindow } from "@/lib/billing-window";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { notifyUsers } from "@/lib/notifications";
@@ -18,6 +19,26 @@ type ServiceClient = ReturnType<typeof createServiceClient>;
  * an operator can clear it.
  */
 const MAX_HANDLER_ATTEMPTS = 5;
+
+/**
+ * The provider's patience, minus room to answer.
+ *
+ * Asaas waits 10 SECONDS for a 200 and counts anything else — a read timeout
+ * included — as a delivery failure; 15 consecutive failures INTERRUPT the
+ * queue, and nothing is delivered again until a human reactivates it. That is
+ * the incident that takes real activations down with it.
+ *
+ * This handler is nowhere near instant: one `payment_succeeded` does a dozen
+ * sequential round trips to Postgres plus Meta CAPI, GA4, a Resend e-mail and
+ * a GoTrue admin lookup per owner. A slow provider API on any of those is
+ * enough to cross 10s while the money is already ours.
+ *
+ * So the route stops racing the clock: it processes inline until this budget
+ * and hands the rest to `after()`, which keeps running after the response goes
+ * out. The claim is what makes that safe — a resend lands on
+ * `event_in_progress` and is skipped, never duplicated.
+ */
+const INLINE_BUDGET_MS = 6_000;
 
 function periodEnd(from: Date, period: BillingPeriod): Date {
   const end = new Date(from);
@@ -320,19 +341,22 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
       });
 
       // Whether this event opens a NEW billing cycle, or merely repeats one
-      // that is already running.
-      //
-      // Stripe re-emits `customer.subscription.updated` for every change,
-      // including the two the product itself makes (scheduling a cancellation
-      // and undoing it). Stamping `now()` unconditionally restarted the audio
-      // consumption window that `org_audio_allowance` measures from
-      // `current_period_start` — so cancel + undo returned a full cycle of
-      // minutes, repeatable at will, on a subscription that never renewed.
-      const wasLive = sub.status === "trialing" || sub.status === "active";
-      const storedPeriodEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
-      const renewed = Boolean(event.currentPeriodEnd && storedPeriodEnd && event.currentPeriodEnd > storedPeriodEnd);
-      const periodStart = event.currentPeriodStart?.toISOString() ?? new Date().toISOString();
-      const nextPeriodStart = wasLive && !renewed ? (sub.current_period_start ?? periodStart) : periodStart;
+      // that is already running. The rule is shared and unit-tested
+      // (`lib/billing-window.ts`) because BOTH directions cost money: restart
+      // a cycle that did not renew and Stripe's cancel+undo hands out a fresh
+      // pool of minutes; fail to advance one that DID renew and, past the
+      // stored `current_period_end`, `org_audio_allowance` stops counting
+      // usage at all — which is what every Asaas renewal used to do, since
+      // Asaas reports no period, only the paid charge's due date.
+      const window = resolveBillingWindow(
+        {
+          status: sub.status,
+          period: (sub.period as BillingPeriod | null) ?? null,
+          currentPeriodStart: sub.current_period_start,
+          currentPeriodEnd: sub.current_period_end,
+        },
+        { currentPeriodStart: event.currentPeriodStart, currentPeriodEnd: event.currentPeriodEnd },
+      );
 
       const { error: activationError } = await supabase
         .from("subscriptions")
@@ -343,11 +367,8 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
           provider_subscription_id: event.providerSubscriptionId,
           // Activation supersedes any open dunning window.
           past_due_since: null,
-          current_period_start: nextPeriodStart,
-          current_period_end:
-            event.currentPeriodEnd?.toISOString() ??
-            sub.current_period_end ??
-            (sub.period ? periodEnd(new Date(), sub.period as BillingPeriod).toISOString() : null),
+          current_period_start: window.start,
+          current_period_end: window.end,
         })
         .eq("id", sub.id);
       if (activationError) throw new Error("subscription_reconciliation_failed");
@@ -716,6 +737,83 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
   }
 }
 
+/**
+ * Claims one event, reconciles it and closes the claim.
+ *
+ * Returns true when the provider SHOULD resend it (a genuine race worth
+ * retrying), false when there is nothing more to gain from a redelivery.
+ */
+async function processEvent(supabase: ServiceClient, event: BillingEvent): Promise<boolean> {
+  const { data: claimData, error: claimError } = await supabase.rpc("claim_billing_webhook_event", {
+    target_provider: event.provider,
+    target_provider_event_id: event.providerEventId,
+    target_event_type: event.type,
+  });
+  const claim = claimData as {
+    ok?: boolean;
+    code?: string;
+    eventId?: string;
+    claimToken?: string;
+    attempts?: number;
+  } | null;
+  if (claim?.code === "already_processed") return false;
+  // Another invocation owns this event inside its 5-minute lease. Answering
+  // 500 here penalizes the provider's queue for doing nothing wrong — and
+  // after a crash it did so for five full minutes, for free.
+  if (claim?.code === "event_in_progress") return false;
+  if (claimError || !claim?.ok || !claim.eventId || !claim.claimToken) return true;
+
+  try {
+    await handleEvent(supabase, event);
+    const { data: completionData, error: completionError } = await supabase.rpc("complete_billing_webhook_event", {
+      target_event: claim.eventId,
+      target_claim_token: claim.claimToken,
+      target_success: true,
+      target_error_code: null,
+    });
+    const completion = completionData as { ok?: boolean } | null;
+    return Boolean(completionError) || completion?.ok !== true;
+  } catch (error) {
+    // After enough tries the problem is ours, not a race: keep answering 200
+    // so the provider's queue survives, and hand the replay to an operator.
+    // Without a cap a single unreconcilable event suspended the whole
+    // webhook — including the payments that were reconciling fine.
+    const attempts = Number(claim.attempts ?? 1);
+    const permanent = attempts >= MAX_HANDLER_ATTEMPTS;
+    // The catch used to be silent and wrote a fixed "handler_failed", so the
+    // production incident could be seen but never explained.
+    console.error("billing_webhook_handler_failed", {
+      provider: event.provider,
+      providerEventId: event.providerEventId,
+      eventType: event.type,
+      attempts,
+      permanent,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    const { data: completionData, error: completionError } = await supabase.rpc("complete_billing_webhook_event", {
+      target_event: claim.eventId,
+      target_claim_token: claim.claimToken,
+      target_success: false,
+      target_error_code: permanent ? "handler_failed_permanent" : "handler_failed",
+    });
+    const completion = completionData as { ok?: boolean } | null;
+    if (completionError || completion?.ok !== true) {
+      console.warn("billing_webhook_claim_completion_failed", {
+        provider: event.provider,
+        eventType: event.type,
+      });
+    }
+    return !permanent;
+  }
+}
+
+/**
+ * `after()` keeps running once the response is sent, but only until the
+ * function itself is torn down — so the deferred pass needs headroom the
+ * platform default does not give it.
+ */
+export const maxDuration = 120;
+
 export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerName } = await params;
   if (providerName !== "stripe" && providerName !== "asaas") {
@@ -750,70 +848,38 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   }
 
   let failed = false;
+  const startedAt = Date.now();
+  /** Events the inline budget ran out on; finished after the response. */
+  const deferred: BillingEvent[] = [];
+
   for (const event of events) {
-    const { data: claimData, error: claimError } = await supabase.rpc("claim_billing_webhook_event", {
-      target_provider: event.provider,
-      target_provider_event_id: event.providerEventId,
-      target_event_type: event.type,
-    });
-    const claim = claimData as {
-      ok?: boolean;
-      code?: string;
-      eventId?: string;
-      claimToken?: string;
-      attempts?: number;
-    } | null;
-    if (claim?.code === "already_processed") continue;
-    // Another invocation owns this event inside its 5-minute lease. Answering
-    // 500 here penalizes the provider's queue for doing nothing wrong — and
-    // after a crash it did so for five full minutes, for free.
-    if (claim?.code === "event_in_progress") continue;
-    if (claimError || !claim?.ok || !claim.eventId || !claim.claimToken) {
-      failed = true;
+    if (Date.now() - startedAt > INLINE_BUDGET_MS) {
+      deferred.push(event);
       continue;
     }
-    try {
-      await handleEvent(supabase, event);
-      const { data: completionData, error: completionError } = await supabase.rpc("complete_billing_webhook_event", {
-        target_event: claim.eventId,
-        target_claim_token: claim.claimToken,
-        target_success: true,
-        target_error_code: null,
-      });
-      const completion = completionData as { ok?: boolean } | null;
-      if (completionError || !completion?.ok) failed = true;
-    } catch (error) {
-      // After enough tries the problem is ours, not a race: keep answering 200
-      // so the provider's queue survives, and hand the replay to an operator.
-      // Without a cap a single unreconcilable event suspended the whole
-      // webhook — including the payments that were reconciling fine.
-      const attempts = Number(claim.attempts ?? 1);
-      const permanent = attempts >= MAX_HANDLER_ATTEMPTS;
-      if (!permanent) failed = true;
-      // The catch used to be silent and wrote a fixed "handler_failed", so the
-      // production incident could be seen but never explained.
-      console.error("billing_webhook_handler_failed", {
-        provider: event.provider,
-        providerEventId: event.providerEventId,
-        eventType: event.type,
-        attempts,
-        permanent,
-        message: error instanceof Error ? error.message : String(error),
-      });
-      const { data: completionData, error: completionError } = await supabase.rpc("complete_billing_webhook_event", {
-        target_event: claim.eventId,
-        target_claim_token: claim.claimToken,
-        target_success: false,
-        target_error_code: permanent ? "handler_failed_permanent" : "handler_failed",
-      });
-      const completion = completionData as { ok?: boolean } | null;
-      if (completionError || !completion?.ok) {
-        console.warn("billing_webhook_claim_completion_failed", {
-          provider: event.provider,
-          eventType: event.type,
-        });
+    if (await processEvent(supabase, event)) failed = true;
+  }
+
+  // Whatever did not fit the budget finishes after the response is sent. It
+  // cannot ask the provider to resend any more (the 200 is already out), so a
+  // failure here stays in the inbox with its attempt count for an operator —
+  // which is strictly better than the alternative it replaces: blowing the
+  // 10-second window and having the queue interrupted for everyone.
+  if (deferred.length > 0) {
+    after(async () => {
+      for (const event of deferred) {
+        try {
+          await processEvent(supabase, event);
+        } catch (error) {
+          console.error("billing_webhook_deferred_failed", {
+            provider: event.provider,
+            providerEventId: event.providerEventId,
+            eventType: event.type,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
-    }
+    });
   }
 
   return NextResponse.json({ received: !failed }, { status: failed ? 500 : 200 });

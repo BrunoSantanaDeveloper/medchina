@@ -42,10 +42,11 @@ const PUBLIC_PREFIXES = [
   "/api/oauth",
   "/api/mcp",
   "/verify",
-  // Offer pages (route group `(funil)`): reached by a link the operator sends,
-  // deliberately noindex and absent from the sitemap (docs/FUNIL.md D10), but
-  // they must still open without a session.
+  // Offer pages (route group `(funil)`): reached by a link the operator sends
+  // or by a paid ad, deliberately noindex and absent from the sitemap
+  // (docs/FUNIL.md D10), but they must still open without a session.
   "/fundadores",
+  "/assinar",
   "/planos",
   "/como-funciona",
   "/recursos",

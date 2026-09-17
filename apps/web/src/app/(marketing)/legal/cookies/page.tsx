@@ -11,8 +11,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Placeholder cookie policy — NOT legal advice. Replace the copy (marketing
- * namespace, cookies-* keys) with text reviewed by counsel before launch.
+ * Cookie policy.
+ *
+ * Section 4 is the one that has to stay true: the browser trackers stop when a
+ * visitor refuses, and the server-side conversions do NOT, because they never
+ * depended on those cookies. That posture was chosen deliberately (the page and
+ * the banner say so, and the privacy policy names the legal basis) — so a
+ * change to `lib/meta-capi.ts` or `lib/ga4-mp.ts` that starts or stops honouring
+ * the refusal has to change this copy in the same commit.
+ *
+ * STILL REQUIRES COUNSEL REVIEW before it is treated as final.
  */
 export default async function CookiesPage() {
   const t = await getTranslations("marketing");
@@ -21,7 +29,7 @@ export default async function CookiesPage() {
     <Section spacing="compact">
       <SectionHeader title={t("cookies-title")} subtitle={t("legal-updated")} align="start" className="mx-0" as="h1" />
       <Prose className="mx-0">
-        {[1, 2, 3].map((index) => (
+        {[1, 2, 3, 4, 5].map((index) => (
           <section key={index}>
             <h2>{t(`cookies-${index}-title`)}</h2>
             <p>{t(`cookies-${index}-body`)}</p>

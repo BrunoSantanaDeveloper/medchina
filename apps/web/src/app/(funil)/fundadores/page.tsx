@@ -288,9 +288,17 @@ export default async function FundadoresPage() {
           </h2>
         </div>
         <div className="offer-founder">
-          <span className="offer-founder-monogram" aria-hidden="true">
-            DG
-          </span>
+          {/* The photograph landed in the repository with the congress deck; the
+              monogram it replaces was a placeholder for proof that now exists. */}
+          <img
+            className="offer-founder-photo"
+            src="/images/palestra/fundadora-debora.jpg"
+            alt="Retrato de Debora Giovanella, fundadora do MedChina"
+            width={963}
+            height={963}
+            loading="lazy"
+            decoding="async"
+          />
           <div>
             <h3>Debora Giovanella</h3>
             <p className="offer-founder-role">Fundadora do MedChina · Terapeuta de Medicina Tradicional Chinesa</p>

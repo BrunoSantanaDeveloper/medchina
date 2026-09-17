@@ -93,7 +93,7 @@ export function trackPageView(path: string): void {
 }
 
 /** Bump when the privacy policy changes materially — the notice re-appears. */
-export const CONSENT_VERSION = 1;
+export const CONSENT_VERSION = 2;
 
 export interface ConsentState {
   analytics: boolean;

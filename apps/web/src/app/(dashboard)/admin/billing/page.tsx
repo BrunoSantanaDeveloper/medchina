@@ -1,5 +1,6 @@
 "use client";
 
+import CampaignOfferAdmin from "./components/campaign-offer-admin";
 import ConversionOffersAdmin from "./components/conversion-offers-admin";
 import CouponsAdmin from "./components/coupons-admin";
 import FoundersAdmin from "./components/founders-admin";
@@ -74,15 +75,50 @@ export default function AdminBilling() {
                 <Tab label="Modules" />
                 <Tab label="Coupons" />
                 <Tab label="Subscriptions" />
-                <Tab label="Founders offer" />
-                <Tab label="Trial offers" />
+                <Tab label="Offers" />
               </Tabs>
               <Box hidden={tab !== 0}>{tab === 0 && <PlansAdmin />}</Box>
               <Box hidden={tab !== 1}>{tab === 1 && <ModulesAdmin />}</Box>
               <Box hidden={tab !== 2}>{tab === 2 && <CouponsAdmin />}</Box>
               <Box hidden={tab !== 3}>{tab === 3 && <SubscriptionsAdmin />}</Box>
-              <Box hidden={tab !== 4}>{tab === 4 && <FoundersAdmin />}</Box>
-              <Box hidden={tab !== 5}>{tab === 5 && <ConversionOffersAdmin />}</Box>
+              {/* Every offer in ONE tab. They were two, and a third one for the
+                  paid campaign would have made three places to look for "what
+                  are we selling right now" — with the same plan slug typed into
+                  each. Same order as the funnel: cold campaign, warm condition,
+                  in-product offer to someone already trialling. */}
+              <Box hidden={tab !== 4}>
+                {tab === 4 && (
+                  <Box className="flex flex-col gap-8">
+                    <Box className="flex flex-col gap-3">
+                      <Box>
+                        <Typography variant="subtitle1">Campaign offer · /assinar</Typography>
+                        <Typography variant="body2" className="text-text-secondary">
+                          What paid traffic is offered. The deadline here is the one the checkout enforces.
+                        </Typography>
+                      </Box>
+                      <CampaignOfferAdmin />
+                    </Box>
+                    <Box className="flex flex-col gap-3">
+                      <Box>
+                        <Typography variant="subtitle1">Founders offer · /fundadores</Typography>
+                        <Typography variant="body2" className="text-text-secondary">
+                          The warm-audience condition, limited by seats and sold on calls.
+                        </Typography>
+                      </Box>
+                      <FoundersAdmin />
+                    </Box>
+                    <Box className="flex flex-col gap-3">
+                      <Box>
+                        <Typography variant="subtitle1">Trial conversion offers</Typography>
+                        <Typography variant="body2" className="text-text-secondary">
+                          Offered inside the product at the two moments of highest intent, once per workspace.
+                        </Typography>
+                      </Box>
+                      <ConversionOffersAdmin />
+                    </Box>
+                  </Box>
+                )}
+              </Box>
             </CardContent>
           </Card>
         </Grid>

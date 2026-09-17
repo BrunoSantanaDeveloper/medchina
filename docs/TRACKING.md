@@ -35,10 +35,28 @@ privacy policy changes materially — the notice re-appears.
 
 This posture applies to the **public marketing site only** (audience of
 professionals, not patients). The compliance boundary is unchanged: no tracker of
-any kind runs on the authenticated clinical app. Server-side conversions
-(CAPI/Measurement Protocol) currently fire regardless of the browser opt-out —
-they are first-party measurement of the account holder's own transactions
-(hashed); gate them on the opt-out cookie if a stricter posture is required.
+any kind runs on the authenticated clinical app.
+
+### Server-side conversions and the opt-out — DECIDED (2026-09-17)
+
+Server-side conversions (CAPI / GA4 Measurement Protocol) fire **regardless of
+the browser opt-out**, and that is now a declared posture rather than an
+accident: they are first-party measurement of the account holder's own
+transactions (e-mail hashed, org id, IP/UA, purchase value — never a patient, never
+a clinical field), and they do not depend on the browser cookies the visitor
+refused. The legal basis is legitimate interest, stated in three places that must
+stay in sync with the code:
+
+- the cookie notice (`cookie-consent-description`, all five locales),
+- the privacy policy (`privacy-7-*`),
+- the cookie policy (`cookies-4-*`), which also carries the opt-out address.
+
+**Consequence for any future change:** starting or stopping honouring the opt-out
+in `lib/meta-capi.ts` / `lib/ga4-mp.ts` means editing those three copies in the
+same commit, and bumping `CONSENT_VERSION` in `lib/analytics.ts` so the notice
+reappears (it went to `2` when this posture was published). The refusal still
+works for what it promises: the browser scripts stop loading, GA4 gets its
+kill-switch, and no `_fbp`/`_fbc`/`_ga` cookie is written.
 
 ## Event map
 

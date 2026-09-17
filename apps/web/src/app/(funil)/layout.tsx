@@ -68,7 +68,12 @@ export default async function FunnelLayout({ children }: { children: React.React
           </div>
         </div>
         <p className="offer-footer-note">
-          O MedChina não substitui avaliação profissional, exame físico, observação da língua, palpação do pulso,
+          {/* Identification of the seller, in the words of the company's own
+              2021 filing: a page that takes payment has to say who is taking
+              it (CDC art. 33), and the Meta review reads the destination. */}
+          MedChina Gestão e Prontuários · CNPJ 38.504.491/0001-80 · Goiânia (GO) ·{" "}
+          <a href="mailto:contato@medchinaprontuarios.com.br">contato@medchinaprontuarios.com.br</a>
+          <br />O MedChina não substitui avaliação profissional, exame físico, observação da língua, palpação do pulso,
           análise de contraindicações ou encaminhamento quando necessário.
         </p>
       </footer>

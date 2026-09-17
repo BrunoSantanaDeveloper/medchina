@@ -11,9 +11,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Placeholder terms — NOT legal advice. Derived projects must replace the
- * copy (marketing namespace, terms-* keys) with text reviewed by counsel;
- * versioned acceptance can be wired to packages/audit consent terms.
+ * Terms of use.
+ *
+ * Clause 1 now identifies the contracting entity (marketing namespace,
+ * `terms-1-body`) — an offer page that takes money has to say who is selling.
+ * The remaining clauses are the template's and STILL REQUIRE COUNSEL REVIEW;
+ * versioned acceptance can be wired to the consent terms in packages/audit.
  */
 export default async function TermsPage() {
   const t = await getTranslations("marketing");

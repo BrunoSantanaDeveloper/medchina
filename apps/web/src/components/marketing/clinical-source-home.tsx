@@ -1247,7 +1247,7 @@ export default function ClinicalSourceHome({
           <div>
             <strong>Empresa</strong>
             <a href="#inicio">Sobre</a>
-            <a href="mailto:contato@medchina.com.br">Contato</a>
+            <a href="mailto:contato@medchinaprontuarios.com.br">Contato</a>
             <a href="#seguranca">Privacidade</a>
           </div>
         </div>

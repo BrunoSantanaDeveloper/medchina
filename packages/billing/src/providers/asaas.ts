@@ -56,6 +56,72 @@ const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 const digits = (value: string | null | undefined) => (value ?? "").replace(/\D/gu, "");
 
 /**
+ * Creates a charge or subscription that sends the customer BACK to the app
+ * after paying.
+ *
+ * Asaas's hosted invoice has no notion of a return URL unless `callback` is
+ * set, so without it a customer who pays by Pix or card is simply left on
+ * Asaas's page — she has to remember to come back, and the activation moment
+ * ("your plan is live") happens with nobody looking. `successUrl` is the same
+ * URL the Stripe checkout already returns to.
+ *
+ * The catch, learned against the sandbox: Asaas REFUSES the request when the
+ * callback domain is not registered under "Minha Conta → Informações"
+ * (`invalid_object: É necessário enviar uma URL que use o mesmo domínio…`).
+ * A return link is a nicety; a refused checkout is a lost sale. So the request
+ * is retried without the callback on exactly that rejection, and the reason is
+ * logged so the operator can register the domain.
+ */
+async function createWithReturnCallback<T>(
+  path: string,
+  body: Record<string, unknown>,
+  successUrl: string | undefined,
+  idempotencyKey: string,
+): Promise<T> {
+  const returnTo = successUrl?.trim();
+  if (!returnTo) {
+    return asaasFetch<T>(path, { method: "POST", body: JSON.stringify(body) }, idempotencyKey);
+  }
+  try {
+    return await asaasFetch<T>(
+      path,
+      { method: "POST", body: JSON.stringify({ ...body, callback: { successUrl: returnTo, autoRedirect: true } }) },
+      idempotencyKey,
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/mesmo dom[ií]nio|callback/iu.test(message)) throw error;
+    console.warn("asaas_callback_domain_not_registered", { path, successUrl: returnTo });
+    // A DIFFERENT idempotency key: the first attempt already spent this one,
+    // and a provider that caches the rejected response under it would hand
+    // back the 400 forever instead of creating the charge.
+    return asaasFetch<T>(path, { method: "POST", body: JSON.stringify(body) }, `${idempotencyKey}:nocallback`);
+  }
+}
+
+/**
+ * The hosted invoice of a subscription's first charge.
+ *
+ * Measured at ~140 ms after creation in the sandbox, so the charge is there
+ * on the first read in practice — but "in practice" is not a guarantee Asaas
+ * documents, and the alternative outcome is a checkout that throws AFTER the
+ * subscription exists. A few short retries cost nothing on the happy path and
+ * turn a rare race into a non-event.
+ */
+async function firstInvoiceUrl(subscriptionId: string): Promise<string> {
+  const attempts = 6;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const payments = await asaasFetch<{ data: { invoiceUrl?: string }[] }>(
+      `/subscriptions/${subscriptionId}/payments?limit=1`,
+    );
+    const url = payments.data[0]?.invoiceUrl;
+    if (url) return url;
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+  }
+  throw new Error(`Asaas did not return an invoice URL for subscription ${subscriptionId}`);
+}
+
+/**
  * Resolves the Asaas customer for THIS workspace.
  *
  * Two things here are load-bearing and were both wrong before:
@@ -160,9 +226,9 @@ export class AsaasProvider implements PaymentProvider {
       const firstDue = new Date();
       firstDue.setDate(firstDue.getDate() + (plan.trialDays > 0 ? plan.trialDays : 0));
 
-      const subscription = await asaasFetch<{ id: string }>("/subscriptions", {
-        method: "POST",
-        body: JSON.stringify({
+      const subscription = await createWithReturnCallback<{ id: string }>(
+        "/subscriptions",
+        {
           customer: customerId,
           billingType: "UNDEFINED",
           value: applyDiscount(recurringCents, coupon) / 100,
@@ -170,8 +236,10 @@ export class AsaasProvider implements PaymentProvider {
           cycle: PERIOD_TO_CYCLE[plan.period],
           description: `${plan.name}${modules.length ? ` + ${modules.map((m) => m.name).join(", ")}` : ""}`,
           externalReference,
-        }),
-      }, `${input.idempotencyKey}:subscription`);
+        },
+        input.successUrl,
+        `${input.idempotencyKey}:subscription`,
+      );
 
       if (oneTimeCents > 0) {
         await asaasFetch("/payments", {
@@ -191,27 +259,25 @@ export class AsaasProvider implements PaymentProvider {
       }
 
       // Redirect the customer to the first payment's hosted invoice.
-      const payments = await asaasFetch<{ data: { invoiceUrl?: string }[] }>(
-        `/subscriptions/${subscription.id}/payments?limit=1`,
-      );
-      const url = payments.data[0]?.invoiceUrl;
-      if (!url) throw new Error("Asaas did not return an invoice URL for the subscription");
+      const url = await firstInvoiceUrl(subscription.id);
       return { url, providerCustomerId: customerId, providerSubscriptionId: subscription.id };
     }
 
     // One-time purchase (credits with no period + any one-time bumps).
     const totalCents = applyDiscount(plan.priceCents + oneTimeCents, coupon);
-    const payment = await asaasFetch<{ id: string; invoiceUrl: string }>("/payments", {
-      method: "POST",
-      body: JSON.stringify({
+    const payment = await createWithReturnCallback<{ id: string; invoiceUrl: string }>(
+      "/payments",
+      {
         customer: customerId,
         billingType: "UNDEFINED",
         value: totalCents / 100,
         dueDate: isoDate(new Date()),
         description: plan.name,
         externalReference,
-      }),
-    }, `${input.idempotencyKey}:payment`);
+      },
+      input.successUrl,
+      `${input.idempotencyKey}:payment`,
+    );
     return { url: payment.invoiceUrl, providerCustomerId: customerId };
   }
 
@@ -262,6 +328,9 @@ export class AsaasProvider implements PaymentProvider {
         paymentDate?: string;
         clientPaymentDate?: string;
         confirmedDate?: string;
+        /** The cycle this charge bills for — its start, for a subscription. */
+        dueDate?: string;
+        originalDueDate?: string;
       };
       // The Subscription event group carries THIS, never `payment`. Reading
       // `payment.subscription` for SUBSCRIPTION_DELETED meant the cancellation
@@ -321,7 +390,19 @@ export class AsaasProvider implements PaymentProvider {
         });
         // A confirmed payment on a subscription also (re)activates it —
         // Asaas has no separate "subscription active" webhook.
+        //
+        // The charge's due date IS the start of the cycle it pays for, and it
+        // is the only cycle information Asaas sends. Without it every renewal
+        // looked like a cosmetic re-emission to the handler (Stripe's
+        // cancel/undo case), so the consumption window stayed pinned to the
+        // FIRST month: once that `current_period_end` passed, usage fell
+        // outside the window and the workspace was metered as unlimited.
+        // A duplicate delivery (CONFIRMED then RECEIVED, same charge) carries
+        // the same due date, which is exactly what keeps it from restarting
+        // the window twice.
         if (payment.subscription) {
+          const cycleStart = payment.dueDate ?? payment.originalDueDate;
+          const cycleStartDate = cycleStart ? new Date(cycleStart) : undefined;
           events.push({
             providerEventId,
             type: "subscription_activated",
@@ -330,6 +411,7 @@ export class AsaasProvider implements PaymentProvider {
             providerCustomerId: payment.customer,
             providerSubscriptionId: payment.subscription,
             status: "active",
+            ...(cycleStartDate && !Number.isNaN(cycleStartDate.getTime()) ? { currentPeriodStart: cycleStartDate } : {}),
           });
         }
         break;

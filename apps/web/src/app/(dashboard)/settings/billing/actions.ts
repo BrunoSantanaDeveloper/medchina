@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 
 import { recordAudit } from "@/lib/audit";
+import { CAMPAIGN_OFFER_KEY, type CampaignOfferSetting, resolveCampaignOffer } from "@/lib/campaign-offer";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
@@ -112,24 +113,43 @@ async function purchaseBlockedReason(
 }
 
 /**
- * Refuses a seat in a limited offer that is no longer open.
+ * Refuses a plan whose limited offer is no longer open.
  *
- * Only applies to the plan the offer names (migration 0087) — every other plan
- * is unaffected. Returns the reason to log, or null when the purchase may go
- * on. A failure to READ the offer state deliberately does NOT block: an
- * ordinary Assistente checkout must not break because a founders campaign is
- * misconfigured.
+ * Two mechanisms, one answer. The founders condition counts SEATS, which needs
+ * a privileged aggregate over `subscriptions` and therefore an RPC (migration
+ * 0087); the paid-campaign condition only has a DEADLINE, which is a settings
+ * row and a clock (`lib/campaign-offer.ts`). Either way, the landing page reads
+ * the same state this guard reads — so a page can never advertise a condition
+ * the checkout would refuse, nor the reverse, which is how a dated offer
+ * quietly becomes permanent.
+ *
+ * Only applies to the plan an offer NAMES; every other plan is unaffected. A
+ * failure to READ the state deliberately does NOT block: an ordinary checkout
+ * must not break because a campaign is misconfigured.
  */
-async function foundersOfferBlock(
+async function offerBlock(
   supabase: Awaited<ReturnType<typeof createClient>>,
   planSlug: string,
 ): Promise<string | null> {
   try {
-    const { data, error } = await supabase.rpc("founders_offer");
-    if (error || !data) return null;
-    const offer = data as { plan_slug?: string | null; closed?: boolean; reason?: string };
-    if (!offer.plan_slug || offer.plan_slug !== planSlug) return null;
-    return offer.closed ? (offer.reason ?? "closed") : null;
+    const [founders, campaign] = await Promise.all([
+      supabase.rpc("founders_offer"),
+      supabase.from("platform_settings").select("value").eq("key", CAMPAIGN_OFFER_KEY).maybeSingle(),
+    ]);
+
+    if (!founders.error && founders.data) {
+      const offer = founders.data as { plan_slug?: string | null; closed?: boolean; reason?: string };
+      if (offer.plan_slug && offer.plan_slug === planSlug && offer.closed) return offer.reason ?? "closed";
+    }
+
+    if (!campaign.error) {
+      const offer = resolveCampaignOffer((campaign.data?.value ?? null) as CampaignOfferSetting | null);
+      // `not_configured` names the absence of a campaign, not a closed one:
+      // the plan is then an ordinary catalogue plan and sells normally.
+      if (offer.planSlug === planSlug && offer.closed && offer.reason !== "not_configured") return offer.reason;
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -245,9 +265,9 @@ export async function startCheckout(input: {
     // landing page and this guard read the SAME function (migration 0087), so
     // the page can never advertise a seat the checkout would refuse — nor the
     // reverse, which is how a 30-seat offer quietly becomes 40.
-    const offerBlock = await foundersOfferBlock(supabase, planRow.slug);
-    if (offerBlock) {
-      logBillingFailure("offer_closed", { orgId: input.orgId, plan: planRow.slug, reason: offerBlock });
+    const blockedOffer = await offerBlock(supabase, planRow.slug);
+    if (blockedOffer) {
+      logBillingFailure("offer_closed", { orgId: input.orgId, plan: planRow.slug, reason: blockedOffer });
       return { error: "offer_closed" };
     }
 
