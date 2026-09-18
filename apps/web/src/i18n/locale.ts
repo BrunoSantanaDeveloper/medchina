@@ -2,16 +2,15 @@
 
 import { cookies } from "next/headers";
 
-import { DEFAULTS } from "@/config";
 import { COOKIE_KEYS, LocaleOption, LOCALES } from "@/constants";
 import { LOCALE_COOKIE_MAX_AGE } from "@/lib/locale-detection";
 
-export async function getClientLocale() {
-  const cookieStore = await cookies();
-  const localeCookie = cookieStore.get(COOKIE_KEYS.locale);
-  return localeCookie?.value || DEFAULTS.locale;
-}
-
+/**
+ * Reading the locale moved to `lib/locale-request.ts` (`resolveRequestLocale`),
+ * which also knows WHO decided it. This file keeps only the writes: every
+ * export of a "use server" module is a callable endpoint, and a reader that
+ * nothing calls is an endpoint with no reason to exist.
+ */
 export async function setClientLocale(locale: LocaleOption) {
   if (!(LOCALES as readonly string[]).includes(locale)) return;
 

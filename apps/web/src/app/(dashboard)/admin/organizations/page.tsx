@@ -66,7 +66,7 @@ export default function AdminOrganizations() {
           <Card component="section">
             <CardContent>
               <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-6">
-                <Tab label="Organizations" />
+                <Tab label="Accounts" />
                 <Tab label="Users" />
               </Tabs>
               <Box hidden={tab !== 0}>{tab === 0 && <OrgsAdmin />}</Box>

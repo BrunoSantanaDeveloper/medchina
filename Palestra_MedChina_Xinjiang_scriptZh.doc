@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>新疆中医药大会演讲讲稿（中文逐页对照版）</title>
+<!--[if gte mso 9]>
+<xml>
+ <w:WordDocument>
+  <w:View>Print</w:View>
+  <w:Zoom>100</w:Zoom>
+  <w:DoNotOptimizeForBrowser/>
+ </w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+@page {
+  size: 21.0cm 29.7cm; /* A4 */
+  margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+  mso-header-margin: 36.0pt;
+  mso-footer-margin: 36.0pt;
+  mso-paper-source: 0;
+}
+@page Section1 {
+  mso-header: h1;
+  mso-footer: f1;
+}
+div.Section1 {
+  page: Section1;
+}
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", "SimSun", "Segoe UI", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1f2937;
+  background-color: #ffffff;
+}
+.header-section {
+  padding-bottom: 20pt;
+}
+.kicker {
+  font-size: 11pt;
+  font-weight: bold;
+  color: #177c81;
+  margin-bottom: 6pt;
+}
+.main-title {
+  font-size: 22pt;
+  font-weight: bold;
+  color: #177c81;
+  margin: 0 0 4pt 0;
+}
+.main-title-pt {
+  font-size: 13pt;
+  font-style: italic;
+  color: #6b7280;
+  margin-bottom: 8pt;
+}
+.sub-title {
+  font-size: 14pt;
+  font-weight: bold;
+  color: #c09362;
+  margin-bottom: 16pt;
+}
+.meta-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16pt;
+}
+.meta-table td {
+  border: 1px solid #e5e7eb;
+  padding: 6pt 10pt;
+  font-size: 10pt;
+}
+.meta-label {
+  background-color: #f9fafb;
+  font-weight: bold;
+  color: #374151;
+  width: 28%;
+}
+.meta-val {
+  color: #1f2937;
+}
+.structure-box {
+  background-color: #f4f8f8;
+  border-left: 4px solid #177c81;
+  padding: 10pt 14pt;
+  margin-top: 12pt;
+}
+.structure-title {
+  font-weight: bold;
+  color: #177c81;
+  margin-bottom: 6pt;
+}
+.structure-box ul {
+  margin: 0;
+  padding-left: 18pt;
+}
+.structure-box li {
+  font-size: 10pt;
+  margin-bottom: 4pt;
+  color: #374151;
+}
+.slide-page {
+  page-break-before: always;
+  mso-break-type: section-break;
+  padding-top: 10pt;
+}
+.slide-header {
+  margin-bottom: 8pt;
+}
+.slide-badge {
+  display: inline-block;
+  font-size: 11pt;
+  font-weight: bold;
+  padding: 2pt 6pt;
+  border-radius: 3px;
+}
+.badge-main {
+  color: #177c81;
+  background-color: #e6f3f3;
+}
+.badge-annex {
+  color: #c09362;
+  background-color: #fdf6ed;
+}
+.slide-block {
+  font-size: 10pt;
+  color: #6b7280;
+  margin-left: 8pt;
+}
+.slide-title {
+  font-size: 16pt;
+  font-weight: bold;
+  color: #177c81;
+  margin: 6pt 0 2pt 0;
+}
+.slide-title-pt {
+  font-size: 10pt;
+  font-style: italic;
+  color: #6b7280;
+  margin-bottom: 4pt;
+}
+.slide-subtitle {
+  font-size: 11pt;
+  font-weight: bold;
+  color: #c09362;
+  margin-bottom: 8pt;
+}
+.slide-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 8pt 0 14pt 0;
+}
+.script-body {
+  margin-bottom: 12pt;
+}
+.script-p {
+  font-size: 12pt;
+  line-height: 1.65;
+  color: #1f2937;
+  margin: 0 0 10pt 0;
+  text-align: justify;
+}
+.cut-box {
+  background-color: #fdf9f3;
+  border-left: 4px solid #c09362;
+  padding: 8pt 12pt;
+  margin-top: 14pt;
+}
+.cut-title {
+  font-size: 10.5pt;
+  font-weight: bold;
+  color: #c09362;
+  margin-bottom: 4pt;
+}
+.cut-content {
+  font-size: 10.5pt;
+  font-style: italic;
+  line-height: 1.55;
+  color: #4b5563;
+}
+</style>
+</head>
+<body>
+<div class="Section1">
+
+  <div class="header-section">
+    <div class="kicker">中医药大会 · ALAR / 中国新疆 · 2026</div>
+    <h1 class="main-title">从纸质病历到智能病历</h1>
+    <div class="main-title-pt">Do papel ao prontuário inteligente</div>
+    <div class="sub-title">中医药在巴西的发展与 MedChina 的历程 — 新疆中医药大会演讲中文逐页讲稿</div>
+
+    <table class="meta-table">
+      <tr>
+        <td class="meta-label">演讲人 (Palestrante)</td>
+        <td class="meta-val">Debora Giovanella · 创始人 · 中医治疗师 (Fundadora · Terapeuta de MTC)</td>
+      </tr>
+      <tr>
+        <td class="meta-label">技术负责人 (Tecnologia)</td>
+        <td class="meta-val">Bruno Santana · 创始合伙人 · 软件工程师 (Sócio · Engenharia)</td>
+      </tr>
+      <tr>
+        <td class="meta-label">大会议程</td>
+        <td class="meta-val">新疆中医药大会 · 主题演讲 (Target: 40 min / 精要版约 14 min)</td>
+      </tr>
+      <tr>
+        <td class="meta-label">文稿规格</td>
+        <td class="meta-val">全套 27 页幻灯片演说词（正篇 23 页 + 附录技术问答 4 页），逐页对应</td>
+      </tr>
+      <tr>
+        <td class="meta-label">数据来源</td>
+        <td class="meta-val">MedChina 演讲系统核心代码库 (apps/web/src/components/presentation/slides-data.ts: scriptZh)</td>
+      </tr>
+    </table>
+
+    <div class="structure-box">
+      <div class="structure-title">【演说结构概览 · 10 个单元】</div>
+      <ul>
+        <li><strong>单元 1 · 开场与介绍 (0:00–3:00)</strong>：第 1–2 页</li>
+        <li><strong>单元 2 · 巴西的两百年银针 (3:00–9:00)</strong>：第 3、5、6 页</li>
+        <li><strong>单元 3 · 等待了22年的立法 (5:30–9:30)</strong>：第 4 页 (2026年第15345号法律)</li>
+        <li><strong>单元 4 · 两种诊疗文化 (13:00–16:00)</strong>：第 7 页 (巴西与中国)</li>
+        <li><strong>单元 5 · 从纸质病历到 MedChina 的诞生 (16:00–22:30)</strong>：第 8–12 页</li>
+        <li><strong>单元 7 · 会倾听的病历 (22:30–34:30)</strong>：第 13–20 页 (智能问诊/保障/假说/知识库/安全)</li>
+        <li><strong>单元 8 · 尊重传统的技术 (34:30–37:00)</strong>：第 21 页 (四诊合参·MedChina不做的事)</li>
+        <li><strong>单元 9 · 巴西—中国之桥与闭幕 (37:00–40:00)</strong>：第 22–23 页 (中医孔子学院·致谢)</li>
+        <li><strong>单元 10 · 附录 · 主办方技术问答 (演说之后)</strong>：第 24–27 页 (步骤/范围/返回/知识库)</li>
+      </ul>
+    </div>
+  </div>
+  
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 01 / 23】</span>
+        <span class="slide-block">第 1 单元 · 开场与介绍 (0:00–3:00)</span>
+      </div>
+
+      <h2 class="slide-title">从纸质病历到智能病历</h2>
+      <div class="slide-title-pt">原题 (PT)：Do papel ao prontuário inteligente</div>
+      <div class="slide-subtitle">副题：中医药在巴西的发展与 MedChina 的历程 <em>(A medicina chinesa no Brasil e a jornada do MedChina)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">下午好。</p>
+<p class="script-p">感谢本次大会的主办方给予这一宝贵的机会，也感谢在座各位专家与同道的聆听与交流。</p>
+<p class="script-p">对一位巴西针灸师而言，站在这里不只是一次工作旅行，而是一次朝圣。</p>
+<p class="script-p">今天我想讲一个故事，它把三条线索连在一起：针灸在巴西的历程、我作为治疗师的历程，以及 MedChina AI 的诞生。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 02 / 23】</span>
+        <span class="slide-block">第 1 单元 · 开场与介绍 (0:00–3:00)</span>
+      </div>
+
+      <h2 class="slide-title">千年智慧与现代工程</h2>
+      <div class="slide-title-pt">原题 (PT)：Sabedoria milenar e engenharia moderna</div>
+      <div class="slide-subtitle">副题：三个故事，其实是同一个故事 <em>(Três histórias que, na verdade, são uma só)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">我的合伙人 Bruno Santana 是软件工程师，从业十五年以上，主持 MedChina 的技术工作。</p>
+<p class="script-p">让我们从头说起。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 03 / 23】</span>
+        <span class="slide-block">第 2 单元 · 巴西的两百年银针 (3:00–5:30)</span>
+      </div>
+
+      <h2 class="slide-title">银针在巴西土地上的218年</h2>
+      <div class="slide-title-pt">原题 (PT)：218 anos de agulhas em solo brasileiro</div>
+      <div class="slide-subtitle">副题：从澳门医者到职业规范化 <em>(De Macau à regulamentação da profissão)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">中国针灸传入巴西，有文字可考已有 218 年。</p>
+<p class="script-p">最早的记载提到 1808 年随迁往巴西的葡萄牙宫廷而来的澳门针灸师。</p>
+<p class="script-p">但横亘在前的是一道大障碍：语言。</p>
+<p class="script-p">东方的师父无法用葡萄牙语授业。此后一个多世纪，针灸主要留在移民聚居的社群之内。</p>
+<p class="script-p">即便如此，它仍然生长。</p>
+      </div>
+
+      
+      <div class="cut-box">
+        <div class="cut-title">【可选段落 · 若时间紧张可在现场略过】</div>
+        <div class="cut-content">【可选段落】打破这一隔绝的，是一位意想不到的人物：Friedrich Spaeth，生于卢森堡的理疗师，为躲避纳粹而出走，在德国研习针灸，后入籍巴西。1958 年，他开始在里约热内卢与圣保罗教授针灸。同年，巴西针灸学会成立。这就是中医在我国正式教学的开端。</div>
+      </div>
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 04 / 23】</span>
+        <span class="slide-block">第 3 单元 · 等待了22年的立法 (5:30–9:30)</span>
+      </div>
+
+      <h2 class="slide-title">2026年1月12日 · 第15345号法律</h2>
+      <div class="slide-title-pt">原题 (PT)：12 de janeiro de 2026 · Lei 15.345</div>
+      <div class="slide-subtitle">副题：针灸师职业在巴西的立法规范 <em>(A regulamentação da profissão de acupunturista no Brasil)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">依据本次演讲所梳理的历程：2026 年 1 月 12 日，巴西颁布第 15345 号法律，对针灸师这一职业作出立法规范。</p>
+<p class="script-p">于是，在中国针灸传入巴西的最早记载之后 218 年，这一职业进入新的阶段：获得更多承认，也承担更多责任与义务。</p>
+      </div>
+
+      
+      <div class="cut-box">
+        <div class="cut-title">【可选段落 · 若时间紧张可在现场略过】</div>
+        <div class="cut-content">【可选段落】这部法律并没有解决所有问题，这一点应当诚实地说明。我们还没有自己的职业委员会，也没有全国统一的培养准则。针灸的本科教育在巴西仍然稀少，因此最常见的入行途径将是五年从业经历的证明。法案有两处被否决，其中包括允许中等技术层次人员执业的条款——这一否决正是为了抬升专业培养的门槛而达成的。也并非所有人都在庆祝：联邦医学委员会仍将针灸视为医疗行为，而理疗、护理与药学委员会则对这一进展表示欢迎，并已陆续发布各自的规范。争论仍在继续，但如今它发生在一个法律的框架之内。</div>
+      </div>
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 05 / 23】</span>
+        <span class="slide-block">第 2 单元 · 巴西的两百年银针 (9:30–13:00)</span>
+      </div>
+
+      <h2 class="slide-title">进入公共卫生体系</h2>
+      <div class="slide-title-pt">原题 (PT)：A entrada na saúde pública</div>
+      <div class="slide-subtitle">副题：1988 纳入SUS · 1995 专业委员会 · 2006 PNPIC · 2018 多专业实践 <em>(1988 SUS · 1995 conselhos · 2006 PNPIC · 2018 prática multiprofissional)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">这部法律并非凭空而来。在此之前很久，针灸已在公共卫生体系中赢得了位置。</p>
+<p class="script-p">1988 年，针灸进入公立医疗网络，最初仅限医师施行。</p>
+<p class="script-p">1995 年，联邦医学委员会将其确认为医学专科；护理、理疗与生物医学各委员会也在各自领域作出同样认定。随之而来的是近三十年的争讼，争的只有一个问题：谁可以持针？</p>
+<p class="script-p">2006 年，《国家整合与补充医疗实践政策》向非医师专业人员开放了公立系统。</p>
+<p class="script-p">2018 年，针灸在巴西统一公共卫生体系（SUS）中正式确立为多专业实践。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 06 / 23】</span>
+        <span class="slide-block">第 2 单元 · 巴西的两百年银针 (9:30–13:00)</span>
+      </div>
+
+      <h2 class="slide-title">针灸在巴西的规模</h2>
+      <div class="slide-title-pt">原题 (PT)：A dimensão da acupuntura no Brasil</div>
+      <div class="slide-subtitle">副题：巴西公立医疗系统中应用最广的整合疗法 <em>(A prática integrativa mais usada em toda a rede pública brasileira)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">公立系统敞开大门之后发生了什么？数字可以回答。</p>
+<p class="script-p">针灸是巴西公立系统中应用最广的整合疗法。截至 2018 年的十年间，诊疗超过五百万人次；2024 年一年即达 110 万人次。</p>
+<p class="script-p">整合医疗实践已覆盖巴西 83% 的市镇。</p>
+<p class="script-p">综合四十年的传播，估算有两千万至三千五百万巴西人接受过针灸治疗——相当于每十人至每六人中就有一人。</p>
+<p class="script-p">巴西可能是亚洲之外最大的中医版图之一。如今这门实践有了法律，敬重这门学问的人，也需要与之相称的工具。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 07 / 23】</span>
+        <span class="slide-block">第 4 单元 · 巴西的患者与治疗师 (13:00–16:00)</span>
+      </div>
+
+      <h2 class="slide-title">巴西与中国：两种诊疗文化</h2>
+      <div class="slide-title-pt">原题 (PT)：Brasil e China: duas culturas de tratamento</div>
+      <div class="slide-subtitle">副题：就诊频次、独立执业，以及对病历近乎苛刻的要求 <em>(Frequência, solidão no consultório e a exigência de um registro impecável)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">在中国，针灸治疗可以每天进行，这种频次本身就是治法的一部分。</p>
+<p class="script-p">在巴西，患者通常一周一次。</p>
+<p class="script-p">正因如此，临床记录必须做得扎实。相隔一周，凭记忆很难还原一次诊疗的全部细节。</p>
+<p class="script-p">许多针灸师独自执业，没有教学医院、没有规培，身边也没有更资深的同道可以一起讨论疑难病案。</p>
+<p class="script-p">MedChina 正是为这样的专业人员而生：提供记录的结构、数据的安全，以及临床推理的辅助。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 08 / 23】</span>
+        <span class="slide-block">第 5 单元 · 从纸质病历到 MedChina (16:00–22:30)</span>
+      </div>
+
+      <h2 class="slide-title">始于一张纸卡</h2>
+      <div class="slide-title-pt">原题 (PT)：Começou numa ficha de papel</div>
+      <div class="slide-subtitle">副题：2017–2019：寻找一套“说我们语言”的系统 <em>(2017–2019: a busca por um sistema que falasse a nossa língua)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">2017 年，在我第一次接受治疗师培训时，我就从第一位患者起记录一切：资料、主诉与治疗。</p>
+<p class="script-p">全部写在纸卡上。</p>
+<p class="script-p">市面上找不到一份依中医思路设计的病历。缺少的正是气血能量的问诊、舌象与脉象的评估、腧穴与经络。</p>
+<p class="script-p">于是我决定，为巴西的针灸师做一套电子病历系统。</p>
+<p class="script-p">那时我既没有资金，也没有积累起来的临床经验，更不了解一位针灸师的全部需要。</p>
+<p class="script-p">但我有一个想法，和一个目标。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 09 / 23】</span>
+        <span class="slide-block">第 5 单元 · 从纸质病历到 MedChina (16:00–22:30)</span>
+      </div>
+
+      <h2 class="slide-title">社群的种子：2020年</h2>
+      <div class="slide-title-pt">原题 (PT)：A semente da comunidade: 2020</div>
+      <div class="slide-subtitle">副题：首届“千年智慧实践”大会——线上、免费 <em>(1º Congresso Práticas da Sabedoria Milenar — online e gratuito)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">接着是 2020 年，疫情来了。</p>
+<p class="script-p">成千上万的同行没有了患者，也不知道何时才能重新工作。</p>
+<p class="script-p">我想：既然不能出诊，我们可以一起学习。</p>
+<p class="script-p">2020 年 6 月，我创办了"千年智慧实践大会"，全程线上、完全免费。</p>
+<p class="script-p">正是这项工作让我筹到了创建与开发 MedChina 的资源。</p>
+<p class="script-p">也是在 2020 年，我聘请了程序员。技术开始萌芽。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 10 / 23】</span>
+        <span class="slide-block">第 5 单元 · 从纸质病历到 MedChina (16:00–22:30)</span>
+      </div>
+
+      <h2 class="slide-title">四个数据揭示真实痛点</h2>
+      <div class="slide-title-pt">原题 (PT)：A dor real em quatro números</div>
+      <div class="slide-subtitle">副题：2021年2月 · 面向3800名与会针灸师的问卷调研 <em>(Fevereiro de 2021 · pesquisa sobre a base de 3.800 acupunturistas do congresso)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">2021 年 2 月，我们面向参加过大会的 3800 位合格针灸师做了一次调研。</p>
+<p class="script-p">结果显示：需求几乎是普遍的，而针对性的解决方案却很少。</p>
+<p class="script-p">基于这项调研，我们建成了 MedChina——一套面向巴西针灸师的病历与诊所管理软件。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 11 / 23】</span>
+        <span class="slide-block">第 5 单元 · 从纸质病历到 MedChina (16:00–22:30)</span>
+      </div>
+
+      <h2 class="slide-title">首个版本与免费的承诺</h2>
+      <div class="slide-title-pt">原题 (PT)：A primeira versão e o compromisso da gratuidade</div>
+      <div class="slide-subtitle">副题：2021–2023：一千名自然增长用户与 2.0 版的启动 <em>(2021–2023: mil usuários orgânicos e o início da versão 2.0)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">第一版于 2021 年 8 月上线，系统内即依中医的思路，并载有中医内容。</p>
+<p class="script-p">引导式问诊是这个平台的核心。</p>
+<p class="script-p">一年之后，免费版已有一千名用户，没有投放任何付费广告。</p>
+<p class="script-p">我们决定保留免费版，因为我们的使命是帮助提升这一职业的临床记录水平，而不只是服务付得起费用的人。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 12 / 23】</span>
+        <span class="slide-block">第 5 单元 · 从纸质病历到 MedChina (16:00–22:30)</span>
+      </div>
+
+      <h2 class="slide-title">MedChina 的实际数据</h2>
+      <div class="slide-title-pt">原题 (PT)：O MedChina em números</div>
+      <div class="slide-subtitle">副题：自2021年积累的专业社群，未投放付费广告 <em>(Uma comunidade construída desde 2021, sem mídia paga)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">如今，平台上已有 1046 位注册专业人员，其中 222 位订阅了付费方案。</p>
+<p class="script-p">2026 年，我们带着更多资源与技术回来——恰好是针灸师这一职业在巴西获得承认的那一年。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 13 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">目视患者，全心诊疗</h2>
+      <div class="slide-title-pt">原题 (PT)：Atenda olhando para o paciente</div>
+      <div class="slide-subtitle">副题：其余的记录，交给 MedChina <em>(O MedChina organiza o restante)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">正是在这个新的时刻，在职业获得立法规范之际，MedChina AI 诞生了。</p>
+<p class="script-p">今天的 MedChina 起于一个朴素的问题：在诊疗中，是什么夺走了医者的专注？</p>
+<p class="script-p">是电脑。是屏幕。是打字。</p>
+<p class="script-p">一边记录，专业人员就可能失去目光的交流，打断倾听，还要把工作带回家。</p>
+<p class="script-p">MedChina AI 就是为把这份专注还给患者而做的。</p>
+<p class="script-p">请让我带各位走进一次诊疗。屏幕上正在发生的就是它，以加速的方式播放。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 14 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">诊前、诊中、诊后</h2>
+      <div class="slide-title-pt">原题 (PT)：Antes, durante e depois da consulta</div>
+      <div class="slide-subtitle">副题：过去每天要花一小时的事，如今在诊疗中即已完成 <em>(O que antes tomava uma hora do dia acontece enquanto ela atende)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">诊疗过程中，在患者同意的前提下，手机或电脑可以采集录音。</p>
+<p class="script-p">专业人员因此可以注视、倾听、观察与诊察。</p>
+<p class="script-p">其后，系统转写对话，区分医者与患者的话语，并整理问诊。</p>
+<p class="script-p">主诉、现病史、睡眠、精力、饮食、消化、情志，以及中医的辨证内容，都会被结构化地记录下来。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 15 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">可溯源的结构化问诊</h2>
+      <div class="slide-title-pt">原题 (PT)：Anamnese preenchida com origem rastreável</div>
+      <div class="slide-subtitle">副题：凡入病历，皆可回溯其出处 <em>(Nada aparece no prontuário sem que se possa verificar de onde saiu)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">但有一点我认为至关重要：每一条填入的信息都保留其出处，专业人员可以据此听到录音中对应的片段。</p>
+<p class="script-p">如果患者没有提到某件事，系统不会把沉默变成否定的回答。该字段保持为"未告知"。</p>
+<p class="script-p">系统还可以指出缺漏、矛盾，以及与既往病史相比发生的变化。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 16 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">四项不依赖模型的保障</h2>
+      <div class="slide-title-pt">原题 (PT)：Quatro garantias que não dependem do modelo</div>
+      <div class="slide-subtitle">副题：AI 给出结果之后，由既定规则逐条核验 <em>(Depois que a IA responde, regras programadas conferem o resultado)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">这里有一个步骤我必须展示，因为它正是我们与众不同之处。</p>
+<p class="script-p">在模型给出结果之后，核验结果的不是人工智能，而是软件。</p>
+<p class="script-p">一共四条既定规则。</p>
+<p class="script-p">每一项资料都对应真实的话语。每个值都附带原句、分秒与说话人，系统会在转写稿中查找该原句：若不在其中，该值即标为未经确认。凭空杜撰的引文比没有引文更糟，因为它制造了证据。</p>
+<p class="script-p">中医的诊察只认医者之言。舌象、脉象、按诊与证型，只有医者口述时才会写入；凡归于患者之口的所见，一律弃去。</p>
+<p class="script-p">沉默绝不写成记录。无人说过的内容留空，标注为未告知。</p>
+<p class="script-p">至于敏感事项，例如用药、妊娠、抗凝药、起搏器、手术与过敏，无论模型作何判定，一律回到复核。</p>
+<p class="script-p">这些是系统的保障，不是对模型提出的请求。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 17 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">证型假说</h2>
+      <div class="slide-title-pt">原题 (PT)：Hipóteses de padrões de desarmonia</div>
+      <div class="slide-subtitle">副题：支持的征象 · 不支持的征象 · 尚待查证 <em>(Sinais que favorecem · sinais que contradizem · dados que faltam)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">在资料被整理之后，MedChina AI 会准备证型假说。</p>
+<p class="script-p">每一条假说都列出支持的征象、不支持的征象，以及尚待查证的资料。</p>
+<p class="script-p">在专业人员确认某一证型之后，系统可以准备取穴与配穴的建议、补法或泻法的思路，以及艾灸、耳穴、拔罐与中医食疗等技术的辅助意见，并附禁忌症的核查。</p>
+<p class="script-p">它也可以准备治疗方案，以及交给患者带回家的文件。</p>
+<p class="script-p">但最终的决定权始终在专业人员手中。</p>
+<p class="script-p">病历会区分：患者所述、医者所察、人工智能所推，以及医者所决。</p>
+<p class="script-p">这一区分至关重要。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 18 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">仿佛诊室里多了一位同道</h2>
+      <div class="slide-title-pt">原题 (PT)：Como ter um colega na sala</div>
+      <div class="slide-subtitle">副题：独自执业的人，最懂这份价值 <em>(Quem trabalha sozinho em consultório sabe o valor disso)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">我们的用户描述这种体验的方式让我动容：就像诊室里多了一位同道。一位在推理上给予帮助的伙伴，提出不同的视角，做出细致的评估，让我们把患者的全貌看得更多、更清楚。独自执业的人，最懂这份价值。</p>
+<p class="script-p">不过，没有人比使用者本人讲得更好。请听 Hellen 的讲述。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 19 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">临床知识库，而非开放互联网</h2>
+      <div class="slide-title-pt">原题 (PT)：Biblioteca clínica, não a internet aberta</div>
+      <div class="slide-subtitle">副题：每个答案都附出处——每一处出处都经核验 <em>(Cada resposta vem com a fonte citada — e cada fonte é conferida)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">关于平台，还有最后两点。</p>
+<p class="script-p">第一点是临床知识库。专业人员可以通过对话来研习与释疑，其依据是一套经过甄选的中医知识库，而且每个答案都附有出处。</p>
+<p class="script-p">人工智能并不上网检索：它查阅的是这套馆藏，并且每一处引用都要对照实际交付给它的片段加以核验。</p>
+<p class="script-p">每位专业人员也可以加入自己的方案，用于其诊所的建议生成。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 20 / 23】</span>
+        <span class="slide-block">第 7 单元 · 会倾听的病历 (22:30–34:30)</span>
+      </div>
+
+      <h2 class="slide-title">临床数据是最敏感的数据</h2>
+      <div class="slide-title-pt">原题 (PT)：Dado clínico é o dado mais sensível que existe</div>
+      <div class="slide-subtitle">副题：按用途授权，保护不靠自觉 <em>(Autorização por finalidade, e proteção que não depende de boa vontade)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">第二点是安全，因为临床数据是最敏感的数据。</p>
+<p class="script-p">患者的知情同意是分项的，并且带有版本：录音一项授权，人工智能处理另一项授权；拒绝授权绝不妨碍以人工方式完成诊疗。</p>
+<p class="script-p">全程加密，每次访问都留有审计轨迹，任何录音或临床内容都不会用于训练公开的人工智能模型。系统自设计之初即遵循巴西的数据保护法。</p>
+<p class="script-p">还有一项让我引以为豪的决定：MedChina 的免费方案永久提供完整的手工病历，患者与记录数量不限。付费购买的是自动化——是技术为专业人员省回的时间。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 21 / 23】</span>
+        <span class="slide-block">第 8 单元 · 尊重传统的技术 (34:30–37:00)</span>
+      </div>
+
+      <h2 class="slide-title">MedChina 不做的事</h2>
+      <div class="slide-title-pt">原题 (PT)：O que a IA do MedChina não faz</div>
+      
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">我知道，在中医里谈人工智能，听起来可能像是自相矛盾。</p>
+<p class="script-p">对我而言，恰恰相反。</p>
+<p class="script-p">中医是一门讲究"在场"的医学。</p>
+<p class="script-p">这一点各位比谁都清楚：望、闻、问、切。</p>
+<p class="script-p">MedChina AI 不观察，不触诊，也不做决定。</p>
+<p class="script-p">它只倾听、整理、提醒与发问。</p>
+<p class="script-p">它帮助把文书所能夺走的东西还给专业人员：时间与专注。</p>
+<p class="script-p">随着新的立法，临床记录也变得更加重要。</p>
+<p class="script-p">一份做得好的病历，保护患者，保护医者，也让这门职业更有尊严。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 22 / 23】</span>
+        <span class="slide-block">第 9 单元 · 巴西—中国之桥 (37:00–40:00)</span>
+      </div>
+
+      <h2 class="slide-title">中医孔子学院</h2>
+      <div class="slide-title-pt">原题 (PT)：Instituto Confúcio de Medicina Chinesa</div>
+      <div class="slide-subtitle">副题：戈亚尼亚 · 戈亚斯联邦大学与河北中医药大学 <em>(Goiânia · Universidade Federal de Goiás e Universidade de Medicina Chinesa de Hebei)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">最后，我想谈一座连接我们两国的桥。</p>
+<p class="script-p">自 2019 年起，戈亚尼亚设有中医孔子学院，由戈亚斯联邦大学与河北中医药大学共建。</p>
+<p class="script-p">这项合作拉近了我们两个国家。</p>
+<p class="script-p">巴西有数十万渴求优质知识的专业人员。</p>
+<p class="script-p">中国有典籍、有名师，也有数千年积累的临床经验。</p>
+<p class="script-p">在两国之间，我们还可以建起更多的桥。</p>
+<p class="script-p">我们希望成为其中的一座。</p>
+<p class="script-p">希望触达巴西受众的中国高校、教师与机构，可以在 MedChina AI 中找到直通这一群体的通道——通过活动、课程，以及在恰当的甄选与授权之下纳入临床知识库的权威内容。</p>
+<p class="script-p">两个世纪以来，中医在巴西生长，却从未说过葡萄牙语。</p>
+<p class="script-p">请想象，如今它学会了，能走到多远。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-main">【幻灯片 23 / 23】</span>
+        <span class="slide-block">第 9 单元 · 闭幕 (37:00–40:00)</span>
+      </div>
+
+      <h2 class="slide-title">谢谢 · Obrigada</h2>
+      <div class="slide-title-pt">原题 (PT)：Obrigada · 谢谢</div>
+      <div class="slide-subtitle">副题：以敬那些写下每一个汉字的先贤 <em>(Honrando os ancestrais que escreveram cada ideograma)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">我以一个朴素的画面作结。</p>
+<p class="script-p">一份会倾听、会整理、会预备的病历，好让巴西的治疗师能做这片土地上的先师们做了数千年的事：看着患者。</p>
+<p class="script-p">我们要走的路还很长。</p>
+<p class="script-p">但我们希望继续在巴西扩展、传播、教授并实践中医，始终敬重创造了这门智慧的先贤。</p>
+<p class="script-p">愿技术帮助我们守住这门职业中最本质的、属于人的部分。</p>
+<p class="script-p">非常感谢。谢谢。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-annex">【附录 01 / 04 · 幻灯片 24】</span>
+        <span class="slide-block">第 10 单元 · 附录 · 主办方提问 (Depois da palestra)</span>
+      </div>
+
+      <h2 class="slide-title">AI 如何分析诊疗数据</h2>
+      <div class="slide-title-pt">原题 (PT)：Como a IA analisa os dados da consulta</div>
+      <div class="slide-subtitle">副题：四个步骤，依此顺序。前三步自动进行；第四步仅在医者请求时才发生。 <em>(Quatro etapas, nesta ordem. As três primeiras são automáticas; a quarta só acontece quando a profissional pede.)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">对主办方第一个问题的完整回答：处理分四个步骤，依此顺序进行。</p>
+<p class="script-p">前三步自动完成。第四步仅在专业人员请求时才发生，且仅限包含该功能的订阅方案。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-annex">【附录 02 / 04 · 幻灯片 25】</span>
+        <span class="slide-block">第 10 单元 · 附录 · 主办方提问 (Depois da palestra)</span>
+      </div>
+
+      <h2 class="slide-title">哪些诊疗内容进入分析</h2>
+      <div class="slide-title-pt">原题 (PT)：Qual conteúdo da consulta entra na análise</div>
+      <div class="slide-subtitle">副题：视步骤而定，每一步只看其所需 <em>(Depende da etapa, e cada uma enxerga apenas o necessário)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">对第二个问题的完整回答：视步骤而定，每一步只看其所需。</p>
+<p class="script-p">而且在任何一步，人工智能都不会访问其他患者或其他专业人员的资料。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-annex">【附录 03 / 04 · 幻灯片 26】</span>
+        <span class="slide-block">第 10 单元 · 附录 · 主办方提问 (Depois da palestra)</span>
+      </div>
+
+      <h2 class="slide-title">AI 究竟返回什么</h2>
+      <div class="slide-title-pt">原题 (PT)：O que exatamente a IA devolve</div>
+      <div class="slide-subtitle">副题：每一字段都附带来源、状态与出处——原句、分秒、说话人，以及是否已在转写中得到确认 <em>(Cada campo chega com a origem, o estado e a procedência — a frase, o minuto, quem falou e se foi confirmada na transcrição)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">对第三个问题的完整回答：分析返回什么。</p>
+<p class="script-p">凡此皆为草稿。未经专业人员复核，任何内容都不会作为事实进入病历。</p>
+      </div>
+
+      
+    </div>
+    
+    <div class="slide-page">
+      <div class="slide-header">
+        <span class="slide-badge badge-annex">【附录 04 / 04 · 幻灯片 27】</span>
+        <span class="slide-block">第 10 单元 · 附录 · 主办方提问 (Depois da palestra)</span>
+      </div>
+
+      <h2 class="slide-title">知识从何而来</h2>
+      <div class="slide-title-pt">原题 (PT)：De onde vem o conhecimento</div>
+      <div class="slide-subtitle">副题：来自平台内部经甄选的临床知识库——而非开放互联网 <em>(De uma biblioteca clínica curada dentro da plataforma — não da internet aberta)</em></div>
+
+      <hr class="slide-divider" />
+
+      <div class="script-body">
+        <p class="script-p">对第四个问题的完整回答：内容从何而来。</p>
+<p class="script-p">知识库经过甄选，且存在于平台内部。人工智能不上网检索。</p>
+<p class="script-p">还有一点出于诚实，我们坚持载明：除知识库之外，模型还携带其自身训练所得的一般知识。正因如此，这里的一切都以"对应度"呈现，把不支持的征象一并列出，并且要求专业人员验证。</p>
+      </div>
+
+      
+    </div>
+    
+</div>
+</body>
+</html>

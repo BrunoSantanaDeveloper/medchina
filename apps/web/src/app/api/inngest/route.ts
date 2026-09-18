@@ -10,6 +10,7 @@ import "@/lib/connectors";
 export const maxDuration = 300;
 
 import { accountExportFunctions } from "@/lib/account-export-jobs";
+import { adminFunctions } from "@/lib/admin-jobs";
 import { agendaFunctions } from "@/lib/agenda-jobs";
 import { billingFunctions } from "@/lib/billing-jobs";
 import { clinicalFunctions } from "@/lib/clinical-jobs";
@@ -27,6 +28,7 @@ import { whatsappFunctions } from "@flyee/whatsapp/jobs";
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
+    ...adminFunctions,
     ...agendaFunctions,
     ...billingFunctions,
     ...accountExportFunctions,

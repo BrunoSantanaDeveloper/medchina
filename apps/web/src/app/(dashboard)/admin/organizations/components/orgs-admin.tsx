@@ -1,5 +1,18 @@
 "use client";
 
+import AccountDetailDialog from "./account-detail-dialog";
+import {
+  ACCOUNT_FILTERS,
+  type AccountOverview,
+  type AccountsOverview,
+  type AccountTotals,
+  FLAG_LABEL,
+  formatDate,
+  formatMoney,
+  renewalLabel,
+  sinceDays,
+  trialLabel,
+} from "./account-overview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -20,21 +33,12 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import NiBuilding from "@/icons/nexture/ni-building";
+import NiEyeOpen from "@/icons/nexture/ni-eye-open";
 import NiUsers from "@/icons/nexture/ni-users";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
-type LiveSub = { id: string; status: string; adminSuspended: boolean; planName: string };
-
-type OrgRow = {
-  id: string;
-  name: string;
-  slug: string;
-  createdAt: string;
-  memberCount: number;
-  liveSub: LiveSub | null;
-};
-
+type AccountRow = AccountOverview & { id: string };
 type MemberRow = { userId: string; role: string; displayName: string; joinedAt: string };
 
 const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> = {
@@ -43,73 +47,57 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
   past_due: "error",
 };
 
-const LIVE_STATUSES = ["trialing", "active", "past_due"];
+/** Everything scanned or searched must be reachable as a cell VALUE. */
+const searchTextOf = (row: AccountRow) =>
+  [row.name, row.slug, row.owner?.name, row.owner?.email, row.owner?.registration].filter(Boolean).join(" ");
 
-/** The searched text must be reachable as a cell value, not only in the node. */
-const statusTextOf = (row: OrgRow) =>
-  row.liveSub
-    ? `${row.liveSub.status.replace("_", " ")}${row.liveSub.adminSuspended ? " suspended" : ""}`
-    : "no subscription";
+const statusTextOf = (row: AccountRow) =>
+  [
+    row.billing.status ?? "no subscription",
+    row.billing.suspended ? "suspended" : null,
+    row.billing.cancelAtPeriodEnd ? "canceling" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
 /**
- * The operator's job here really is scan/manage many tenants: find an org,
- * see its plan health and roster, and act (suspend / reactivate access).
+ * The platform operator's account book. The job here genuinely is scan and
+ * compare many accounts — but the question is never "list the rows", it is
+ * "which account needs me today?". So the tiles come first (they are filters,
+ * counted by the same query as the rows), every row says WHO the account is
+ * rather than only what the workspace was named, and the numbers a decision
+ * hangs on — days to renewal, days of trial left, days since anyone worked —
+ * are on the row instead of two clicks away.
  */
 export default function OrgsAdmin() {
-  const [rows, setRows] = useState<OrgRow[]>([]);
+  const [rows, setRows] = useState<AccountRow[]>([]);
+  const [totals, setTotals] = useState<AccountTotals | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [filter, setFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [membersOrg, setMembersOrg] = useState<OrgRow | null>(null);
+  const [detail, setDetail] = useState<AccountRow | null>(null);
+  const [membersOrg, setMembersOrg] = useState<AccountRow | null>(null);
   const [members, setMembers] = useState<Record<string, MemberRow[]>>({});
   // Mirrors which rosters were already fetched so the column defs stay stable.
   const fetchedMembers = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
-    const { data, error: readError } = await supabase
-      .from("organizations")
-      .select(
-        "id, name, slug, created_at, memberships(count), subscriptions(id, status, admin_suspended, created_at, plans(name))",
-      )
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (readError) {
-      setError(readError.message);
+    // One query for identity, plan, trial, minutes, usage and origin: the
+    // browser cannot drift from the database by recomputing any of it.
+    const { data, error: rpcError } = await supabase.rpc("admin_accounts_overview");
+    if (rpcError) {
+      setError(rpcError.message);
       setLoadFailed(true);
       setLoaded(true);
       return;
     }
-    setRows(
-      (data ?? []).map((row) => {
-        const subs =
-          (row.subscriptions as unknown as {
-            id: string;
-            status: string;
-            admin_suspended: boolean;
-            created_at: string;
-            plans: { name: string } | null;
-          }[]) ?? [];
-        const live = subs
-          .filter((sub) => LIVE_STATUSES.includes(sub.status))
-          .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-        return {
-          id: row.id,
-          name: row.name,
-          slug: row.slug,
-          createdAt: row.created_at,
-          memberCount: (row.memberships as unknown as { count: number }[])?.[0]?.count ?? 0,
-          liveSub: live
-            ? {
-                id: live.id,
-                status: live.status,
-                adminSuspended: live.admin_suspended,
-                planName: live.plans?.name ?? "Unknown plan",
-              }
-            : null,
-        };
-      }),
-    );
+    const overview = data as AccountsOverview;
+    setRows((overview.accounts ?? []).map((account) => ({ ...account, id: account.orgId })));
+    setTotals(overview.totals);
+    setGeneratedAt(overview.generatedAt);
     setLoadFailed(false);
     setLoaded(true);
   }, []);
@@ -118,21 +106,28 @@ export default function OrgsAdmin() {
     refresh();
   }, [refresh]);
 
-  // The roster is still fetched lazily — now when the dialog opens instead of
-  // when the row expanded.
-  const openMembers = useCallback(async (org: OrgRow) => {
-    setMembersOrg(org);
-    if (fetchedMembers.current.has(org.id)) return;
-    fetchedMembers.current.add(org.id);
+  // The daily operator digest links straight to the group it is about
+  // (/admin/organizations?filter=trial_ending), so the alert lands on the
+  // three accounts it named instead of on the whole book. Read after mount:
+  // the first render must match the server's, which knows no query string.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("filter");
+    if (requested && ACCOUNT_FILTERS.some((entry) => entry.key === requested)) setFilter(requested);
+  }, []);
+
+  const openMembers = useCallback(async (account: AccountRow) => {
+    setMembersOrg(account);
+    if (fetchedMembers.current.has(account.orgId)) return;
+    fetchedMembers.current.add(account.orgId);
     const supabase = createClient();
     const { data } = await supabase
       .from("memberships")
       .select("user_id, role, created_at, profiles(display_name)")
-      .eq("org_id", org.id)
+      .eq("org_id", account.orgId)
       .order("created_at");
     setMembers((current) => ({
       ...current,
-      [org.id]: (data ?? []).map((row) => ({
+      [account.orgId]: (data ?? []).map((row) => ({
         userId: row.user_id,
         role: row.role,
         displayName:
@@ -145,105 +140,150 @@ export default function OrgsAdmin() {
   // Superadmin kill-switch on the live subscription, same semantics as the
   // Billing console (access suspension independent of the provider state).
   const toggleSuspended = useCallback(
-    async (org: OrgRow) => {
-      if (!org.liveSub) return;
+    async (account: AccountRow) => {
+      const subscriptionId = account.billing.subscriptionId;
+      if (!subscriptionId) return;
       setError(null);
+      const suspended = Boolean(account.billing.suspended);
       const supabase = createClient();
       const { error: updateError } = await supabase
         .from("subscriptions")
-        .update({ admin_suspended: !org.liveSub.adminSuspended })
-        .eq("id", org.liveSub.id);
+        .update({ admin_suspended: !suspended })
+        .eq("id", subscriptionId);
       if (updateError) {
         setError(updateError.message);
         return;
       }
-      recordAudit(supabase, org.liveSub.adminSuspended ? "admin.org.reactivated" : "admin.org.suspended", {
-        orgId: org.id,
+      recordAudit(supabase, suspended ? "admin.org.reactivated" : "admin.org.suspended", {
+        orgId: account.orgId,
         entityType: "subscription",
-        entityId: org.liveSub.id,
-        metadata: { org: org.name },
+        entityId: subscriptionId,
+        metadata: { org: account.name },
       });
       refresh();
     },
     [refresh],
   );
 
-  const columns = useMemo<GridColDef<OrgRow>[]>(
+  const columns = useMemo<GridColDef<AccountRow>[]>(
     () => [
       {
-        field: "name",
-        headerName: "Organization",
+        field: "account",
+        headerName: "Account",
         flex: 2,
-        minWidth: 200,
-        renderCell: (params: GridRenderCellParams<OrgRow, string>) => (
+        minWidth: 240,
+        valueGetter: (_, row) => searchTextOf(row),
+        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
           <Box className="flex h-full flex-col justify-center">
             <Typography variant="body1" className="text-text-primary truncate font-medium">
-              {params.row.name}
+              {params.row.owner?.name ?? "No owner"}
             </Typography>
             <Typography variant="body2" className="text-text-secondary truncate">
-              since {new Date(params.row.createdAt).toLocaleDateString()}
+              {params.row.owner?.email ?? "no e-mail"} · {params.row.name}
             </Typography>
           </Box>
         ),
       },
       {
-        field: "slug",
-        headerName: "Slug",
-        flex: 1,
-        minWidth: 150,
-        renderCell: (params: GridRenderCellParams<OrgRow, string>) => (
-          <Box className="flex h-full items-center">
-            <Typography variant="body2" className="text-text-secondary truncate">
-              {params.row.slug}
-            </Typography>
-          </Box>
-        ),
-      },
-      {
+        // Plan and status read as one fact ("Pro · active"). Measured on the
+        // real screen: as two columns they pushed the kill-switch and the
+        // kebab off a 1680px viewport. Suspended/canceling live in Signals.
         field: "plan",
         headerName: "Plan",
-        flex: 1,
-        minWidth: 140,
-        valueGetter: (_, row) => row.liveSub?.planName ?? "no subscription",
-        renderCell: (params: GridRenderCellParams<OrgRow, string>) => (
-          <Box className="flex h-full items-center">
-            <Chip label={params.value} size="small" variant="outlined" />
-          </Box>
-        ),
-      },
-      {
-        field: "status",
-        headerName: "Status",
-        minWidth: 170,
-        valueGetter: (_, row) => statusTextOf(row),
-        renderCell: (params: GridRenderCellParams<OrgRow, string>) => {
-          const sub = params.row.liveSub;
-          if (!sub) {
-            return (
-              <Box className="flex h-full items-center">
-                <Chip label="no subscription" size="small" variant="outlined" />
-              </Box>
-            );
-          }
-          return (
-            <Box className="flex h-full flex-row items-center gap-1">
+        minWidth: 190,
+        valueGetter: (_, row) => `${row.billing.planName ?? "no subscription"} ${statusTextOf(row)}`,
+        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
+          <Box className="flex h-full flex-row flex-wrap items-center gap-1">
+            <Chip label={params.row.billing.planName ?? "no subscription"} size="small" variant="outlined" />
+            {params.row.billing.status && (
               <Chip
-                label={sub.status.replace("_", " ")}
+                label={params.row.billing.status.replace("_", " ")}
                 size="small"
-                color={STATUS_COLOR[sub.status] ?? "default"}
+                color={STATUS_COLOR[params.row.billing.status] ?? "default"}
                 variant="outlined"
                 className="capitalize"
               />
-              {sub.adminSuspended && <Chip label="suspended" size="small" color="error" variant="outlined" />}
-            </Box>
-          );
-        },
+            )}
+            {/* A plan an operator gave away has no provider behind it (0067). */}
+            {params.row.billing.isFree === false && !params.row.billing.providerManaged && (
+              <Chip label="comped" size="small" color="warning" variant="outlined" />
+            )}
+          </Box>
+        ),
       },
       {
-        field: "memberCount",
-        headerName: "Members",
+        // Numeric so the operator can sort by "who renews next"; the cell
+        // still reads in words.
+        field: "renewal",
+        headerName: "Renewal",
         type: "number",
         minWidth: 110,
+        valueGetter: (_, row) => row.billing.renewalDays,
+        renderCell: (params: GridRenderCellParams<AccountRow, number>) => (
+          <Box className="flex h-full flex-col justify-center">
+            <Typography variant="body2" className="text-text-primary">
+              {renewalLabel(params.row.billing)}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.row.billing.currentPeriodEnd ? formatDate(params.row.billing.currentPeriodEnd) : ""}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "trial",
+        headerName: "Pro trial",
+        type: "number",
+        minWidth: 120,
+        valueGetter: (_, row) => (row.trial?.active ? row.trial.daysLeft : null),
+        renderCell: (params: GridRenderCellParams<AccountRow, number>) => (
+          <Box className="flex h-full items-center">
+            <Typography variant="body2" className="text-text-primary">
+              {trialLabel(params.row.trial, params.row.minutes.remaining)}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "use",
+        headerName: "Use (30 d)",
+        minWidth: 150,
+        valueGetter: (_, row) => `${row.usage.finalized30d} records ${row.usage.minutes30d} min`,
+        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
+          <Box className="flex h-full flex-col justify-center">
+            <Typography variant="body2" className="text-text-primary">
+              {params.row.usage.finalized30d} records · {params.row.usage.minutes30d} min
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary truncate">
+              {params.row.usage.patients} patients · active {sinceDays(params.row.usage.lastActivityAt)}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        field: "signals",
+        headerName: "Signals",
+        minWidth: 190,
+        sortable: false,
+        valueGetter: (_, row) => row.flags.map((flag) => FLAG_LABEL[flag] ?? flag).join(" "),
+        // Three at most, so a busy row stays one line and nothing renders
+        // half-cut; the detail dialog carries the full set.
+        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
+          <Box className="flex h-full flex-row flex-wrap items-center gap-1">
+            {params.row.flags
+              .filter((flag) => flag !== "paid")
+              .slice(0, 3)
+              .map((flag) => (
+                <Chip
+                  key={flag}
+                  label={FLAG_LABEL[flag] ?? flag}
+                  size="small"
+                  variant="outlined"
+                  color={flag === "past_due" || flag === "banned" ? "error" : "default"}
+                />
+              ))}
+          </Box>
+        ),
       },
       {
         // Suspend/reactivate is the audited kill-switch: it stays visible on
@@ -252,20 +292,20 @@ export default function OrgsAdmin() {
         headerName: "Access",
         minWidth: 110,
         type: "boolean",
-        valueGetter: (_, row) => Boolean(row.liveSub && !row.liveSub.adminSuspended),
-        renderCell: (params: GridRenderCellParams<OrgRow, boolean>) => {
-          const sub = params.row.liveSub;
-          if (!sub) return null;
+        valueGetter: (_, row) => Boolean(row.billing.subscriptionId && !row.billing.suspended),
+        renderCell: (params: GridRenderCellParams<AccountRow, boolean>) => {
+          const { billing } = params.row;
+          if (!billing.subscriptionId) return null;
           return (
             <Box className="flex h-full items-center">
-              <Tooltip title={sub.adminSuspended ? "Reactivate access" : "Suspend access"}>
+              <Tooltip title={billing.suspended ? "Reactivate access" : "Suspend access"}>
                 <Switch
-                  checked={!sub.adminSuspended}
+                  checked={!billing.suspended}
                   onChange={() => toggleSuspended(params.row)}
                   size="small"
                   slotProps={{
                     input: {
-                      "aria-label": sub.adminSuspended
+                      "aria-label": billing.suspended
                         ? `Reactivate access for ${params.row.name}`
                         : `Suspend access for ${params.row.name}`,
                     },
@@ -285,6 +325,13 @@ export default function OrgsAdmin() {
         headerAlign: "right",
         getActions: (params) => [
           <GridActionsCellItem
+            key="detail"
+            icon={<NiEyeOpen size="medium" />}
+            label="Account detail"
+            onClick={() => setDetail(params.row)}
+            showInMenu
+          />,
+          <GridActionsCellItem
             key="members"
             icon={<NiUsers size="medium" />}
             label="View members"
@@ -297,36 +344,108 @@ export default function OrgsAdmin() {
     [openMembers, toggleSuspended],
   );
 
-  const roster = membersOrg ? members[membersOrg.id] : undefined;
+  const visibleRows = useMemo(
+    () => (filter === "all" ? rows : rows.filter((row) => row.flags.includes(filter))),
+    [rows, filter],
+  );
+  const roster = membersOrg ? members[membersOrg.orgId] : undefined;
+  const activeFilter = ACCOUNT_FILTERS.find((entry) => entry.key === filter);
 
   return (
-    <Box className="flex flex-col gap-3">
+    <Box className="flex flex-col gap-4">
       {error && (
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
         </Alert>
       )}
 
+      {/* What the account book adds up to. Not a filter — the state of the
+          business, counted by the same query as the rows below. */}
+      {totals && (
+        <Box className="border-divider bg-background-paper flex flex-row flex-wrap items-center gap-8 rounded-lg border px-4 py-3">
+          <Stat
+            label="MRR"
+            value={formatMoney(totals.mrrCents, totals.currency)}
+            hint="Charged every month by the payment providers; yearly plans normalized to a month"
+          />
+          <Stat
+            label="At risk"
+            value={formatMoney(totals.atRiskMrrCents, totals.currency)}
+            hint="Overdue at the provider or scheduled to cancel at the end of the period"
+          />
+          <Stat
+            label="Comped"
+            value={formatMoney(totals.compedMrrCents, totals.currency)}
+            hint="Paid plans granted from the console: capability given away, never counted as revenue"
+          />
+        </Box>
+      )}
+
+      {/* Where to look today, before the list of everything. Each tile is the
+          count the same query produced, and clicking it filters the table. */}
+      <Box className="flex flex-row flex-wrap gap-2">
+        {ACCOUNT_FILTERS.map((entry) => {
+          const active = filter === entry.key;
+          return (
+            <Box
+              key={entry.key}
+              component="button"
+              type="button"
+              aria-pressed={active}
+              title={entry.hint}
+              onClick={() => setFilter(entry.key)}
+              className={`flex min-w-32 cursor-pointer flex-col items-start rounded-lg border px-3 py-2 text-left ${
+                active ? "border-primary bg-primary/5" : "border-divider bg-background-paper"
+              }`}
+            >
+              <Typography variant="h5" component="span" className={active ? "text-primary" : "text-text-primary"}>
+                {totals ? totals[entry.total] : "—"}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary">
+                {entry.label}
+              </Typography>
+            </Box>
+          );
+        })}
+      </Box>
+
       {/* A failed load is an error, never an empty-looking table. */}
       {!loadFailed && (
-        <DataTable<OrgRow>
-          rows={rows}
+        <DataTable<AccountRow>
+          rows={visibleRows}
           columns={columns}
           loading={!loaded}
           noRowsOverlay={
-            <EmptyState
-              icon={<NiBuilding size="medium" />}
-              title="No organizations yet"
-              description="Organizations appear here as soon as users sign up. Each one starts on the free plan automatically."
-              className="border-none"
-            />
+            filter === "all" ? (
+              <EmptyState
+                icon={<NiBuilding size="medium" />}
+                title="No accounts yet"
+                description="Every sign-up creates a workspace and appears here, with its plan, trial and use."
+                className="border-none"
+              />
+            ) : (
+              <Box className="flex h-full flex-col items-center justify-center gap-2">
+                <Typography variant="body2" className="text-text-secondary">
+                  No account is {activeFilter?.label.toLowerCase() ?? "in this state"} right now.
+                </Typography>
+                <Button variant="text" onClick={() => setFilter("all")}>
+                  Show all accounts
+                </Button>
+              </Box>
+            )
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No organizations match your search.
+              No account matches your search.
             </Typography>
           }
         />
+      )}
+
+      {generatedAt && (
+        <Typography variant="caption" className="text-text-secondary">
+          Plans, trials and use as of {new Date(generatedAt).toLocaleString()}.
+        </Typography>
       )}
 
       <Dialog open={Boolean(membersOrg)} onClose={() => setMembersOrg(null)} maxWidth="sm" fullWidth>
@@ -364,6 +483,23 @@ export default function OrgsAdmin() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {detail && <AccountDetailDialog account={detail} onClose={() => setDetail(null)} />}
     </Box>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <Tooltip title={hint}>
+      <Box className="flex flex-col">
+        <Typography variant="h5" component="span" className="text-text-primary">
+          {value}
+        </Typography>
+        <Typography variant="body2" className="text-text-secondary">
+          {label}
+        </Typography>
+      </Box>
+    </Tooltip>
   );
 }

@@ -1289,10 +1289,18 @@ Hoje quero compartilhar uma história que une três elementos: a trajetória da 
     subtitle: { pt: "Três histórias que, na verdade, são uma só", zh: "三个故事，其实是同一个故事" },
     stageNote:
       "Slide 2 · Foto dos fundadores + logo MedChina. Fotos reais em /images/palestra/ substituem os monogramas.",
-    script: `Meu sócio, Bruno Santana, é engenheiro de software, com mais de 15 anos de experiência, e lidera a tecnologia do MedChina.
+    script: `Sou Debora Giovanella, fundadora do MedChina e terapeuta de medicina chinesa desde 2017, com formação em shiatsu e em acupuntura. Antes disso, foram 25 anos em gestão de marketing e vendas. É a direção clínica do produto que eu conduzo.
+
+Meu sócio, Bruno Santana, é engenheiro de software com mais de 15 anos de experiência e lidera toda a tecnologia do MedChina.
+
+Sabedoria milenar e engenharia moderna: é dessa soma que nasce tudo o que vou mostrar hoje.
 
 Vamos começar pelo princípio.`,
-    scriptZh: `我的合伙人 Bruno Santana 是软件工程师，从业十五年以上，主持 MedChina 的技术工作。
+    scriptZh: `我是 Debora Giovanella，MedChina 的创始人，自 2017 年起从事中医治疗，接受过指压与针灸的专业训练。在此之前，我有二十五年市场与销售管理的经历。产品的临床方向由我主持。
+
+我的合伙人 Bruno Santana 是软件工程师，从业十五年以上，全面负责 MedChina 的技术。
+
+千年的智慧，加上现代的工程：今天我要讲的一切，正是从这一结合中生长出来的。
 
 让我们从头说起。`,
   },

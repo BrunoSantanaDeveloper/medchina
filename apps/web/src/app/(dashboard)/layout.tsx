@@ -12,6 +12,7 @@ import ContentWrapper from "@/components/layout/containers/content-wrapper";
 import Header from "@/components/layout/containers/header";
 import Main from "@/components/layout/containers/main";
 import ImpersonationBanner from "@/components/layout/impersonation/impersonation-banner";
+import LocaleAutoNotice from "@/components/layout/locale/locale-auto-notice";
 import LeftMenu from "@/components/layout/menu/left-menu";
 import MenuBackdrop from "@/components/layout/menu/menu-backdrop";
 import RecordingSessionProvider from "@/components/product/recording-session-provider";
@@ -37,6 +38,11 @@ export default function DashboardLayout({
       <LeftMenu />
       <Main>
         <ContentWrapper>
+          {/*
+            Above the announcements on purpose: if she cannot read the app, that
+            is the first thing to fix — every other message is unreadable too.
+          */}
+          <LocaleAutoNotice />
           <AnnouncementBanner />
           <Suspense fallback={<Loading />}>{children}</Suspense>
         </ContentWrapper>

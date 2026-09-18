@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import type { HomeCopy } from "@/components/marketing/home-copy";
-import { type LocaleOption, LOCALES } from "@/constants";
+import { LOCALE_DISPLAY_ORDER, type LocaleOption } from "@/constants";
 import { setClientLocale } from "@/i18n/locale";
 import { CaretDown, Check, Translate } from "@phosphor-icons/react";
 
@@ -58,7 +58,7 @@ export default function HomeLanguageSwitch({
     });
   };
 
-  const options = LOCALES.map((locale) => (
+  const options = LOCALE_DISPLAY_ORDER.map((locale) => (
     <button
       key={locale}
       className={`lang-option ${locale === current ? "is-active" : ""}`}

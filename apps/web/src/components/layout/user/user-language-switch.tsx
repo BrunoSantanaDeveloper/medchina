@@ -3,7 +3,7 @@ import { useLocale, useTranslations } from "use-intl";
 
 import { Avatar, Chip, Fade, ListItemIcon, Menu, MenuItem, PopoverVirtualElement } from "@mui/material";
 
-import { LocaleOption, LOCALES } from "@/constants";
+import { LOCALE_DISPLAY_ORDER, LocaleOption } from "@/constants";
 import { setClientLocale } from "@/i18n/locale";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiMessages from "@/icons/nexture/ni-messages";
@@ -60,7 +60,7 @@ export default function UserLanguageSwitch() {
           transition: Fade,
         }}
       >
-        {LOCALES.map((option) => (
+        {LOCALE_DISPLAY_ORDER.map((option) => (
           <MenuItem
             key={option}
             className={cn(locale === option && "active")}

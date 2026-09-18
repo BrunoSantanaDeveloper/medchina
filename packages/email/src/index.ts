@@ -1,13 +1,20 @@
 import { createElement } from "react";
 import { Resend } from "resend";
 
+import AdminAccountsDigestEmail, { type AdminAccountsDigestEmailProps } from "./templates/admin-accounts-digest";
 import ContactFormEmail, { ContactFormEmailProps } from "./templates/contact-form";
 import OrgInviteEmail, { OrgInviteEmailProps } from "./templates/org-invite";
 import PatientDocumentEmail, { type PatientDocumentEmailProps } from "./templates/patient-document";
 import SubscriptionActiveEmail, { type SubscriptionActiveEmailProps } from "./templates/subscription-active";
 import TrialLifecycleEmail, { type TrialEmailKind, type TrialLifecycleEmailProps } from "./templates/trial-lifecycle";
 
-export type { PatientDocumentEmailProps, SubscriptionActiveEmailProps, TrialEmailKind, TrialLifecycleEmailProps };
+export type {
+  AdminAccountsDigestEmailProps,
+  PatientDocumentEmailProps,
+  SubscriptionActiveEmailProps,
+  TrialEmailKind,
+  TrialLifecycleEmailProps,
+};
 
 /** True when transactional email is configured (server-only env var). */
 export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY);
@@ -97,6 +104,33 @@ export async function sendSubscriptionActiveEmail(
     to,
     subject: `Pagamento confirmado — ${props.planName} está ativo`,
     react: createElement(SubscriptionActiveEmail, props),
+  });
+  if (error) {
+    return { sent: false, error: error.message };
+  }
+  return { sent: true };
+}
+
+/**
+ * The platform operator's daily digest of accounts that need a decision
+ * (trials ending, payments overdue). Internal mail to our own staff, so it
+ * carries no unsubscribe; without RESEND_API_KEY the caller still leaves the
+ * same digest in the operator's bell, so the alert degrades instead of
+ * disappearing.
+ */
+export async function sendAdminAccountsDigestEmail(
+  to: string,
+  props: AdminAccountsDigestEmailProps,
+): Promise<SendResult> {
+  if (!isEmailConfigured) {
+    return { sent: false };
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const { error } = await resend.emails.send({
+    from: DEFAULT_FROM,
+    to,
+    subject: `MedChina · ${props.headline}`,
+    react: createElement(AdminAccountsDigestEmail, props),
   });
   if (error) {
     return { sent: false, error: error.message };

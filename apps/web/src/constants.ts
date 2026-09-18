@@ -2,6 +2,30 @@ export const LOCALES = ["de", "en", "fr", "es", "pt-BR", "zh-CN"] as const;
 export type LocaleOption = (typeof LOCALES)[number];
 
 /**
+ * Reading order wherever a person PICKS a language — by audience, not by the
+ * alphabet: the home market first, then the market the product was translated
+ * for next, then the rest. `LOCALES` is the catalog list and happens to start
+ * at Deutsch, which would put Portuguese fifth for a Brazilian reader.
+ *
+ * Declared as a rank per locale rather than as a list, because a `Record` over
+ * `LocaleOption` is what makes the compiler REQUIRE every language: a locale
+ * added to the catalogs and forgotten here would otherwise just be missing from
+ * every switcher, silently.
+ */
+const LOCALE_RANK: Record<LocaleOption, number> = {
+  "pt-BR": 0,
+  "zh-CN": 1,
+  en: 2,
+  es: 3,
+  fr: 4,
+  de: 5,
+};
+
+export const LOCALE_DISPLAY_ORDER: readonly LocaleOption[] = [...LOCALES].sort(
+  (a, b) => LOCALE_RANK[a] - LOCALE_RANK[b],
+);
+
+/**
  * MedChina locks a single brand palette (Teal/Camel — written into
  * packages/design-tokens/css/green.css); the other template themes were
  * removed from the switcher but their CSS files remain for template merges.

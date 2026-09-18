@@ -3424,19 +3424,29 @@ h2 em {
     font-weight: 700;
   }
 
+  /* On a phone the strip becomes two rows: the message keeps the icon and the
+     dismiss on its own line, and the way back to Portuguese takes the full
+     width below — a 13px button squeezed next to wrapped text is the one thing
+     here that must stay easy to hit. */
   .lang-notice {
     width: calc(100% - 40px);
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 8px 10px;
   }
 
   .lang-notice p {
-    flex: 1 1 100%;
+    flex: 1 1 0;
+    order: 1;
+  }
+
+  .lang-notice-dismiss {
     order: 2;
   }
 
   .lang-notice-switch {
+    flex: 1 1 100%;
     order: 3;
+    justify-content: center;
   }
 
   .hero {

@@ -216,7 +216,7 @@ export default function Page() {
             </Box>
 
             <Box className="flex flex-col gap-5">
-              <Box className="flex flex-col gap-2 md:flex-row">
+              <Box className="flex hidden flex-col gap-2 md:flex-row">
                 <Button
                   variant="outlined"
                   color="grey"
@@ -237,7 +237,7 @@ export default function Page() {
                 </Button>
               </Box>
 
-              <Divider className="text-text-secondary my-0 text-sm">{t("or")}</Divider>
+              <Divider className="text-text-secondary my-0 hidden text-sm">{t("or")}</Divider>
 
               <Box
                 component="form"
