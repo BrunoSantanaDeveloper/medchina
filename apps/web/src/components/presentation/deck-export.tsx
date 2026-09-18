@@ -4,9 +4,9 @@ import { fitSlide } from "./deck-fit";
 import { DeckModeContext } from "./deck-mode";
 import { SlideRenderer } from "./slide-views";
 import { SLIDES_DATA } from "./slides-data";
-import { DeckLang } from "./types";
+import { DeckLang, SlideData } from "./types";
 import { useSearchParams } from "next/navigation";
-import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CSSProperties, Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { CircleNotch, FilePdf, FilePpt, Info, Translate } from "@phosphor-icons/react";
 
@@ -22,6 +22,70 @@ const PPTX_H = 7.5;
 const SHOT_RATIO = 1.5;
 
 const LANG_NAME: Record<DeckLang, string> = { pt: "Português", zh: "中文" };
+
+/**
+ * The teleprompter as a page of its own, facing the slide it belongs to.
+ *
+ * Portuguese whatever the deck's language: the slides are for the room, this is
+ * for the person holding the sheet. It carries what the presenter window shows
+ * — the stage direction, the media note, the optional cut, the script — so a
+ * printed copy is a real fallback for the phone dying on stage.
+ */
+function SlideNotes({ slide, place }: { slide: SlideData; place: string }) {
+  return (
+    <div className="deck-slide-inner deck-notes">
+      <header className="deck-notes-head">
+        <span>
+          {place} · Bloco {slide.block} · {slide.timeRange}
+        </span>
+        <h2>{slide.title.pt}</h2>
+      </header>
+
+      <div className="deck-notes-grid">
+        {/* Real paragraphs, not the blank lines the teleprompter uses: on a
+            fixed page each blank line costs a full line, and that alone pushed
+            the longest script past the page and had it clipped. */}
+        <div className="deck-notes-script">
+          {slide.script.split(/\n{2,}/).map((paragraph) => (
+            <p key={paragraph.slice(0, 40)}>{paragraph}</p>
+          ))}
+        </div>
+
+        <aside className="deck-notes-side">
+          <div className="deck-notes-card">
+            <h3>Instrução de palco</h3>
+            <p>{slide.stageNote}</p>
+          </div>
+          {slide.media && (
+            <div className="deck-notes-card">
+              <h3>Mídia</h3>
+              <p>{slide.media.productionNote}</p>
+            </div>
+          )}
+          {slide.optionalCut && (
+            <div className="deck-notes-card deck-notes-card--cut">
+              <h3>Corte opcional — pule se o tempo apertar</h3>
+              <p>{slide.optionalCut}</p>
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+/** The same text, as one block for PowerPoint's own speaker notes. */
+function notesText(slide: SlideData) {
+  return [
+    `INSTRUÇÃO DE PALCO: ${slide.stageNote}`,
+    slide.media ? `MÍDIA: ${slide.media.productionNote}` : null,
+    "",
+    slide.script,
+    slide.optionalCut ? `\nCORTE OPCIONAL: ${slide.optionalCut}` : null,
+  ]
+    .filter((part) => part !== null)
+    .join("\n");
+}
 
 /**
  * The deck as a document: every slide, one page each, in the language chosen.
@@ -40,6 +104,7 @@ export default function DeckExport() {
   const params = useSearchParams();
   const [lang, setLang] = useState<DeckLang>(params.get("idioma") === "zh" ? "zh" : "pt");
   const [withAnnex, setWithAnnex] = useState(params.get("anexo") !== "0");
+  const [withScript, setWithScript] = useState(params.get("roteiro") === "1");
   const [ready, setReady] = useState(false);
   const [scale, setScale] = useState(1);
   /** How far the PowerPoint export got, or an error to show instead. */
@@ -63,6 +128,8 @@ export default function DeckExport() {
     url.searchParams.set("idioma", lang);
     if (withAnnex) url.searchParams.delete("anexo");
     else url.searchParams.set("anexo", "0");
+    if (withScript) url.searchParams.set("roteiro", "1");
+    else url.searchParams.delete("roteiro");
     window.history.replaceState(null, "", url);
 
     const applyTitle = () => {
@@ -71,7 +138,7 @@ export default function DeckExport() {
     applyTitle();
     window.addEventListener("beforeprint", applyTitle);
     return () => window.removeEventListener("beforeprint", applyTitle);
-  }, [lang, withAnnex, fileTitle]);
+  }, [lang, withAnnex, withScript, fileTitle]);
 
   // Fit every page, but only once the faces are loaded: a slide measured in the
   // fallback font is measured wrong, and the error only shows on paper.
@@ -92,7 +159,7 @@ export default function DeckExport() {
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [lang, withAnnex]);
+  }, [lang, withAnnex, withScript]);
 
   // On screen the pages shrink to the window; on paper they are always 1:1
   // (the print stylesheet overrides the scale).
@@ -118,7 +185,11 @@ export default function DeckExport() {
     reach the bundle of any other page.
   */
   async function exportPptx() {
-    const pages = pagesRef.current?.querySelectorAll<HTMLElement>(".deck-export-canvas");
+    // Only the slides are rasterised; a notes page would be an image of text
+    // where PowerPoint already has a place for the words.
+    const pages = pagesRef.current?.querySelectorAll<HTMLElement>(
+      ".deck-export-page:not([data-notes]) .deck-export-canvas",
+    );
     if (!pages?.length) return;
 
     setFailed(null);
@@ -141,7 +212,9 @@ export default function DeckExport() {
           style: { transform: "none", transformOrigin: "top left" },
           backgroundColor: slide ? getComputedStyle(slide).backgroundColor : undefined,
         });
-        deck.addSlide().addImage({ data: shot, x: 0, y: 0, w: PPTX_W, h: PPTX_H });
+        const page = deck.addSlide();
+        page.addImage({ data: shot, x: 0, y: 0, w: PPTX_W, h: PPTX_H });
+        if (withScript) page.addNotes(notesText(slides[index]));
         setPptx({ done: index + 1, total: pages.length });
       }
 
@@ -164,7 +237,8 @@ export default function DeckExport() {
             <div>
               <strong>Exportar a palestra</strong>
               <span>
-                {slides.length} páginas · {LANG_NAME[lang]}
+                {withScript ? slides.length * 2 : slides.length} páginas · {LANG_NAME[lang]}
+                {withScript && " · com roteiro"}
               </span>
             </div>
           </div>
@@ -182,6 +256,11 @@ export default function DeckExport() {
           <label className="deck-export-check">
             <input type="checkbox" checked={withAnnex} onChange={(event) => setWithAnnex(event.target.checked)} />
             Incluir o anexo ({annexCount} slides de perguntas)
+          </label>
+
+          <label className="deck-export-check">
+            <input type="checkbox" checked={withScript} onChange={(event) => setWithScript(event.target.checked)} />
+            Incluir o roteiro
           </label>
 
           <button className="deck-btn" type="button" onClick={exportPptx} disabled={!ready || busy} aria-busy={busy}>
@@ -225,29 +304,51 @@ export default function DeckExport() {
                 <b>PDF</b>: na janela que abrir, escolha <b>Destino: Salvar como PDF</b>; se o fundo sair branco, marque{" "}
                 <b>Gráficos de plano de fundo</b> em “Mais configurações”. <b>PowerPoint</b>: cada slide entra como
                 imagem em 1920×1080, fiel ao projetado, mas com o texto não editável lá dentro. Nos dois, os vídeos saem
-                como imagem.
+                como imagem. Com <b>roteiro</b>, o PDF ganha uma página de teleprompter após cada slide e o PowerPoint
+                recebe o texto nas notas do apresentador — sempre em português, qualquer que seja o idioma dos slides.
               </span>
             </p>
           )}
         </header>
 
         <main className="deck-export-pages" ref={pagesRef} style={{ "--export-scale": scale } as CSSProperties}>
-          {slides.map((slide, index) => (
-            <article className="deck-export-page" key={slide.key} aria-label={`Página ${index + 1}`}>
-              <p className="deck-export-caption">
-                <b>{String(index + 1).padStart(2, "0")}</b>
-                {slide.annex ? "Anexo" : slide.roteiroSlide ? `Slide ${slide.roteiroSlide}` : slide.kicker.pt} ·{" "}
-                {slide.title.pt}
-              </p>
-              <div className="deck-export-sheet">
-                <div className="deck-export-canvas">
-                  <section className="deck-slide" aria-label={slide.title[lang]}>
-                    <SlideRenderer slide={slide} lang={lang} />
-                  </section>
-                </div>
-              </div>
-            </article>
-          ))}
+          {slides.map((slide, index) => {
+            const place = slide.annex ? "Anexo" : slide.roteiroSlide ? `Slide ${slide.roteiroSlide}` : slide.kicker.pt;
+
+            return (
+              <Fragment key={slide.key}>
+                <article className="deck-export-page" aria-label={`Página ${index + 1}`}>
+                  <p className="deck-export-caption">
+                    <b>{String(index + 1).padStart(2, "0")}</b>
+                    {place} · {slide.title.pt}
+                  </p>
+                  <div className="deck-export-sheet">
+                    <div className="deck-export-canvas">
+                      <section className="deck-slide" aria-label={slide.title[lang]}>
+                        <SlideRenderer slide={slide} lang={lang} />
+                      </section>
+                    </div>
+                  </div>
+                </article>
+
+                {withScript && (
+                  <article className="deck-export-page" data-notes="true" aria-label={`Roteiro do slide ${index + 1}`}>
+                    <p className="deck-export-caption">
+                      <b>{String(index + 1).padStart(2, "0")}</b>
+                      Roteiro · {slide.title.pt}
+                    </p>
+                    <div className="deck-export-sheet">
+                      <div className="deck-export-canvas">
+                        <section className="deck-slide">
+                          <SlideNotes slide={slide} place={place} />
+                        </section>
+                      </div>
+                    </div>
+                  </article>
+                )}
+              </Fragment>
+            );
+          })}
         </main>
       </div>
     </DeckModeContext.Provider>

@@ -3628,6 +3628,111 @@
   border-radius: 0;
 }
 
+/*
+  The teleprompter page, facing its slide. It is a reading page, not a projected
+  one: the type is smaller than any slide's, the script keeps the generous line
+  height the presenter view uses, and the stage directions sit beside it rather
+  than under it, so a long script stays on one page.
+*/
+.deck-notes {
+  justify-content: flex-start;
+  gap: 18px;
+  text-align: left;
+}
+
+/* A slide is centred in its canvas; a page of text starts at the top, and the
+   fit guard has to shrink from there too, not from the middle. */
+.deck-export-page[data-notes] .deck-slide {
+  justify-content: flex-start;
+}
+
+.deck-export-page[data-notes] .deck-slide-inner {
+  transform-origin: top center;
+}
+
+.deck-notes-head {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--edge);
+}
+
+.deck-notes-head span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.deck-notes-head h2 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.deck-notes-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+/* The script is the one thing she reads while talking, so it keeps the roomy
+   line height of the phone teleprompter — but as paragraphs, because a page
+   cannot afford a full empty line between each of them. */
+.deck-notes-script {
+  color: var(--ink-strong);
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+.deck-notes-script p {
+  margin: 0 0 10px;
+}
+
+.deck-notes-script p:last-child {
+  margin-bottom: 0;
+}
+
+.deck-notes-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.deck-notes-card {
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.deck-notes-card h3 {
+  margin: 0 0 5px;
+  color: var(--accent);
+  font-family: "Mulish", sans-serif;
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.deck-notes-card--cut h3 {
+  color: var(--coral);
+}
+
+.deck-notes-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 @media print {
   html,
   body {

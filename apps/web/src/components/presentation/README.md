@@ -141,6 +141,29 @@ honest about: the text is not editable inside PowerPoint, and nothing depends on
 the organiser having TT Chocolates or a CJK font installed — it is all pixels
 by then. Measured: 27 slides in about 25s, 7.4 MB in pt-BR.
 
+**"Incluir o roteiro" puts the teleprompter in both files**, always in
+Portuguese whatever the slides are set to — the slides are for the room, the
+script is for the person holding the sheet. In the **PDF** each slide is
+followed by a reading page: title, stage direction, media note, optional cut and
+the script, top-aligned and set smaller than any slide. In the **.pptx** the
+same text goes into PowerPoint's own speaker notes (`addNotes`), where the
+presenter view already knows how to show it — the notes pages are not
+rasterised, so the file does not grow.
+
+One detail worth keeping: the script's blank lines between paragraphs are
+rendered as real paragraphs on the page. Kept as blank lines, each one costs a
+full line of the fixed page, and the longest script (Bloco 9) was clipped —
+fitted at the 0.72 floor. As paragraphs, the worst page sits at 0.97.
+
+**A build-only trap, already fixed:** `pptxgenjs` dynamically imports `node:fs`
+and `node:https` on its Node-only paths. Turbopack maps them away through the
+package's `browser` field, so `next dev` never complained — the webpack
+production build did, with `UnhandledSchemeError`, and Vercel failed. A
+`resolve.alias` cannot help (webpack handles the `node:` scheme before
+resolution), so `next.config.mjs` replaces those two specifiers with
+`src/lib/node-module-stub.ts` in the CLIENT build only. If the export ever moves
+to another library, that replacement goes with it.
+
 ## The annex (and why the counter ignores it)
 
 Four slides sit after the closing, answering the congress organisation's four

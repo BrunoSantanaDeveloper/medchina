@@ -1,4 +1,5 @@
 import createNextIntlPlugin from "next-intl/plugin";
+import { fileURLToPath, URL } from "node:url";
 
 const withNextIntl = createNextIntlPlugin();
 
@@ -46,6 +47,26 @@ const nextConfig = {
   images: {
     formats: ["image/webp", "image/avif"],
     qualities: [90],
+  },
+  /*
+    `pptxgenjs` (the .pptx export at /palestra/exportar) ships one build for
+    both runtimes and reaches for `node:fs` / `node:https` through dynamic
+    imports on its Node-only paths. Turbopack honors the `browser` field that
+    maps them away, which is why `next dev` was fine; the webpack production
+    build failed instead with `UnhandledSchemeError: Reading from "node:fs"`.
+    A `resolve.alias` does not help — webpack handles the `node:` scheme before
+    resolution — so the specifier itself is replaced, for the client only.
+  */
+  webpack(config, { isServer, webpack }) {
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(
+          /^node:(fs|https)$/,
+          fileURLToPath(new URL("./src/lib/node-module-stub.ts", import.meta.url)),
+        ),
+      );
+    }
+    return config;
   },
   async headers() {
     const patientConsentHeaders = [
