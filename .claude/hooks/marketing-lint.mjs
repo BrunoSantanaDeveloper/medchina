@@ -59,6 +59,13 @@ const LANDING_DS_PATTERNS = [
   /\/app\/\(funil\)\//,
   // The home and the stylesheet that defines the whole vocabulary.
   /\/clinical-source-home\.(tsx|css)$/,
+  // The home's own parts, by the `home-` prefix: the language switcher and the
+  // detected-language notice are built in the home's class vocabulary with the
+  // same direct Phosphor imports, and `home-copy/` holds the page's copy for
+  // the six locales — copy files ARE strings by definition, so the i18n check
+  // has nothing to say about them.
+  /\/components\/marketing\/home-[a-z-]+\.tsx$/,
+  /\/components\/marketing\/home-copy\//,
 ];
 
 function lint(filePath, content) {

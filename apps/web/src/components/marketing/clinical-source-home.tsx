@@ -3,7 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import Logo from "@/components/logo/logo";
+import type { HomeCopy } from "@/components/marketing/home-copy";
+import { rich } from "@/components/marketing/home-copy/rich";
+import HomeLanguageNotice from "@/components/marketing/home-language-notice";
+import HomeLanguageSwitch from "@/components/marketing/home-language-switch";
 import type { PublicPlanDisplay } from "@/components/marketing/pricing-section";
+import type { LocaleOption } from "@/constants";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
 import {
   AndroidLogo,
@@ -48,209 +53,99 @@ import {
 const signUpUrl = "/auth/sign-up";
 const signInUrl = "/auth/sign-in";
 
-const faqItems = [
-  {
-    question: "Posso usar o MedChina gratuitamente?",
-    answer:
-      "Sim. O plano Gratuito permite cadastrar pacientes, registrar consultas e usar os recursos clínicos manuais sem limite de pacientes ou prontuários. Gravação, transcrição e automação fazem parte dos planos pagos e do trial Pro.",
-  },
-  {
-    question: "O trial começa quando eu criar minha conta?",
-    answer:
-      "Não. Criar a conta, configurar o perfil e explorar a plataforma não consomem nada. O trial Pro começa automaticamente na sua primeira ação de trabalho — gravar uma consulta, agendar um atendimento, importar seus prontuários ou usar a biblioteca clínica — e avisamos na hora em que isso acontece.",
-  },
-  {
-    question: "Preciso cadastrar um cartão para testar o Pro?",
-    answer: "Não. O trial não exige cartão e não gera cobrança automática.",
-  },
-  {
-    question: "A IA toma decisões clínicas por mim?",
-    answer:
-      "Não. A IA organiza informações, aponta lacunas e, no Pro, prepara hipóteses e possibilidades terapêuticas. A revisão, a validação e a decisão final continuam com a profissional.",
-  },
-  {
-    question: "A IA inventa respostas para campos não mencionados?",
-    answer:
-      "O que não foi informado permanece em branco — ausência nunca vira negação. Campos ambíguos ou contraditórios são destacados, e cada informação extraída pode ser relacionada ao trecho da consulta.",
-  },
-  {
-    question: "O aplicativo mobile substitui a versão web?",
-    answer:
-      "Não. O aplicativo é complementar, focado em captação de áudio, comandos por voz e acompanhamento do processamento. A revisão completa, os planos e as configurações ficam na web.",
-  },
-  {
-    question: "Meus dados serão usados para treinar modelos públicos?",
-    answer:
-      "A política do MedChina proíbe o uso de informações clínicas para treinar modelos públicos. Detalhes sobre fornecedores, retenção e processamento ficam na documentação de privacidade.",
-  },
-];
+/**
+ * Everything on this page that is NOT copy: which icon carries a benefit, which
+ * screenshot belongs to a flow step, the review tone of an anamnesis field.
+ *
+ * The words themselves live in `home-copy/<locale>.ts` (six languages, keyed by
+ * the same ids used here), so a translation can never move a screenshot or
+ * repaint a review state — and a language that renames a section still gets the
+ * right icon.
+ */
+const BENEFIT_ICONS: Record<string, PhosphorIcon> = {
+  listen: Headphones,
+  fields: FileText,
+  history: ClockCounterClockwise,
+  hypotheses: Sparkle,
+  plan: Notebook,
+  decision: SealCheck,
+};
 
-const benefits = [
-  {
-    icon: Headphones,
-    title: "Esteja na consulta, não no formulário",
-    body: "Use a captação mobile e os comandos de voz para reduzir a digitação durante o atendimento.",
-  },
-  {
-    icon: FileText,
-    title: "A conversa encontra o campo certo",
-    body: "Sintomas, hábitos, emoções, medicamentos, exames e evolução chegam organizados à sua revisão.",
-  },
-  {
-    icon: ClockCounterClockwise,
-    title: "Veja o que mudou",
-    body: "Compare relatos, sintomas, técnicas e respostas ao longo do acompanhamento.",
-  },
-  {
-    icon: Sparkle,
-    title: "Hipóteses explicadas",
-    body: "No Pro, padrões possíveis mostram sinais favoráveis, contradições, dados ausentes e referências.",
-  },
-  {
-    icon: Notebook,
-    title: "Do padrão ao plano",
-    body: "Protocolos, orientações e minutas são organizados sem fazer você recomeçar do zero.",
-  },
-  {
-    icon: SealCheck,
-    title: "A decisão continua sua",
-    body: "Nada é finalizado automaticamente. Você edita, rejeita, valida e assina.",
-  },
-];
+const VALUE_ICONS: PhosphorIcon[] = [Notebook, SlidersHorizontal, TrendUp, ShieldCheck];
 
-const valueHighlights = [
+const FLOW_STEPS = [
   {
-    icon: Notebook,
-    title: "Anamnese estruturada na linguagem da MTC",
-  },
-  {
-    icon: SlidersHorizontal,
-    title: "Modelos e planos personalizáveis",
-  },
-  {
-    icon: TrendUp,
-    title: "Evolução clínica acompanhada com inteligência",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Segurança e privacidade em todo o fluxo",
-  },
-];
-
-const flowSteps = [
-  {
+    id: "consulta",
     number: "01",
-    label: "Consulta",
-    title: "O atendimento começa com contexto e consentimento.",
-    body: "Selecione a paciente, registre as autorizações e escolha como preparar a consulta. Áudio e observações permanecem associados ao mesmo prontuário.",
-    proof: "Consentimento e próxima ação visíveis no atendimento",
     icon: ShieldCheck,
     image: "/images/medchina-flow-consulta-real.webp",
-    alt: "Tela real do MedChina para preparar a gravação da consulta e registrar o consentimento",
     width: 500,
     height: 350,
   },
   {
+    id: "anamnese",
     number: "02",
-    label: "Anamnese",
-    title: "A conversa encontra a estrutura clínica.",
-    body: "Queixa principal, história atual e demais campos ficam reunidos em uma anamnese clara para sua revisão — sem transformar silêncio em resposta.",
-    proof: "Campos estruturados, editáveis e prontos para revisão",
     icon: FileText,
     image: "/images/medchina-flow-anamnese-real.webp",
-    alt: "Tela real da anamnese estruturada no prontuário MedChina",
     width: 960,
     height: 540,
   },
   {
+    id: "plano",
     number: "03",
-    label: "Plano e evolução",
-    title: "Você valida a conduta e acompanha o que mudou.",
-    body: "O plano terapêutico permanece editável e conectado ao histórico. A plataforma prepara o próximo passo; você revisa, ajusta e decide.",
-    proof: "Plano terapêutico validado pela profissional",
     icon: SealCheck,
     image: "/images/medchina-flow-plano-real.webp",
-    alt: "Tela real do MedChina com gravação da consulta e validação do plano terapêutico",
     width: 820,
     height: 558,
   },
-];
+] as const;
 
-const mtcCategories = [
-  "Queixa principal",
-  "Sono e energia",
-  "Alimentação e digestão",
-  "Emoções e contexto",
-  "Yin e Yang",
-  "Qi, Sangue e Líquidos",
-  "Zang-Fu",
-  "Cinco Elementos",
-  "Língua",
-  "Pulso",
-  "Acupuntura",
-  "Auriculoterapia",
-];
-
-const mobileHighlights = [
-  {
-    id: "consent",
-    icon: ShieldCheck,
-    label: "Consentimento ativo",
-    title: "Gravação protegida",
-    detail: "A autorização fica vinculada à consulta antes da captação.",
-  },
-  {
-    id: "voice",
-    icon: Waveform,
-    label: "Observação por voz",
-    title: "Contexto sem digitação",
-    detail: "Língua, pulso e notas clínicas entram durante o atendimento.",
-  },
-  {
-    id: "sync",
-    icon: CloudCheck,
-    label: "Sincronização segura",
-    title: "Áudio preservado",
-    detail: "O envio é confirmado antes de remover a cópia do aparelho.",
-  },
-];
-
-/**
- * How each tier is PRESENTED here — icon, kicker, badge and the words on the
- * button. Everything commercial (name, description, price, period, what is
- * included) comes from the database through `getDisplayPlans`, because a price
- * or a minute limit written in this file goes stale the moment it changes in
- * /admin/billing, and the home was the one surface still doing that.
- *
- * A slug with no entry here still renders — plainly, with no badge — so adding
- * a plan can never blank out the pricing section.
- */
-const PLAN_PRESENTATION: Record<string, { eyebrow: string; badge?: string; icon: PhosphorIcon; cta: string }> = {
-  gratuito: {
-    eyebrow: "Fundação clínica",
-    badge: "Comece aqui",
-    icon: Notebook,
-    cta: "Criar conta grátis",
-  },
-  assistente: {
-    eyebrow: "Documentação automática",
-    badge: "Mais escolhido",
-    icon: Waveform,
-    cta: "Começar com automação",
-  },
-  pro: {
-    eyebrow: "Inteligência supervisionada",
-    badge: "Mais completo",
-    icon: Sparkle,
-    cta: "Conhecer o Pro",
-  },
+const MOBILE_HIGHLIGHT_ICONS: Record<string, PhosphorIcon> = {
+  consent: ShieldCheck,
+  voice: Waveform,
+  sync: CloudCheck,
 };
 
-const DEFAULT_PRESENTATION = { eyebrow: "Plano", icon: Notebook, cta: "Criar conta grátis" } as const;
+const HERO_INSIGHT_ICONS: PhosphorIcon[] = [FileText, Sparkle, Stethoscope];
 
-function Brand({ inverse = false }: { inverse?: boolean }) {
+/** Review state of each prepared field — a tone is a clinical meaning, not copy. */
+const EVIDENCE_FIELDS = [
+  { id: "sleep", icon: MoonStars, tone: "clear" as const, source: "14:32" },
+  { id: "evolution", icon: TrendUp, tone: "attention" as const, source: "14:32" },
+  { id: "observation", icon: Stethoscope, tone: "missing" as const, source: undefined },
+];
+
+const TRACEABILITY_ICONS: Record<string, PhosphorIcon> = {
+  origin: Eye,
+  authorship: Fingerprint,
+  validation: SealCheck,
+};
+
+const SECURITY_ICONS: Record<string, PhosphorIcon> = {
+  consent: ShieldCheck,
+  access: LockKey,
+  audio: Database,
+  history: ClockCounterClockwise,
+};
+
+/**
+ * The icon of each tier. Its words (eyebrow, badge, button) are copy; everything
+ * commercial (name, description, price, period, what is included) comes from the
+ * database through `getDisplayPlans`, because a price written in this file goes
+ * stale the moment it changes in /admin/billing.
+ *
+ * A slug with no entry still renders — plainly, with no badge — so adding a plan
+ * can never blank out the pricing section.
+ */
+const PLAN_ICONS: Record<string, PhosphorIcon> = {
+  gratuito: Notebook,
+  assistente: Waveform,
+  pro: Sparkle,
+};
+
+function Brand({ inverse = false, label }: { inverse?: boolean; label: string }) {
   return (
-    <a className={`brand ${inverse ? "brand--inverse" : ""}`} href="#inicio" aria-label="MedChina — início">
+    <a className={`brand ${inverse ? "brand--inverse" : ""}`} href="#inicio" aria-label={label}>
       {/* The one true logo (@/components/logo/logo.tsx) — same asset as the
           logged-in header. tone="contrast" swaps the teal shapes to white for
           the dark footer band; the camel wordmark gradient already reads on dark. */}
@@ -259,7 +154,13 @@ function Brand({ inverse = false }: { inverse?: boolean }) {
   );
 }
 
-function PhoneRecorder({ focus }: { focus: (typeof mobileHighlights)[number] }) {
+function PhoneRecorder({
+  focus,
+  copy,
+}: {
+  focus: { icon: PhosphorIcon; label: string; title: string };
+  copy: HomeCopy["mobile"]["phone"];
+}) {
   const [isPaused, setIsPaused] = useState(false);
   const [noteAdded, setNoteAdded] = useState(false);
   const FocusIcon = focus.icon;
@@ -281,22 +182,22 @@ function PhoneRecorder({ focus }: { focus: (typeof mobileHighlights)[number] }) 
           <strong>MedChina</strong>
         </span>
         <span className="phone-secure">
-          <ShieldCheck size={13} weight="duotone" /> Protegido
+          <ShieldCheck size={13} weight="duotone" /> {copy.secure}
         </span>
       </div>
 
       <div className="phone-heading">
         <span>
-          <small>CONSULTA EM ANDAMENTO</small>
-          <strong>Helena Martins</strong>
+          <small>{copy.inProgress}</small>
+          <strong>{copy.patientName}</strong>
         </span>
         <DotsThree size={18} weight="bold" aria-hidden="true" />
       </div>
       <div className="patient-pill">
         <span className="avatar">HM</span>
         <span>
-          <b>Retorno · Acupuntura</b>
-          <small>Hoje, 09:00 · consentimento confirmado</small>
+          <b>{copy.patientKind}</b>
+          <small>{copy.patientWhen}</small>
         </span>
         <CheckCircle size={16} weight="fill" aria-hidden="true" />
       </div>
@@ -304,9 +205,9 @@ function PhoneRecorder({ focus }: { focus: (typeof mobileHighlights)[number] }) 
       <div className={`phone-record-card ${isPaused ? "is-paused" : ""}`}>
         <div className="phone-record-meta">
           <span>
-            <span className="phone-live-dot" /> {isPaused ? "PAUSADA" : "GRAVANDO"}
+            <span className="phone-live-dot" /> {isPaused ? copy.paused : copy.recording}
           </span>
-          <span>Áudio autorizado</span>
+          <span>{copy.audioAuthorized}</span>
         </div>
         <strong className="record-time">32:14</strong>
         <Waveform size={72} weight="duotone" aria-hidden="true" />
@@ -317,7 +218,7 @@ function PhoneRecorder({ focus }: { focus: (typeof mobileHighlights)[number] }) 
           aria-pressed={isPaused}
         >
           {isPaused ? <Play size={15} weight="fill" /> : <Pause size={15} weight="fill" />}
-          <span>{isPaused ? "Retomar" : "Pausar"}</span>
+          <span>{isPaused ? copy.resume : copy.pause}</span>
         </button>
       </div>
 
@@ -330,15 +231,15 @@ function PhoneRecorder({ focus }: { focus: (typeof mobileHighlights)[number] }) 
         >
           {noteAdded ? <CheckCircle size={17} weight="fill" /> : <Plus size={17} />}
           <span>
-            <strong>{noteAdded ? "Nota adicionada" : "Adicionar nota"}</strong>
-            <small>por voz ou texto</small>
+            <strong>{noteAdded ? copy.noteAdded : copy.addNote}</strong>
+            <small>{copy.noteHint}</small>
           </span>
         </button>
         <button type="button">
           <Stethoscope size={17} weight="duotone" />
           <span>
-            <strong>Língua e pulso</strong>
-            <small>registrar observação</small>
+            <strong>{copy.observation}</strong>
+            <small>{copy.observationHint}</small>
           </span>
         </button>
       </div>
@@ -357,69 +258,80 @@ function PhoneRecorder({ focus }: { focus: (typeof mobileHighlights)[number] }) 
       <div className="phone-tabbar" aria-hidden="true">
         <span className="is-active">
           <Stethoscope size={16} weight="duotone" />
-          <small>Consulta</small>
+          <small>{copy.tabConsult}</small>
         </span>
         <span>
           <ClockCounterClockwise size={16} weight="duotone" />
-          <small>Histórico</small>
+          <small>{copy.tabHistory}</small>
         </span>
         <span>
           <Notebook size={16} weight="duotone" />
-          <small>Prontuário</small>
+          <small>{copy.tabRecord}</small>
         </span>
       </div>
     </div>
   );
 }
 
-function MobileShowcase() {
+function MobileShowcase({ copy }: { copy: HomeCopy["mobile"] }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeHighlight = mobileHighlights[activeIndex];
+  const activeHighlight = copy.highlights[activeIndex];
 
   return (
-    <div className="mobile-showcase" aria-label="Demonstração interativa do aplicativo MedChina">
+    <div className="mobile-showcase" aria-label={copy.showcaseAria}>
       <div className="mobile-device-stage">
         <div className="mobile-device">
           <img
             className="mobile-device-photo"
             src="/images/medchina-mobile-device-matte.webp"
-            alt="Smartphone moderno com o aplicativo MedChina"
+            alt={copy.deviceAlt}
             width={900}
             height={1600}
             loading="lazy"
             decoding="async"
           />
           <div className="mobile-showcase-main">
-            <PhoneRecorder focus={activeHighlight} />
+            <PhoneRecorder
+              focus={{
+                icon: MOBILE_HIGHLIGHT_ICONS[activeHighlight.id] ?? ShieldCheck,
+                label: activeHighlight.label,
+                title: activeHighlight.title,
+              }}
+              copy={copy.phone}
+            />
           </div>
         </div>
       </div>
 
-      <div className="mobile-platform-chip" aria-label="Aplicativo para iOS e Android">
+      <div className="mobile-platform-chip" aria-label={copy.platformChipAria}>
         <AppleLogo size={17} weight="fill" aria-hidden="true" />
         <AndroidLogo size={17} weight="fill" aria-hidden="true" />
-        <span>iOS e Android</span>
+        <span>{copy.platformChipLabel}</span>
       </div>
 
-      <div className="mobile-bubbles" aria-label="Destaques do aplicativo">
-        {mobileHighlights.map(({ icon: Icon, label, title, detail }, index) => (
-          <button
-            className={`mobile-bubble mobile-bubble--${index + 1} ${activeIndex === index ? "is-active" : ""}`}
-            type="button"
-            key={label}
-            onClick={() => setActiveIndex(index)}
-            aria-pressed={activeIndex === index}
-          >
-            <span className="mobile-bubble-icon">
-              <Icon size={22} weight="duotone" aria-hidden="true" />
-            </span>
-            <span>
-              <small>{label}</small>
-              <strong>{title}</strong>
-              <em>{detail}</em>
-            </span>
-          </button>
-        ))}
+      <div className="mobile-bubbles" aria-label={copy.bubblesAria}>
+        {copy.highlights.map(({ id, label, title, detail }, index) => {
+          const Icon = MOBILE_HIGHLIGHT_ICONS[id] ?? ShieldCheck;
+
+          return (
+            <button
+              className={`mobile-bubble mobile-bubble--${index + 1} ${activeIndex === index ? "is-active" : ""}`}
+              type="button"
+              key={id}
+              onClick={() => setActiveIndex(index)}
+              aria-pressed={activeIndex === index}
+            >
+              <span className="mobile-bubble-icon">
+                <Icon size={22} weight="duotone" aria-hidden="true" />
+              </span>
+              <span>
+                <small>{label}</small>
+                <strong>{title}</strong>
+                <em>{detail}</em>
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -432,6 +344,8 @@ function EvidenceRow({
   state,
   tone,
   source,
+  listenLabel,
+  emptyLabel,
   onPlay,
 }: {
   icon: PhosphorIcon;
@@ -440,6 +354,8 @@ function EvidenceRow({
   state: string;
   tone: "clear" | "attention" | "missing";
   source?: string;
+  listenLabel: string;
+  emptyLabel: string;
   onPlay: () => void;
 }) {
   const StatusIcon = tone === "clear" ? CheckCircle : tone === "attention" ? WarningCircle : MinusCircle;
@@ -459,17 +375,17 @@ function EvidenceRow({
         <p>{value}</p>
         {source ? (
           <button className="evidence-source" type="button" onClick={onPlay}>
-            <Play size={12} weight="fill" aria-hidden="true" /> Ouvir origem · {source}
+            <Play size={12} weight="fill" aria-hidden="true" /> {listenLabel} · {source}
           </button>
         ) : (
-          <span className="evidence-source evidence-source--empty">Sem evidência registrada no áudio</span>
+          <span className="evidence-source evidence-source--empty">{emptyLabel}</span>
         )}
       </div>
     </article>
   );
 }
 
-function SupervisedEvidence() {
+function SupervisedEvidence({ copy }: { copy: HomeCopy["supervised"] }) {
   const [playing, setPlaying] = useState(false);
   const playSource = () => setPlaying(true);
 
@@ -481,29 +397,28 @@ function SupervisedEvidence() {
             <ChatCircleText size={22} weight="duotone" aria-hidden="true" />
           </span>
           <span>
-            <small>Fonte clínica</small>
-            <strong>Conversa fictícia · Helena Martins</strong>
+            <small>{copy.conversation.sourceLabel}</small>
+            <strong>{copy.conversation.title}</strong>
           </span>
-          <span className="conversation-time">14:32–14:46</span>
+          <span className="conversation-time">{copy.conversation.time}</span>
         </div>
-        <blockquote>
-          “Tenho acordado umas <mark>três vezes durante a noite</mark>. Sinto <mark>muito calor</mark> e às vezes acordo{" "}
-          <mark>suando</mark>.”
-        </blockquote>
+        {/* The extracted terms are marked in the copy itself (==term==), so each
+            language highlights the words IT actually uses. */}
+        <blockquote>{rich(copy.conversation.quote)}</blockquote>
         <div className={`evidence-player ${playing ? "is-playing" : ""}`}>
           <button
             type="button"
             onClick={() => setPlaying(!playing)}
-            aria-label={playing ? "Pausar trecho" : "Ouvir trecho"}
+            aria-label={playing ? copy.conversation.pauseAria : copy.conversation.playAria}
           >
             {playing ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
           </button>
           <span>
-            <strong>{playing ? "Reproduzindo trecho" : "Trecho original"}</strong>
-            <small>Paciente · áudio autorizado</small>
+            <strong>{playing ? copy.conversation.playingLabel : copy.conversation.originalLabel}</strong>
+            <small>{copy.conversation.speaker}</small>
           </span>
           <Waveform size={78} weight="duotone" aria-hidden="true" />
-          <time>0:14</time>
+          <time>{copy.conversation.duration}</time>
         </div>
       </article>
 
@@ -512,55 +427,48 @@ function SupervisedEvidence() {
           <Sparkle size={18} weight="fill" />
           <ArrowRight size={18} weight="bold" />
         </span>
-        <small>IA organiza</small>
+        <small>{copy.bridgeLabel}</small>
       </div>
 
       <article className="prepared-card">
         <div className="prepared-header">
           <div>
             <span>
-              <Sparkle size={18} weight="duotone" aria-hidden="true" /> Organização supervisionada
+              <Sparkle size={18} weight="duotone" aria-hidden="true" /> {copy.prepared.badge}
             </span>
-            <h3>Anamnese preparada</h3>
-            <p>3 campos organizados · nenhuma decisão aplicada</p>
+            <h3>{copy.prepared.title}</h3>
+            <p>{copy.prepared.summary}</p>
           </div>
           <span className="review-chip">
-            <SealCheck size={15} weight="fill" aria-hidden="true" /> Revisão obrigatória
+            <SealCheck size={15} weight="fill" aria-hidden="true" /> {copy.prepared.reviewChip}
           </span>
         </div>
         <div className="evidence-fields">
-          <EvidenceRow
-            icon={MoonStars}
-            label="Sono"
-            value="Desperta aproximadamente três vezes durante a noite."
-            state="Evidência clara"
-            tone="clear"
-            source="14:32"
-            onPlay={playSource}
-          />
-          <EvidenceRow
-            icon={TrendUp}
-            label="Evolução"
-            value="Frequência relatada; início e evolução temporal ainda não informados."
-            state="Requer atenção"
-            tone="attention"
-            source="14:32"
-            onPlay={playSource}
-          />
-          <EvidenceRow
-            icon={Stethoscope}
-            label="Língua e pulso"
-            value="Aguardando observação direta da profissional."
-            state="Não informado"
-            tone="missing"
-            onPlay={playSource}
-          />
+          {EVIDENCE_FIELDS.map(({ id, icon, tone, source }) => {
+            const field = copy.prepared.fields.find((item) => item.id === id);
+            if (!field) return null;
+
+            return (
+              <EvidenceRow
+                key={id}
+                icon={icon}
+                label={field.label}
+                value={field.value}
+                state={field.state}
+                tone={tone}
+                source={source}
+                listenLabel={copy.prepared.listen}
+                emptyLabel={copy.prepared.noEvidence}
+                onPlay={playSource}
+              />
+            );
+          })}
         </div>
         <div className="prepared-footer">
           <SealCheck size={24} weight="duotone" aria-hidden="true" />
           <span>
-            <strong>Nada foi finalizado automaticamente</strong>
-            <small>Você revisa, ajusta e confirma antes de salvar no prontuário.</small>
+            <strong>{copy.prepared.footerTitle}</strong>
+            <small>{copy.prepared.footerDetail}</small>
           </span>
         </div>
       </article>
@@ -568,7 +476,7 @@ function SupervisedEvidence() {
   );
 }
 
-function FlowTimeline() {
+function FlowTimeline({ copy }: { copy: HomeCopy["flow"] }) {
   const timelineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -620,46 +528,51 @@ function FlowTimeline() {
       <div className="flow-track" aria-hidden="true">
         <span />
       </div>
-      {flowSteps.map(({ number, label, title, body, proof, icon: Icon, image, alt, width, height }, index) => (
-        <article className={`flow-step ${index % 2 === 1 ? "flow-step--reverse" : ""}`} key={number}>
-          <div className="flow-step-copy">
-            <span className="flow-step-label">{label}</span>
-            <h3>{title}</h3>
-            <p>{body}</p>
-            <div className="flow-step-proof">
-              <Icon size={22} weight="duotone" aria-hidden="true" />
-              <span>{proof}</span>
+      {FLOW_STEPS.map(({ id, number, icon: Icon, image, width, height }, index) => {
+        const step = copy.steps[id];
+
+        return (
+          <article className={`flow-step ${index % 2 === 1 ? "flow-step--reverse" : ""}`} key={number}>
+            <div className="flow-step-copy">
+              <span className="flow-step-label">{step.label}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+              <div className="flow-step-proof">
+                <Icon size={22} weight="duotone" aria-hidden="true" />
+                <span>{step.proof}</span>
+              </div>
             </div>
-          </div>
-          <span className="flow-marker" aria-hidden="true">
-            {number}
-          </span>
-          <div className="flow-visual">
-            <span className="flow-visual-dots" aria-hidden="true" />
-            <div className="flow-screen-shot">
-              <img src={image} alt={alt} width={width} height={height} loading="lazy" decoding="async" />
+            <span className="flow-marker" aria-hidden="true">
+              {number}
+            </span>
+            <div className="flow-visual">
+              <span className="flow-visual-dots" aria-hidden="true" />
+              <div className="flow-screen-shot">
+                <img src={image} alt={step.alt} width={width} height={height} loading="lazy" decoding="async" />
+              </div>
             </div>
-          </div>
-        </article>
-      ))}
+          </article>
+        );
+      })}
     </div>
   );
 }
 
-function PresenceExperience() {
+function PresenceExperience({ copy }: { copy: HomeCopy["presence"] }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeBenefit = benefits[activeIndex];
-  const ActiveIcon = activeBenefit.icon;
+  const activeBenefit = copy.benefits[activeIndex];
+  const ActiveIcon = BENEFIT_ICONS[activeBenefit.id] ?? Sparkle;
 
   return (
     <div className="presence-experience">
       <div className="presence-rail">
         <div className="presence-rail-label">
-          <span>O que muda na prática</span>
-          <small>Explore os benefícios</small>
+          <span>{copy.railLabel}</span>
+          <small>{copy.railHint}</small>
         </div>
         <div className="presence-list">
-          {benefits.map(({ icon: Icon, title, body }, index) => {
+          {copy.benefits.map(({ id, title, body }, index) => {
+            const Icon = BENEFIT_ICONS[id] ?? Sparkle;
             const isActive = index === activeIndex;
             const descriptionId = `presence-benefit-${index}`;
 
@@ -667,7 +580,7 @@ function PresenceExperience() {
               <button
                 className={`presence-item ${isActive ? "is-active" : ""}`}
                 type="button"
-                key={title}
+                key={id}
                 aria-expanded={isActive}
                 aria-controls={descriptionId}
                 onClick={() => setActiveIndex(index)}
@@ -690,16 +603,14 @@ function PresenceExperience() {
         </div>
         <div className="presence-principle">
           <CheckCircle size={22} weight="duotone" aria-hidden="true" />
-          <span>
-            <strong>Sem automação invisível.</strong> A profissional revisa, ajusta e valida cada etapa.
-          </span>
+          <span>{rich(copy.principle)}</span>
         </div>
       </div>
 
-      <aside className="presence-visual" aria-label="Presença clínica apoiada pelo MedChina">
+      <aside className="presence-visual" aria-label={copy.visualAria}>
         <img
           src="/images/medchina-presence-consultation.webp"
-          alt="Profissional de Medicina Tradicional Chinesa escutando uma paciente durante a consulta"
+          alt={copy.visualAlt}
           width={1200}
           height={1500}
           loading="lazy"
@@ -707,25 +618,25 @@ function PresenceExperience() {
         />
         <div className="presence-visual-tag">
           <Waveform size={18} weight="duotone" aria-hidden="true" />
-          <span>Atendimento em foco</span>
+          <span>{copy.visualTag}</span>
         </div>
         <div className="presence-proof-card presence-proof-card--top">
           <Headphones size={25} weight="duotone" aria-hidden="true" />
           <span>
-            <strong>Escuta preservada</strong>
-            <small>Menos tela durante a consulta</small>
+            <strong>{copy.proofTitle}</strong>
+            <small>{copy.proofDetail}</small>
           </span>
         </div>
         <div className="presence-focus-card" aria-live="polite">
           <span className="presence-focus-label">
-            <ActiveIcon size={19} weight="duotone" aria-hidden="true" /> Em foco agora
+            <ActiveIcon size={19} weight="duotone" aria-hidden="true" /> {copy.focusLabel}
           </span>
           <strong>{activeBenefit.title}</strong>
           <p>{activeBenefit.body}</p>
           <small>
-            <span>A IA organiza</span>
+            <span>{copy.focusAiOrganizes}</span>
             <Check size={14} weight="bold" aria-hidden="true" />
-            <span>Você valida</span>
+            <span>{copy.focusYouValidate}</span>
           </small>
         </div>
       </aside>
@@ -733,24 +644,33 @@ function PresenceExperience() {
   );
 }
 
-function Header() {
+function Header({
+  copy,
+  language,
+  locale,
+}: {
+  copy: HomeCopy["nav"];
+  language: HomeCopy["language"];
+  locale: LocaleOption;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <header className="site-header">
       <div className="header-inner">
-        <Brand />
-        <nav className="desktop-nav" aria-label="Navegação principal">
-          <a href="#como-funciona">Como funciona</a>
-          <a href="#recursos">Recursos</a>
-          <a href="#seguranca">Segurança</a>
-          <a href="#planos">Planos</a>
+        <Brand label={copy.brandAria} />
+        <nav className="desktop-nav" aria-label={copy.desktopAria}>
+          <a href="#como-funciona">{copy.howItWorks}</a>
+          <a href="#recursos">{copy.features}</a>
+          <a href="#seguranca">{copy.security}</a>
+          <a href="#planos">{copy.plans}</a>
         </nav>
         <div className="header-actions">
+          <HomeLanguageSwitch current={locale} copy={language} />
           <a className="login-link" href={signInUrl}>
-            Entrar
+            {copy.signIn}
           </a>
           <a className="button button--sm" href={signUpUrl}>
-            Criar conta grátis
+            {copy.signUp}
           </a>
         </div>
         <button
@@ -758,29 +678,30 @@ function Header() {
           type="button"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          aria-label={open ? "Fechar menu" : "Abrir menu"}
+          aria-label={open ? copy.closeMenu : copy.openMenu}
         >
           {open ? <X size={24} /> : <List size={24} />}
         </button>
       </div>
       {open && (
-        <nav className="mobile-nav" aria-label="Navegação mobile">
+        <nav className="mobile-nav" aria-label={copy.mobileAria}>
           <a onClick={() => setOpen(false)} href="#como-funciona">
-            Como funciona
+            {copy.howItWorks}
           </a>
           <a onClick={() => setOpen(false)} href="#recursos">
-            Recursos
+            {copy.features}
           </a>
           <a onClick={() => setOpen(false)} href="#seguranca">
-            Segurança
+            {copy.security}
           </a>
           <a onClick={() => setOpen(false)} href="#planos">
-            Planos
+            {copy.plans}
           </a>
-          <a href={signInUrl}>Entrar</a>
+          <a href={signInUrl}>{copy.signIn}</a>
           <a className="button" href={signUpUrl}>
-            Criar conta grátis
+            {copy.signUp}
           </a>
+          <HomeLanguageSwitch current={locale} copy={language} variant="mobile" />
         </nav>
       )}
     </header>
@@ -790,67 +711,63 @@ function Header() {
 export default function ClinicalSourceHome({
   plans,
   couponNotice,
+  copy,
+  locale,
+  autoSwitched,
 }: {
   /** Live catalog from packages/billing, already formatted by the server page. */
   plans: PublicPlanDisplay[];
   /** Confirmation that a campaign code was recognized — or that it was not. */
   couponNotice?: { label: string; applied: boolean };
+  /** This page's copy in the active language (home-copy/<locale>.ts). */
+  copy: HomeCopy;
+  locale: LocaleOption;
+  /** The site chose the language for this visitor — she must be told. */
+  autoSwitched: boolean;
 }) {
   return (
     <main id="inicio" className="clinical-source-home">
-      <Header />
+      {autoSwitched && <HomeLanguageNotice copy={copy.language} defaultLocaleName={copy.language.names["pt-BR"]} />}
+      <Header copy={copy.nav} language={copy.language} locale={locale} />
 
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-inner">
           <div className="hero-copy">
-            <p className="eyebrow">Clareza clínica, do primeiro relato à evolução</p>
-            <h1 id="hero-title">
-              Sua prática de MTC, <br />
-              ampliada por uma IA
-              <br />
-              que <em>você supervisiona.</em>
-            </h1>
-            <p className="hero-lead">
-              Registre a consulta, estruture a anamnese e conecte padrões clínicos com rastreabilidade, sem abrir mão da
-              sua decisão.
-            </p>
+            <p className="eyebrow">{copy.hero.eyebrow}</p>
+            <h1 id="hero-title">{rich(copy.hero.title)}</h1>
+            <p className="hero-lead">{copy.hero.lead}</p>
             <div className="hero-actions">
               <a className="button" href={signUpUrl}>
-                Criar conta gratuita <ArrowRight size={18} />
+                {copy.hero.ctaPrimary} <ArrowRight size={18} />
               </a>
               <a className="button button--secondary" href="#como-funciona">
-                <Play size={17} weight="fill" /> Conhecer a plataforma
+                <Play size={17} weight="fill" /> {copy.hero.ctaSecondary}
               </a>
             </div>
             <p className="hero-guarantee">
-              <CheckCircle size={16} weight="fill" /> 14 dias grátis, sem cartão · cancele quando quiser
+              <CheckCircle size={16} weight="fill" /> {copy.hero.guarantee}
             </p>
-            <ul className="hero-trust" aria-label="Garantias">
+            <ul className="hero-trust" aria-label={copy.hero.trustAria}>
               <li>
-                <ShieldCheck size={19} weight="duotone" /> Consentimento
+                <ShieldCheck size={19} weight="duotone" /> {copy.hero.trust[0]}
               </li>
               <li>
-                <Fingerprint size={19} weight="duotone" /> Rastreabilidade
+                <Fingerprint size={19} weight="duotone" /> {copy.hero.trust[1]}
               </li>
               <li>
-                <Stethoscope size={19} weight="duotone" /> Controle clínico
+                <Stethoscope size={19} weight="duotone" /> {copy.hero.trust[2]}
               </li>
             </ul>
             <div className="hero-principle">
-              <span />{" "}
-              <p>
-                <strong>A IA organiza.</strong>
-                <br />
-                Você interpreta, valida e decide.
-              </p>
+              <span /> <p>{rich(copy.hero.principle)}</p>
             </div>
           </div>
 
-          <div className="hero-stage" aria-label="MedChina no computador e no celular">
+          <div className="hero-stage" aria-label={copy.hero.stageAria}>
             <div className="hero-composite">
               <img
                 src="/images/medchina-hero-product-composite.webp"
-                alt="Profissional de Medicina Tradicional Chinesa usando o MedChina no computador e no celular"
+                alt={copy.hero.compositeAlt}
                 width={1024}
                 height={1536}
                 // Above the fold — eager + highest fetch priority (this is the page's LCP element).
@@ -858,182 +775,132 @@ export default function ClinicalSourceHome({
                 decoding="async"
               />
             </div>
-            <div className="platform-badges" aria-label="Aplicativo disponível para iOS e Android">
+            <div className="platform-badges" aria-label={copy.hero.platformAria}>
               <div>
                 <AppleLogo size={21} weight="fill" />
                 <span>
-                  <small>Disponível para</small>
+                  <small>{copy.hero.availableFor}</small>
                   <strong>iOS</strong>
                 </span>
               </div>
               <div>
                 <AndroidLogo size={21} weight="fill" />
                 <span>
-                  <small>Disponível para</small>
+                  <small>{copy.hero.availableFor}</small>
                   <strong>Android</strong>
                 </span>
               </div>
             </div>
             <div className="insight-stack">
-              <div>
-                <FileText size={24} />
-                <span>
-                  <strong>Informação rastreável</strong>
-                  <small>Origem e contexto preservados.</small>
-                </span>
-              </div>
-              <div>
-                <Sparkle size={24} />
-                <span>
-                  <strong>Hipótese para revisão</strong>
-                  <small>Sugestões pedem seu julgamento.</small>
-                </span>
-              </div>
-              <div>
-                <Stethoscope size={24} />
-                <span>
-                  <strong>Plano sob sua decisão</strong>
-                  <small>Você define condutas e ajustes.</small>
-                </span>
-              </div>
+              {copy.hero.insights.map(({ title, detail }, index) => {
+                const Icon = HERO_INSIGHT_ICONS[index] ?? FileText;
+
+                return (
+                  <div key={title}>
+                    <Icon size={24} />
+                    <span>
+                      <strong>{title}</strong>
+                      <small>{detail}</small>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="value-strip" aria-label="Principais benefícios do MedChina">
+      <section className="value-strip" aria-label={copy.valueStrip.ariaLabel}>
         <div className="value-strip-inner">
-          {valueHighlights.map(({ icon: Icon, title }) => (
-            <div className="value-strip-item" key={title}>
-              <span className="value-strip-icon">
-                <Icon size={25} weight="duotone" aria-hidden="true" />
-              </span>
-              <strong>{title}</strong>
-            </div>
-          ))}
+          {copy.valueStrip.items.map((title, index) => {
+            const Icon = VALUE_ICONS[index] ?? Notebook;
+
+            return (
+              <div className="value-strip-item" key={title}>
+                <span className="value-strip-icon">
+                  <Icon size={25} weight="duotone" aria-hidden="true" />
+                </span>
+                <strong>{title}</strong>
+              </div>
+            );
+          })}
         </div>
       </section>
 
       <section className="flow-section section" id="como-funciona">
         <div className="section-heading section-heading--center">
-          <p className="eyebrow">Todo o fluxo, com continuidade</p>
-          <h2>
-            Uma linha <em>contínua</em> entre
-            <br />
-            escuta, raciocínio e evolução.
-          </h2>
-          <p>
-            Do primeiro contato ao acompanhamento, o MedChina conecta cada etapa da consulta com estrutura, contexto e
-            segurança.
-          </p>
+          <p className="eyebrow">{copy.flow.eyebrow}</p>
+          <h2>{rich(copy.flow.title)}</h2>
+          <p>{copy.flow.lead}</p>
         </div>
-        <FlowTimeline />
+        <FlowTimeline copy={copy.flow} />
       </section>
 
       <section className="presence-section" id="recursos">
         <div className="presence-heading">
-          <p className="eyebrow eyebrow--light">Presença clínica</p>
-          <h2>
-            A tecnologia fica nos bastidores.
-            <br />
-            <em>O vínculo continua no centro.</em>
-          </h2>
-          <p>
-            A consulta em MTC exige escuta, observação e leitura individual. O MedChina reduz o esforço operacional para
-            que você revise apenas o que exige sua decisão.
-          </p>
+          <p className="eyebrow eyebrow--light">{copy.presence.eyebrow}</p>
+          <h2>{rich(copy.presence.title)}</h2>
+          <p>{copy.presence.lead}</p>
         </div>
-        <PresenceExperience />
+        <PresenceExperience copy={copy.presence} />
       </section>
 
       <section className="mobile-section section" id="mobile">
         <div className="mobile-copy">
-          <p className="eyebrow eyebrow--light">MedChina Mobile</p>
-          <h2>
-            Seu celular capta a consulta. <em>A plataforma organiza o atendimento.</em>
-          </h2>
-          <p>
-            O aplicativo mobile facilita a gravação autorizada e o registro de observações por voz. Na web, você revisa
-            a anamnese, a análise e o plano terapêutico.
-          </p>
+          <p className="eyebrow eyebrow--light">{copy.mobile.eyebrow}</p>
+          <h2>{rich(copy.mobile.title)}</h2>
+          <p>{copy.mobile.lead}</p>
           <ul className="check-list">
-            <li>
-              <Check size={17} weight="bold" /> Consultas do dia e seleção segura do paciente
-            </li>
-            <li>
-              <Check size={17} weight="bold" /> Consentimento antes de gravar
-            </li>
-            <li>
-              <Check size={17} weight="bold" /> Pausar, retomar e registrar observações
-            </li>
-            <li>
-              <Check size={17} weight="bold" /> Língua, pulso e palpação por voz
-            </li>
+            {copy.mobile.checks.map((check) => (
+              <li key={check}>
+                <Check size={17} weight="bold" /> {check}
+              </li>
+            ))}
           </ul>
           <div className="offline-note">
             <CloudCheck size={27} />
             <span>
-              <strong>Conexão instável não significa consulta perdida.</strong>
-              <small>O áudio fica preservado e é enviado quando a conexão voltar.</small>
+              <strong>{copy.mobile.offlineTitle}</strong>
+              <small>{copy.mobile.offlineDetail}</small>
             </span>
           </div>
         </div>
-        <MobileShowcase />
+        <MobileShowcase copy={copy.mobile} />
       </section>
 
       <section className="supervised-section section" id="ia-supervisionada">
         <div className="section-heading">
-          <p className="eyebrow">IA supervisionada</p>
-          <h2>
-            A anamnese é preenchida sem transformar <em>ausência em resposta.</em>
-          </h2>
-          <p>
-            O MedChina organiza as informações relatadas, preserva a origem de cada dado e mantém em branco o que não
-            foi informado.
-          </p>
+          <p className="eyebrow">{copy.supervised.eyebrow}</p>
+          <h2>{rich(copy.supervised.title)}</h2>
+          <p>{copy.supervised.lead}</p>
         </div>
-        <SupervisedEvidence />
+        <SupervisedEvidence copy={copy.supervised} />
         <div className="traceability-row">
-          <div>
-            <Eye size={31} weight="duotone" />
-            <span>
-              <strong>Origem recuperável</strong>
-              <small>Cada campo mantém vínculo com o trecho correspondente.</small>
-            </span>
-          </div>
-          <div>
-            <Fingerprint size={31} weight="duotone" />
-            <span>
-              <strong>Autoria preservada</strong>
-              <small>Paciente, profissional, IA e decisão nunca se confundem.</small>
-            </span>
-          </div>
-          <div>
-            <SealCheck size={31} weight="duotone" />
-            <span>
-              <strong>Validação explícita</strong>
-              <small>O prontuário só avança depois da sua revisão.</small>
-            </span>
-          </div>
+          {copy.supervised.traceability.map(({ id, title, detail }) => {
+            const Icon = TRACEABILITY_ICONS[id] ?? Eye;
+
+            return (
+              <div key={id}>
+                <Icon size={31} weight="duotone" />
+                <span>
+                  <strong>{title}</strong>
+                  <small>{detail}</small>
+                </span>
+              </div>
+            );
+          })}
         </div>
       </section>
 
       <section className="mtc-section section">
         <div className="mtc-copy">
-          <p className="eyebrow eyebrow--light">Especialização</p>
-          <h2>
-            Um prontuário construído para a lógica da <em>Medicina Tradicional Chinesa.</em>
-          </h2>
-          <p>
-            Em vez de adaptar sua consulta a um prontuário genérico, o MedChina organiza a avaliação segundo os
-            elementos da prática da MTC.
-          </p>
-          <blockquote>
-            “Use os modelos do MedChina, personalize sua anamnese e mantenha seu próprio modo de atender.”
-          </blockquote>
+          <p className="eyebrow eyebrow--light">{copy.mtc.eyebrow}</p>
+          <h2>{rich(copy.mtc.title)}</h2>
+          <p>{copy.mtc.lead}</p>
+          <blockquote>{copy.mtc.quote}</blockquote>
         </div>
         <div className="mtc-list">
-          {mtcCategories.map((category, index) => (
+          {copy.mtc.categories.map((category, index) => (
             <div key={category}>
               <span>{String(index + 1).padStart(2, "0")}</span>
               <b>{category}</b>
@@ -1045,63 +912,38 @@ export default function ClinicalSourceHome({
 
       <section className="security-section section" id="seguranca">
         <div className="security-heading">
-          <p className="eyebrow eyebrow--light">Segurança</p>
-          <h2>
-            Dados clínicos exigem mais do que conveniência. <em>Exigem controle.</em>
-          </h2>
-          <p>
-            Segurança, rastreabilidade e minimização integradas ao fluxo clínico — do consentimento ao histórico de
-            alterações.
-          </p>
+          <p className="eyebrow eyebrow--light">{copy.security.eyebrow}</p>
+          <h2>{rich(copy.security.title)}</h2>
+          <p>{copy.security.lead}</p>
         </div>
         <div className="security-grid">
-          <article>
-            <ShieldCheck size={32} weight="duotone" />
-            <h3>Consentimento separado</h3>
-            <p>Gravação, transcrição, IA e imagens podem ter autorizações específicas e versionadas.</p>
-          </article>
-          <article>
-            <LockKey size={32} weight="duotone" />
-            <h3>Acesso protegido</h3>
-            <p>Autenticação em dois fatores, gestão de sessões, criptografia e registros de acesso.</p>
-          </article>
-          <article>
-            <Database size={32} weight="duotone" />
-            <h3>Áudio sob controle</h3>
-            <p>A cópia local só é removida após a confirmação segura do envio.</p>
-          </article>
-          <article>
-            <ClockCounterClockwise size={32} weight="duotone" />
-            <h3>Histórico de alterações</h3>
-            <p>Finalizações, edições e adendos permanecem rastreáveis, com autoria, data e versão.</p>
-          </article>
+          {copy.security.cards.map(({ id, title, body }) => {
+            const Icon = SECURITY_ICONS[id] ?? ShieldCheck;
+
+            return (
+              <article key={id}>
+                <Icon size={32} weight="duotone" />
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            );
+          })}
         </div>
       </section>
 
       <section className="pricing-section section" id="planos">
         <div className="pricing-stage">
           <div className="section-heading section-heading--center">
-            <p className="eyebrow eyebrow--light">Planos transparentes</p>
-            <h2>
-              Comece no seu ritmo.
-              <br />
-              <em>Automatize quando fizer sentido.</em>
-            </h2>
-            <p>
-              Uma base clínica completa para começar e dois níveis de automação supervisionada para ganhar tempo sem
-              abrir mão da decisão.
-            </p>
+            <p className="eyebrow eyebrow--light">{copy.pricing.eyebrow}</p>
+            <h2>{rich(copy.pricing.title)}</h2>
+            <p>{copy.pricing.lead}</p>
           </div>
-          <div className="pricing-trust" aria-label="Condições para começar">
-            <span>
-              <CheckCircle size={18} weight="fill" /> Conta gratuita para começar
-            </span>
-            <span>
-              <CheckCircle size={18} weight="fill" /> Trial Pro iniciado por você
-            </span>
-            <span>
-              <CheckCircle size={18} weight="fill" /> Sem cartão ou cobrança automática
-            </span>
+          <div className="pricing-trust" aria-label={copy.pricing.trustAria}>
+            {copy.pricing.trust.map((item) => (
+              <span key={item}>
+                <CheckCircle size={18} weight="fill" /> {item}
+              </span>
+            ))}
           </div>
         </div>
         {couponNotice && (
@@ -1111,9 +953,11 @@ export default function ClinicalSourceHome({
         )}
         <div className="pricing-grid">
           {plans.map((plan) => {
-            const presentation = PLAN_PRESENTATION[plan.slug] ?? DEFAULT_PRESENTATION;
-            const Icon = presentation.icon;
-            const badge = "badge" in presentation ? presentation.badge : undefined;
+            const presentation = copy.pricing.plans[plan.slug as keyof HomeCopy["pricing"]["plans"]];
+            const eyebrow = presentation?.eyebrow ?? copy.pricing.defaultEyebrow;
+            const cta = presentation?.cta ?? copy.pricing.defaultCta;
+            const badge = presentation?.badge;
+            const Icon = PLAN_ICONS[plan.slug] ?? Notebook;
             const featured = Boolean(plan.highlighted);
             return (
               <article className={`price-card ${featured ? "price-card--featured" : ""}`} key={plan.slug}>
@@ -1123,7 +967,7 @@ export default function ClinicalSourceHome({
                   </span>
                   {badge && <span className="plan-label">{badge}</span>}
                 </div>
-                <p className="plan-eyebrow">{presentation.eyebrow}</p>
+                <p className="plan-eyebrow">{eyebrow}</p>
                 <h3>{plan.name}</h3>
                 {plan.description && <p className="plan-description">{plan.description}</p>}
                 {plan.originalPrice && (
@@ -1137,11 +981,11 @@ export default function ClinicalSourceHome({
                   {plan.period && <small>{plan.period}</small>}
                 </div>
                 <a className={`button ${featured ? "" : "button--secondary"}`} href={signUpUrl}>
-                  {presentation.cta}
+                  {cta}
                   <ArrowRight size={17} />
                 </a>
                 <div className="plan-includes">
-                  <strong>O que está incluído</strong>
+                  <strong>{copy.pricing.included}</strong>
                   <ul>
                     {plan.features.map((feature) => (
                       <li key={feature}>
@@ -1159,29 +1003,26 @@ export default function ClinicalSourceHome({
             <ShieldCheck size={25} weight="duotone" aria-hidden="true" />
           </span>
           <span>
-            <strong>Você começa a testar quando começa a trabalhar.</strong>
-            <small>
-              O trial Pro é ativado na sua primeira ação de trabalho — gravar, agendar, importar ou usar a biblioteca —
-              e avisamos na hora. Nada é cobrado automaticamente.
-            </small>
+            <strong>{copy.pricing.assuranceTitle}</strong>
+            <small>{copy.pricing.assuranceDetail}</small>
           </span>
           <a href="#duvidas">
-            Tirar dúvidas <ArrowRight size={15} />
+            {copy.pricing.assuranceLink} <ArrowRight size={15} />
           </a>
         </div>
       </section>
 
       <section className="faq-section section" id="duvidas">
         <div className="faq-intro">
-          <p className="eyebrow">Dúvidas</p>
-          <h2>Perguntas frequentes</h2>
-          <p>As respostas mais importantes sobre o plano gratuito, o trial e o papel da inteligência artificial.</p>
+          <p className="eyebrow">{copy.faq.eyebrow}</p>
+          <h2>{copy.faq.title}</h2>
+          <p>{copy.faq.lead}</p>
           <a href={signUpUrl}>
-            Começar gratuitamente <ArrowRight size={16} />
+            {copy.faq.cta} <ArrowRight size={16} />
           </a>
         </div>
         <div className="faq-list">
-          {faqItems.map((item, index) => (
+          {copy.faq.items.map((item, index) => (
             <details key={item.question} open={index === 0}>
               <summary>
                 {item.question}
@@ -1195,32 +1036,23 @@ export default function ClinicalSourceHome({
 
       <section className="final-cta">
         <div>
-          <p className="eyebrow eyebrow--light">Seu próximo atendimento pode começar diferente</p>
-          <h2>
-            Mais presença para cuidar. <em>Mais clareza para decidir.</em>
-          </h2>
-          <p>
-            Organize seus pacientes, conheça os recursos clínicos e ative a automação apenas quando fizer sentido para
-            você.
-          </p>
+          <p className="eyebrow eyebrow--light">{copy.finalCta.eyebrow}</p>
+          <h2>{rich(copy.finalCta.title)}</h2>
+          <p>{copy.finalCta.lead}</p>
           <div className="hero-actions">
             <a className="button button--light" href={signUpUrl}>
-              Criar minha conta gratuita <ArrowRight size={18} />
+              {copy.finalCta.ctaPrimary} <ArrowRight size={18} />
             </a>
             <a className="text-link-light" href="#como-funciona">
-              Ver como funciona
+              {copy.finalCta.ctaSecondary}
             </a>
           </div>
           <ul>
-            <li>
-              <Check size={17} /> Prontuários ilimitados
-            </li>
-            <li>
-              <Check size={17} /> Trial iniciado por você
-            </li>
-            <li>
-              <Check size={17} /> Sem cobrança automática
-            </li>
+            {copy.finalCta.bullets.map((bullet) => (
+              <li key={bullet}>
+                <Check size={17} /> {bullet}
+              </li>
+            ))}
           </ul>
         </div>
       </section>
@@ -1228,35 +1060,32 @@ export default function ClinicalSourceHome({
       <footer className="site-footer">
         <div className="footer-top">
           <div className="footer-brand">
-            <Brand inverse />
-            <p>Prontuário e apoio ao raciocínio clínico para Medicina Tradicional Chinesa.</p>
+            <Brand inverse label={copy.nav.brandAria} />
+            <p>{copy.footer.tagline}</p>
           </div>
           <div>
-            <strong>Produto</strong>
-            <a href="#como-funciona">Como funciona</a>
-            <a href="#recursos">Recursos</a>
-            <a href="#planos">Planos</a>
-            <a href="#seguranca">Segurança</a>
+            <strong>{copy.footer.productTitle}</strong>
+            <a href="#como-funciona">{copy.nav.howItWorks}</a>
+            <a href="#recursos">{copy.nav.features}</a>
+            <a href="#planos">{copy.nav.plans}</a>
+            <a href="#seguranca">{copy.nav.security}</a>
           </div>
           <div>
-            <strong>Conta</strong>
-            <a href={signUpUrl}>Começar gratuitamente</a>
-            <a href={signInUrl}>Entrar</a>
-            <a href="#duvidas">Central de ajuda</a>
+            <strong>{copy.footer.accountTitle}</strong>
+            <a href={signUpUrl}>{copy.footer.signUp}</a>
+            <a href={signInUrl}>{copy.nav.signIn}</a>
+            <a href="#duvidas">{copy.footer.helpCenter}</a>
           </div>
           <div>
-            <strong>Empresa</strong>
-            <a href="#inicio">Sobre</a>
-            <a href="mailto:contato@medchinaprontuarios.com.br">Contato</a>
-            <a href="#seguranca">Privacidade</a>
+            <strong>{copy.footer.companyTitle}</strong>
+            <a href="#inicio">{copy.footer.about}</a>
+            <a href="mailto:contato@medchinaprontuarios.com.br">{copy.footer.contact}</a>
+            <a href="#seguranca">{copy.footer.privacy}</a>
           </div>
         </div>
         <div className="footer-bottom">
-          <span>© 2026 MedChina. Todos os direitos reservados.</span>
-          <p>
-            O MedChina não substitui avaliação profissional, exame físico, observação da língua, palpação do pulso,
-            análise de contraindicações ou encaminhamento quando necessário.
-          </p>
+          <span>{copy.footer.rights}</span>
+          <p>{copy.footer.disclaimer}</p>
         </div>
       </footer>
     </main>

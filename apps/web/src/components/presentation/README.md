@@ -141,14 +141,20 @@ honest about: the text is not editable inside PowerPoint, and nothing depends on
 the organiser having TT Chocolates or a CJK font installed — it is all pixels
 by then. Measured: 27 slides in about 25s, 7.4 MB in pt-BR.
 
-**"Incluir o roteiro" puts the teleprompter in both files**, always in
-Portuguese whatever the slides are set to — the slides are for the room, the
-script is for the person holding the sheet. In the **PDF** each slide is
-followed by a reading page: title, stage direction, media note, optional cut and
-the script, top-aligned and set smaller than any slide. In the **.pptx** the
-same text goes into PowerPoint's own speaker notes (`addNotes`), where the
-presenter view already knows how to show it — the notes pages are not
-rasterised, so the file does not grow.
+**"Incluir o roteiro" puts the teleprompter in both files**: each slide is
+followed by a reading page carrying the script, top-aligned and set smaller than
+any slide. The .pptx gets those pages as slides too AND the same text in
+PowerPoint's speaker notes (`addNotes`) — the notes alone were not enough,
+because PowerPoint hides them behind the notes pane and a file handed to someone
+else has to show what it carries.
+
+**The script follows the language switch**, through `scriptZh` / `optionalCutZh`
+in `slides-data.ts`. Portuguese is what Debora reads — the phone teleprompter
+always shows `script`, whatever the slides are set to; the Chinese version
+exists for the copy the organisation gets, so it carries only what will be SAID.
+The stage directions and media notes stay out of it: they are production text,
+written for the speaker and only in Portuguese. Like the slides' own Chinese,
+these translations deserve a native reader's pass before the talk.
 
 One detail worth keeping: the script's blank lines between paragraphs are
 rendered as real paragraphs on the page. Kept as blank lines, each one costs a

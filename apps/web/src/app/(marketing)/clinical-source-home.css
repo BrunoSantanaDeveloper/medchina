@@ -31,6 +31,15 @@
 }
 
 :root {
+  /**
+   * Chinese has no glyphs in either brand face (Mulish, TT Chocolates), so on
+   * the localized home every Han character fell through to the browser default
+   * — a serif next to a sans page. A font stack resolves per GLYPH, so Latin
+   * text still renders in the brand face and only the Han characters reach
+   * these. Same families the app uses (apps/web/tailwind.config.ts); no webfont
+   * is downloaded. Order: macOS/iOS, Windows, Android/Linux.
+   */
+  --cjk: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC";
   --jade: #086761;
   --jade-deep: #074c49;
   --jade-dark: #063b39;
@@ -61,7 +70,7 @@ body {
   margin: 0;
   background: var(--ivory);
   color: var(--ink);
-  font-family: "Mulish", Arial, sans-serif;
+  font-family: "Mulish", var(--cjk), Arial, sans-serif;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
 }
@@ -128,7 +137,7 @@ body:has(.clinical-source-home) footer:not(.site-footer) {
   gap: 9px;
   flex: 0 0 auto;
   color: var(--jade);
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 25px;
   font-weight: 700;
   letter-spacing: -0.04em;
@@ -191,6 +200,196 @@ body:has(.clinical-source-home) footer:not(.site-footer) {
   display: flex;
   align-items: center;
   gap: 24px;
+}
+
+/* Language ----------------------------------------------------------------
+   The switcher writes the same cookie the logged-in switcher writes; there is
+   no /[locale]/ route to link to. Deliberately quiet chrome: it is a utility,
+   not a call to action, and must never compete with "Criar conta grátis". */
+
+.lang-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.lang-switch-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: #27312f;
+  font-size: 13px;
+  font-weight: 650;
+  transition:
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.lang-switch-button:hover:not(:disabled) {
+  border-color: var(--jade);
+  color: var(--jade);
+}
+
+.lang-switch-button:disabled {
+  opacity: 0.6;
+}
+
+.lang-switch-button svg:last-child {
+  transition: transform 180ms ease;
+}
+
+.lang-switch-button svg.is-open {
+  transform: rotate(180deg);
+}
+
+.lang-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  display: grid;
+  gap: 2px;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: var(--shadow-md);
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: #27312f;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  transition: background 150ms ease;
+}
+
+.lang-option:hover {
+  background: var(--paper);
+}
+
+.lang-option.is-active {
+  color: var(--jade);
+  font-weight: 750;
+}
+
+/* In the mobile drawer the list is already open: a popover inside a popover
+   is a second dismiss the visitor has to discover. */
+.lang-switch--mobile {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.lang-switch-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lang-menu--flat {
+  position: static;
+  min-width: 0;
+  padding: 0;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The strip that tells her the site chose her language, and hands back the
+   default in one click. */
+.lang-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(100% - 64px, 1360px);
+  margin: 14px auto 0;
+  padding: 11px 16px;
+  border: 1px solid rgba(8, 103, 97, 0.18);
+  border-radius: 12px;
+  background: var(--jade-soft);
+  color: var(--jade-dark);
+}
+
+.lang-notice > svg {
+  flex: 0 0 auto;
+}
+
+.lang-notice p {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.lang-notice-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 7px 12px;
+  border: 1px solid var(--jade);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--jade-deep);
+  font-size: 13px;
+  font-weight: 750;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.lang-notice-switch:hover:not(:disabled) {
+  background: var(--jade);
+  color: #fff;
+}
+
+.lang-notice-dismiss {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--jade-deep);
+  transition: background 180ms ease;
+}
+
+.lang-notice-dismiss:hover:not(:disabled) {
+  background: rgba(8, 103, 97, 0.12);
+}
+
+.lang-notice-switch:disabled,
+.lang-notice-dismiss:disabled {
+  opacity: 0.6;
+}
+
+/* Visually hidden, still announced. */
+.lang-notice-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .button {
@@ -308,7 +507,7 @@ p {
 h1,
 h2,
 h3 {
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
 }
 
 .hero h1 {
@@ -549,7 +748,7 @@ h2 em {
 .desktop-patient strong {
   display: block;
   margin: 3px 0;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 15px;
 }
 
@@ -648,7 +847,7 @@ h2 em {
 .changes-card > strong {
   display: block;
   margin-top: 12px;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 13px;
 }
 
@@ -736,7 +935,7 @@ h2 em {
 }
 
 .phone-brand strong {
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 11px;
   letter-spacing: -0.03em;
 }
@@ -770,7 +969,7 @@ h2 em {
 }
 
 .phone-heading strong {
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 15px;
   letter-spacing: -0.03em;
 }
@@ -866,7 +1065,7 @@ h2 em {
 .record-time {
   display: block;
   margin: 11px 0 0;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 27px;
   letter-spacing: -0.05em;
   text-align: center;
@@ -1123,7 +1322,7 @@ h2 em {
 .value-strip-item strong {
   max-width: 190px;
   color: #26322f;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.015em;
@@ -1554,7 +1753,7 @@ h2 em {
 }
 
 .presence-item-title strong {
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: clamp(20px, 1.65vw, 25px);
   line-height: 1.18;
   letter-spacing: -0.025em;
@@ -1733,7 +1932,7 @@ h2 em {
   display: block;
   max-width: 390px;
   margin-top: 11px;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 25px;
   line-height: 1.12;
   letter-spacing: -0.03em;
@@ -2022,7 +2221,7 @@ h2 em {
 
 .mobile-bubble strong {
   margin-top: 3px;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 13px;
   letter-spacing: -0.015em;
 }
@@ -2136,7 +2335,7 @@ h2 em {
 
 .conversation-card blockquote {
   margin: 62px 0 46px;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: clamp(27px, 2.35vw, 34px);
   font-weight: 700;
   letter-spacing: -0.035em;
@@ -2292,7 +2491,7 @@ h2 em {
 
 .prepared-header h3 {
   margin: 10px 0 4px;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 26px;
   letter-spacing: -0.035em;
 }
@@ -2532,7 +2731,7 @@ h2 em {
 }
 
 .mtc-list b {
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 21px;
 }
 
@@ -2813,7 +3012,7 @@ h2 em {
 }
 
 .price strong {
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 50px;
   letter-spacing: -0.055em;
   line-height: 1;
@@ -2993,7 +3192,7 @@ h2 em {
   justify-content: space-between;
   gap: 20px;
   padding: 26px 0;
-  font-family: "TT Chocolates", sans-serif;
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
   font-size: 20px;
   font-weight: 700;
   list-style: none;
@@ -3223,6 +3422,21 @@ h2 em {
     padding: 12px 4px;
     font-size: 15px;
     font-weight: 700;
+  }
+
+  .lang-notice {
+    width: calc(100% - 40px);
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .lang-notice p {
+    flex: 1 1 100%;
+    order: 2;
+  }
+
+  .lang-notice-switch {
+    order: 3;
   }
 
   .hero {

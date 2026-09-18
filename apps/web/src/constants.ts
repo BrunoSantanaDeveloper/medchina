@@ -18,6 +18,12 @@ export const THEME_MODE_OPTIONS = ["light", "dark", "system"] as const;
 const storagePrefix = process.env.NEXT_PUBLIC_STORAGE_PREFIX || "";
 export const COOKIE_KEYS = {
   locale: `${storagePrefix}-locale`,
+  // Present only while the ACTIVE locale was chosen for the visitor by the
+  // middleware (Accept-Language / IP country) and she has not acknowledged it.
+  // It carries the detected locale so the public page can say "we switched the
+  // language for you" and offer the way back — a silent switch is how someone
+  // ends up reading a language she did not ask for and cannot undo.
+  localeAuto: `${storagePrefix}-locale-auto`,
   // Opt-out flag for marketing analytics (read server-side to SSR the trackers,
   // and client-side by lib/analytics). Absent = tracking on (opt-out model).
   analyticsOptOut: `${storagePrefix}-analytics-optout`,

@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { DEFAULTS } from "@/config";
 import { COOKIE_KEYS } from "@/constants";
 import { ATTRIBUTION_COOKIE_MAX_AGE, encodeAttribution, readAttributionFromUrl } from "@/lib/attribution";
+import { detectLocale, LOCALE_COOKIE_MAX_AGE } from "@/lib/locale-detection";
 import { COUPON_COOKIE_MAX_AGE, COUPON_PARAM, normalizeCouponCode } from "@/lib/offer-link";
 import { IMPERSONATION_MARKER_COOKIE, parseImpersonationMarker } from "@flyee/auth";
 import { updateSession } from "@flyee/auth/middleware";
@@ -133,6 +134,29 @@ export async function middleware(request: NextRequest) {
     ? null
     : readAttributionFromUrl(request.nextUrl, request.headers.get("referer"));
 
+  /**
+   * First-visit language. The RENDER already resolves this from the request's
+   * own headers (lib/locale-request.ts), so this is not what makes the page
+   * appear in Chinese — it is what makes it STAY there: the cookie is the
+   * visitor's language from here on, the thing the switcher overrides, and the
+   * reason detection runs exactly once per visitor instead of on every request.
+   *
+   * Only for a page a browser is actually loading: a request that already
+   * carries the cookie has been decided, a crawler is never switched (only
+   * DEFAULTS.locale is indexable — docs/SEO.md), and an API call or asset has
+   * no language to choose.
+   */
+  const detectedLocale =
+    !request.cookies.has(COOKIE_KEYS.locale) &&
+    request.method === "GET" &&
+    (request.headers.get("accept") ?? "").includes("text/html")
+      ? detectLocale({
+          acceptLanguage: request.headers.get("accept-language"),
+          country: request.headers.get("x-vercel-ip-country"),
+          userAgent: request.headers.get("user-agent"),
+        })
+      : null;
+
   const withCoupon = <T extends NextResponse>(res: T): T => {
     if (linkCoupon) {
       res.cookies.set(COOKIE_KEYS.offerCoupon, linkCoupon, {
@@ -150,6 +174,25 @@ export async function middleware(request: NextRequest) {
         maxAge: ATTRIBUTION_COOKIE_MAX_AGE,
         sameSite: "lax",
         httpOnly: true,
+      });
+    }
+    if (detectedLocale) {
+      // Read by the client (the switcher shows the active language), like the
+      // locale cookie the logged-in switcher writes.
+      res.cookies.set(COOKIE_KEYS.locale, detectedLocale, {
+        path: "/",
+        maxAge: LOCALE_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        httpOnly: false,
+      });
+      // The flag that makes the switch VISIBLE: the public page offers the way
+      // back to Portuguese while it is set, and acknowledging or choosing a
+      // language clears it (lib/locale-actions.ts).
+      res.cookies.set(COOKIE_KEYS.localeAuto, detectedLocale, {
+        path: "/",
+        maxAge: LOCALE_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        httpOnly: false,
       });
     }
     return res;

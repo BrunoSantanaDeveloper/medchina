@@ -1,8 +1,8 @@
 import { getRequestConfig } from "next-intl/server";
 
 import { DEFAULTS } from "@/config";
-import { LocaleOption, LOCALES } from "@/constants";
-import { getClientLocale } from "@/i18n/locale";
+import { LocaleOption } from "@/constants";
+import { resolveRequestLocale } from "@/lib/locale-request";
 
 // Message catalogs live in @flyee/content (shared with apps/mobile).
 // Static map instead of a template-string import so the bundler can
@@ -18,10 +18,16 @@ const MESSAGES: Record<LocaleOption, () => Promise<{ default: Record<string, unk
 
 export default getRequestConfig(async () => {
   try {
-    const localeCookie = await getClientLocale();
-    const locale = (LOCALES as readonly string[]).includes(localeCookie)
-      ? (localeCookie as LocaleOption)
-      : (DEFAULTS.locale as LocaleOption);
+    /**
+     * The cookie is the visitor's own choice and always wins. Without one — a
+     * first visit — this request's own signals decide, so someone arriving from
+     * China reads Chinese on the FIRST render. Detecting here rather than only
+     * in the middleware is deliberate: a cookie the middleware sets lands on
+     * the RESPONSE, so trusting it alone would serve this page in Portuguese
+     * and switch only on the next navigation. The middleware persists the same
+     * decision so it survives and can be overridden.
+     */
+    const { locale } = await resolveRequestLocale();
 
     return {
       locale,

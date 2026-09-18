@@ -31,14 +31,32 @@ const LANG_NAME: Record<DeckLang, string> = { pt: "Português", zh: "中文" };
  * — the stage direction, the media note, the optional cut, the script — so a
  * printed copy is a real fallback for the phone dying on stage.
  */
-function SlideNotes({ slide, place }: { slide: SlideData; place: string }) {
+function SlideNotes({ slide, lang }: { slide: SlideData; lang: DeckLang }) {
+  // The page header belongs to the language it is written in, title included.
+  const place = slide.annex
+    ? lang === "zh"
+      ? "附录"
+      : "Anexo"
+    : slide.roteiroSlide
+      ? lang === "zh"
+        ? `幻灯片 ${slide.roteiroSlide}`
+        : `Slide ${slide.roteiroSlide}`
+      : slide.kicker[lang];
+  const block = lang === "zh" ? `第 ${slide.block} 段` : `Bloco ${slide.block}`;
+  const script = (lang === "zh" && slide.scriptZh) || slide.script;
+  const optionalCut = lang === "zh" ? slide.optionalCutZh : slide.optionalCut;
+  // The stage directions and the media notes are production text, written for
+  // the speaker and only in Portuguese. A Chinese copy is for reading what will
+  // be SAID, so it carries the spoken text and nothing else.
+  const production = lang === "pt";
+
   return (
     <div className="deck-slide-inner deck-notes">
       <header className="deck-notes-head">
         <span>
-          {place} · Bloco {slide.block} · {slide.timeRange}
+          {place} · {block} · {slide.timeRange}
         </span>
-        <h2>{slide.title.pt}</h2>
+        <h2>{slide.title[lang]}</h2>
       </header>
 
       <div className="deck-notes-grid">
@@ -46,26 +64,28 @@ function SlideNotes({ slide, place }: { slide: SlideData; place: string }) {
             fixed page each blank line costs a full line, and that alone pushed
             the longest script past the page and had it clipped. */}
         <div className="deck-notes-script">
-          {slide.script.split(/\n{2,}/).map((paragraph) => (
+          {script.split(/\n{2,}/).map((paragraph) => (
             <p key={paragraph.slice(0, 40)}>{paragraph}</p>
           ))}
         </div>
 
         <aside className="deck-notes-side">
-          <div className="deck-notes-card">
-            <h3>Instrução de palco</h3>
-            <p>{slide.stageNote}</p>
-          </div>
-          {slide.media && (
+          {production && (
+            <div className="deck-notes-card">
+              <h3>Instrução de palco</h3>
+              <p>{slide.stageNote}</p>
+            </div>
+          )}
+          {production && slide.media && (
             <div className="deck-notes-card">
               <h3>Mídia</h3>
               <p>{slide.media.productionNote}</p>
             </div>
           )}
-          {slide.optionalCut && (
+          {optionalCut && (
             <div className="deck-notes-card deck-notes-card--cut">
-              <h3>Corte opcional — pule se o tempo apertar</h3>
-              <p>{slide.optionalCut}</p>
+              <h3>{lang === "zh" ? "可选段落 — 时间紧张时可略过" : "Corte opcional — pule se o tempo apertar"}</h3>
+              <p>{optionalCut}</p>
             </div>
           )}
         </aside>
@@ -75,7 +95,13 @@ function SlideNotes({ slide, place }: { slide: SlideData; place: string }) {
 }
 
 /** The same text, as one block for PowerPoint's own speaker notes. */
-function notesText(slide: SlideData) {
+function notesText(slide: SlideData, lang: DeckLang) {
+  if (lang === "zh") {
+    return [slide.scriptZh ?? slide.script, slide.optionalCutZh ? `\n可选段落：${slide.optionalCutZh}` : null]
+      .filter((part) => part !== null)
+      .join("\n");
+  }
+
   return [
     `INSTRUÇÃO DE PALCO: ${slide.stageNote}`,
     slide.media ? `MÍDIA: ${slide.media.productionNote}` : null,
@@ -185,11 +211,14 @@ export default function DeckExport() {
     reach the bundle of any other page.
   */
   async function exportPptx() {
-    // Only the slides are rasterised; a notes page would be an image of text
-    // where PowerPoint already has a place for the words.
-    const pages = pagesRef.current?.querySelectorAll<HTMLElement>(
-      ".deck-export-page:not([data-notes]) .deck-export-canvas",
-    );
+    /*
+      Every page, script pages included. PowerPoint does have a place for the
+      words — the speaker notes, which we still fill — but they are hidden
+      behind the notes pane, and a file handed to someone else has to SHOW what
+      it carries. So the script travels twice: as a readable page and, for the
+      presenter view, as the slide's own notes.
+    */
+    const pages = pagesRef.current?.querySelectorAll<HTMLElement>(".deck-export-page");
     if (!pages?.length) return;
 
     setFailed(null);
@@ -202,7 +231,9 @@ export default function DeckExport() {
       deck.layout = "DECK_16X9";
       deck.title = fileTitle;
 
-      for (const [index, canvas] of [...pages].entries()) {
+      for (const [index, page] of [...pages].entries()) {
+        const canvas = page.querySelector<HTMLElement>(".deck-export-canvas");
+        if (!canvas) continue;
         const slide = canvas.querySelector<HTMLElement>(".deck-slide");
         const shot = await toPng(canvas, {
           width: CANVAS_W,
@@ -212,9 +243,13 @@ export default function DeckExport() {
           style: { transform: "none", transformOrigin: "top left" },
           backgroundColor: slide ? getComputedStyle(slide).backgroundColor : undefined,
         });
-        const page = deck.addSlide();
-        page.addImage({ data: shot, x: 0, y: 0, w: PPTX_W, h: PPTX_H });
-        if (withScript) page.addNotes(notesText(slides[index]));
+        const added = deck.addSlide();
+        added.addImage({ data: shot, x: 0, y: 0, w: PPTX_W, h: PPTX_H });
+        // With the script on, pages come in pairs: slide, then its script page.
+        const source = slides[withScript ? Math.floor(index / 2) : index];
+        if (withScript && !page.hasAttribute("data-notes") && source) {
+          added.addNotes(notesText(source, lang));
+        }
         setPptx({ done: index + 1, total: pages.length });
       }
 
@@ -304,8 +339,9 @@ export default function DeckExport() {
                 <b>PDF</b>: na janela que abrir, escolha <b>Destino: Salvar como PDF</b>; se o fundo sair branco, marque{" "}
                 <b>Gráficos de plano de fundo</b> em “Mais configurações”. <b>PowerPoint</b>: cada slide entra como
                 imagem em 1920×1080, fiel ao projetado, mas com o texto não editável lá dentro. Nos dois, os vídeos saem
-                como imagem. Com <b>roteiro</b>, o PDF ganha uma página de teleprompter após cada slide e o PowerPoint
-                recebe o texto nas notas do apresentador — sempre em português, qualquer que seja o idioma dos slides.
+                como imagem. Com <b>roteiro</b>, os dois ganham uma página de texto após cada slide (no PowerPoint ela
+                também vai para as notas do apresentador). O roteiro acompanha o idioma escolhido; em 中文 ele traz o
+                que será dito, sem as instruções de palco, que são de produção e existem só em português.
               </span>
             </p>
           )}
@@ -340,7 +376,7 @@ export default function DeckExport() {
                     <div className="deck-export-sheet">
                       <div className="deck-export-canvas">
                         <section className="deck-slide">
-                          <SlideNotes slide={slide} place={place} />
+                          <SlideNotes slide={slide} lang={lang} />
                         </section>
                       </div>
                     </div>

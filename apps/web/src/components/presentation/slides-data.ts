@@ -1270,6 +1270,13 @@ Quero agradecer aos organizadores deste evento por esta preciosa oportunidade e 
 Para uma acupunturista brasileira, estar aqui não é apenas uma viagem de trabalho. É uma peregrinação.
 
 Hoje quero compartilhar uma história que une três elementos: a trajetória da acupuntura no Brasil, minha trajetória como terapeuta e o nascimento do MedChina AI.`,
+    scriptZh: `下午好。
+
+感谢本次大会的主办方给予这一宝贵的机会，也感谢在座各位专家与同道的聆听与交流。
+
+对一位巴西针灸师而言，站在这里不只是一次工作旅行，而是一次朝圣。
+
+今天我想讲一个故事，它把三条线索连在一起：针灸在巴西的历程、我作为治疗师的历程，以及 MedChina AI 的诞生。`,
   },
   {
     key: "founders",
@@ -1285,6 +1292,9 @@ Hoje quero compartilhar uma história que une três elementos: a trajetória da 
     script: `Meu sócio, Bruno Santana, é engenheiro de software, com mais de 15 anos de experiência, e lidera a tecnologia do MedChina.
 
 Vamos começar pelo princípio.`,
+    scriptZh: `我的合伙人 Bruno Santana 是软件工程师，从业十五年以上，主持 MedChina 的技术工作。
+
+让我们从头说起。`,
   },
   {
     key: "timeline",
@@ -1300,6 +1310,7 @@ Vamos começar pelo princípio.`,
     },
     stageNote: "Slide 3 · Linha do tempo: 1808 → 2026.",
     optionalCut: `[CORTE OPCIONAL] Quem quebrou esse isolamento foi um personagem improvável: Friedrich Spaeth, um fisioterapeuta nascido em Luxemburgo, que fugiu do nazismo, estudou acupuntura na Alemanha e se naturalizou brasileiro. Em 1958, Spaeth começou a ensinar acupuntura no Rio de Janeiro e em São Paulo. Naquele mesmo ano nasceu a Sociedade Brasileira de Acupuntura. É esse o marco do ensino formal da medicina chinesa no meu país.`,
+    optionalCutZh: `【可选段落】打破这一隔绝的，是一位意想不到的人物：Friedrich Spaeth，生于卢森堡的理疗师，为躲避纳粹而出走，在德国研习针灸，后入籍巴西。1958 年，他开始在里约热内卢与圣保罗教授针灸。同年，巴西针灸学会成立。这就是中医在我国正式教学的开端。`,
     script: `Existem registros de acupuntura chinesa no Brasil há 218 anos.
 
 Os primeiros relatos mencionam acupunturistas vindos de Macau em 1808, junto à corte portuguesa que havia se transferido para o Brasil.
@@ -1309,6 +1320,15 @@ Mas havia uma grande barreira: o idioma.
 Os mestres orientais não conseguiam ensinar em português. Durante mais de um século, a acupuntura permaneceu principalmente dentro das colônias de imigrantes.
 
 E, mesmo assim, ela cresceu.`,
+    scriptZh: `中国针灸传入巴西，有文字可考已有 218 年。
+
+最早的记载提到 1808 年随迁往巴西的葡萄牙宫廷而来的澳门针灸师。
+
+但横亘在前的是一道大障碍：语言。
+
+东方的师父无法用葡萄牙语授业。此后一个多世纪，针灸主要留在移民聚居的社群之内。
+
+即便如此，它仍然生长。`,
   },
   {
     key: "law",
@@ -1324,9 +1344,13 @@ E, mesmo assim, ela cresceu.`,
     },
     stageNote: "Slide 4 · 12 de janeiro de 2026 — Lei 15.345.",
     optionalCut: `[CORTE OPCIONAL] A lei não resolveu tudo, e é honesto dizer isso. Ainda não temos um conselho profissional próprio nem diretrizes nacionais de formação. A graduação superior em acupuntura ainda é rara no país, então a porta de entrada mais usada será a comprovação dos cinco anos de prática. Dois pontos do texto foram vetados, entre eles o que permitia o exercício por técnicos de nível médio, um veto negociado justamente para valorizar a formação superior. E nem todos comemoraram: o Conselho Federal de Medicina segue entendendo a acupuntura como ato médico, enquanto os conselhos de fisioterapia, enfermagem e farmácia celebraram a conquista e já publicam as suas normas. O debate continua. Mas agora ele acontece dentro de uma moldura legal.`,
+    optionalCutZh: `【可选段落】这部法律并没有解决所有问题，这一点应当诚实地说明。我们还没有自己的职业委员会，也没有全国统一的培养准则。针灸的本科教育在巴西仍然稀少，因此最常见的入行途径将是五年从业经历的证明。法案有两处被否决，其中包括允许中等技术层次人员执业的条款——这一否决正是为了抬升专业培养的门槛而达成的。也并非所有人都在庆祝：联邦医学委员会仍将针灸视为医疗行为，而理疗、护理与药学委员会则对这一进展表示欢迎，并已陆续发布各自的规范。争论仍在继续，但如今它发生在一个法律的框架之内。`,
     script: `Em 12 de janeiro de 2026, segundo a trajetória apresentada nesta palestra, foi sancionada a Lei 15.345, que regulamenta a profissão de acupunturista no Brasil.
 
 Assim, 218 anos depois das primeiras referências à presença da acupuntura chinesa no Brasil, a profissão entra em um novo momento: com mais reconhecimento, mas também com mais responsabilidade e deveres.`,
+    scriptZh: `依据本次演讲所梳理的历程：2026 年 1 月 12 日，巴西颁布第 15345 号法律，对针灸师这一职业作出立法规范。
+
+于是，在中国针灸传入巴西的最早记载之后 218 年，这一职业进入新的阶段：获得更多承认，也承担更多责任与义务。`,
   },
   {
     key: "milestones",
@@ -1350,6 +1374,15 @@ Em 1995, o Conselho Federal de Medicina a reconheceu como especialidade médica,
 Em 2006, a Política Nacional de Práticas Integrativas abriu o sistema público aos profissionais não médicos.
 
 E em 2018, a acupuntura foi consolidada como prática multiprofissional no Sistema Único de Saúde, o SUS.`,
+    scriptZh: `这部法律并非凭空而来。在此之前很久，针灸已在公共卫生体系中赢得了位置。
+
+1988 年，针灸进入公立医疗网络，最初仅限医师施行。
+
+1995 年，联邦医学委员会将其确认为医学专科；护理、理疗与生物医学各委员会也在各自领域作出同样认定。随之而来的是近三十年的争讼，争的只有一个问题：谁可以持针？
+
+2006 年，《国家整合与补充医疗实践政策》向非医师专业人员开放了公立系统。
+
+2018 年，针灸在巴西统一公共卫生体系（SUS）中正式确立为多专业实践。`,
   },
   {
     key: "sus-numbers",
@@ -1373,6 +1406,15 @@ As práticas integrativas chegaram a 83% dos municípios brasileiros.
 E somando quatro décadas de difusão, as estimativas apontam que entre 20 e 35 milhões de brasileiros já se trataram com acupuntura — algo entre um em cada dez e um em cada seis habitantes do país.
 
 O Brasil é, possivelmente, um dos maiores territórios de medicina chinesa fora da Ásia. E agora que essa prática tem uma lei, quem honra essa ciência precisa de ferramentas à altura dela.`,
+    scriptZh: `公立系统敞开大门之后发生了什么？数字可以回答。
+
+针灸是巴西公立系统中应用最广的整合疗法。截至 2018 年的十年间，诊疗超过五百万人次；2024 年一年即达 110 万人次。
+
+整合医疗实践已覆盖巴西 83% 的市镇。
+
+综合四十年的传播，估算有两千万至三千五百万巴西人接受过针灸治疗——相当于每十人至每六人中就有一人。
+
+巴西可能是亚洲之外最大的中医版图之一。如今这门实践有了法律，敬重这门学问的人，也需要与之相称的工具。`,
   },
 
   {
@@ -1397,6 +1439,15 @@ Por isso, o registro clínico precisa ser muito bem feito. Uma semana depois, é
 Muitos acupunturistas trabalham sozinhos, sem hospital-escola, residência ou um colega mais experiente ao lado para discutir um caso difícil.
 
 Foi pensando nesse profissional que o MedChina nasceu: para oferecer estrutura de registro, segurança de dados e apoio ao raciocínio clínico.`,
+    scriptZh: `在中国，针灸治疗可以每天进行，这种频次本身就是治法的一部分。
+
+在巴西，患者通常一周一次。
+
+正因如此，临床记录必须做得扎实。相隔一周，凭记忆很难还原一次诊疗的全部细节。
+
+许多针灸师独自执业，没有教学医院、没有规培，身边也没有更资深的同道可以一起讨论疑难病案。
+
+MedChina 正是为这样的专业人员而生：提供记录的结构、数据的安全，以及临床推理的辅助。`,
   },
   {
     key: "paper",
@@ -1422,6 +1473,17 @@ Foi então que decidi criar um sistema de prontuário eletrônico para acupuntur
 Eu ainda não tinha dinheiro, experiência clínica acumulada nem conhecia todas as necessidades de um acupunturista.
 
 Mas tinha uma ideia e um propósito.`,
+    scriptZh: `2017 年，在我第一次接受治疗师培训时，我就从第一位患者起记录一切：资料、主诉与治疗。
+
+全部写在纸卡上。
+
+市面上找不到一份依中医思路设计的病历。缺少的正是气血能量的问诊、舌象与脉象的评估、腧穴与经络。
+
+于是我决定，为巴西的针灸师做一套电子病历系统。
+
+那时我既没有资金，也没有积累起来的临床经验，更不了解一位针灸师的全部需要。
+
+但我有一个想法，和一个目标。`,
   },
   {
     key: "congress",
@@ -1447,6 +1509,17 @@ Em junho de 2020, criei o Congresso Práticas da Sabedoria Milenar, totalmente o
 Foi com esse trabalho que consegui arrecadar os recursos para criar e desenvolver o MedChina.
 
 Ainda em 2020, contratei o programador. A tecnologia começou a nascer.`,
+    scriptZh: `接着是 2020 年，疫情来了。
+
+成千上万的同行没有了患者，也不知道何时才能重新工作。
+
+我想：既然不能出诊，我们可以一起学习。
+
+2020 年 6 月，我创办了"千年智慧实践大会"，全程线上、完全免费。
+
+正是这项工作让我筹到了创建与开发 MedChina 的资源。
+
+也是在 2020 年，我聘请了程序员。技术开始萌芽。`,
   },
   {
     key: "survey",
@@ -1466,6 +1539,11 @@ Ainda em 2020, contratei o programador. A tecnologia começou a nascer.`,
 Os resultados mostraram uma necessidade praticamente universal e pouca oferta de soluções específicas.
 
 A partir dessa pesquisa, construímos o MedChina, um software de prontuários e gestão de consultórios dedicado aos acupunturistas do Brasil.`,
+    scriptZh: `2021 年 2 月，我们面向参加过大会的 3800 位合格针灸师做了一次调研。
+
+结果显示：需求几乎是普遍的，而针对性的解决方案却很少。
+
+基于这项调研，我们建成了 MedChina——一套面向巴西针灸师的病历与诊所管理软件。`,
   },
   {
     key: "version-one",
@@ -1488,6 +1566,13 @@ A anamnese guiada era o coração da plataforma.
 Um ano depois, tínhamos mil usuários na versão gratuita, sem propaganda paga.
 
 Decidimos manter uma versão gratuita porque nossa missão é contribuir para elevar o registro clínico da profissão, e não apenas atender quem pode pagar.`,
+    scriptZh: `第一版于 2021 年 8 月上线，系统内即依中医的思路，并载有中医内容。
+
+引导式问诊是这个平台的核心。
+
+一年之后，免费版已有一千名用户，没有投放任何付费广告。
+
+我们决定保留免费版，因为我们的使命是帮助提升这一职业的临床记录水平，而不只是服务付得起费用的人。`,
   },
   {
     key: "platform-today",
@@ -1506,6 +1591,9 @@ Decidimos manter uma versão gratuita porque nossa missão é contribuir para el
     script: `Hoje, são 1.046 profissionais cadastrados na plataforma e 222 deles já assinaram planos pagos.
 
 Em 2026, voltamos com mais recursos e mais tecnologia — justamente no ano em que a profissão de acupunturista foi reconhecida no Brasil.`,
+    scriptZh: `如今，平台上已有 1046 位注册专业人员，其中 222 位订阅了付费方案。
+
+2026 年，我们带着更多资源与技术回来——恰好是针灸师这一职业在巴西获得承认的那一年。`,
   },
   {
     key: "motto",
@@ -1530,6 +1618,17 @@ Enquanto registra, o profissional pode perder contato visual, fragmentar a escut
 O MedChina AI foi criado para devolver essa atenção ao paciente.
 
 Deixem-me levar vocês para dentro de uma consulta. É o que está acontecendo nesta tela, em velocidade acelerada.`,
+    scriptZh: `正是在这个新的时刻，在职业获得立法规范之际，MedChina AI 诞生了。
+
+今天的 MedChina 起于一个朴素的问题：在诊疗中，是什么夺走了医者的专注？
+
+是电脑。是屏幕。是打字。
+
+一边记录，专业人员就可能失去目光的交流，打断倾听，还要把工作带回家。
+
+MedChina AI 就是为把这份专注还给患者而做的。
+
+请让我带各位走进一次诊疗。屏幕上正在发生的就是它，以加速的方式播放。`,
     media: {
       kind: "ambient",
       label: {
@@ -1573,6 +1672,13 @@ O profissional pode olhar, escutar, observar e examinar.
 Depois, o sistema transcreve a conversa, separa a fala do profissional e do paciente e organiza a anamnese.
 
 São estruturados dados como queixa principal, história atual, sono, energia, alimentação, digestão, aspectos emocionais e avaliação pela medicina chinesa.`,
+    scriptZh: `诊疗过程中，在患者同意的前提下，手机或电脑可以采集录音。
+
+专业人员因此可以注视、倾听、观察与诊察。
+
+其后，系统转写对话，区分医者与患者的话语，并整理问诊。
+
+主诉、现病史、睡眠、精力、饮食、消化、情志，以及中医的辨证内容，都会被结构化地记录下来。`,
   },
   {
     key: "traceability",
@@ -1592,6 +1698,11 @@ São estruturados dados como queixa principal, história atual, sono, energia, a
 Se o paciente não informou alguma coisa, o sistema não transforma silêncio em resposta negativa. O campo permanece como “não informado”.
 
 O sistema também pode apontar lacunas, contradições e mudanças em relação ao histórico.`,
+    scriptZh: `但有一点我认为至关重要：每一条填入的信息都保留其出处，专业人员可以据此听到录音中对应的片段。
+
+如果患者没有提到某件事，系统不会把沉默变成否定的回答。该字段保持为"未告知"。
+
+系统还可以指出缺漏、矛盾，以及与既往病史相比发生的变化。`,
   },
   {
     key: "guarantees",
@@ -1621,6 +1732,21 @@ Silêncio nunca vira registro. O que ninguém disse fica vazio, como não inform
 E os temas sensíveis, como medicamentos, gestação, anticoagulantes, marca-passo, cirurgias e alergias, sempre voltam para conferência, independentemente do que o modelo tenha decidido.
 
 São garantias do sistema. Não são pedidos feitos ao modelo.`,
+    scriptZh: `这里有一个步骤我必须展示，因为它正是我们与众不同之处。
+
+在模型给出结果之后，核验结果的不是人工智能，而是软件。
+
+一共四条既定规则。
+
+每一项资料都对应真实的话语。每个值都附带原句、分秒与说话人，系统会在转写稿中查找该原句：若不在其中，该值即标为未经确认。凭空杜撰的引文比没有引文更糟，因为它制造了证据。
+
+中医的诊察只认医者之言。舌象、脉象、按诊与证型，只有医者口述时才会写入；凡归于患者之口的所见，一律弃去。
+
+沉默绝不写成记录。无人说过的内容留空，标注为未告知。
+
+至于敏感事项，例如用药、妊娠、抗凝药、起搏器、手术与过敏，无论模型作何判定，一律回到复核。
+
+这些是系统的保障，不是对模型提出的请求。`,
   },
   {
     key: "hypotheses",
@@ -1648,6 +1774,19 @@ Mas a decisão final continua sendo do profissional.
 O prontuário diferencia aquilo que o paciente relatou, aquilo que o profissional observou, aquilo que a inteligência artificial inferiu e aquilo que o profissional decidiu.
 
 Essa separação é essencial.`,
+    scriptZh: `在资料被整理之后，MedChina AI 会准备证型假说。
+
+每一条假说都列出支持的征象、不支持的征象，以及尚待查证的资料。
+
+在专业人员确认某一证型之后，系统可以准备取穴与配穴的建议、补法或泻法的思路，以及艾灸、耳穴、拔罐与中医食疗等技术的辅助意见，并附禁忌症的核查。
+
+它也可以准备治疗方案，以及交给患者带回家的文件。
+
+但最终的决定权始终在专业人员手中。
+
+病历会区分：患者所述、医者所察、人工智能所推，以及医者所决。
+
+这一区分至关重要。`,
   },
   {
     key: "testimony-user",
@@ -1664,6 +1803,9 @@ Essa separação é essencial.`,
     script: `Nossos usuários descrevem essa experiência de um jeito que me emociona: como ter um colega na sala. Um mentor que auxilia no raciocínio, apresenta pontos de vista e faz avaliações cuidadosas que nos fazem ver mais e melhor o cenário do paciente. Quem trabalha sozinho em consultório sabe o valor disso.
 
 Mas ninguém explica isso melhor do que quem usa. Ouçam a Hellen.`,
+    scriptZh: `我们的用户描述这种体验的方式让我动容：就像诊室里多了一位同道。一位在推理上给予帮助的伙伴，提出不同的视角，做出细致的评估，让我们把患者的全貌看得更多、更清楚。独自执业的人，最懂这份价值。
+
+不过，没有人比使用者本人讲得更好。请听 Hellen 的讲述。`,
     media: {
       kind: "testimony",
       label: { pt: "Depoimento · usuária do MedChina", zh: "证言 · MedChina 使用者" },
@@ -1701,6 +1843,13 @@ O primeiro é a biblioteca clínica. O profissional pode estudar e tirar dúvida
 A inteligência artificial não navega na internet: ela consulta esse acervo, e cada citação é conferida contra o trecho que foi realmente entregue a ela.
 
 E cada profissional pode adicionar os próprios protocolos, que passam a alimentar as sugestões do seu consultório.`,
+    scriptZh: `关于平台，还有最后两点。
+
+第一点是临床知识库。专业人员可以通过对话来研习与释疑，其依据是一套经过甄选的中医知识库，而且每个答案都附有出处。
+
+人工智能并不上网检索：它查阅的是这套馆藏，并且每一处引用都要对照实际交付给它的片段加以核验。
+
+每位专业人员也可以加入自己的方案，用于其诊所的建议生成。`,
   },
   {
     key: "consent-security",
@@ -1721,6 +1870,13 @@ O consentimento do paciente é específico e versionado: uma autorização para 
 Tudo é criptografado, cada acesso fica em trilha de auditoria e nenhum áudio ou conteúdo clínico é usado para treinar modelos públicos de IA. Seguimos a lei brasileira de proteção de dados desde a concepção do sistema.
 
 E uma decisão de que me orgulho: o plano gratuito do MedChina oferece o prontuário manual completo, com pacientes e registros ilimitados, para sempre. O que se paga é a automação: o tempo que a tecnologia devolve ao profissional.`,
+    scriptZh: `第二点是安全，因为临床数据是最敏感的数据。
+
+患者的知情同意是分项的，并且带有版本：录音一项授权，人工智能处理另一项授权；拒绝授权绝不妨碍以人工方式完成诊疗。
+
+全程加密，每次访问都留有审计轨迹，任何录音或临床内容都不会用于训练公开的人工智能模型。系统自设计之初即遵循巴西的数据保护法。
+
+还有一项让我引以为豪的决定：MedChina 的免费方案永久提供完整的手工病历，患者与记录数量不限。付费购买的是自动化——是技术为专业人员省回的时间。`,
   },
   {
     key: "four-examinations",
@@ -1752,6 +1908,23 @@ Ele ajuda a devolver ao profissional aquilo que a burocracia pode roubar: tempo 
 Com a nova regulamentação, o registro clínico também ganha ainda mais importância.
 
 Um prontuário bem feito protege o paciente, protege o profissional e dignifica a profissão.`,
+    scriptZh: `我知道，在中医里谈人工智能，听起来可能像是自相矛盾。
+
+对我而言，恰恰相反。
+
+中医是一门讲究"在场"的医学。
+
+这一点各位比谁都清楚：望、闻、问、切。
+
+MedChina AI 不观察，不触诊，也不做决定。
+
+它只倾听、整理、提醒与发问。
+
+它帮助把文书所能夺走的东西还给专业人员：时间与专注。
+
+随着新的立法，临床记录也变得更加重要。
+
+一份做得好的病历，保护患者，保护医者，也让这门职业更有尊严。`,
   },
   {
     key: "bridge",
@@ -1785,6 +1958,25 @@ Universidades, professores e instituições chinesas que desejem alcançar o pú
 A medicina chinesa cresceu no Brasil por dois séculos sem falar português.
 
 Imaginem o que ela pode fazer agora que aprendeu.`,
+    scriptZh: `最后，我想谈一座连接我们两国的桥。
+
+自 2019 年起，戈亚尼亚设有中医孔子学院，由戈亚斯联邦大学与河北中医药大学共建。
+
+这项合作拉近了我们两个国家。
+
+巴西有数十万渴求优质知识的专业人员。
+
+中国有典籍、有名师，也有数千年积累的临床经验。
+
+在两国之间，我们还可以建起更多的桥。
+
+我们希望成为其中的一座。
+
+希望触达巴西受众的中国高校、教师与机构，可以在 MedChina AI 中找到直通这一群体的通道——通过活动、课程，以及在恰当的甄选与授权之下纳入临床知识库的权威内容。
+
+两个世纪以来，中医在巴西生长，却从未说过葡萄牙语。
+
+请想象，如今它学会了，能走到多远。`,
   },
   {
     key: "closing",
@@ -1810,6 +2002,17 @@ Mas queremos continuar expandindo, divulgando, ensinando e praticando a medicina
 Que a tecnologia nos ajude a preservar aquilo que é essencialmente humano na nossa profissão.
 
 Muito obrigada. 谢谢 — Xièxie.`,
+    scriptZh: `我以一个朴素的画面作结。
+
+一份会倾听、会整理、会预备的病历，好让巴西的治疗师能做这片土地上的先师们做了数千年的事：看着患者。
+
+我们要走的路还很长。
+
+但我们希望继续在巴西扩展、传播、教授并实践中医，始终敬重创造了这门智慧的先贤。
+
+愿技术帮助我们守住这门职业中最本质的、属于人的部分。
+
+非常感谢。谢谢。`,
   },
 
   /*
@@ -1834,6 +2037,9 @@ Muito obrigada. 谢谢 — Xièxie.`,
     script: `Resposta completa à primeira pergunta da organização: o processamento acontece em quatro etapas, nesta ordem.
 
 As três primeiras são automáticas. A quarta só acontece quando a profissional pede, e apenas nos planos que incluem o recurso.`,
+    scriptZh: `对主办方第一个问题的完整回答：处理分四个步骤，依此顺序进行。
+
+前三步自动完成。第四步仅在专业人员请求时才发生，且仅限包含该功能的订阅方案。`,
   },
   {
     key: "annex-scope",
@@ -1852,6 +2058,9 @@ As três primeiras são automáticas. A quarta só acontece quando a profissiona
     script: `Resposta completa à segunda pergunta: depende da etapa, e cada uma enxerga apenas o necessário.
 
 E, em nenhuma delas, a inteligência artificial acessa dados de outros pacientes ou de outros profissionais.`,
+    scriptZh: `对第二个问题的完整回答：视步骤而定，每一步只看其所需。
+
+而且在任何一步，人工智能都不会访问其他患者或其他专业人员的资料。`,
   },
   {
     key: "annex-returns",
@@ -1869,6 +2078,9 @@ E, em nenhuma delas, a inteligência artificial acessa dados de outros pacientes
     script: `Resposta completa à terceira pergunta: o que a análise devolve.
 
 Tudo isso é rascunho. Nada entra no prontuário como fato até a profissional revisar.`,
+    scriptZh: `对第三个问题的完整回答：分析返回什么。
+
+凡此皆为草稿。未经专业人员复核，任何内容都不会作为事实进入病历。`,
   },
   {
     key: "annex-corpus",
@@ -1889,5 +2101,10 @@ Tudo isso é rascunho. Nada entra no prontuário como fato até a profissional r
 A biblioteca é curada e vive dentro da plataforma. A inteligência artificial não navega na internet.
 
 E há uma observação de honestidade que fazemos questão de registrar: além da biblioteca, o modelo carrega o conhecimento geral do próprio treinamento. É exatamente por isso que tudo aqui é apresentado como correspondência, com os sinais contrários à vista, e exigindo validação profissional.`,
+    scriptZh: `对第四个问题的完整回答：内容从何而来。
+
+知识库经过甄选，且存在于平台内部。人工智能不上网检索。
+
+还有一点出于诚实，我们坚持载明：除知识库之外，模型还携带其自身训练所得的一般知识。正因如此，这里的一切都以"对应度"呈现，把不支持的征象一并列出，并且要求专业人员验证。`,
   },
 ];

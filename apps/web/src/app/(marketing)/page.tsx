@@ -6,25 +6,46 @@ import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
 import ClinicalSourceHome from "@/components/marketing/clinical-source-home";
+import { getHomeCopy } from "@/components/marketing/home-copy";
 import { COOKIE_KEYS } from "@/constants";
+import { resolveRequestLocale } from "@/lib/locale-request";
 import { normalizeCouponCode } from "@/lib/offer-link";
 import { resolvePublicCoupon } from "@flyee/billing/public";
 
-export const metadata: Metadata = {
-  title: { absolute: "MedChina | Prontuário inteligente para MTC" },
-  description:
-    "Organize pacientes, anamneses, análises e planos terapêuticos em uma plataforma feita para Medicina Tradicional Chinesa.",
-  // Canonical (resolved against metadataBase = NEXT_PUBLIC_SITE_URL) so search
-  // engines pick the subdomain as the preferred URL, avoiding duplicate content.
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await resolveRequestLocale();
+  const copy = await getHomeCopy(locale);
+
+  return {
+    title: { absolute: copy.meta.title },
+    description: copy.meta.description,
+    // Canonical (resolved against metadataBase = NEXT_PUBLIC_SITE_URL) so search
+    // engines pick the subdomain as the preferred URL, avoiding duplicate
+    // content. There is ONE URL per page: language is a cookie, so a crawler
+    // only ever sees pt-BR here and no hreflang set can be declared honestly
+    // (docs/SEO.md — "Indexable language").
+    alternates: { canonical: "/" },
+  };
+}
 
 export default async function Home({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [t, params, cookieStore] = await Promise.all([getTranslations("marketing"), searchParams, cookies()]);
+  const [t, params, cookieStore, { locale, autoSwitched }] = await Promise.all([
+    getTranslations("marketing"),
+    searchParams,
+    cookies(),
+    resolveRequestLocale(),
+  ]);
+
+  /**
+   * The home's copy for the active language. Resolved HERE, on the server, and
+   * handed down as data: the page is a client component, so importing all six
+   * languages into it would ship six copies of the page to every visitor.
+   */
+  const copy = await getHomeCopy(locale);
 
   /**
    * Prices and limits are read here, on the server, and handed to the home as
@@ -41,6 +62,9 @@ export default async function Home({
   return (
     <ClinicalSourceHome
       plans={plans}
+      copy={copy}
+      locale={locale}
+      autoSwitched={autoSwitched}
       couponNotice={
         requestedCoupon
           ? coupon

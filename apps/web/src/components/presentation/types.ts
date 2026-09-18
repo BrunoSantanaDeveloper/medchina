@@ -114,8 +114,17 @@ export interface SlideData {
   subtitle?: Bi;
   /** Teleprompter text, near-verbatim from the roteiro. Notes only. */
   script: string;
+  /**
+   * The same script in Chinese — for the copy handed to the organisation, not
+   * for the stage: Debora speaks Portuguese and the phone teleprompter always
+   * shows `script`. Only the exporter reads this, and only when the deck is set
+   * to 中文 (see `deck-export.tsx`).
+   */
+  scriptZh?: string;
   /** The roteiro's [CORTE OPCIONAL] passage, if this block has one. Notes only. */
   optionalCut?: string;
+  /** That passage in Chinese, for the same reason as `scriptZh`. */
+  optionalCutZh?: string;
   /** Stage direction from the roteiro. Notes only. */
   stageNote: string;
   /**
