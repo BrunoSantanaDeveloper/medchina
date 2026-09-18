@@ -418,9 +418,8 @@ function PresenterView({
         <button type="button" onClick={onPrev} disabled={state.index === 0} aria-label="Slide anterior">
           <CaretLeft size={22} weight="bold" />
         </button>
-        <span>
-          {state.index + 1} / {SLIDES_DATA.length}
-        </span>
+        {/* The talk's own count, like the header — the annex is not part of it. */}
+        <span>{position(state.index).label}</span>
         <button
           type="button"
           className="presenter-thumb--next"

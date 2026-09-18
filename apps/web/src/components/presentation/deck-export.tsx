@@ -8,11 +8,18 @@ import { DeckLang } from "./types";
 import { useSearchParams } from "next/navigation";
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { CircleNotch, FilePdf, Info, Translate } from "@phosphor-icons/react";
+import { CircleNotch, FilePdf, FilePpt, Info, Translate } from "@phosphor-icons/react";
 
 const CANVAS_W = 1280;
+const CANVAS_H = 720;
 /** Room the page frame keeps from the window edge on screen. */
 const SCREEN_GUTTER = 64;
+
+/** 1280×720 in inches: PowerPoint's own 16:9 page, so nothing is letterboxed. */
+const PPTX_W = 13.333;
+const PPTX_H = 7.5;
+/** Captured at 1920×1080 — a projector's own resolution, not more. */
+const SHOT_RATIO = 1.5;
 
 const LANG_NAME: Record<DeckLang, string> = { pt: "Português", zh: "中文" };
 
@@ -35,6 +42,9 @@ export default function DeckExport() {
   const [withAnnex, setWithAnnex] = useState(params.get("anexo") !== "0");
   const [ready, setReady] = useState(false);
   const [scale, setScale] = useState(1);
+  /** How far the PowerPoint export got, or an error to show instead. */
+  const [pptx, setPptx] = useState<{ done: number; total: number } | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const pagesRef = useRef<HTMLElement>(null);
 
   const slides = withAnnex ? SLIDES_DATA : SLIDES_DATA.filter((slide) => !slide.annex);
@@ -96,6 +106,55 @@ export default function DeckExport() {
     return () => observer.disconnect();
   }, []);
 
+  /*
+    PowerPoint, for an organiser who asks for a .pptx and opens it on their own
+    machine. Each slide goes in as one full-bleed image, because the deck is
+    CSS — its layout, fonts and the composed frames have no PowerPoint
+    equivalent, and a shape-by-shape translation would drift from the projected
+    slide at the first edit. That is the trade the hint on the bar states: the
+    file carries the deck exactly, and its text is not editable there.
+
+    Both libraries are loaded only when the button is pressed, so they never
+    reach the bundle of any other page.
+  */
+  async function exportPptx() {
+    const pages = pagesRef.current?.querySelectorAll<HTMLElement>(".deck-export-canvas");
+    if (!pages?.length) return;
+
+    setFailed(null);
+    setPptx({ done: 0, total: pages.length });
+
+    try {
+      const [{ default: PptxGenJS }, { toPng }] = await Promise.all([import("pptxgenjs"), import("html-to-image")]);
+      const deck = new PptxGenJS();
+      deck.defineLayout({ name: "DECK_16X9", width: PPTX_W, height: PPTX_H });
+      deck.layout = "DECK_16X9";
+      deck.title = fileTitle;
+
+      for (const [index, canvas] of [...pages].entries()) {
+        const slide = canvas.querySelector<HTMLElement>(".deck-slide");
+        const shot = await toPng(canvas, {
+          width: CANVAS_W,
+          height: CANVAS_H,
+          pixelRatio: SHOT_RATIO,
+          // The page is scaled down to fit the window; the capture is not.
+          style: { transform: "none", transformOrigin: "top left" },
+          backgroundColor: slide ? getComputedStyle(slide).backgroundColor : undefined,
+        });
+        deck.addSlide().addImage({ data: shot, x: 0, y: 0, w: PPTX_W, h: PPTX_H });
+        setPptx({ done: index + 1, total: pages.length });
+      }
+
+      await deck.writeFile({ fileName: `${fileTitle}.pptx` });
+    } catch (error) {
+      setFailed(error instanceof Error ? error.message : "Não foi possível gerar o arquivo.");
+    } finally {
+      setPptx(null);
+    }
+  }
+
+  const busy = pptx !== null;
+
   return (
     <DeckModeContext.Provider value="export">
       <div className="deck deck--export" data-lang={lang} lang={lang === "zh" ? "zh-Hans" : "pt-BR"}>
@@ -125,6 +184,15 @@ export default function DeckExport() {
             Incluir o anexo ({annexCount} slides de perguntas)
           </label>
 
+          <button className="deck-btn" type="button" onClick={exportPptx} disabled={!ready || busy} aria-busy={busy}>
+            {busy ? (
+              <CircleNotch size={16} className="deck-export-spin" aria-hidden="true" />
+            ) : (
+              <FilePpt size={16} weight="duotone" aria-hidden="true" />
+            )}
+            {pptx ? `Gerando ${pptx.done} de ${pptx.total}…` : "PowerPoint"}
+          </button>
+
           <button
             className="deck-btn deck-btn--primary"
             type="button"
@@ -132,7 +200,7 @@ export default function DeckExport() {
               document.title = fileTitle;
               window.print();
             }}
-            disabled={!ready}
+            disabled={!ready || busy}
             aria-busy={!ready}
           >
             {ready ? (
@@ -143,13 +211,24 @@ export default function DeckExport() {
             {ready ? "Gerar PDF" : "Preparando páginas…"}
           </button>
 
-          <p className="deck-export-hint">
-            <Info size={15} weight="duotone" aria-hidden="true" />
-            <span>
-              Na janela que abrir, escolha <b>Destino: Salvar como PDF</b>. Se o fundo sair branco, marque{" "}
-              <b>Gráficos de plano de fundo</b> em “Mais configurações”. Os vídeos saem como imagem.
-            </span>
-          </p>
+          {failed ? (
+            <p className="deck-export-hint deck-export-hint--error">
+              <Info size={15} weight="duotone" aria-hidden="true" />
+              <span>
+                O PowerPoint não foi gerado: {failed} O PDF continua disponível e sai igual ao que está na tela.
+              </span>
+            </p>
+          ) : (
+            <p className="deck-export-hint">
+              <Info size={15} weight="duotone" aria-hidden="true" />
+              <span>
+                <b>PDF</b>: na janela que abrir, escolha <b>Destino: Salvar como PDF</b>; se o fundo sair branco, marque{" "}
+                <b>Gráficos de plano de fundo</b> em “Mais configurações”. <b>PowerPoint</b>: cada slide entra como
+                imagem em 1920×1080, fiel ao projetado, mas com o texto não editável lá dentro. Nos dois, os vídeos saem
+                como imagem.
+              </span>
+            </p>
+          )}
         </header>
 
         <main className="deck-export-pages" ref={pagesRef} style={{ "--export-scale": scale } as CSSProperties}>

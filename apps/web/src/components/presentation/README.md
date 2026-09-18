@@ -96,15 +96,22 @@ Practical notes for the day:
 - **Prefer the phone's hotspot.** Congress guest Wi-Fi often isolates clients
   from each other, which breaks LAN sync; putting the laptop on the phone's
   hotspot puts both on one network and needs no internet at all.
+- **The phone must not resize the script.** Android Chrome inflates the font of
+  long text blocks on its own ("font boosting"), and on a real phone it blew the
+  teleprompter up to about twice its size and spilled it over the stage-direction
+  card. `text-size-adjust: 100%` on `.presenter` (and on `.deck`, whose canvas is
+  scaled as a whole) turns that off; the phone layout also scrolls the PAGE
+  instead of a fixed-height box, so any text growth pushes content down rather
+  than out of its box. The thumb bar is fixed at the bottom over it.
 - The phone holds a **Wake Lock** so the screen does not sleep mid-block, and
   re-acquires it after every tab switch (browsers drop it silently).
 
-## Exporting a PDF
+## Exporting (PDF and PowerPoint)
 
 **Exportar** in the deck's top bar opens `/palestra/exportar` in the language on
 screen; the page lets you switch between PT and 中文, include or drop the
-annex, and **Gerar PDF** opens the browser's print dialog (Destino: Salvar como
-PDF). `?idioma=zh` and `?anexo=0` preselect the options.
+annex, and hand the deck over as a **PDF** (the browser's print dialog) or a
+**PowerPoint**. `?idioma=zh` and `?anexo=0` preselect the options.
 
 - **The browser prints; nothing runs on the server.** Vercel has no headless
   browser, and the print pipeline already embeds the fonts exactly as they
@@ -125,6 +132,14 @@ PDF). `?idioma=zh` and `?anexo=0` preselect the options.
 - **The file name is the document title at print time.** Next re-applies the
   route's metadata title after hydration, so the exporter sets it again on
   `beforeprint`.
+
+**The .pptx carries each slide as one full-bleed 1920×1080 image** on a
+13.333×7.5 in page — `html-to-image` rasterises the same canvas the PDF prints,
+`pptxgenjs` writes the file, and both are imported only when the button is
+pressed, so neither reaches another page's bundle. Two consequences to be
+honest about: the text is not editable inside PowerPoint, and nothing depends on
+the organiser having TT Chocolates or a CJK font installed — it is all pixels
+by then. Measured: 27 slides in about 25s, 7.4 MB in pt-BR.
 
 ## The annex (and why the counter ignores it)
 
