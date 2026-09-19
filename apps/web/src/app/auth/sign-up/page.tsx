@@ -294,6 +294,10 @@ export default function Page() {
                     <Input
                       id="company"
                       name="company"
+                      autoComplete="organization"
+                      // An example, because the label alone used to be read as
+                      // the answer: workspaces called just "Consultório".
+                      placeholder={t("practice-placeholder")}
                       value={formik.values.company}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}

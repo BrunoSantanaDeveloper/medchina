@@ -215,6 +215,7 @@ export default function Page() {
                   id="company"
                   name="company"
                   autoComplete="organization"
+                  placeholder={t("practice-placeholder")}
                   value={formik.values.company}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
