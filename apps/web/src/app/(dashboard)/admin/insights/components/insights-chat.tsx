@@ -17,10 +17,10 @@ type Turn = {
 
 /** Openers that show what this thing is for, so a first-time operator isn't staring at a blank box. */
 const STARTERS = [
-  "How many users signed up in the last 7 days?",
-  "Revenue by plan over the last 30 days",
-  "Which organizations are past due?",
-  "How many messages did the AI assistants answer this month?",
+  "Quantas profissionais se cadastraram nos últimos 7 dias?",
+  "Receita por plano nos últimos 30 dias",
+  "Quais consultórios estão inadimplentes?",
+  "Quantas mensagens os assistentes de IA responderam neste mês?",
 ];
 
 /**
@@ -60,14 +60,14 @@ export default function InsightsChat() {
             ? {
                 ...turn,
                 answer: payload.answer ?? null,
-                error: response.ok ? null : (payload.error ?? "Request failed."),
+                error: response.ok ? null : (payload.error ?? "A requisição falhou."),
                 steps: payload.steps ?? [],
               }
             : turn,
         ),
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Request failed.";
+      const message = error instanceof Error ? error.message : "A requisição falhou.";
       setTurns((current) => current.map((turn, position) => (position === index ? { ...turn, error: message } : turn)));
     } finally {
       setBusy(false);
@@ -83,11 +83,11 @@ export default function InsightsChat() {
           </span>
           <Box>
             <Typography variant="h5" component="h2" className="mb-1">
-              Ask the database anything
+              Pergunte qualquer coisa ao banco
             </Typography>
             <Typography variant="body1" className="text-text-secondary">
-              Questions in plain language become read-only SQL against the live database. Writes are impossible — the
-              query runs inside a read-only transaction — and every answer shows the SQL it came from.
+              Perguntas em linguagem natural viram SQL somente leitura direto no banco. Escrita é impossível — a
+              consulta roda dentro de uma transação somente leitura — e toda resposta mostra o SQL de onde ela veio.
             </Typography>
           </Box>
           <Box className="flex flex-row flex-wrap gap-2">
@@ -106,7 +106,7 @@ export default function InsightsChat() {
 
           {!turn.answer && !turn.error && (
             <Typography variant="body2" className="text-text-secondary">
-              Querying the database…
+              Consultando o banco…
             </Typography>
           )}
 
@@ -130,7 +130,7 @@ export default function InsightsChat() {
                 color="grey"
                 onClick={() => setExpanded((current) => (current === index ? null : index))}
               >
-                {expanded === index ? "Hide queries" : `Queries executed (${turn.steps.length})`}
+                {expanded === index ? "Ocultar consultas" : `Consultas executadas (${turn.steps.length})`}
               </Button>
               <Collapse in={expanded === index}>
                 <Box className="flex flex-col gap-2 pt-2">
@@ -140,7 +140,7 @@ export default function InsightsChat() {
                         {step.sql}
                       </Typography>
                       <Typography variant="body2" className="text-text-secondary mt-1">
-                        {step.error ? `Error: ${step.error}` : `${step.rowCount} row${step.rowCount === 1 ? "" : "s"}`}
+                        {step.error ? `Erro: ${step.error}` : `${step.rowCount} linha${step.rowCount === 1 ? "" : "s"}`}
                       </Typography>
                     </Box>
                   ))}
@@ -154,7 +154,7 @@ export default function InsightsChat() {
       <Box className="flex flex-row items-end gap-2">
         <FormControl className="outlined mb-0 flex-1" variant="standard" size="small">
           <Input
-            placeholder="How many customers bought in the last 7 days?"
+            placeholder="Quantas contas viraram pagantes nos últimos 7 dias?"
             value={question}
             disabled={busy}
             onChange={(event) => setQuestion(event.target.value)}
@@ -167,7 +167,7 @@ export default function InsightsChat() {
           />
         </FormControl>
         <Button variant="contained" onClick={() => ask(question)} disabled={busy || !question.trim()}>
-          {busy ? "Asking…" : "Ask"}
+          {busy ? "Perguntando…" : "Perguntar"}
         </Button>
       </Box>
     </Box>

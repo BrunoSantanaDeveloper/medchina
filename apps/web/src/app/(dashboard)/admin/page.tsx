@@ -84,62 +84,62 @@ const consoles = [
   {
     href: "/admin/organizations",
     icon: <NiBuilding size="medium" />,
-    title: "Organizations & Users",
-    description: "Every tenant and account on the platform: rosters, plans, suspension and bans.",
+    title: "Contas e profissionais",
+    description: "Todas as contas da plataforma: quadro de profissionais, planos, suspensão e banimentos.",
   },
   {
     href: "/admin/billing",
     icon: <NiMoney size="medium" />,
-    title: "Billing",
-    description: "Plans, modules, coupons and every subscription across the platform.",
+    title: "Faturamento",
+    description: "Planos, módulos, cupons e todas as assinaturas da plataforma.",
   },
   {
     href: "/admin/ai",
     icon: <NiAI size="medium" />,
-    title: "AI Assistants",
-    description: "Instruction-driven assistants offered inside the product.",
+    title: "Assistentes de IA",
+    description: "Assistentes guiados por instruções oferecidos dentro do produto.",
   },
   {
     href: "/admin/knowledge",
     icon: <NiBook size="medium" />,
-    title: "Knowledge",
-    description: "Global knowledge collections powering assistant answers.",
+    title: "Conhecimento",
+    description: "Coleções globais de conhecimento que alimentam as respostas dos assistentes.",
   },
   {
     href: "/admin/audit",
     icon: <NiShieldCheck size="medium" />,
-    title: "Audit & Logs",
-    description: "Append-only audit trail, sign-in access log and the WhatsApp message log.",
+    title: "Auditoria e logs",
+    description: "Trilha de auditoria somente-acréscimo, log de acessos e o log de mensagens do WhatsApp.",
   },
   {
     href: "/admin/insights",
     icon: <NiChartLineBar size="medium" />,
-    title: "Data Insights",
-    description: "Ask questions about the database in plain language — the AI answers with a read-only query.",
+    title: "Insights de dados",
+    description: "Pergunte ao banco em linguagem natural — a IA responde com uma consulta somente leitura.",
   },
   {
     href: "/admin/backups",
     icon: <NiArchive size="medium" />,
     title: "Backups",
-    description: "Automatic nightly database backups and on-demand exports you can download.",
+    description: "Backups automáticos do banco toda noite e exportações sob demanda para baixar.",
   },
   {
     href: "/admin/announcements",
     icon: <NiAnnouncement size="medium" />,
-    title: "Announcements",
-    description: "System-wide banners every user sees until dismissed.",
+    title: "Anúncios",
+    description: "Avisos gerais que toda a plataforma vê até dispensar.",
   },
   {
     href: "/admin/help",
     icon: <NiQuestionHexagon size="medium" />,
-    title: "Help Center",
-    description: "Public help articles served at /help, per locale.",
+    title: "Central de ajuda",
+    description: "Artigos públicos de ajuda publicados em /help, por idioma.",
   },
   {
     href: "/admin/blog",
     icon: <NiPen size="medium" />,
     title: "Blog",
-    description: "Posts published to /blog and the comment moderation queue.",
+    description: "Posts publicados em /blog e a fila de moderação de comentários.",
   },
 ];
 
@@ -184,11 +184,11 @@ export default function AdminOverview() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          Platform Administration
+          Administração da plataforma
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
         </Breadcrumbs>
@@ -197,8 +197,8 @@ export default function AdminOverview() {
       {!isSupabaseConfigured && (
         <Grid size={12}>
           <Alert severity="info" className="neutral bg-background-paper/60!">
-            Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to activate the
-            admin consoles.
+            Supabase não está configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY para ativar
+            os consoles de administração.
           </Alert>
         </Grid>
       )}
@@ -206,7 +206,8 @@ export default function AdminOverview() {
       {error && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            Could not load platform metrics. Make sure migration 0010_admin.sql is applied and you are a superadmin.
+            Não foi possível carregar as métricas da plataforma. Confira se a migração 0010_admin.sql foi aplicada e se
+            você é superadmin.
           </Alert>
         </Grid>
       )}
@@ -216,9 +217,12 @@ export default function AdminOverview() {
           {(pastDue > 0 || suspended > 0) && !loading && (
             <Grid size={12}>
               <Alert severity="warning" className="neutral bg-background-paper/60!">
-                Needs attention: {pastDue > 0 && `${pastDue} subscription${pastDue > 1 ? "s" : ""} past due`}
+                Precisa de atenção:{" "}
+                {pastDue > 0 && `${pastDue} assinatura${pastDue > 1 ? "s" : ""} inadimplente${pastDue > 1 ? "s" : ""}`}
                 {pastDue > 0 && suspended > 0 && ", "}
-                {suspended > 0 && `${suspended} suspended by admin`}. Review them in the Billing console.
+                {suspended > 0 &&
+                  `${suspended} conta${suspended > 1 ? "s" : ""} suspensa${suspended > 1 ? "s" : ""} pelo admin`}
+                . Reveja no console de Faturamento.
               </Alert>
             </Grid>
           )}
@@ -226,45 +230,45 @@ export default function AdminOverview() {
           <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
             <StatCard
               icon={<NiMoney size="medium" />}
-              label="Monthly recurring revenue"
+              label="Receita recorrente mensal"
               value={mrrLabel}
-              hint="Live paid recurring plans, normalized to monthly"
+              hint="Planos pagos recorrentes ativos, normalizados por mês"
               loading={loading}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
             <StatCard
               icon={<NiReceipt size="medium" />}
-              label="Live subscriptions"
+              label="Assinaturas ativas"
               value={String(live)}
-              hint={`${metrics?.subscriptions?.trialing ?? 0} trialing, ${pastDue} past due`}
+              hint={`${metrics?.subscriptions?.trialing ?? 0} em trial, ${pastDue} inadimplentes`}
               loading={loading}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
             <StatCard
               icon={<NiCoin size="medium" />}
-              label="Credits consumed (30d)"
+              label="Créditos consumidos (30 d)"
               value={String(metrics?.credits_consumed_30d ?? 0)}
-              hint="Across all organizations"
+              hint="Em todos os consultórios"
               loading={loading}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
             <StatCard
               icon={<NiBuilding size="medium" />}
-              label="Organizations"
+              label="Consultórios"
               value={String(metrics?.orgs ?? 0)}
-              hint={`${metrics?.new_orgs_30d ?? 0} new in the last 30 days`}
+              hint={`${metrics?.new_orgs_30d ?? 0} novos nos últimos 30 dias`}
               loading={loading}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
             <StatCard
               icon={<NiUsers size="medium" />}
-              label="Users"
+              label="Profissionais"
               value={String(metrics?.users ?? 0)}
-              hint={`${metrics?.new_users_30d ?? 0} new in the last 30 days`}
+              hint={`${metrics?.new_users_30d ?? 0} novas nos últimos 30 dias`}
               loading={loading}
             />
           </Grid>

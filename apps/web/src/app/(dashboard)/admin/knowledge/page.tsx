@@ -37,21 +37,21 @@ export default function AdminKnowledge() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          Knowledge Base
+          Base de conhecimento
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
-          <Typography variant="body2">Knowledge</Typography>
+          <Typography variant="body2">Conhecimento</Typography>
         </Breadcrumbs>
       </Grid>
 
       {allowed === false && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            This area is restricted to platform superadmins.
+            Esta área é restrita aos superadmins da plataforma.
           </Alert>
         </Grid>
       )}

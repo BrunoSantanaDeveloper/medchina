@@ -25,7 +25,7 @@ async function isCallerSuperadmin(): Promise<boolean> {
 export async function triggerBackup(): Promise<BackupActionResult<{ mode: "queued" | "inline" }>> {
   if (!(await isCallerSuperadmin())) return { ok: false, error: "forbidden" };
   if (!isBackupConfigured()) {
-    return { ok: false, error: "Set DATABASE_URL and SUPABASE_SERVICE_ROLE_KEY to enable backups." };
+    return { ok: false, error: "Defina DATABASE_URL e SUPABASE_SERVICE_ROLE_KEY para habilitar os backups." };
   }
 
   if (isInngestConfigured) {
@@ -46,7 +46,7 @@ export type BackupFile = { name: string; url: string };
 export async function getBackupFiles(prefix: string): Promise<BackupActionResult<BackupFile[]>> {
   if (!(await isCallerSuperadmin())) return { ok: false, error: "forbidden" };
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY is required to sign download links." };
+    return { ok: false, error: "SUPABASE_SERVICE_ROLE_KEY é necessária para assinar os links de download." };
   }
 
   const storage = createServiceClient().storage.from("backups");

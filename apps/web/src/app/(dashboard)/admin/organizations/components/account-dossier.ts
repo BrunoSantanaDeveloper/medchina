@@ -202,60 +202,60 @@ export function readVerdict(dossier: Dossier, flags: string[], trialDaysLeft: nu
   const brokenCount = broken.failedRecordings30d + broken.stuckProcessing.count + broken.strandedUploads;
   if (brokenCount > 0) {
     return {
-      blocker: `${brokenCount} recording${brokenCount === 1 ? "" : "s"} failed or stuck in the last 30 days — and a failed recording burns no minutes, so her usage looks light instead of broken.`,
-      action: "Fix the job, then tell her it is fixed.",
+      blocker: `${brokenCount} ${brokenCount === 1 ? "gravação falhou ou travou" : "gravações falharam ou travaram"} nos últimos 30 dias — e gravação que falha não queima minuto, então o uso dela parece leve em vez de quebrado.`,
+      action: "Conserte o job e avise que foi consertado.",
     };
   }
   if (consent.audioUnderRevokedConsent > 0) {
     return {
-      blocker: `${consent.audioUnderRevokedConsent} recording${consent.audioUnderRevokedConsent === 1 ? "" : "s"} still stored under a consent the patient revoked.`,
-      action: "Delete the audio today.",
+      blocker: `${consent.audioUnderRevokedConsent} ${consent.audioUnderRevokedConsent === 1 ? "gravação guardada" : "gravações guardadas"} sob um consentimento que a paciente revogou.`,
+      action: "Apague o áudio hoje.",
     };
   }
   if (money.failedCharges.count > 0) {
     const since = days(money.failedCharges.since);
     return {
-      blocker: `A charge has been failing${since !== null ? ` for ${since} day${since === 1 ? "" : "s"}` : ""}.`,
-      action: money.failedCharges.invoiceUrl ? "Send her the payment link." : "Check the provider and reissue.",
+      blocker: `Uma cobrança está falhando${since !== null ? ` há ${since} ${since === 1 ? "dia" : "dias"}` : ""}.`,
+      action: money.failedCharges.invoiceUrl ? "Mande o link de pagamento para ela." : "Confira no provedor e reemita.",
     };
   }
   if (money.openCheckout) {
     return {
-      blocker: `Checkout for ${money.openCheckout.planName} was abandoned ${money.openCheckout.ageDays} day${money.openCheckout.ageDays === 1 ? "" : "s"} ago and is still open.`,
-      action: money.openCheckout.url ? "Send the open payment link." : "Ask whether she still wants it.",
+      blocker: `O checkout do ${money.openCheckout.planName} foi abandonado há ${money.openCheckout.ageDays} ${money.openCheckout.ageDays === 1 ? "dia" : "dias"} e continua aberto.`,
+      action: money.openCheckout.url ? "Mande o link de pagamento em aberto." : "Pergunte se ela ainda quer.",
     };
   }
   if (!identity.checkoutReady && (flags.includes("trial_ending") || flags.includes("trial_active"))) {
     return {
-      blocker: "No fiscal identity on file: the checkout cannot complete when she decides to pay.",
-      action: "Call and fill it in with her before the trial ends.",
+      blocker: "Sem CPF/CNPJ no cadastro: o checkout não se completa quando ela decidir pagar.",
+      action: "Ligue e preencha junto com ela antes do trial acabar.",
     };
   }
   if (flags.includes("trial_ending")) {
     return {
-      blocker: `Her trial ends in ${trialDaysLeft ?? 0} day${trialDaysLeft === 1 ? "" : "s"}.`,
+      blocker: `O trial dela acaba em ${trialDaysLeft ?? 0} ${trialDaysLeft === 1 ? "dia" : "dias"}.`,
       action: identity.lifecycleEmailOptOut
-        ? "She opted out of lifecycle e-mail — the automation is silent, so this one needs a human."
-        : "The drip is handling it; call only if the account is worth a personal push.",
+        ? "Ela recusou os e-mails de ciclo de vida — a automação está muda, esta precisa de gente."
+        : "A automação está cuidando; ligue só se a conta merecer um empurrão pessoal.",
     };
   }
   if (consent.erasureRequests.count > 0) {
     const oldest = days(consent.erasureRequests.oldest);
     return {
-      blocker: `${consent.erasureRequests.count} patient erasure request${consent.erasureRequests.count === 1 ? "" : "s"} pending${oldest !== null ? ` (oldest ${oldest} d)` : ""}.`,
-      action: "Walk her through erasing the chart.",
+      blocker: `${consent.erasureRequests.count} ${consent.erasureRequests.count === 1 ? "pedido de exclusão de paciente pendente" : "pedidos de exclusão de paciente pendentes"}${oldest !== null ? ` (o mais antigo há ${oldest} d)` : ""}.`,
+      action: "Acompanhe com ela a exclusão do prontuário.",
     };
   }
   if (flags.includes("never_activated")) {
     return {
-      blocker: "No finalized record yet — the product has not happened to her.",
+      blocker: "Nenhum atendimento finalizado — o produto ainda não aconteceu para ela.",
       action: dossier.identity.onboarding?.track
-        ? `She chose the "${dossier.identity.onboarding.track}" start. Pick up where it stopped.`
-        : "Ask what she got stuck on.",
+        ? `Ela escolheu começar por "${dossier.identity.onboarding.track}". Retome de onde parou.`
+        : "Pergunte onde ela travou.",
     };
   }
   if (flags.includes("idle")) {
-    return { blocker: "She used it and stopped.", action: "One message asking what changed." };
+    return { blocker: "Ela usou e parou.", action: "Uma mensagem perguntando o que mudou." };
   }
-  return { blocker: null, action: "Nothing needs you here." };
+  return { blocker: null, action: "Nada aqui precisa de você." };
 }

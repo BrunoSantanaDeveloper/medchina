@@ -75,7 +75,7 @@ export default function ProcessingFailuresAdmin() {
     () => [
       {
         field: "created_at",
-        headerName: "When",
+        headerName: "Quando",
         flex: 1,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<FailureRow, string>) => (
@@ -88,7 +88,7 @@ export default function ProcessingFailuresAdmin() {
       },
       {
         field: "patient_name",
-        headerName: "Patient",
+        headerName: "Paciente",
         flex: 1,
         minWidth: 160,
         renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
@@ -101,7 +101,7 @@ export default function ProcessingFailuresAdmin() {
       },
       {
         field: "org_name",
-        headerName: "Workspace",
+        headerName: "Consultório",
         flex: 1,
         minWidth: 160,
         renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
@@ -114,7 +114,7 @@ export default function ProcessingFailuresAdmin() {
       },
       {
         field: "failure_stage",
-        headerName: "Stage",
+        headerName: "Etapa",
         minWidth: 150,
         renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
           <Box className="flex h-full items-center">
@@ -130,7 +130,7 @@ export default function ProcessingFailuresAdmin() {
       },
       {
         field: "error_code",
-        headerName: "Code",
+        headerName: "Código",
         minWidth: 160,
         renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
           <Box className="flex h-full items-center">
@@ -146,7 +146,7 @@ export default function ProcessingFailuresAdmin() {
       },
       {
         field: "provider_error",
-        headerName: "Provider error",
+        headerName: "Erro do provedor",
         flex: 2,
         minWidth: 260,
         // Truncated in the cell, full text in the tooltip — and reachable by
@@ -157,7 +157,7 @@ export default function ProcessingFailuresAdmin() {
             <Box className="flex h-full items-center">
               <Tooltip title={message ?? ""}>
                 <Typography variant="body2" className="text-text-secondary truncate font-mono">
-                  {message || "— no raw message stored"}
+                  {message || "— nenhuma mensagem crua registrada"}
                 </Typography>
               </Tooltip>
             </Box>
@@ -194,7 +194,7 @@ export default function ProcessingFailuresAdmin() {
           <GridActionsCellItem
             key="detail"
             icon={<NiBug size="medium" />}
-            label="View failure detail"
+            label="Ver detalhe da falha"
             onClick={() => setDetail(params.row)}
             showInMenu
           />,
@@ -222,14 +222,14 @@ export default function ProcessingFailuresAdmin() {
           noRowsOverlay={
             <EmptyState
               icon={<NiExclamationHexagon size="medium" />}
-              title="No processing failures"
-              description="Recordings whose AI pipeline failed (transcription, extraction or apply) appear here with the raw provider error — nothing to investigate right now."
+              title="Nenhuma falha de processamento"
+              description="Gravações cujo pipeline de IA falhou (transcrição, extração ou aplicação) aparecem aqui com o erro cru do provedor — nada para investigar agora."
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No failures match your search.
+              Nenhuma falha corresponde à sua busca.
             </Typography>
           }
         />
@@ -237,7 +237,7 @@ export default function ProcessingFailuresAdmin() {
 
       <Dialog open={Boolean(detail)} onClose={() => setDetail(null)} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {[detail?.patient_name, detail?.org_name].filter(Boolean).join(" · ") || "Failure detail"}
+          {[detail?.patient_name, detail?.org_name].filter(Boolean).join(" · ") || "Detalhe da falha"}
         </DialogTitle>
         <DialogContent>
           <Box className="flex flex-col gap-3 pt-1">
@@ -256,11 +256,11 @@ export default function ProcessingFailuresAdmin() {
             <Box className="bg-background-default/50 flex flex-col gap-2 rounded-lg p-3">
               <Box>
                 <Typography variant="body2" className="text-text-secondary text-xs font-semibold">
-                  Provider error {detail?.transcription_status ? `(transcription: ${detail.transcription_status})` : ""}
+                  Erro do provedor {detail?.transcription_status ? `(transcrição: ${detail.transcription_status})` : ""}
                 </Typography>
                 <Typography component="pre" variant="body2" className="font-mono break-words whitespace-pre-wrap">
                   {detail?.provider_error?.trim() ||
-                    "— no raw message stored (check Vercel / Inngest logs for this time)"}
+                    "— nenhuma mensagem crua registrada (veja os logs da Vercel / Inngest nesse horário)"}
                 </Typography>
               </Box>
               <Box className="text-text-secondary flex flex-col gap-0.5 font-mono text-xs">
@@ -273,7 +273,7 @@ export default function ProcessingFailuresAdmin() {
         </DialogContent>
         <DialogActions>
           <Button variant="text" color="grey" onClick={() => setDetail(null)}>
-            Close
+            Fechar
           </Button>
         </DialogActions>
       </Dialog>

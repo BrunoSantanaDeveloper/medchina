@@ -75,8 +75,10 @@ import { cn } from "@/lib/utils";
  * rendered as an empty table.
  *
  * Grid chrome labels (column menu, filter panel, pagination) localize through
- * MUI X's own locale packs keyed off the app locale; the toolbar labels are
- * the caller's (i18n'd in product surfaces, plain EN in the admin consoles).
+ * MUI X's own locale packs keyed off the app locale, and so does the toolbar:
+ * search/columns/filters/export come from the same pack, so no caller has to
+ * translate them. An explicit `labels` prop still wins when a page wants its
+ * own wording.
  */
 
 export type DataTableLabels = {
@@ -314,6 +316,28 @@ export default function DataTable<R extends GridValidRowModel>({
   const locale = useLocale();
   const localeText = GRID_LOCALES[locale];
 
+  /**
+   * MUI X already ships the toolbar wording in every locale pack it publishes,
+   * so the grid chrome follows the app language instead of pinning English.
+   * DEFAULT_LABELS stays the floor for locales with no pack (en), and an
+   * explicit `labels` prop still wins over both.
+   */
+  const localeLabels: Partial<DataTableLabels> = useMemo(() => {
+    // MUI X types these as ReactNode (a pack may ship an element); the toolbar
+    // needs plain text for tooltips and aria-labels, so anything else is left
+    // to DEFAULT_LABELS rather than coerced into "[object Object]".
+    const text = (value: unknown) => (typeof value === "string" ? value : undefined);
+    const pairs: [keyof DataTableLabels, string | undefined][] = [
+      ["search", text(localeText?.toolbarQuickFilterLabel)],
+      ["columns", text(localeText?.toolbarColumns)],
+      ["filters", text(localeText?.toolbarFilters)],
+      ["export", text(localeText?.toolbarExport)],
+      ["print", text(localeText?.toolbarExportPrint)],
+      ["exportCsv", text(localeText?.toolbarExportCSV)],
+    ];
+    return Object.fromEntries(pairs.filter(([, value]) => value !== undefined)) as Partial<DataTableLabels>;
+  }, [localeText]);
+
   const initialState = useMemo(
     () => ({
       columns: { columnVisibilityModel: initialColumnVisibility },
@@ -352,7 +376,13 @@ export default function DataTable<R extends GridValidRowModel>({
         panel: { className: "mt-1!" },
         main: { className: mainClassName },
         loadingOverlay: { variant: "skeleton", noRowsVariant: "skeleton" },
-        toolbar: { header, actions, filters, labels: { ...DEFAULT_LABELS, ...labelOverrides }, enableExport: true },
+        toolbar: {
+          header,
+          actions,
+          filters,
+          labels: { ...DEFAULT_LABELS, ...localeLabels, ...labelOverrides },
+          enableExport: true,
+        },
       }}
       slots={{
         toolbar: DataTableToolbar,

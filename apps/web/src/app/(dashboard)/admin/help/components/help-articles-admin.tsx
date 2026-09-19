@@ -192,7 +192,7 @@ export default function HelpArticlesAdmin() {
     return [
       {
         field: "title",
-        headerName: "Title",
+        headerName: "Título",
         flex: 2,
         minWidth: 220,
         renderCell: (params: GridRenderCellParams<ArticleRow, string>) => (
@@ -205,7 +205,7 @@ export default function HelpArticlesAdmin() {
       },
       {
         field: "categoryId",
-        headerName: "Category",
+        headerName: "Categoria",
         flex: 1,
         minWidth: 150,
         // The searched text must be reachable as the cell value: the category
@@ -221,7 +221,7 @@ export default function HelpArticlesAdmin() {
       },
       {
         field: "slug",
-        headerName: "Path",
+        headerName: "Caminho",
         flex: 1,
         minWidth: 170,
         valueGetter: (_, row) => `/help/${row.slug}`,
@@ -235,7 +235,7 @@ export default function HelpArticlesAdmin() {
       },
       {
         field: "locale",
-        headerName: "Locale",
+        headerName: "Idioma",
         minWidth: 100,
         renderCell: (params: GridRenderCellParams<ArticleRow, string>) => (
           <Box className="flex h-full items-center">
@@ -245,7 +245,7 @@ export default function HelpArticlesAdmin() {
       },
       {
         field: "updatedAt",
-        headerName: "Updated",
+        headerName: "Atualizado",
         minWidth: 130,
         valueFormatter: (value: string) => new Date(value).toLocaleDateString(),
       },
@@ -253,19 +253,19 @@ export default function HelpArticlesAdmin() {
         // Publish/unpublish is a kill switch for public content: it stays
         // visible on the row, never buried in the kebab.
         field: "isPublished",
-        headerName: "Published",
+        headerName: "Publicado",
         minWidth: 110,
         type: "boolean",
         renderCell: (params: GridRenderCellParams<ArticleRow, boolean>) => (
           <Box className="flex h-full items-center">
-            <Tooltip title={params.row.isPublished ? "Unpublish" : "Publish"}>
+            <Tooltip title={params.row.isPublished ? "Despublicar" : "Publicar"}>
               <Switch
                 checked={params.row.isPublished}
                 onChange={() => togglePublished(params.row)}
                 size="small"
                 slotProps={{
                   input: {
-                    "aria-label": params.row.isPublished ? "Unpublish article" : "Publish article",
+                    "aria-label": params.row.isPublished ? "Despublicar artigo" : "Publicar artigo",
                   },
                 }}
               />
@@ -284,7 +284,7 @@ export default function HelpArticlesAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row)}
             showInMenu
           />,
@@ -305,36 +305,36 @@ export default function HelpArticlesAdmin() {
         <Box className="border-grey-100 flex flex-col gap-3 rounded-2xl border p-4">
           <Box className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SelectField
-              label="Locale"
+              label="Idioma"
               value={form.locale}
               options={LOCALES.map((locale) => ({ value: locale, label: locale }))}
               onChange={(value) => setForm({ ...form, locale: value, categoryId: "" })}
             />
             <SelectField
-              label="Category (same locale)"
+              label="Categoria (mesmo idioma)"
               value={form.categoryId}
               options={formCategories.map((cat) => ({ value: cat.id, label: cat.name }))}
               onChange={(value) => setForm({ ...form, categoryId: value })}
             />
             <Field
-              label="Slug (empty = from title)"
+              label="Slug (vazio = a partir do título)"
               value={form.slug}
               onChange={(value) => setForm({ ...form, slug: value })}
             />
           </Box>
           {formCategories.length === 0 && (
             <Alert severity="info" className="neutral bg-background-paper/60!">
-              No category exists for this locale yet — create one in the Categories tab first.
+              Nenhuma categoria existe neste idioma ainda — crie uma antes na aba Categorias.
             </Alert>
           )}
-          <Field label="Title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
+          <Field label="Título" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
           <Field
-            label="Excerpt (shown in the article list)"
+            label="Resumo (aparece na lista de artigos)"
             value={form.excerpt}
             onChange={(value) => setForm({ ...form, excerpt: value })}
           />
           <FormControl className="outlined" variant="standard" size="small" fullWidth>
-            <FormLabel component="label">Body (Markdown)</FormLabel>
+            <FormLabel component="label">Conteúdo (Markdown)</FormLabel>
             <Input
               multiline
               minRows={10}
@@ -345,7 +345,7 @@ export default function HelpArticlesAdmin() {
           </FormControl>
           <Box className="flex flex-row items-center gap-4">
             <Field
-              label="Sort"
+              label="Ordem"
               type="number"
               className="w-24"
               value={form.sort}
@@ -357,19 +357,19 @@ export default function HelpArticlesAdmin() {
                 onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
                 size="small"
               />
-              <Typography variant="body2">Published</Typography>
+              <Typography variant="body2">Publicado</Typography>
             </Box>
           </Box>
           <Box className="flex flex-row gap-2">
             <Button variant="contained" size="small" onClick={save} disabled={!form.title.trim() || !form.categoryId}>
-              {form.id ? "Save changes" : "Create article"}
+              {form.id ? "Salvar alterações" : "Criar artigo"}
             </Button>
             <Button variant="text" color="grey" size="small" onClick={() => setForm(null)}>
-              Cancel
+              Cancelar
             </Button>
             {form.id && (
               <Button variant="text" color="error" size="small" onClick={() => remove(form.id!)}>
-                Delete article
+                Excluir artigo
               </Button>
             )}
           </Box>
@@ -385,28 +385,28 @@ export default function HelpArticlesAdmin() {
           actions={
             form ? undefined : (
               <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-                New article
+                Novo artigo
               </Button>
             )
           }
           noRowsOverlay={
             form ? (
               <Typography variant="body2" className="text-text-secondary">
-                No help articles yet.
+                Nenhum artigo de ajuda ainda.
               </Typography>
             ) : (
               <EmptyState
                 icon={<NiDocumentFull size="medium" />}
-                title="No help articles yet"
-                description="Write the first article customers will find at /help — start with the question your support inbox answers most often."
-                action={{ label: "New article", onClick: () => setForm(EMPTY_FORM) }}
+                title="Nenhum artigo de ajuda ainda"
+                description="Escreva o primeiro artigo que as profissionais vão encontrar em /help — comece pela pergunta que o suporte mais responde."
+                action={{ label: "Novo artigo", onClick: () => setForm(EMPTY_FORM) }}
                 className="border-none"
               />
             )
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No articles match your search.
+              Nenhum artigo corresponde à busca.
             </Typography>
           }
         />

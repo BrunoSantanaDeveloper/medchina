@@ -59,38 +59,38 @@ export default function ImpersonateDialog({
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Open a support session in {userName}&apos;s account</DialogTitle>
+      <DialogTitle>Abrir uma sessão de suporte na conta de {userName}</DialogTitle>
       <DialogContent>
         <Box className="flex flex-col gap-4 pt-1">
           <Typography variant="body2" className="text-text-secondary">
-            You will browse the product exactly as {userName} sees it, without her password and without signing yourself
-            out — your own session stays active and you return with one click.
+            Você navega no produto exatamente como {userName} vê, sem a senha dela e sem sair da sua própria conta — sua
+            sessão continua ativa e você volta com um clique.
           </Typography>
 
           <Alert severity="info" className="neutral bg-background-paper/60!">
             <Box component="ul" className="m-0 flex list-disc flex-col gap-1 pl-4">
               <li>
-                The clinical record is read-only: consultations, anamnesis, hypotheses, plans, recordings, consent and
-                patient data cannot be written.
+                O prontuário é somente leitura: consultas, anamnese, hipóteses, planos, gravações, consentimento e dados
+                da paciente não podem ser gravados.
               </li>
-              <li>Settings, billing and the agenda remain editable.</li>
-              <li>She is notified in her account, and the access appears in her own security log with your name.</li>
-              <li>The session expires on its own and is recorded in the audit trail.</li>
+              <li>Configurações, faturamento e agenda continuam editáveis.</li>
+              <li>Ela é avisada na conta dela, e o acesso aparece no log de segurança dela com o seu nome.</li>
+              <li>A sessão expira sozinha e fica registrada na trilha de auditoria.</li>
             </Box>
           </Alert>
 
           <FormControl className="outlined" variant="standard">
-            <FormLabel htmlFor="impersonation-reason">Why do you need this access?</FormLabel>
+            <FormLabel htmlFor="impersonation-reason">Por que você precisa deste acesso?</FormLabel>
             <Input
               id="impersonation-reason"
-              placeholder="Ticket 1234 — recording stuck in 'uploading' since yesterday"
+              placeholder="Ticket 1234 — gravação travada em 'enviando' desde ontem"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               disabled={busy}
               autoFocus
             />
             <Typography variant="caption" className="text-text-secondary mt-1">
-              Stored with the access and visible to her. Name the ticket or the reported symptom.
+              Fica guardado com o acesso e visível para ela. Cite o ticket ou o sintoma relatado.
             </Typography>
           </FormControl>
 
@@ -103,10 +103,10 @@ export default function ImpersonateDialog({
       </DialogContent>
       <DialogActions>
         <Button variant="text" color="grey" onClick={onClose} disabled={busy}>
-          Cancel
+          Cancelar
         </Button>
         <Button variant="contained" onClick={confirm} disabled={busy || tooShort}>
-          {busy ? "Opening…" : "Enter account"}
+          {busy ? "Abrindo…" : "Entrar na conta"}
         </Button>
       </DialogActions>
     </Dialog>

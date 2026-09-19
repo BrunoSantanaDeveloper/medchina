@@ -43,21 +43,21 @@ export default function AdminHelp() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          Help Center
+          Central de ajuda
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
-          <Typography variant="body2">Help Center</Typography>
+          <Typography variant="body2">Central de ajuda</Typography>
         </Breadcrumbs>
       </Grid>
 
       {allowed === false && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            This area is restricted to platform superadmins.
+            Esta área é restrita aos superadmins da plataforma.
           </Alert>
         </Grid>
       )}
@@ -67,8 +67,8 @@ export default function AdminHelp() {
           <Card component="section">
             <CardContent>
               <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-6">
-                <Tab label="Articles" />
-                <Tab label="Categories" />
+                <Tab label="Artigos" />
+                <Tab label="Categorias" />
               </Tabs>
               <Box hidden={tab !== 0}>{tab === 0 && <HelpArticlesAdmin />}</Box>
               <Box hidden={tab !== 1}>{tab === 1 && <HelpCategoriesAdmin />}</Box>

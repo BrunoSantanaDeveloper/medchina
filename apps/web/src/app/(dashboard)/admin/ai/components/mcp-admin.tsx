@@ -11,7 +11,7 @@ import { createClient } from "@flyee/auth/client";
  * Platform view of the MCP connectors (docs/MCP-CONECTORES.md): which
  * workspaces have external assistants connected and how much they call.
  * Superadmin-only via RLS (oauth_tokens/mcp_requests/oauth_clients all have
- * superadmin select policies); admin consoles stay EN-only on purpose.
+ * superadmin select policies); admin console copy is hardcoded pt-BR on purpose.
  */
 
 type OrgRow = {
@@ -68,7 +68,7 @@ export default function McpAdmin() {
         }
         setRows([...byOrg.values()].sort((a, b) => b.calls30d - a.calls30d));
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load MCP usage.");
+        setError(loadError instanceof Error ? loadError.message : "Não foi possível carregar o uso do MCP.");
       }
     };
     load();
@@ -85,8 +85,9 @@ export default function McpAdmin() {
   if (rows.length === 0) {
     return (
       <Typography variant="body2" className="text-text-secondary">
-        No workspace has an external assistant connected yet. Connections appear here as professionals authorize
-        ChatGPT/Claude via /oauth/authorize; per-call detail lives in the audit trail (mcp.*) and mcp_requests.
+        Nenhum consultório tem assistente externo conectado ainda. As conexões aparecem aqui conforme as profissionais
+        autorizam ChatGPT/Claude em /oauth/authorize; o detalhe por chamada fica na trilha de auditoria (mcp.*) e em
+        mcp_requests.
       </Typography>
     );
   }
@@ -100,7 +101,7 @@ export default function McpAdmin() {
               {row.orgName}
             </Typography>
             <Typography variant="caption" className="text-text-secondary">
-              {row.calls30d} calls served / {row.denied30d} denied (30d)
+              {row.calls30d} chamadas atendidas / {row.denied30d} negadas (30 d)
             </Typography>
           </Box>
           <Box className="flex flex-row flex-wrap gap-1">

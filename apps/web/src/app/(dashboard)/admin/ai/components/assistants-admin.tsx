@@ -62,12 +62,12 @@ const EMPTY: AssistantForm = {
 };
 
 const MODEL_HINT: Record<string, string> = {
-  anthropic: "e.g. claude-sonnet-5, claude-haiku-4-5",
-  gemini: "e.g. gemini-2.5-flash, gemini-2.5-pro",
+  anthropic: "ex.: claude-sonnet-5, claude-haiku-4-5",
+  gemini: "ex.: gemini-2.5-flash, gemini-2.5-pro",
   // Native ids here (no vendor prefix) — that prefix is what tells the two
   // OpenAI-dialect providers apart when reading an assistant row.
-  openai: "native id, e.g. gpt-4o, gpt-4o-mini, o4-mini",
-  openrouter: "REQUIRED full id, e.g. openai/gpt-4o, anthropic/claude-sonnet-5",
+  openai: "id nativo, ex.: gpt-4o, gpt-4o-mini, o4-mini",
+  openrouter: "id completo OBRIGATÓRIO, ex.: openai/gpt-4o, anthropic/claude-sonnet-5",
 };
 
 /** Env var backing each provider, named so a missing key is diagnosable. */
@@ -142,11 +142,11 @@ export default function AssistantsAdmin() {
     if (!form) return;
     setError(null);
     if (!form.model.trim()) {
-      setError("Model is required.");
+      setError("Informe o modelo.");
       return;
     }
     if (!form.system_prompt.trim()) {
-      setError("System instructions are required — that is the whole point of an assistant.");
+      setError("As instruções de sistema são obrigatórias — é o que define o assistente.");
       return;
     }
     const supabase = createClient();
@@ -181,7 +181,7 @@ export default function AssistantsAdmin() {
     () => [
       {
         field: "name",
-        headerName: "Assistant",
+        headerName: "Assistente",
         flex: 2,
         minWidth: 220,
         // The slug is a second line in the cell, so keep both halves reachable
@@ -200,7 +200,7 @@ export default function AssistantsAdmin() {
       },
       {
         field: "provider",
-        headerName: "Provider",
+        headerName: "Provedor",
         minWidth: 140,
         renderCell: (params: GridRenderCellParams<AssistantRow, string>) => (
           <Box className="flex h-full items-center">
@@ -210,7 +210,7 @@ export default function AssistantsAdmin() {
       },
       {
         field: "model",
-        headerName: "Model",
+        headerName: "Modelo",
         flex: 1.5,
         minWidth: 200,
         renderCell: (params: GridRenderCellParams<AssistantRow, string>) => (
@@ -223,7 +223,7 @@ export default function AssistantsAdmin() {
       },
       {
         field: "credits_per_message",
-        headerName: "Credits/msg",
+        headerName: "Créditos/msg",
         type: "number",
         minWidth: 130,
       },
@@ -231,15 +231,15 @@ export default function AssistantsAdmin() {
         // Read-only report of the flag: activation is edited in the dialog,
         // never inline — there is no in-table write path here.
         field: "is_active",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 120,
-        valueGetter: (_, row) => (row.is_active ? "active" : "inactive"),
+        valueGetter: (_, row) => (row.is_active ? "ativo" : "inativo"),
         renderCell: (params: GridRenderCellParams<AssistantRow, string>) => {
           const active = Boolean(params.row.is_active);
           return (
             <Box className="flex h-full items-center">
               <Chip
-                label={active ? "active" : "inactive"}
+                label={active ? "ativo" : "inativo"}
                 size="small"
                 color={active ? "success" : "default"}
                 variant="outlined"
@@ -259,7 +259,7 @@ export default function AssistantsAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row)}
             showInMenu
           />,
@@ -291,45 +291,41 @@ export default function AssistantsAdmin() {
               startIcon={<NiPlus size="small" />}
               onClick={() => openEdit()}
             >
-              New assistant
+              Novo assistente
             </Button>
           }
           noRowsOverlay={
             <EmptyState
               icon={<NiAi size="medium" />}
-              title="No assistants yet"
-              description="An assistant is a model plus its system instructions — the behavior contract every chat with it obeys. Create one to make it available in the app."
-              action={{ label: "New assistant", onClick: () => openEdit() }}
+              title="Nenhum assistente ainda"
+              description="Um assistente é um modelo mais suas instruções de sistema — o contrato de comportamento que toda conversa com ele obedece. Crie um para disponibilizá-lo no aplicativo."
+              action={{ label: "Novo assistente", onClick: () => openEdit() }}
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No assistants match your search.
+              Nenhum assistente corresponde à busca.
             </Typography>
           }
         />
       )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="md" fullWidth>
-        <DialogTitle>{form?.id ? "Edit assistant" : "New assistant"}</DialogTitle>
+        <DialogTitle>{form?.id ? "Editar assistente" : "Novo assistente"}</DialogTitle>
         {form && (
           <DialogContent className="flex flex-col">
-            <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field label="Nome" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field label="Slug" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} />
-            <Field
-              label="Description"
-              value={form.description}
-              onChange={(v) => setForm({ ...form, description: v })}
-            />
+            <Field label="Descrição" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
             <SelectField
-              label="Provider"
+              label="Provedor"
               value={form.provider}
               options={[
                 { value: "anthropic", label: "Anthropic" },
-                { value: "gemini", label: "Gemini (audio + image)" },
-                { value: "openai", label: "OpenAI (direct account)" },
-                { value: "openrouter", label: "OpenRouter (multi-model)" },
+                { value: "gemini", label: "Gemini (áudio + imagem)" },
+                { value: "openai", label: "OpenAI (conta direta)" },
+                { value: "openrouter", label: "OpenRouter (multimodelo)" },
               ]}
               onChange={(v) => setForm({ ...form, provider: v })}
             />
@@ -338,17 +334,17 @@ export default function AssistantsAdmin() {
                 error she cannot act on. */}
             {configured && configured[form.provider] === false && (
               <Alert severity="warning" className="neutral bg-background-paper/60! mb-2">
-                {PROVIDER_KEY_ENV[form.provider] ?? "The API key"} is not set in this deployment — assistants on this
-                provider will fail when used.
+                {PROVIDER_KEY_ENV[form.provider] ?? "A chave de API"} não está definida neste ambiente — assistentes
+                deste provedor vão falhar quando usados.
               </Alert>
             )}
             <Field
-              label={`Model — ${MODEL_HINT[form.provider] ?? ""}`}
+              label={`Modelo — ${MODEL_HINT[form.provider] ?? ""}`}
               value={form.model}
               onChange={(v) => setForm({ ...form, model: v })}
             />
             <FormControl className="outlined" variant="standard" size="small" fullWidth>
-              <FormLabel component="label">System instructions (the assistant behavior contract)</FormLabel>
+              <FormLabel component="label">Instruções de sistema (o contrato de comportamento do assistente)</FormLabel>
               <TextareaAutosize
                 minRows={8}
                 className="MuiInputBase-root MuiInput-root w-full"
@@ -358,25 +354,25 @@ export default function AssistantsAdmin() {
             </FormControl>
             <Box className="flex flex-col gap-0 md:flex-row md:gap-4">
               <Field
-                label="Temperature (0-1)"
+                label="Temperatura (0-1)"
                 type="number"
                 value={form.temperature}
                 onChange={(v) => setForm({ ...form, temperature: Number(v) })}
               />
               <Field
-                label="Max tokens"
+                label="Máximo de tokens"
                 type="number"
                 value={form.max_tokens}
                 onChange={(v) => setForm({ ...form, max_tokens: Number(v) })}
               />
               <Field
-                label="Credits per message"
+                label="Créditos por mensagem"
                 type="number"
                 value={form.credits_per_message}
                 onChange={(v) => setForm({ ...form, credits_per_message: Number(v) })}
               />
               <Field
-                label="Sort"
+                label="Ordem"
                 type="number"
                 value={form.sort}
                 onChange={(v) => setForm({ ...form, sort: Number(v) })}
@@ -390,10 +386,11 @@ export default function AssistantsAdmin() {
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                 />
               }
-              label="Active"
+              label="Ativo"
             />
             <Typography variant="body2" className="text-text-secondary">
-              Audio input requires Gemini (or an audio-capable OpenRouter model). Images work on all providers.
+              Entrada de áudio exige Gemini (ou um modelo do OpenRouter com suporte a áudio). Imagens funcionam em todos
+              os provedores.
             </Typography>
             {error && (
               <Alert severity="error" className="neutral bg-background-paper/60! mt-2">
@@ -404,10 +401,10 @@ export default function AssistantsAdmin() {
         )}
         <DialogActions>
           <Button color="grey" variant="text" onClick={() => setForm(null)}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="contained" onClick={save}>
-            Save
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>

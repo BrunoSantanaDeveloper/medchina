@@ -54,7 +54,7 @@ function toLocalInput(iso: string): string {
  * the landing page is this number, and a console that only wrote settings would
  * leave the operator guessing whether the page agrees.
  *
- * Closing the offer means unchecking "Offer open" — never deactivating the
+ * Closing the offer means unchecking "Oferta aberta" — never deactivating the
  * plan, which would also make it unbuyable for the founders who already hold it
  * and for anyone finishing a checkout.
  *
@@ -148,18 +148,18 @@ export default function FoundersAdmin() {
         <RowText
           primary={
             state
-              ? `${state.seats_taken} of ${state.seats_total} seats taken · ${state.seats_left} left`
-              : "Offer state unavailable"
+              ? `${state.seats_taken} de ${state.seats_total} vagas ocupadas · restam ${state.seats_left}`
+              : "Situação da oferta indisponível"
           }
           secondary={
             state?.plan_slug
-              ? `Plan ${state.plan_slug} · checkout ${state.closed ? "REFUSES" : "accepts"} new founders (${state.reason})`
-              : "No plan configured — set the slug below and create the plan in the Plans tab."
+              ? `Plano ${state.plan_slug} · o checkout ${state.closed ? "RECUSA" : "aceita"} novos fundadores (${state.reason})`
+              : "Nenhum plano configurado — defina o slug abaixo e crie o plano na aba Planos."
           }
         />
         {state && (
           <Chip
-            label={state.closed ? state.reason : "open"}
+            label={state.closed ? state.reason : "aberta"}
             size="small"
             color={state.closed ? "grey" : "success"}
             variant="outlined"
@@ -184,26 +184,26 @@ export default function FoundersAdmin() {
             onChange={(event) => setConfig({ ...config, enabled: event.target.checked })}
           />
         }
-        label="Offer open (uncheck to close it — do NOT deactivate the plan)"
+        label="Oferta aberta (desmarque para fechar — NÃO desative o plano)"
       />
       <Field
-        label="Offer plan slug"
+        label="Slug do plano da oferta"
         value={config.plan_slug}
         onChange={(value) => setConfig({ ...config, plan_slug: value })}
       />
       <Field
-        label="Anchor plan slug (struck-through price — empty for none)"
+        label="Slug do plano de âncora (preço riscado — vazio para nenhum)"
         value={config.compare_plan_slug}
         onChange={(value) => setConfig({ ...config, compare_plan_slug: value })}
       />
       <Field
-        label="Seats"
+        label="Vagas"
         type="number"
         value={config.seats}
         onChange={(value) => setConfig({ ...config, seats: Number(value) })}
       />
       <Field
-        label="Deadline in YOUR browser's timezone (empty = no deadline); the page prints it in Brasília time"
+        label="Prazo no fuso do SEU navegador (vazio = sem prazo); a página mostra em horário de Brasília"
         type="datetime-local"
         value={toLocalInput(config.deadline)}
         onChange={(value) => setConfig({ ...config, deadline: value ? new Date(value).toISOString() : "" })}
@@ -211,13 +211,13 @@ export default function FoundersAdmin() {
 
       <Box>
         <Button variant="contained" onClick={save}>
-          Save offer
+          Salvar oferta
         </Button>
       </Box>
 
       {saved && (
         <Alert severity="success" className="neutral bg-background-paper/60!">
-          Saved. The public counter and the checkout guard both follow this immediately.
+          Salvo. O contador público e a trava do checkout seguem isso na hora.
         </Alert>
       )}
       {error && (

@@ -15,7 +15,7 @@ export type OfferPlanRow = {
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-const PERIOD_WORD: Record<string, string> = { yearly: "year", monthly: "month", weekly: "week" };
+const PERIOD_WORD: Record<string, string> = { yearly: "ano", monthly: "mês", weekly: "semana" };
 
 /**
  * What the visitor will actually SEE, resolved from the same plan rows the
@@ -63,36 +63,38 @@ export default function OfferPreview({
     return (
       <RowLine>
         <RowText
-          primary={planSlug.trim() ? `Plan "${planSlug.trim()}" not found in the catalog` : "No plan selected"}
-          secondary={`${label} shows the closed state until an active plan is named here.`}
+          primary={
+            planSlug.trim() ? `Plano "${planSlug.trim()}" não encontrado no catálogo` : "Nenhum plano selecionado"
+          }
+          secondary={`${label} mostra o estado fechado até um plano ativo ser informado aqui.`}
         />
       </RowLine>
     );
   }
 
-  const periodWord = plan.period ? (PERIOD_WORD[plan.period] ?? "cycle") : "cycle";
+  const periodWord = plan.period ? (PERIOD_WORD[plan.period] ?? "ciclo") : "ciclo";
 
   return (
     <>
       <RowLine>
         <RowText
-          primary={`${label} shows ${BRL.format(plan.price_cents / 100)} per ${periodWord}${
-            anchorRenders ? ` · struck ${BRL.format(anchorCents / 100)}` : " · NO struck price"
+          primary={`${label} mostra ${BRL.format(plan.price_cents / 100)} por ${periodWord}${
+            anchorRenders ? ` · riscado ${BRL.format(anchorCents / 100)}` : " · SEM preço riscado"
           }`}
-          secondary={`Audio quota ${minutes} min per ${periodWord}${
+          secondary={`Cota de áudio ${minutes} min por ${periodWord}${
             anchorRenders
               ? ""
               : comparePlan
-                ? ` · anchor "${comparePlan.slug}" does not render (inactive, cheaper than the offer, or an incomparable period)`
-                : " · no anchor plan set"
-          }${plan.is_active ? "" : " · PLAN IS INACTIVE and cannot be bought"}`}
+                ? ` · a âncora "${comparePlan.slug}" não aparece (inativa, mais barata que a oferta, ou período incomparável)`
+                : " · nenhum plano de âncora definido"
+          }${plan.is_active ? "" : " · O PLANO ESTÁ INATIVO e não pode ser comprado"}`}
         />
       </RowLine>
       {minutesLookShort && (
         <Alert severity="warning" className="neutral bg-background-paper/60!">
-          The audio quota is spent over ONE BILLING CYCLE, and this plan bills yearly — so {minutes} min is the whole
-          year, while the monthly Pro gives {proMinutes} min every month ({proMinutes * 12} per year). If this offer is
-          sold as the complete Pro, set audio_minutes to {proMinutes * 12} in the Plans tab.
+          A cota de áudio vale por UM CICLO DE COBRANÇA, e este plano cobra por ano — então {minutes} min é o ano
+          inteiro, enquanto o Pro mensal dá {proMinutes} min por mês ({proMinutes * 12} por ano). Se esta oferta é
+          vendida como o Pro completo, ajuste audio_minutes para {proMinutes * 12} na aba Planos.
         </Alert>
       )}
     </>

@@ -38,21 +38,21 @@ export default function AdminAi() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          AI Assistants
+          Assistentes de IA
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
-          <Typography variant="body2">AI</Typography>
+          <Typography variant="body2">IA</Typography>
         </Breadcrumbs>
       </Grid>
 
       {allowed === false && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            This area is restricted to platform superadmins.
+            Esta área é restrita aos superadmins da plataforma.
           </Alert>
         </Grid>
       )}
@@ -70,11 +70,11 @@ export default function AdminAi() {
             <Card component="section">
               <CardContent className="flex flex-col gap-3">
                 <Typography variant="h6" component="h2" className="mb-0">
-                  MCP connectors
+                  Conectores MCP
                 </Typography>
                 <Typography variant="body2" className="text-text-secondary">
-                  Workspaces with external assistants (ChatGPT/Claude) connected through the MCP server. Weights and
-                  rate limits live in platform_settings (&apos;mcp&apos;); per-plan availability in
+                  Consultórios com assistentes externos (ChatGPT/Claude) conectados pelo servidor MCP. Pesos e limites
+                  de chamada ficam em platform_settings (&apos;mcp&apos;); a disponibilidade por plano, em
                   plans.limits.mcp_access.
                 </Typography>
                 <McpAdmin />

@@ -76,51 +76,54 @@ export default function SuperadminDialog({
   return (
     <Dialog open={open} onClose={close} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {grant ? `Make ${userName} a platform superadmin?` : `Remove ${userName}'s platform superadmin role?`}
+        {grant
+          ? `Tornar ${userName} superadmin da plataforma?`
+          : `Remover o papel de superadmin da plataforma de ${userName}?`}
       </DialogTitle>
       <DialogContent>
         <Box className="flex flex-col gap-4 pt-1">
           {grant ? (
             <>
               <Typography variant="body2" className="text-text-secondary">
-                This is the highest privilege in the platform, and it is not scoped to a workspace.
+                Este é o maior privilégio da plataforma, e ele não fica restrito a um consultório.
               </Typography>
 
               <Alert severity="warning" className="neutral bg-background-paper/60!">
                 <Box component="ul" className="m-0 flex list-disc flex-col gap-1 pl-4">
                   <li>
-                    Reads the clinical record of <strong>every</strong> workspace — patients, consultations,
-                    transcripts, documents.
+                    Lê o prontuário de <strong>todos</strong> os consultórios — pacientes, consultas, transcrições,
+                    documentos.
                   </li>
-                  <li>Opens support sessions inside any professional&apos;s account.</li>
-                  <li>Suspends and bans accounts, resets 2FA, and assigns paid plans with no payment.</li>
-                  <li>Grants this same role to other people.</li>
+                  <li>Abre sessões de suporte dentro da conta de qualquer profissional.</li>
+                  <li>Suspende e bane contas, reseta o 2FA e atribui planos pagos sem cobrança.</li>
+                  <li>Concede este mesmo papel a outras pessoas.</li>
                 </Box>
               </Alert>
 
               <Typography variant="body2" className="text-text-secondary">
-                Grant it to operators of the platform, never as a convenience for a customer.
+                Conceda a operadoras da plataforma, nunca como facilidade para uma cliente.
               </Typography>
             </>
           ) : (
             <Typography variant="body2" className="text-text-secondary">
-              {userName} loses the /admin area and every cross-workspace privilege on the next request. Their own
-              account, workspace and data are untouched.
+              {userName} perde a área /admin e todo privilégio entre consultórios na próxima requisição. A conta, o
+              consultório e os dados dela ficam intactos.
             </Typography>
           )}
 
           <FormControl className="outlined" variant="standard">
-            <FormLabel htmlFor="superadmin-note">Note for the audit trail (optional)</FormLabel>
+            <FormLabel htmlFor="superadmin-note">Nota para a trilha de auditoria (opcional)</FormLabel>
             <Input
               id="superadmin-note"
-              placeholder={grant ? "Second operator for the launch window" : "Left the team"}
+              placeholder={grant ? "Segunda operadora para a janela de lançamento" : "Saiu do time"}
               value={note}
               onChange={(event) => setNote(event.target.value)}
               disabled={busy}
               autoFocus
             />
             <Typography variant="caption" className="text-text-secondary mt-1">
-              Who granted the role to whom is recorded either way. The note is the only place the reason survives.
+              Quem concedeu o papel a quem fica registrado de qualquer jeito. A nota é o único lugar onde o motivo
+              sobrevive.
             </Typography>
           </FormControl>
 
@@ -133,10 +136,10 @@ export default function SuperadminDialog({
       </DialogContent>
       <DialogActions>
         <Button variant="text" color="grey" onClick={close} disabled={busy}>
-          Cancel
+          Cancelar
         </Button>
         <Button variant="contained" onClick={confirm} disabled={busy}>
-          {busy ? "Saving…" : grant ? "Grant superadmin" : "Remove superadmin"}
+          {busy ? "Salvando…" : grant ? "Conceder superadmin" : "Remover superadmin"}
         </Button>
       </DialogActions>
     </Dialog>
@@ -146,16 +149,16 @@ export default function SuperadminDialog({
 /** The database speaks in error codes; the console has to speak in reasons. */
 function messageFor(raw: string): string {
   if (raw.includes("self_change_forbidden")) {
-    return "You cannot change your own platform role — ask another superadmin. (Removing your own could leave the platform with no operator.)";
+    return "Você não pode mudar o seu próprio papel na plataforma — peça a outra superadmin. (Remover o seu deixaria a plataforma sem operadora.)";
   }
   if (raw.includes("not_authorized")) {
-    return "Only a platform superadmin can change this role, and never from a support session.";
+    return "Só uma superadmin da plataforma pode mudar este papel, e nunca de dentro de uma sessão de suporte.";
   }
   if (raw.includes("user_not_found")) {
-    return "This user no longer exists. Reload the list.";
+    return "Esta profissional não existe mais. Recarregue a lista.";
   }
   if (raw.includes("superadmin_not_self_assignable")) {
-    return "The database refused the change: this role cannot be self-assigned.";
+    return "O banco recusou a mudança: este papel não pode ser atribuído a si mesma.";
   }
   return raw;
 }

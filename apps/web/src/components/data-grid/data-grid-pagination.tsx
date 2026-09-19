@@ -76,9 +76,14 @@ function PaginationFullPage({
 }
 
 export function DataGridPaginationFullPage(props: any) {
+  const apiRef = useGridApiContext();
+
   return (
     <TablePagination
       {...props}
+      /* TablePagination is MUI Material's own, so it defaults to English.
+         The grid already knows the app's language — read the label from there. */
+      labelRowsPerPage={apiRef.current.getLocaleText("paginationRowsPerPage")}
       component="div"
       ActionsComponent={(props) => {
         return <PaginationFullPage {...props} className="surface-standard" />;

@@ -123,21 +123,21 @@ export default function CampaignOfferAdmin() {
     <Box className="flex flex-col gap-4">
       <RowLine>
         <RowText
-          primary={state.closed ? "/assinar shows the closed state" : "/assinar is selling"}
+          primary={state.closed ? "/assinar mostra o estado fechado" : "/assinar está vendendo"}
           secondary={
             state.reason === "not_configured"
-              ? "Name the plan the campaign sells and tick Offer open."
+              ? "Informe o plano que a campanha vende e marque Oferta aberta."
               : state.reason === "disabled"
-                ? "The offer exists but is switched off."
+                ? "A oferta existe, mas está desligada."
                 : state.reason === "expired"
-                  ? "The deadline has passed; the checkout refuses this plan."
+                  ? "O prazo terminou; o checkout recusa esse plano."
                   : state.deadline
-                    ? `Selling until ${new Date(state.deadline).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (Brasília)`
-                    : "Selling with no deadline."
+                    ? `Vendendo até ${new Date(state.deadline).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (Brasília)`
+                    : "Vendendo sem prazo."
           }
         />
         <Chip
-          label={state.closed ? state.reason : "open"}
+          label={state.closed ? state.reason : "aberta"}
           size="small"
           color={state.closed ? "grey" : "success"}
           variant="outlined"
@@ -154,20 +154,20 @@ export default function CampaignOfferAdmin() {
             onChange={(event) => setConfig({ ...config, enabled: event.target.checked })}
           />
         }
-        label="Offer open (uncheck to close it — do NOT deactivate the plan)"
+        label="Oferta aberta (desmarque para fechar — NÃO desative o plano)"
       />
       <Field
-        label="Campaign plan slug (the plan the ads sell)"
+        label="Slug do plano da campanha (o plano que os anúncios vendem)"
         value={config.plan_slug}
         onChange={(value) => setConfig({ ...config, plan_slug: value })}
       />
       <Field
-        label="Anchor plan slug (struck-through price — empty for none)"
+        label="Slug do plano de âncora (preço riscado — vazio para nenhum)"
         value={config.compare_plan_slug}
         onChange={(value) => setConfig({ ...config, compare_plan_slug: value })}
       />
       <Field
-        label="Deadline in YOUR browser's timezone (empty = no deadline); the page prints it in Brasília time"
+        label="Prazo no fuso do SEU navegador (vazio = sem prazo); a página mostra em horário de Brasília"
         type="datetime-local"
         value={toLocalInput(config.deadline)}
         onChange={(value) => setConfig({ ...config, deadline: value ? new Date(value).toISOString() : "" })}
@@ -175,13 +175,13 @@ export default function CampaignOfferAdmin() {
 
       <Box>
         <Button variant="contained" onClick={save}>
-          Save campaign offer
+          Salvar oferta de campanha
         </Button>
       </Box>
 
       {saved && (
         <Alert severity="success" className="neutral bg-background-paper/60!">
-          Saved. The landing page and the checkout guard both follow this immediately.
+          Salvo. A landing page e a trava do checkout seguem isso na hora.
         </Alert>
       )}
       {error && (

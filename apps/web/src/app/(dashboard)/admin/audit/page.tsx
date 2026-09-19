@@ -44,21 +44,21 @@ export default function AdminAudit() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          Audit & Logs
+          Auditoria e logs
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
-          <Typography variant="body2">Audit</Typography>
+          <Typography variant="body2">Auditoria</Typography>
         </Breadcrumbs>
       </Grid>
 
       {allowed === false && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            This area is restricted to platform superadmins.
+            Esta área é restrita aos superadmins da plataforma.
           </Alert>
         </Grid>
       )}
@@ -68,10 +68,10 @@ export default function AdminAudit() {
           <Card component="section">
             <CardContent>
               <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-6">
-                <Tab label="Audit trail" />
-                <Tab label="Access" />
-                <Tab label="Processing failures" />
-                <Tab label="WhatsApp log" />
+                <Tab label="Trilha de auditoria" />
+                <Tab label="Acesso" />
+                <Tab label="Falhas de processamento" />
+                <Tab label="Log do WhatsApp" />
               </Tabs>
               <Box hidden={tab !== 0}>{tab === 0 && <AuditEventsAdmin />}</Box>
               <Box hidden={tab !== 1}>{tab === 1 && <AccessEventsAdmin />}</Box>

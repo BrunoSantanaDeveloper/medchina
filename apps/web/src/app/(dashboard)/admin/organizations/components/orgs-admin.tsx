@@ -11,6 +11,7 @@ import {
   formatMoney,
   renewalLabel,
   sinceDays,
+  SUBSCRIPTION_STATUS_LABEL,
   trialLabel,
 } from "./account-overview";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -41,6 +42,13 @@ import { createClient } from "@flyee/auth/client";
 type AccountRow = AccountOverview & { id: string };
 type MemberRow = { userId: string; role: string; displayName: string; joinedAt: string };
 
+/** The membership role enum as the operator reads it. */
+const ROLE_LABEL: Record<string, string> = {
+  owner: "responsável",
+  admin: "administradora",
+  member: "membro",
+};
+
 const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> = {
   active: "success",
   trialing: "warning",
@@ -53,9 +61,9 @@ const searchTextOf = (row: AccountRow) =>
 
 const statusTextOf = (row: AccountRow) =>
   [
-    row.billing.status ?? "no subscription",
-    row.billing.suspended ? "suspended" : null,
-    row.billing.cancelAtPeriodEnd ? "canceling" : null,
+    SUBSCRIPTION_STATUS_LABEL[row.billing.status ?? ""] ?? row.billing.status ?? "sem assinatura",
+    row.billing.suspended ? "suspensa" : null,
+    row.billing.cancelAtPeriodEnd ? "cancelando" : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -131,7 +139,7 @@ export default function OrgsAdmin() {
         userId: row.user_id,
         role: row.role,
         displayName:
-          (row.profiles as unknown as { display_name: string | null } | null)?.display_name ?? "Unnamed user",
+          (row.profiles as unknown as { display_name: string | null } | null)?.display_name ?? "Profissional sem nome",
         joinedAt: row.created_at,
       })),
     }));
@@ -169,17 +177,17 @@ export default function OrgsAdmin() {
     () => [
       {
         field: "account",
-        headerName: "Account",
+        headerName: "Conta",
         flex: 2,
         minWidth: 240,
         valueGetter: (_, row) => searchTextOf(row),
         renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
           <Box className="flex h-full flex-col justify-center">
             <Typography variant="body1" className="text-text-primary truncate font-medium">
-              {params.row.owner?.name ?? "No owner"}
+              {params.row.owner?.name ?? "Sem responsável"}
             </Typography>
             <Typography variant="body2" className="text-text-secondary truncate">
-              {params.row.owner?.email ?? "no e-mail"} · {params.row.name}
+              {params.row.owner?.email ?? "sem e-mail"} · {params.row.name}
             </Typography>
           </Box>
         ),
@@ -189,24 +197,24 @@ export default function OrgsAdmin() {
         // real screen: as two columns they pushed the kill-switch and the
         // kebab off a 1680px viewport. Suspended/canceling live in Signals.
         field: "plan",
-        headerName: "Plan",
+        headerName: "Plano",
         minWidth: 190,
-        valueGetter: (_, row) => `${row.billing.planName ?? "no subscription"} ${statusTextOf(row)}`,
+        valueGetter: (_, row) => `${row.billing.planName ?? "sem assinatura"} ${statusTextOf(row)}`,
         renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
           <Box className="flex h-full flex-row flex-wrap items-center gap-1">
-            <Chip label={params.row.billing.planName ?? "no subscription"} size="small" variant="outlined" />
+            <Chip label={params.row.billing.planName ?? "sem assinatura"} size="small" variant="outlined" />
             {params.row.billing.status && (
               <Chip
-                label={params.row.billing.status.replace("_", " ")}
+                label={SUBSCRIPTION_STATUS_LABEL[params.row.billing.status] ?? params.row.billing.status}
                 size="small"
                 color={STATUS_COLOR[params.row.billing.status] ?? "default"}
                 variant="outlined"
-                className="capitalize"
+                className="first-letter:uppercase"
               />
             )}
             {/* A plan an operator gave away has no provider behind it (0067). */}
             {params.row.billing.isFree === false && !params.row.billing.providerManaged && (
-              <Chip label="comped" size="small" color="warning" variant="outlined" />
+              <Chip label="cortesia" size="small" color="warning" variant="outlined" />
             )}
           </Box>
         ),
@@ -215,7 +223,7 @@ export default function OrgsAdmin() {
         // Numeric so the operator can sort by "who renews next"; the cell
         // still reads in words.
         field: "renewal",
-        headerName: "Renewal",
+        headerName: "Renovação",
         type: "number",
         minWidth: 110,
         valueGetter: (_, row) => row.billing.renewalDays,
@@ -232,7 +240,7 @@ export default function OrgsAdmin() {
       },
       {
         field: "trial",
-        headerName: "Pro trial",
+        headerName: "Trial Pro",
         type: "number",
         minWidth: 120,
         valueGetter: (_, row) => (row.trial?.active ? row.trial.daysLeft : null),
@@ -246,23 +254,23 @@ export default function OrgsAdmin() {
       },
       {
         field: "use",
-        headerName: "Use (30 d)",
+        headerName: "Uso (30 d)",
         minWidth: 150,
         valueGetter: (_, row) => `${row.usage.finalized30d} records ${row.usage.minutes30d} min`,
         renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
           <Box className="flex h-full flex-col justify-center">
             <Typography variant="body2" className="text-text-primary">
-              {params.row.usage.finalized30d} records · {params.row.usage.minutes30d} min
+              {params.row.usage.finalized30d} atendimentos · {params.row.usage.minutes30d} min
             </Typography>
             <Typography variant="body2" className="text-text-secondary truncate">
-              {params.row.usage.patients} patients · active {sinceDays(params.row.usage.lastActivityAt)}
+              {params.row.usage.patients} pacientes · ativa {sinceDays(params.row.usage.lastActivityAt)}
             </Typography>
           </Box>
         ),
       },
       {
         field: "signals",
-        headerName: "Signals",
+        headerName: "Sinais",
         minWidth: 190,
         sortable: false,
         valueGetter: (_, row) => row.flags.map((flag) => FLAG_LABEL[flag] ?? flag).join(" "),
@@ -289,7 +297,7 @@ export default function OrgsAdmin() {
         // Suspend/reactivate is the audited kill-switch: it stays visible on
         // the row, never buried in the kebab.
         field: "access",
-        headerName: "Access",
+        headerName: "Acesso",
         minWidth: 110,
         type: "boolean",
         valueGetter: (_, row) => Boolean(row.billing.subscriptionId && !row.billing.suspended),
@@ -298,7 +306,7 @@ export default function OrgsAdmin() {
           if (!billing.subscriptionId) return null;
           return (
             <Box className="flex h-full items-center">
-              <Tooltip title={billing.suspended ? "Reactivate access" : "Suspend access"}>
+              <Tooltip title={billing.suspended ? "Reativar acesso" : "Suspender acesso"}>
                 <Switch
                   checked={!billing.suspended}
                   onChange={() => toggleSuspended(params.row)}
@@ -306,8 +314,8 @@ export default function OrgsAdmin() {
                   slotProps={{
                     input: {
                       "aria-label": billing.suspended
-                        ? `Reactivate access for ${params.row.name}`
-                        : `Suspend access for ${params.row.name}`,
+                        ? `Reativar o acesso de ${params.row.name}`
+                        : `Suspender o acesso de ${params.row.name}`,
                     },
                   }}
                 />
@@ -327,14 +335,14 @@ export default function OrgsAdmin() {
           <GridActionsCellItem
             key="detail"
             icon={<NiEyeOpen size="medium" />}
-            label="Account detail"
+            label="Detalhe da conta"
             onClick={() => setDetail(params.row)}
             showInMenu
           />,
           <GridActionsCellItem
             key="members"
             icon={<NiUsers size="medium" />}
-            label="View members"
+            label="Ver membros"
             onClick={() => openMembers(params.row)}
             showInMenu
           />,
@@ -366,17 +374,17 @@ export default function OrgsAdmin() {
           <Stat
             label="MRR"
             value={formatMoney(totals.mrrCents, totals.currency)}
-            hint="Charged every month by the payment providers; yearly plans normalized to a month"
+            hint="O que os provedores cobram por mês; plano anual normalizado para um mês"
           />
           <Stat
-            label="At risk"
+            label="Em risco"
             value={formatMoney(totals.atRiskMrrCents, totals.currency)}
-            hint="Overdue at the provider or scheduled to cancel at the end of the period"
+            hint="Em atraso no provedor ou marcado para cancelar no fim do período"
           />
           <Stat
-            label="Comped"
+            label="Cortesia"
             value={formatMoney(totals.compedMrrCents, totals.currency)}
-            hint="Paid plans granted from the console: capability given away, never counted as revenue"
+            hint="Planos pagos concedidos pelo console: capacidade dada, nunca contada como receita"
           />
         </Box>
       )}
@@ -419,24 +427,24 @@ export default function OrgsAdmin() {
             filter === "all" ? (
               <EmptyState
                 icon={<NiBuilding size="medium" />}
-                title="No accounts yet"
-                description="Every sign-up creates a workspace and appears here, with its plan, trial and use."
+                title="Nenhuma conta ainda"
+                description="Todo cadastro cria um consultório e aparece aqui, com plano, trial e uso."
                 className="border-none"
               />
             ) : (
               <Box className="flex h-full flex-col items-center justify-center gap-2">
                 <Typography variant="body2" className="text-text-secondary">
-                  No account is {activeFilter?.label.toLowerCase() ?? "in this state"} right now.
+                  Nenhuma conta em &quot;{activeFilter?.label ?? "este filtro"}&quot; agora.
                 </Typography>
                 <Button variant="text" onClick={() => setFilter("all")}>
-                  Show all accounts
+                  Ver todas as contas
                 </Button>
               </Box>
             )
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No account matches your search.
+              Nenhuma conta corresponde à busca.
             </Typography>
           }
         />
@@ -444,22 +452,22 @@ export default function OrgsAdmin() {
 
       {generatedAt && (
         <Typography variant="caption" className="text-text-secondary">
-          Plans, trials and use as of {new Date(generatedAt).toLocaleString()}.
+          Planos, trials e uso conforme {new Date(generatedAt).toLocaleString()}.
         </Typography>
       )}
 
       <Dialog open={Boolean(membersOrg)} onClose={() => setMembersOrg(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Members of {membersOrg?.name}</DialogTitle>
+        <DialogTitle>Membros de {membersOrg?.name}</DialogTitle>
         <DialogContent>
           <Box className="flex flex-col gap-3 pt-1">
             {!roster && (
               <Typography variant="body2" className="text-text-secondary">
-                Loading members…
+                Carregando membros…
               </Typography>
             )}
             {roster && roster.length === 0 && (
               <Typography variant="body2" className="text-text-secondary">
-                This organization has no members.
+                Este consultório não tem membros.
               </Typography>
             )}
             {(roster ?? []).map((member) => (
@@ -469,17 +477,22 @@ export default function OrgsAdmin() {
                     {member.displayName}
                   </Typography>
                   <Typography variant="body2" className="text-text-secondary truncate">
-                    joined {new Date(member.joinedAt).toLocaleDateString()}
+                    entrou em {new Date(member.joinedAt).toLocaleDateString()}
                   </Typography>
                 </Box>
-                <Chip label={member.role} size="small" variant="outlined" className="capitalize" />
+                <Chip
+                  label={ROLE_LABEL[member.role] ?? member.role}
+                  size="small"
+                  variant="outlined"
+                  className="first-letter:uppercase"
+                />
               </Box>
             ))}
           </Box>
         </DialogContent>
         <DialogActions>
           <Button variant="text" color="grey" onClick={() => setMembersOrg(null)}>
-            Close
+            Fechar
           </Button>
         </DialogActions>
       </Dialog>

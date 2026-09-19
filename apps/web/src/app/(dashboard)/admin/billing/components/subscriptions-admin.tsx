@@ -38,9 +38,18 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
   incomplete: "default",
 };
 
+/** The status enum as the operator reads it; an unknown value falls back to the raw one. */
+const STATUS_LABEL: Record<string, string> = {
+  active: "ativa",
+  trialing: "em trial",
+  past_due: "inadimplente",
+  incomplete: "incompleta",
+  canceled: "cancelada",
+};
+
 /** The old row's secondary line: which plan, on what terms, since when. */
 const planLineOf = (row: SubRow) =>
-  `${row.period ? `${row.period} · ` : ""}${row.provider ? `${row.provider} · ` : ""}since ${new Date(row.createdAt).toLocaleDateString()}`;
+  `${row.period ? `${row.period} · ` : ""}${row.provider ? `${row.provider} · ` : ""}desde ${new Date(row.createdAt).toLocaleDateString()}`;
 
 export default function SubscriptionsAdmin() {
   const [rows, setRows] = useState<SubRow[]>([]);
@@ -105,8 +114,8 @@ export default function SubscriptionsAdmin() {
         adminSuspended: row.admin_suspended,
         period: row.period,
         provider: row.provider,
-        orgName: (row.organizations as unknown as { name: string } | null)?.name ?? "Unknown org",
-        planName: (row.plans as unknown as { name: string } | null)?.name ?? "Unknown plan",
+        orgName: (row.organizations as unknown as { name: string } | null)?.name ?? "Consultório desconhecido",
+        planName: (row.plans as unknown as { name: string } | null)?.name ?? "Plano desconhecido",
         createdAt: row.created_at,
         packMinutes: Math.floor((remainingByOrg.get(row.org_id) ?? 0) / 60),
         planId: row.plan_id,
@@ -157,7 +166,7 @@ export default function SubscriptionsAdmin() {
       setError(null);
       const minutes = Number(grantDraft[row.orgId]);
       if (!Number.isFinite(minutes) || minutes <= 0) {
-        setError("Enter how many minutes to grant.");
+        setError("Informe quantos minutos conceder.");
         return;
       }
       setGranting(row.orgId);
@@ -165,7 +174,7 @@ export default function SubscriptionsAdmin() {
       const { error: rpcError } = await supabase.rpc("grant_audio_minute_pack", {
         target_org: row.orgId,
         target_minutes: Math.floor(minutes),
-        target_note: "Granted from the billing console",
+        target_note: "Concedido pelo console de faturamento",
       });
       setGranting(null);
       if (rpcError) {
@@ -195,7 +204,7 @@ export default function SubscriptionsAdmin() {
       setNotice(null);
       const planId = planDraft[row.orgId];
       if (!planId || planId === row.planId) {
-        setError("Pick a different plan first.");
+        setError("Escolha um plano diferente primeiro.");
         return;
       }
       setAssigning(row.orgId);
@@ -203,20 +212,20 @@ export default function SubscriptionsAdmin() {
       const { data, error: rpcError } = await supabase.rpc("set_org_plan", {
         target_org: row.orgId,
         target_plan: planId,
-        target_note: "Assigned from the billing console",
+        target_note: "Atribuído pelo console de faturamento",
       });
       setAssigning(null);
       if (rpcError) {
         setError(
           rpcError.message.includes("provider_managed")
-            ? "This workspace pays through a provider — changing the plan here would desync the charge from the entitlement. Cancel the provider subscription first."
+            ? "Este consultório paga por um provedor — trocar o plano aqui descolaria a cobrança do que ela tem direito. Cancele a assinatura no provedor antes."
             : rpcError.message,
         );
         return;
       }
       const result = data as { toPlan?: string; selfGrant?: boolean } | null;
       setNotice(
-        `${row.orgName} is now on ${result?.toPlan ?? "the selected plan"}${result?.selfGrant ? " (your own workspace — recorded in the audit trail)" : ""}.`,
+        `${row.orgName} agora está no ${result?.toPlan ?? "plano selecionado"}${result?.selfGrant ? " (seu próprio consultório — registrado na trilha de auditoria)" : ""}.`,
       );
       setPlanDraft((draft) => ({ ...draft, [row.orgId]: "" }));
       refresh();
@@ -228,7 +237,7 @@ export default function SubscriptionsAdmin() {
     () => [
       {
         field: "orgName",
-        headerName: "Organization",
+        headerName: "Consultório",
         flex: 1.5,
         minWidth: 200,
         renderCell: (params: GridRenderCellParams<SubRow, string>) => (
@@ -241,7 +250,7 @@ export default function SubscriptionsAdmin() {
       },
       {
         field: "planName",
-        headerName: "Plan",
+        headerName: "Plano",
         flex: 1.5,
         minWidth: 220,
         // Period, provider and start date are searched and exported with the
@@ -260,31 +269,32 @@ export default function SubscriptionsAdmin() {
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 170,
-        valueGetter: (_, row) => `${row.status.replace("_", " ")}${row.adminSuspended ? " suspended" : ""}`,
+        valueGetter: (_, row) =>
+          `${STATUS_LABEL[row.status] ?? row.status.replace("_", " ")}${row.adminSuspended ? " suspensa" : ""}`,
         renderCell: (params: GridRenderCellParams<SubRow, string>) => (
           <Box className="flex h-full flex-row items-center gap-1">
             <Chip
-              label={params.row.status.replace("_", " ")}
+              label={STATUS_LABEL[params.row.status] ?? params.row.status.replace("_", " ")}
               size="small"
               color={STATUS_COLOR[params.row.status] ?? "default"}
               variant="outlined"
-              className="capitalize"
+              className="first-letter:uppercase"
             />
-            {params.row.adminSuspended && <Chip label="suspended" size="small" color="error" variant="outlined" />}
+            {params.row.adminSuspended && <Chip label="suspensa" size="small" color="error" variant="outlined" />}
           </Box>
         ),
       },
       {
         field: "packMinutes",
-        headerName: "Extra minutes",
+        headerName: "Minutos extras",
         type: "number",
         minWidth: 140,
         renderCell: (params: GridRenderCellParams<SubRow, number>) => (
           <Box className="flex h-full items-center">
             {params.row.packMinutes > 0 ? (
-              <Chip label={`${params.row.packMinutes} extra min`} size="small" color="secondary" variant="outlined" />
+              <Chip label={`${params.row.packMinutes} min extras`} size="small" color="secondary" variant="outlined" />
             ) : (
               <Typography variant="body2" className="text-text-secondary">
                 —
@@ -295,7 +305,7 @@ export default function SubscriptionsAdmin() {
       },
       {
         field: "grant",
-        headerName: "Grant minutes",
+        headerName: "Conceder minutos",
         minWidth: 210,
         sortable: false,
         filterable: false,
@@ -303,15 +313,15 @@ export default function SubscriptionsAdmin() {
           <Box className="flex h-full flex-row items-center gap-2">
             <FormControl className="outlined mb-0 w-24" variant="standard" size="small">
               <Input
-                placeholder="+ minutes"
+                placeholder="+ minutos"
                 type="number"
-                inputProps={{ min: 1, "aria-label": `Grant extra minutes to ${params.row.orgName}` }}
+                inputProps={{ min: 1, "aria-label": `Conceder minutos extras para ${params.row.orgName}` }}
                 value={grantDraft[params.row.orgId] ?? ""}
                 onChange={(e) => setGrantDraft((draft) => ({ ...draft, [params.row.orgId]: e.target.value }))}
               />
             </FormControl>
             <Button size="small" disabled={granting === params.row.orgId} onClick={() => void grantMinutes(params.row)}>
-              {granting === params.row.orgId ? "Granting…" : "Grant"}
+              {granting === params.row.orgId ? "Concedendo…" : "Conceder"}
             </Button>
           </Box>
         ),
@@ -322,7 +332,7 @@ export default function SubscriptionsAdmin() {
         // silently not being there. Downgrading is the same control: pick
         // the free plan.
         field: "compedPlan",
-        headerName: "Comped plan",
+        headerName: "Plano cortesia",
         minWidth: 280,
         sortable: false,
         filterable: false,
@@ -331,8 +341,8 @@ export default function SubscriptionsAdmin() {
             <Tooltip
               title={
                 params.row.providerManaged
-                  ? "Paid through a provider — change the plan at the provider, not here"
-                  : "Assign a plan without a checkout"
+                  ? "Pago por um provedor — troque o plano no provedor, não aqui"
+                  : "Atribuir um plano sem checkout"
               }
             >
               <span>
@@ -348,15 +358,15 @@ export default function SubscriptionsAdmin() {
                     onChange={(e) =>
                       setPlanDraft((draft) => ({ ...draft, [params.row.orgId]: e.target.value as string }))
                     }
-                    inputProps={{ "aria-label": `Assign a plan to ${params.row.orgName}` }}
+                    inputProps={{ "aria-label": `Atribuir um plano para ${params.row.orgName}` }}
                   >
-                    <option value="">Change plan…</option>
+                    <option value="">Trocar plano…</option>
                     {plans
                       .filter((plan) => plan.id !== params.row.planId)
                       .map((plan) => (
                         <option key={plan.id} value={plan.id}>
                           {plan.name}
-                          {plan.isFree ? " (remove paid plan)" : ""}
+                          {plan.isFree ? " (remove o plano pago)" : ""}
                         </option>
                       ))}
                   </Select>
@@ -368,7 +378,7 @@ export default function SubscriptionsAdmin() {
               disabled={params.row.providerManaged || assigning === params.row.orgId || !planDraft[params.row.orgId]}
               onClick={() => void assignPlan(params.row)}
             >
-              {assigning === params.row.orgId ? "Applying…" : "Apply"}
+              {assigning === params.row.orgId ? "Aplicando…" : "Aplicar"}
             </Button>
           </Box>
         ),
@@ -376,19 +386,19 @@ export default function SubscriptionsAdmin() {
       {
         // The kill-switch stays visible on the row, never buried in a menu.
         field: "adminSuspended",
-        headerName: "Access",
+        headerName: "Acesso",
         minWidth: 110,
         type: "boolean",
         renderCell: (params: GridRenderCellParams<SubRow, boolean>) => (
           <Box className="flex h-full items-center">
-            <Tooltip title={params.row.adminSuspended ? "Reactivate access" : "Suspend access"}>
+            <Tooltip title={params.row.adminSuspended ? "Reativar acesso" : "Suspender acesso"}>
               <Switch
                 checked={!params.row.adminSuspended}
                 onChange={() => toggleSuspended(params.row)}
                 size="small"
                 slotProps={{
                   input: {
-                    "aria-label": `${params.row.adminSuspended ? "Reactivate" : "Suspend"} access for ${params.row.orgName}`,
+                    "aria-label": `${params.row.adminSuspended ? "Reativar" : "Suspender"} acesso de ${params.row.orgName}`,
                   },
                 }}
               />
@@ -423,14 +433,14 @@ export default function SubscriptionsAdmin() {
           noRowsOverlay={
             <EmptyState
               icon={<NiCreditCard size="medium" />}
-              title="No live subscriptions"
-              description="Trialing, active, past-due and incomplete subscriptions show up here as workspaces start paying — with the kill-switch, minute grants and comped plans on each row."
+              title="Nenhuma assinatura em andamento"
+              description="Assinaturas em trial, ativas, inadimplentes e incompletas aparecem aqui conforme os consultórios começam a pagar — com o corte de acesso, a concessão de minutos e o plano cortesia em cada linha."
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No subscriptions match your search.
+              Nenhuma assinatura corresponde à sua busca.
             </Typography>
           }
         />

@@ -1,0 +1,165 @@
+/*
+  The pitch deck adds to the congress deck's system; it never redefines it.
+
+  Everything structural — the 1280×720 canvas, the chrome, the cards, the
+  stats, the bars, the window frames, the export pages — comes from
+  `palestra.css`. What lives here are the four or five blocks this deck needs
+  and that one does not: the cover's fact strip, the plan cards, the two
+  founders side by side, the penetration scenarios and the eligibility row.
+*/
+
+/* The cover's footer: four short facts an application form will ask for. */
+.pitch-facts {
+  width: 100%;
+  max-width: 900px;
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px solid var(--edge);
+  text-align: left;
+}
+
+.pitch-facts span {
+  display: block;
+}
+
+.pitch-facts small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pitch-facts b {
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* The survey beside the three reasons it looks like that. */
+.pitch-problem {
+  align-items: start;
+}
+
+.pitch-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pitch-stack .deck-card {
+  padding: 14px 16px;
+}
+
+/* Four steps instead of the three the library slide draws. */
+.pitch-steps--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.pitch-steps--4 .deck-step {
+  padding: 18px 18px 20px;
+}
+
+.deck-step > b {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  color: var(--line);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+/* Penetration scenarios: the share, who that is, what it bills. */
+.pitch-scenarios {
+  margin-top: 16px;
+}
+
+.pitch-scenarios .deck-corpus-what {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.pitch-scenarios em {
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+/* Plans: the price is the headline, the name is the label above it. */
+.pitch-plan {
+  align-items: flex-start;
+}
+
+.pitch-plan-name {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pitch-plan-price {
+  margin: 4px 0 8px;
+  color: var(--ink-strong);
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* The two founders, portrait beside the text. */
+.pitch-person {
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.pitch-person .deck-portrait {
+  width: 84px;
+  height: 84px;
+  flex: none;
+}
+
+.pitch-person-role {
+  display: block;
+  margin: 2px 0 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* The program's eligibility list, as one quiet row of ticks. */
+.pitch-eligibility {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pitch-eligibility li {
+  padding: 6px 12px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.pitch-eligibility li::before {
+  margin-right: 6px;
+  color: var(--accent);
+  content: "✓";
+  font-weight: 900;
+}

@@ -150,7 +150,7 @@ export default function HelpCategoriesAdmin() {
     () => [
       {
         field: "name",
-        headerName: "Name",
+        headerName: "Nome",
         flex: 2,
         minWidth: 200,
         renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
@@ -176,7 +176,7 @@ export default function HelpCategoriesAdmin() {
       },
       {
         field: "description",
-        headerName: "Description",
+        headerName: "Descrição",
         flex: 2,
         minWidth: 220,
         // The searched text must be reachable as the cell value, not only in
@@ -192,7 +192,7 @@ export default function HelpCategoriesAdmin() {
       },
       {
         field: "locale",
-        headerName: "Locale",
+        headerName: "Idioma",
         minWidth: 100,
         renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
           <Box className="flex h-full items-center">
@@ -202,15 +202,15 @@ export default function HelpCategoriesAdmin() {
       },
       {
         field: "sort",
-        headerName: "Sort",
+        headerName: "Ordem",
         type: "number",
         minWidth: 90,
       },
       {
         field: "isPublished",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 120,
-        valueGetter: (_, row) => (row.isPublished ? "published" : "hidden"),
+        valueGetter: (_, row) => (row.isPublished ? "publicada" : "oculta"),
         renderCell: (params: GridRenderCellParams<HelpCategoryRow, string>) => (
           <Box className="flex h-full items-center">
             <Chip
@@ -233,7 +233,7 @@ export default function HelpCategoriesAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row)}
             showInMenu
           />,
@@ -255,26 +255,26 @@ export default function HelpCategoriesAdmin() {
         <Box className="border-grey-100 flex flex-col gap-3 rounded-2xl border p-4">
           <Box className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SelectField
-              label="Locale"
+              label="Idioma"
               value={form.locale}
               options={LOCALES.map((locale) => ({ value: locale, label: locale }))}
               onChange={(value) => setForm({ ...form, locale: value })}
             />
-            <Field label="Name" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+            <Field label="Nome" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
             <Field
-              label="Slug (empty = from name)"
+              label="Slug (vazio = a partir do nome)"
               value={form.slug}
               onChange={(value) => setForm({ ...form, slug: value })}
             />
           </Box>
           <Field
-            label="Description (optional)"
+            label="Descrição (opcional)"
             value={form.description}
             onChange={(value) => setForm({ ...form, description: value })}
           />
           <Box className="flex flex-row items-center gap-4">
             <Field
-              label="Sort"
+              label="Ordem"
               type="number"
               className="w-24"
               value={form.sort}
@@ -286,19 +286,19 @@ export default function HelpCategoriesAdmin() {
                 onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
                 size="small"
               />
-              <Typography variant="body2">Published</Typography>
+              <Typography variant="body2">Publicada</Typography>
             </Box>
           </Box>
           <Box className="flex flex-row gap-2">
             <Button variant="contained" size="small" onClick={save} disabled={!form.name.trim()}>
-              {form.id ? "Save changes" : "Create category"}
+              {form.id ? "Salvar alterações" : "Criar categoria"}
             </Button>
             <Button variant="text" color="grey" size="small" onClick={() => setForm(null)}>
-              Cancel
+              Cancelar
             </Button>
             {form.id && (
               <Button variant="text" color="error" size="small" onClick={() => remove(form.id!)}>
-                Delete category (and all its articles)
+                Excluir categoria (e todos os seus artigos)
               </Button>
             )}
           </Box>
@@ -314,28 +314,28 @@ export default function HelpCategoriesAdmin() {
           actions={
             form ? undefined : (
               <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-                New category
+                Nova categoria
               </Button>
             )
           }
           noRowsOverlay={
             form ? (
               <Typography variant="body2" className="text-text-secondary">
-                No help categories yet.
+                Nenhuma categoria de ajuda ainda.
               </Typography>
             ) : (
               <EmptyState
                 icon={<NiQuestionHexagon size="medium" />}
-                title="No help categories yet"
-                description="Categories group the articles on the public /help page. Start with the two or three topics customers ask about most."
-                action={{ label: "New category", onClick: () => setForm(EMPTY_FORM) }}
+                title="Nenhuma categoria de ajuda ainda"
+                description="As categorias agrupam os artigos da página pública /help. Comece pelos dois ou três assuntos que as profissionais mais perguntam."
+                action={{ label: "Nova categoria", onClick: () => setForm(EMPTY_FORM) }}
                 className="border-none"
               />
             )
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No categories match your search.
+              Nenhuma categoria corresponde à busca.
             </Typography>
           }
         />

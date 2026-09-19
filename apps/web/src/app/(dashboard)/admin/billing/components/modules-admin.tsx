@@ -112,7 +112,7 @@ export default function ModulesAdmin() {
     try {
       limits = JSON.parse(form.limits || "{}");
     } catch {
-      setError("Limits must be valid JSON.");
+      setError("Os limites precisam ser um JSON válido.");
       return;
     }
     const supabase = createClient();
@@ -158,7 +158,7 @@ export default function ModulesAdmin() {
     () => [
       {
         field: "name",
-        headerName: "Module",
+        headerName: "Módulo",
         flex: 2,
         minWidth: 240,
         // The slug is searched and exported as part of the cell's value, even
@@ -175,11 +175,11 @@ export default function ModulesAdmin() {
           </Box>
         ),
       },
-      { field: "kind", headerName: "Kind", minWidth: 140 },
-      { field: "price", headerName: "Price", minWidth: 140 },
+      { field: "kind", headerName: "Tipo", minWidth: 140 },
+      { field: "price", headerName: "Preço", minWidth: 140 },
       {
         field: "isActive",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 140,
         type: "boolean",
         renderCell: (params: GridRenderCellParams<ModuleRow, boolean>) => (
@@ -189,7 +189,7 @@ export default function ModulesAdmin() {
                 —
               </Typography>
             ) : (
-              <Chip label="inactive" size="small" variant="outlined" />
+              <Chip label="inativo" size="small" variant="outlined" />
             )}
           </Box>
         ),
@@ -205,7 +205,7 @@ export default function ModulesAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row.raw)}
             showInMenu
           />,
@@ -237,57 +237,53 @@ export default function ModulesAdmin() {
               startIcon={<NiPlus size="small" />}
               onClick={() => openEdit()}
             >
-              New module
+              Novo módulo
             </Button>
           }
           noRowsOverlay={
             <EmptyState
               icon={<NiPuzzle size="medium" />}
-              title="No modules yet"
-              description="A module is an add-on sold on top of a plan — extra capability a workspace switches on without changing tier."
-              action={{ label: "New module", onClick: () => openEdit() }}
+              title="Nenhum módulo ainda"
+              description="Um módulo é um adicional vendido em cima de um plano — um recurso extra que o consultório liga sem trocar de nível."
+              action={{ label: "Novo módulo", onClick: () => openEdit() }}
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No modules match your search.
+              Nenhum módulo corresponde à sua busca.
             </Typography>
           }
         />
       )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{form?.id ? "Edit module" : "New module"}</DialogTitle>
+        <DialogTitle>{form?.id ? "Editar módulo" : "Novo módulo"}</DialogTitle>
         {form && (
           <DialogContent className="flex flex-col">
-            <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field label="Nome" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field label="Slug" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} />
-            <Field
-              label="Description"
-              value={form.description}
-              onChange={(v) => setForm({ ...form, description: v })}
-            />
+            <Field label="Descrição" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
             <SelectField
-              label="Kind"
+              label="Tipo"
               value={form.kind}
               options={[
-                { value: "recurring", label: "Recurring" },
-                { value: "one_time", label: "One-time" },
+                { value: "recurring", label: "Recorrente" },
+                { value: "one_time", label: "Avulso" },
               ]}
               onChange={(v) => setForm({ ...form, kind: v })}
             />
             <CurrencyField
-              label="Price"
+              label="Preço"
               size="small"
               name="price"
               currencySymbol={CURRENCY_SYMBOLS.BRL}
               value={form.price}
               onChange={(event) => setForm({ ...form, price: event.target.value })}
             />
-            <Field label="Limits (JSON)" value={form.limits} onChange={(v) => setForm({ ...form, limits: v })} />
+            <Field label="Limites (JSON)" value={form.limits} onChange={(v) => setForm({ ...form, limits: v })} />
             <Field
-              label="Sort"
+              label="Ordem"
               type="number"
               value={form.sort}
               onChange={(v) => setForm({ ...form, sort: Number(v) })}
@@ -300,7 +296,7 @@ export default function ModulesAdmin() {
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                 />
               }
-              label="Active"
+              label="Ativo"
             />
             {error && (
               <Alert severity="error" className="neutral bg-background-paper/60! mt-2">
@@ -311,10 +307,10 @@ export default function ModulesAdmin() {
         )}
         <DialogActions>
           <Button color="grey" variant="text" onClick={() => setForm(null)}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="contained" onClick={save}>
-            Save
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>

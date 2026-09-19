@@ -102,16 +102,19 @@ export default function ConversionOffersAdmin() {
     <Box className="flex flex-col gap-4">
       {stats.length === 0 ? (
         <RowLine>
-          <RowText primary="No offers opened yet" secondary="Counts appear here once the first trigger fires." />
+          <RowText
+            primary="Nenhuma oferta aberta ainda"
+            secondary="Os números aparecem aqui quando o primeiro gatilho disparar."
+          />
         </RowLine>
       ) : (
         stats.map((row) => (
           <RowLine key={row.trigger}>
             <RowText
-              primary={`${row.trigger} · ${row.opened} opened · ${row.converted} converted`}
+              primary={`${row.trigger} · ${row.opened} abertas · ${row.converted} convertidas`}
               secondary={
                 row.opened > 0
-                  ? `${Math.round((row.converted / row.opened) * 100)}% conversion — low open counts mean the trigger is not firing; low conversion means the offer itself is not landing.`
+                  ? `${Math.round((row.converted / row.opened) * 100)}% de conversão — poucas aberturas significam que o gatilho não está disparando; conversão baixa significa que a oferta não está convencendo.`
                   : undefined
               }
             />
@@ -128,7 +131,7 @@ export default function ConversionOffersAdmin() {
             onChange={(event) => setConfig({ ...config, enabled: event.target.checked })}
           />
         }
-        label="Campaign running"
+        label="Campanha no ar"
       />
       <Box className="flex flex-row flex-wrap gap-4">
         <FormControlLabel
@@ -139,7 +142,7 @@ export default function ConversionOffersAdmin() {
               onChange={(event) => setConfig({ ...config, first_consultation: event.target.checked })}
             />
           }
-          label="Trigger: first finalized consultation"
+          label="Gatilho: primeira consulta finalizada"
         />
         <FormControlLabel
           control={
@@ -149,37 +152,37 @@ export default function ConversionOffersAdmin() {
               onChange={(event) => setConfig({ ...config, usage_80: event.target.checked })}
             />
           }
-          label="Trigger: 80% of trial minutes"
+          label="Gatilho: 80% dos minutos do trial"
         />
       </Box>
       <Field
-        label="Window (hours)"
+        label="Janela (horas)"
         type="number"
         value={config.window_hours}
         onChange={(value) => setConfig({ ...config, window_hours: Number(value) })}
       />
       <Field
-        label="Coupon code applied by the offer (must exist in the Coupons tab)"
+        label="Código do cupom aplicado pela oferta (precisa existir na aba Cupons)"
         value={config.coupon_code}
         onChange={(value) => setConfig({ ...config, coupon_code: value })}
       />
 
       <Box>
         <Button variant="contained" onClick={save}>
-          Save campaign
+          Salvar campanha
         </Button>
       </Box>
 
       {/* The trap that costs real money, stated where the decision is made. */}
       <Alert severity="warning" className="neutral bg-background-paper/60!">
-        Both providers apply a coupon to EVERY cycle (Stripe `duration: forever`, Asaas a discounted subscription
-        value). A 20% code here is 20% off for as long as she stays, not a first-month promotion. Size it accordingly,
-        or use a coupon with a `valid_until` in the Coupons tab.
+        Os dois provedores aplicam o cupom em TODO ciclo (Stripe `duration: forever`, Asaas um valor de assinatura já
+        com desconto). Um código de 20% aqui é 20% de desconto enquanto ela ficar, não uma promoção de primeiro mês.
+        Dimensione com isso em mente, ou use um cupom com `valid_until` na aba Cupons.
       </Alert>
       {saved && (
         <Alert severity="success" className="neutral bg-background-paper/60!">
-          Saved. Offers already open keep the benefit and deadline they were given — changing the campaign never
-          rewrites a promise already made.
+          Salvo. As ofertas já abertas mantêm o benefício e o prazo que receberam — mudar a campanha nunca reescreve uma
+          promessa já feita.
         </Alert>
       )}
       {error && (

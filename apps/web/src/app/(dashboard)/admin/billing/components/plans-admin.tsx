@@ -82,7 +82,7 @@ const EMPTY: PlanForm = {
 
 /** The catalog flags a row carries, as searchable text (the chips render them). */
 const flagsOf = (row: PlanRow) =>
-  [row.isFree ? "free default" : null, row.isActive ? null : "inactive", row.isPublic ? null : "unlisted"]
+  [row.isFree ? "grátis padrão" : null, row.isActive ? null : "inativo", row.isPublic ? null : "não listado"]
     .filter(Boolean)
     .join(" ");
 
@@ -143,7 +143,7 @@ export default function PlansAdmin() {
     try {
       limits = JSON.parse(form.limits || "{}");
     } catch {
-      setError("Limits must be valid JSON.");
+      setError("Os limites precisam ser um JSON válido.");
       return;
     }
     const supabase = createClient();
@@ -201,7 +201,7 @@ export default function PlansAdmin() {
     () => [
       {
         field: "name",
-        headerName: "Plan",
+        headerName: "Plano",
         flex: 2,
         minWidth: 240,
         // The slug is searched and exported as part of the cell's value, even
@@ -218,9 +218,9 @@ export default function PlansAdmin() {
           </Box>
         ),
       },
-      { field: "kind", headerName: "Kind", minWidth: 120 },
-      { field: "period", headerName: "Period", minWidth: 120 },
-      { field: "price", headerName: "Price", minWidth: 140 },
+      { field: "kind", headerName: "Tipo", minWidth: 120 },
+      { field: "period", headerName: "Período", minWidth: 120 },
+      { field: "price", headerName: "Preço", minWidth: 140 },
       {
         field: "trialDays",
         headerName: "Trial",
@@ -233,15 +233,15 @@ export default function PlansAdmin() {
         // reached by /settings/billing?plan=<slug>. Not the same as inactive,
         // which is not sellable at all.
         field: "flags",
-        headerName: "Catalog",
+        headerName: "Catálogo",
         minWidth: 220,
         sortable: false,
         valueGetter: (_, row) => flagsOf(row),
         renderCell: (params: GridRenderCellParams<PlanRow, string>) => (
           <Box className="flex h-full flex-row items-center gap-1">
-            {params.row.isFree && <Chip label="free default" size="small" color="success" variant="outlined" />}
-            {!params.row.isActive && <Chip label="inactive" size="small" variant="outlined" />}
-            {!params.row.isPublic && <Chip label="unlisted" size="small" color="primary" variant="outlined" />}
+            {params.row.isFree && <Chip label="grátis padrão" size="small" color="success" variant="outlined" />}
+            {!params.row.isActive && <Chip label="inativo" size="small" variant="outlined" />}
+            {!params.row.isPublic && <Chip label="não listado" size="small" color="primary" variant="outlined" />}
             {params.value === "" && (
               <Typography variant="body2" className="text-text-secondary">
                 —
@@ -261,7 +261,7 @@ export default function PlansAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row.raw)}
             showInMenu
           />,
@@ -293,59 +293,55 @@ export default function PlansAdmin() {
               startIcon={<NiPlus size="small" />}
               onClick={() => openEdit()}
             >
-              New plan
+              Novo plano
             </Button>
           }
           noRowsOverlay={
             <EmptyState
               icon={<NiMoney size="medium" />}
-              title="No plans yet"
-              description="The plan catalog is what a workspace can buy — price, period, trial and the limits each tier unlocks."
-              action={{ label: "New plan", onClick: () => openEdit() }}
+              title="Nenhum plano ainda"
+              description="O catálogo de planos é o que um consultório pode comprar — preço, período, trial e os limites que cada nível libera."
+              action={{ label: "Novo plano", onClick: () => openEdit() }}
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No plans match your search.
+              Nenhum plano corresponde à sua busca.
             </Typography>
           }
         />
       )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{form?.id ? "Edit plan" : "New plan"}</DialogTitle>
+        <DialogTitle>{form?.id ? "Editar plano" : "Novo plano"}</DialogTitle>
         {form && (
           <DialogContent className="flex flex-col">
-            <Field label="Name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+            <Field label="Nome" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
             <Field label="Slug" value={form.slug} onChange={(v) => setForm({ ...form, slug: v })} />
-            <Field
-              label="Description"
-              value={form.description}
-              onChange={(v) => setForm({ ...form, description: v })}
-            />
+            <Field label="Descrição" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
             <SelectField
-              label="Kind"
+              label="Tipo"
               value={form.kind}
               options={[
-                { value: "recurring", label: "Recurring" },
-                { value: "credits", label: "Credits" },
+                { value: "recurring", label: "Recorrente" },
+                { value: "credits", label: "Créditos" },
               ]}
               onChange={(v) => setForm({ ...form, kind: v })}
             />
             <SelectField
-              label="Period"
+              label="Período"
               value={form.period}
               options={[
-                { value: "weekly", label: "Weekly" },
-                { value: "monthly", label: "Monthly" },
-                { value: "yearly", label: "Yearly" },
-                { value: "none", label: "None (one-time credits)" },
+                { value: "weekly", label: "Semanal" },
+                { value: "monthly", label: "Mensal" },
+                { value: "yearly", label: "Anual" },
+                { value: "none", label: "Nenhum (créditos avulsos)" },
               ]}
               onChange={(v) => setForm({ ...form, period: v })}
             />
             <CurrencyField
-              label={`Price (${form.currency})`}
+              label={`Preço (${form.currency})`}
               size="small"
               name="price"
               currencySymbol={CURRENCY_SYMBOLS[form.currency] ?? `${form.currency} `}
@@ -353,20 +349,20 @@ export default function PlansAdmin() {
               onChange={(event) => setForm({ ...form, price: event.target.value })}
             />
             <Field
-              label="Credit amount (credits plans)"
+              label="Quantidade de créditos (planos de crédito)"
               type="number"
               value={form.credit_amount}
               onChange={(v) => setForm({ ...form, credit_amount: v === "" ? "" : Number(v) })}
             />
             <Field
-              label="Trial days (0 = no trial)"
+              label="Dias de trial (0 = sem trial)"
               type="number"
               value={form.trial_days}
               onChange={(v) => setForm({ ...form, trial_days: Number(v) })}
             />
-            <Field label="Limits (JSON)" value={form.limits} onChange={(v) => setForm({ ...form, limits: v })} />
+            <Field label="Limites (JSON)" value={form.limits} onChange={(v) => setForm({ ...form, limits: v })} />
             <Field
-              label="Sort"
+              label="Ordem"
               type="number"
               value={form.sort}
               onChange={(v) => setForm({ ...form, sort: Number(v) })}
@@ -380,7 +376,7 @@ export default function PlansAdmin() {
                     onChange={(e) => setForm({ ...form, credits_expire: e.target.checked })}
                   />
                 }
-                label="Credits expire each period"
+                label="Créditos expiram a cada período"
               />
               <FormControlLabel
                 control={
@@ -390,7 +386,7 @@ export default function PlansAdmin() {
                     onChange={(e) => setForm({ ...form, is_free: e.target.checked })}
                   />
                 }
-                label="Free default plan"
+                label="Plano grátis padrão"
               />
               <FormControlLabel
                 control={
@@ -400,7 +396,7 @@ export default function PlansAdmin() {
                     onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                   />
                 }
-                label="Active (sellable at all)"
+                label="Ativo (vendável de fato)"
               />
               <FormControlLabel
                 control={
@@ -410,7 +406,7 @@ export default function PlansAdmin() {
                     onChange={(e) => setForm({ ...form, is_public: e.target.checked })}
                   />
                 }
-                label="Listed in the pricing grids"
+                label="Listado nas tabelas de preço"
               />
             </Box>
             {/* The distinction the console has to make explicit: unchecking
@@ -418,8 +414,8 @@ export default function PlansAdmin() {
                 tool for taking it off the catalog. */}
             {!form.is_public && form.is_active && (
               <Alert severity="info" className="neutral bg-background-paper/60! mt-2">
-                Unlisted: hidden from /planos and from the customer plan grid, still purchasable at
-                {` /settings/billing?plan=${form.slug || "<slug>"}`} and assignable from Subscriptions.
+                Não listado: fica fora de /planos e da tabela de planos da cliente, mas ainda pode ser comprado em
+                {` /settings/billing?plan=${form.slug || "<slug>"}`} e atribuído na aba Assinaturas.
               </Alert>
             )}
             {error && (
@@ -431,10 +427,10 @@ export default function PlansAdmin() {
         )}
         <DialogActions>
           <Button color="grey" variant="text" onClick={() => setForm(null)}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="contained" onClick={save}>
-            Save
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>

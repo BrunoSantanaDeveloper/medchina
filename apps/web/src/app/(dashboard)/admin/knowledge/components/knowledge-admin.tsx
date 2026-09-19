@@ -49,10 +49,27 @@ type DocumentForm = { id?: string; title: string; source: string; trust_level: n
 const EMPTY_COLLECTION: CollectionForm = { slug: "", name: "", description: "" };
 const EMPTY_DOCUMENT: DocumentForm = { title: "", source: "", trust_level: 5, content: "" };
 
+/** pt-BR wording for the shared trust tiers (the package labels still feed the English prompts). */
+const TRUST_LEVEL_PT: Record<string, string> = {
+  1: "Fonte oficial",
+  2: "Dado próprio verificado",
+  3: "Resultado relatado",
+  4: "Protocolo interno",
+  5: "Não verificado / opinião",
+};
+
 const TRUST_OPTIONS = Object.entries(TRUST_LEVEL_LABELS).map(([value, label]) => ({
   value,
-  label: `${value} — ${label}`,
+  label: `${value} — ${TRUST_LEVEL_PT[value] ?? label}`,
 }));
+
+/** The chip must read like a word, not like a column value. */
+const STATUS_LABEL: Record<string, string> = {
+  pending: "na fila",
+  processing: "processando",
+  ready: "indexado",
+  error: "erro",
+};
 
 const STATUS_COLOR: Record<string, "default" | "success" | "warning" | "error"> = {
   pending: "warning",
@@ -62,7 +79,8 @@ const STATUS_COLOR: Record<string, "default" | "success" | "warning" | "error"> 
 };
 
 /** The old row's secondary line kept the trust level readable, not just numeric. */
-const trustLabel = (level: number) => `${level} — ${TRUST_LEVEL_LABELS[level as 1 | 2 | 3 | 4 | 5]}`;
+const trustLabel = (level: number) =>
+  `${level} — ${TRUST_LEVEL_PT[level] ?? TRUST_LEVEL_LABELS[level as 1 | 2 | 3 | 4 | 5]}`;
 
 export default function KnowledgeAdmin() {
   const [collections, setCollections] = useState<CollectionRow[]>([]);
@@ -163,7 +181,7 @@ export default function KnowledgeAdmin() {
     if (!documentForm || !selectedId) return;
     setError(null);
     if (!documentForm.content.trim()) {
-      setError("Content is required — it is what gets chunked and embedded.");
+      setError("O conteúdo é obrigatório — é ele que é dividido em trechos e indexado.");
       return;
     }
     setBusy(true);
@@ -174,7 +192,7 @@ export default function KnowledgeAdmin() {
         .upsert({
           ...(documentForm.id ? { id: documentForm.id } : {}),
           collection_id: selectedId,
-          title: documentForm.title.trim() || "Untitled",
+          title: documentForm.title.trim() || "Sem título",
           source: documentForm.source || null,
           trust_level: documentForm.trust_level,
           content: documentForm.content,
@@ -184,7 +202,7 @@ export default function KnowledgeAdmin() {
         .select("id")
         .single();
       if (saveError || !saved) {
-        setError(saveError?.message ?? "Save failed.");
+        setError(saveError?.message ?? "Não foi possível salvar.");
         return;
       }
       setDocumentForm(null);
@@ -245,7 +263,7 @@ export default function KnowledgeAdmin() {
     () => [
       {
         field: "name",
-        headerName: "Collection",
+        headerName: "Coleção",
         flex: 1.5,
         minWidth: 200,
         renderCell: (params: GridRenderCellParams<CollectionRow, string>) => (
@@ -255,7 +273,7 @@ export default function KnowledgeAdmin() {
             </Typography>
             {params.row.id === selectedId && (
               <span className="bg-accent-1/15 text-accent-1-dark dark:text-accent-1-light flex-none rounded-full px-2 py-0.5 text-xs font-semibold">
-                Selected
+                Selecionada
               </span>
             )}
           </Box>
@@ -276,7 +294,7 @@ export default function KnowledgeAdmin() {
       },
       {
         field: "description",
-        headerName: "Description",
+        headerName: "Descrição",
         flex: 1.5,
         minWidth: 200,
         // The searched text must be reachable as the cell value, not only in
@@ -295,12 +313,12 @@ export default function KnowledgeAdmin() {
         // collection hides it from the member acervo without touching RAG. It
         // stays visible on the row, never buried in the kebab.
         field: "browsable",
-        headerName: "Browsable",
+        headerName: "No acervo",
         minWidth: 120,
         type: "boolean",
         renderCell: (params: GridRenderCellParams<CollectionRow, boolean>) => (
           <Box className="flex h-full items-center">
-            <Tooltip title={params.row.browsable ? "Unlist from the acervo" : "List in the acervo"}>
+            <Tooltip title={params.row.browsable ? "Tirar do acervo" : "Listar no acervo"}>
               <Switch
                 checked={params.row.browsable}
                 onClick={(event) => event.stopPropagation()}
@@ -309,8 +327,8 @@ export default function KnowledgeAdmin() {
                 slotProps={{
                   input: {
                     "aria-label": params.row.browsable
-                      ? `Unlist ${params.row.name} from the acervo`
-                      : `List ${params.row.name} in the acervo`,
+                      ? `Tirar ${params.row.name} do acervo`
+                      : `Listar ${params.row.name} no acervo`,
                   },
                 }}
               />
@@ -329,7 +347,7 @@ export default function KnowledgeAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit collection"
+            label="Editar coleção"
             onClick={() => editCollection(params.row)}
             showInMenu
           />,
@@ -343,7 +361,7 @@ export default function KnowledgeAdmin() {
     () => [
       {
         field: "title",
-        headerName: "Title",
+        headerName: "Título",
         flex: 2,
         minWidth: 220,
         renderCell: (params: GridRenderCellParams<DocumentRow, string>) => (
@@ -356,7 +374,7 @@ export default function KnowledgeAdmin() {
       },
       {
         field: "source",
-        headerName: "Source",
+        headerName: "Fonte",
         flex: 1,
         minWidth: 160,
         valueGetter: (_, row) => row.source ?? "",
@@ -370,7 +388,7 @@ export default function KnowledgeAdmin() {
       },
       {
         field: "trust_level",
-        headerName: "Trust",
+        headerName: "Confiança",
         minWidth: 150,
         valueGetter: (_, row) => trustLabel(row.trust_level),
         renderCell: (params: GridRenderCellParams<DocumentRow, string>) => (
@@ -383,12 +401,13 @@ export default function KnowledgeAdmin() {
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 120,
+        valueGetter: (_, row) => STATUS_LABEL[row.status] ?? row.status,
         renderCell: (params: GridRenderCellParams<DocumentRow, string>) => (
           <Box className="flex h-full items-center">
             <Chip
-              label={params.row.status}
+              label={STATUS_LABEL[params.row.status] ?? params.row.status}
               size="small"
               variant="outlined"
               color={STATUS_COLOR[params.row.status] ?? "default"}
@@ -400,7 +419,7 @@ export default function KnowledgeAdmin() {
         // The old row put the ingestion failure in its secondary line — it is
         // the reason the operator scans this list, so it keeps a column.
         field: "error",
-        headerName: "Error",
+        headerName: "Erro",
         flex: 1.5,
         minWidth: 180,
         valueGetter: (_, row) => row.error ?? "",
@@ -426,21 +445,21 @@ export default function KnowledgeAdmin() {
           <GridActionsCellItem
             key="reindex"
             icon={<NiRefresh size="medium" />}
-            label="Re-index"
+            label="Reindexar"
             onClick={() => reindexDocument(params.row.id)}
             showInMenu
           />,
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => editDocument(params.row)}
             showInMenu
           />,
           <GridActionsCellItem
             key="delete"
             icon={<NiBinEmpty size="medium" />}
-            label="Delete"
+            label="Excluir"
             onClick={() => deleteDocument(params.row.id)}
             showInMenu
           />,
@@ -471,10 +490,11 @@ export default function KnowledgeAdmin() {
           header={
             <Box>
               <Typography variant="h5" component="h2" className="card-title mb-1">
-                Collections
+                Coleções
               </Typography>
               <Typography variant="body2" className="text-text-secondary">
-                Global collections, referenced by assistants through their slug. Select one to manage its documents.
+                Coleções globais, referenciadas pelos assistentes pelo slug. Selecione uma para gerenciar os documentos
+                dela.
               </Typography>
             </Box>
           }
@@ -486,21 +506,21 @@ export default function KnowledgeAdmin() {
               startIcon={<NiPlus size="small" />}
               onClick={() => setCollectionForm(EMPTY_COLLECTION)}
             >
-              New collection
+              Nova coleção
             </Button>
           }
           noRowsOverlay={
             <EmptyState
               icon={<NiBook size="medium" />}
-              title="No collections yet"
-              description="A collection groups the documents an assistant retrieves from. Create one, then add documents — they are chunked and embedded automatically."
-              action={{ label: "New collection", onClick: () => setCollectionForm(EMPTY_COLLECTION) }}
+              title="Nenhuma coleção ainda"
+              description="Uma coleção agrupa os documentos que um assistente consulta. Crie uma e depois adicione documentos — eles são divididos em trechos e indexados automaticamente."
+              action={{ label: "Nova coleção", onClick: () => setCollectionForm(EMPTY_COLLECTION) }}
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No collections match your search.
+              Nenhuma coleção corresponde à busca.
             </Typography>
           }
         />
@@ -514,10 +534,10 @@ export default function KnowledgeAdmin() {
           header={
             <Box>
               <Typography variant="h5" component="h2" className="card-title mb-1">
-                Documents
+                Documentos
               </Typography>
               <Typography variant="body2" className="text-text-secondary">
-                {selectedCollection ? selectedCollection.name : "Selected collection"}
+                {selectedCollection ? selectedCollection.name : "Coleção selecionada"}
               </Typography>
             </Box>
           }
@@ -529,21 +549,21 @@ export default function KnowledgeAdmin() {
               startIcon={<NiPlus size="small" />}
               onClick={() => setDocumentForm(EMPTY_DOCUMENT)}
             >
-              New document
+              Novo documento
             </Button>
           }
           noRowsOverlay={
             <EmptyState
               icon={<NiDocumentFull size="medium" />}
-              title="No documents yet"
-              description="Add content and it will be chunked + embedded automatically."
-              action={{ label: "New document", onClick: () => setDocumentForm(EMPTY_DOCUMENT) }}
+              title="Nenhum documento ainda"
+              description="Adicione o conteúdo e ele é dividido em trechos e indexado automaticamente."
+              action={{ label: "Novo documento", onClick: () => setDocumentForm(EMPTY_DOCUMENT) }}
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No documents match your search.
+              Nenhum documento corresponde à busca.
             </Typography>
           }
         />
@@ -551,21 +571,21 @@ export default function KnowledgeAdmin() {
 
       {/* Collection dialog */}
       <Dialog open={collectionForm !== null} onClose={() => setCollectionForm(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{collectionForm?.id ? "Edit collection" : "New collection"}</DialogTitle>
+        <DialogTitle>{collectionForm?.id ? "Editar coleção" : "Nova coleção"}</DialogTitle>
         {collectionForm && (
           <DialogContent className="flex flex-col">
             <Field
-              label="Name"
+              label="Nome"
               value={collectionForm.name}
               onChange={(v) => setCollectionForm({ ...collectionForm, name: v })}
             />
             <Field
-              label="Slug (referenced by assistants' config.knowledge.collections)"
+              label="Slug (referenciado em config.knowledge.collections dos assistentes)"
               value={collectionForm.slug}
               onChange={(v) => setCollectionForm({ ...collectionForm, slug: v })}
             />
             <Field
-              label="Description"
+              label="Descrição"
               value={collectionForm.description}
               onChange={(v) => setCollectionForm({ ...collectionForm, description: v })}
             />
@@ -580,44 +600,44 @@ export default function KnowledgeAdmin() {
                   setCollectionForm(null);
                 }}
               >
-                Delete collection (and all its documents)
+                Excluir coleção (e todos os documentos dela)
               </Button>
             )}
           </DialogContent>
         )}
         <DialogActions>
           <Button color="grey" variant="text" onClick={() => setCollectionForm(null)}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="contained" onClick={saveCollection}>
-            Save
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Document dialog */}
       <Dialog open={documentForm !== null} onClose={() => setDocumentForm(null)} maxWidth="md" fullWidth>
-        <DialogTitle>{documentForm?.id ? "Edit document" : "New document"}</DialogTitle>
+        <DialogTitle>{documentForm?.id ? "Editar documento" : "Novo documento"}</DialogTitle>
         {documentForm && (
           <DialogContent className="flex flex-col">
             <Field
-              label="Title"
+              label="Título"
               value={documentForm.title}
               onChange={(v) => setDocumentForm({ ...documentForm, title: v })}
             />
             <Field
-              label="Source (URL or reference, informational)"
+              label="Fonte (URL ou referência, informativo)"
               value={documentForm.source}
               onChange={(v) => setDocumentForm({ ...documentForm, source: v })}
             />
             <SelectField
-              label="Trust level"
+              label="Nível de confiança"
               value={String(documentForm.trust_level)}
               options={TRUST_OPTIONS}
               onChange={(v) => setDocumentForm({ ...documentForm, trust_level: Number(v) })}
             />
             <FormControl className="outlined" variant="standard" size="small" fullWidth>
-              <FormLabel component="label">Content (chunked + embedded on save)</FormLabel>
+              <FormLabel component="label">Conteúdo (dividido em trechos e indexado ao salvar)</FormLabel>
               <TextareaAutosize
                 minRows={10}
                 className="MuiInputBase-root MuiInput-root w-full"
@@ -629,10 +649,10 @@ export default function KnowledgeAdmin() {
         )}
         <DialogActions>
           <Button color="grey" variant="text" onClick={() => setDocumentForm(null)}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="contained" onClick={saveDocument} disabled={busy}>
-            {busy ? "Indexing..." : "Save & index"}
+            {busy ? "Indexando…" : "Salvar e indexar"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -41,7 +41,7 @@ export default function SupportAdmin() {
     const cleanWhatsapp = whatsapp.replace(/\D/g, "");
     const cleanEmail = email.trim();
     if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
-      setError("Enter a valid support email address.");
+      setError("Informe um e-mail de suporte válido.");
       setSaving(false);
       return;
     }
@@ -66,23 +66,23 @@ export default function SupportAdmin() {
   return (
     <div className="flex max-w-xl flex-col gap-4">
       <Typography variant="body1" className="text-text-secondary">
-        Channels for the floating quick-support button (public site + dashboard). Leave both empty to hide the widget.
-        These values are public.
+        Canais do botão flutuante de suporte rápido (site público + área logada). Deixe os dois em branco para esconder
+        o widget. Esses valores são públicos.
       </Typography>
 
       <TextField
-        label="WhatsApp number"
+        label="Número do WhatsApp"
         placeholder="5511999998888"
-        helperText="Digits only, with country code — becomes a wa.me link."
+        helperText="Somente dígitos, com código do país — vira um link wa.me."
         value={whatsapp}
         onChange={(event) => setWhatsapp(event.target.value)}
         disabled={loading}
         fullWidth
       />
       <TextField
-        label="Support email"
+        label="E-mail de suporte"
         placeholder="suporte@medchina.com.br"
-        helperText="Shown as a mailto: channel."
+        helperText="Exibido como canal mailto:."
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         disabled={loading}
@@ -96,13 +96,13 @@ export default function SupportAdmin() {
       )}
       {saved && (
         <Alert severity="success" className="neutral bg-background-paper/60!">
-          Support channels saved. The widget updates on the next page load.
+          Canais de suporte salvos. O widget atualiza no próximo carregamento da página.
         </Alert>
       )}
 
       <div>
         <Button variant="contained" color="primary" onClick={save} disabled={loading || saving}>
-          {saving ? "Saving…" : "Save channels"}
+          {saving ? "Salvando…" : "Salvar canais"}
         </Button>
       </div>
     </div>

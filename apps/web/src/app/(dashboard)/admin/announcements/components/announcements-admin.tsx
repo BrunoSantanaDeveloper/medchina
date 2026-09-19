@@ -52,6 +52,13 @@ const LEVEL_COLOR: Record<string, "default" | "warning" | "error"> = {
   critical: "error",
 };
 
+/** The level enum as the operator reads it; an unknown value falls back to the raw one. */
+const LEVEL_LABEL: Record<string, string> = {
+  info: "informativo",
+  warning: "aviso",
+  critical: "crítico",
+};
+
 // datetime-local <-> ISO helpers (the input needs local "YYYY-MM-DDTHH:mm").
 const toLocalInput = (iso: string | null) => {
   if (!iso) return "";
@@ -74,6 +81,14 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "default"> = {
   scheduled: "warning",
   expired: "default",
   off: "default",
+};
+
+/** The computed window status, in words. */
+const STATUS_LABEL: Record<string, string> = {
+  live: "publicado",
+  scheduled: "agendado",
+  expired: "expirado",
+  off: "desligado",
 };
 
 const formatWindow = (row: AnnouncementRow) =>
@@ -192,7 +207,7 @@ export default function AnnouncementsAdmin() {
     () => [
       {
         field: "title",
-        headerName: "Title",
+        headerName: "Título",
         flex: 2,
         minWidth: 220,
         renderCell: (params: GridRenderCellParams<AnnouncementRow, string>) => (
@@ -205,19 +220,21 @@ export default function AnnouncementsAdmin() {
       },
       {
         field: "startsAt",
-        headerName: "Window",
+        headerName: "Janela",
         flex: 1.5,
         minWidth: 200,
         valueFormatter: (_value: string, row: AnnouncementRow) => formatWindow(row),
       },
       {
         field: "level",
-        headerName: "Level",
+        headerName: "Nível",
         minWidth: 110,
+        // The quick search has to match the chip, not the stored enum.
+        valueGetter: (_, row) => LEVEL_LABEL[row.level] ?? row.level,
         renderCell: (params: GridRenderCellParams<AnnouncementRow, AnnouncementRow["level"]>) => (
           <Box className="flex h-full items-center">
             <Chip
-              label={params.row.level}
+              label={LEVEL_LABEL[params.row.level] ?? params.row.level}
               size="small"
               color={LEVEL_COLOR[params.row.level]}
               variant="outlined"
@@ -228,15 +245,15 @@ export default function AnnouncementsAdmin() {
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 120,
-        valueGetter: (_, row) => statusOf(row),
+        valueGetter: (_, row) => STATUS_LABEL[statusOf(row)] ?? statusOf(row),
         renderCell: (params: GridRenderCellParams<AnnouncementRow, string>) => {
-          const status = params.value ?? "off";
+          const status = statusOf(params.row);
           return (
             <Box className="flex h-full items-center">
               <Chip
-                label={status}
+                label={STATUS_LABEL[status] ?? status}
                 size="small"
                 color={STATUS_COLOR[status]}
                 variant="outlined"
@@ -250,19 +267,19 @@ export default function AnnouncementsAdmin() {
         // Publish/unpublish is a kill switch: it stays visible on the row,
         // never buried in the kebab.
         field: "isActive",
-        headerName: "Active",
+        headerName: "Ativo",
         minWidth: 100,
         type: "boolean",
         renderCell: (params: GridRenderCellParams<AnnouncementRow, boolean>) => (
           <Box className="flex h-full items-center">
-            <Tooltip title={params.row.isActive ? "Deactivate" : "Activate"}>
+            <Tooltip title={params.row.isActive ? "Desativar" : "Ativar"}>
               <Switch
                 checked={params.row.isActive}
                 onChange={() => toggleActive(params.row)}
                 size="small"
                 slotProps={{
                   input: {
-                    "aria-label": params.row.isActive ? "Deactivate announcement" : "Activate announcement",
+                    "aria-label": params.row.isActive ? "Desativar anúncio" : "Ativar anúncio",
                   },
                 }}
               />
@@ -281,7 +298,7 @@ export default function AnnouncementsAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row)}
             showInMenu
           />,
@@ -301,37 +318,37 @@ export default function AnnouncementsAdmin() {
 
       {form && (
         <Box className="border-grey-100 flex flex-col gap-3 rounded-2xl border p-4">
-          <Field label="Title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
+          <Field label="Título" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
           <FormControl className="outlined" variant="standard" size="small" fullWidth>
-            <FormLabel component="label">Body (optional)</FormLabel>
+            <FormLabel component="label">Texto (opcional)</FormLabel>
             <Input multiline rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
           </FormControl>
           <Box className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SelectField
-              label="Level"
+              label="Nível"
               value={form.level}
               options={[
-                { value: "info", label: "Info" },
-                { value: "warning", label: "Warning" },
-                { value: "critical", label: "Critical" },
+                { value: "info", label: "Informativo" },
+                { value: "warning", label: "Aviso" },
+                { value: "critical", label: "Crítico" },
               ]}
               onChange={(value) => setForm({ ...form, level: value })}
             />
             <Field
-              label="Starts at (empty = now)"
+              label="Começa em (vazio = agora)"
               type="datetime-local"
               value={form.startsAt}
               onChange={(value) => setForm({ ...form, startsAt: value })}
             />
             <Field
-              label="Ends at (empty = until deactivated)"
+              label="Termina em (vazio = até desativar)"
               type="datetime-local"
               value={form.endsAt}
               onChange={(value) => setForm({ ...form, endsAt: value })}
             />
           </Box>
           <Field
-            label="Learn-more link (optional)"
+            label="Link para saber mais (opcional)"
             value={form.href}
             onChange={(value) => setForm({ ...form, href: value })}
           />
@@ -341,14 +358,14 @@ export default function AnnouncementsAdmin() {
               onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
               size="small"
             />
-            <Typography variant="body2">Active</Typography>
+            <Typography variant="body2">Ativo</Typography>
           </Box>
           <Box className="flex flex-row gap-2">
             <Button variant="contained" size="small" onClick={save} disabled={!form.title.trim()}>
-              {form.id ? "Save changes" : "Publish"}
+              {form.id ? "Salvar alterações" : "Publicar"}
             </Button>
             <Button variant="text" color="grey" size="small" onClick={() => setForm(null)}>
-              Cancel
+              Cancelar
             </Button>
           </Box>
         </Box>
@@ -363,28 +380,28 @@ export default function AnnouncementsAdmin() {
           actions={
             form ? undefined : (
               <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-                New announcement
+                Novo anúncio
               </Button>
             )
           }
           noRowsOverlay={
             form ? (
               <Typography variant="body2" className="text-text-secondary">
-                No announcements yet.
+                Nenhum anúncio ainda.
               </Typography>
             ) : (
               <EmptyState
                 icon={<NiAnnouncement size="medium" />}
-                title="No announcements yet"
-                description="Publish a message and every signed-in user sees it as a banner until they dismiss it — maintenance windows, new features, policy changes."
-                action={{ label: "New announcement", onClick: () => setForm(EMPTY_FORM) }}
+                title="Nenhum anúncio ainda"
+                description="Publique uma mensagem e toda profissional logada vê o aviso no topo da tela até dispensar — janelas de manutenção, novidades, mudanças de política."
+                action={{ label: "Novo anúncio", onClick: () => setForm(EMPTY_FORM) }}
                 className="border-none"
               />
             )
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No announcements match your search.
+              Nenhum anúncio corresponde à busca.
             </Typography>
           }
         />

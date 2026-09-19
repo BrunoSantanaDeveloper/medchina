@@ -40,21 +40,21 @@ export default function AdminAnnouncements() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          Announcements
+          Anúncios
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
-          <Typography variant="body2">Announcements</Typography>
+          <Typography variant="body2">Anúncios</Typography>
         </Breadcrumbs>
       </Grid>
 
       {allowed === false && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            This area is restricted to platform superadmins.
+            Esta área é restrita aos superadmins da plataforma.
           </Alert>
         </Grid>
       )}

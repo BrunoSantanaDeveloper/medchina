@@ -20,7 +20,7 @@ export async function ingestDocument(documentId: string): Promise<IngestActionRe
     .eq("id", documentId)
     .select("id")
     .maybeSingle();
-  if (!allowed) return { ok: false, error: "Not allowed to index this document." };
+  if (!allowed) return { ok: false, error: "Sem permissão para indexar este documento." };
 
   const queued = await sendEvent("knowledge/document.ingest", { documentId });
   if (queued.sent) return { ok: true, queued: true };

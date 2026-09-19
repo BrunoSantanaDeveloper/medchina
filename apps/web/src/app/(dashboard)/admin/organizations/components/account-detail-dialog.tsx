@@ -9,6 +9,7 @@ import {
   formatMoney,
   MINUTE_REASON,
   sinceDays,
+  SUBSCRIPTION_STATUS_LABEL,
 } from "./account-overview";
 import { useEffect, useState } from "react";
 
@@ -65,10 +66,10 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
       <DialogTitle>
         <Box className="flex flex-col">
           <Typography variant="h5" component="span">
-            {owner?.name ?? "No owner"}
+            {owner?.name ?? "Sem responsável"}
           </Typography>
           <Typography variant="body2" className="text-text-secondary">
-            {owner?.email ?? "no e-mail"} · {account.name}
+            {owner?.email ?? "sem e-mail"} · {account.name}
           </Typography>
         </Box>
       </DialogTitle>
@@ -79,7 +80,7 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
               <Chip key={flag} label={FLAG_LABEL[flag] ?? flag} size="small" variant="outlined" />
             ))}
             {dossier?.identity.staffAccount && (
-              <Chip label="internal account" size="small" color="warning" variant="outlined" />
+              <Chip label="conta interna" size="small" color="warning" variant="outlined" />
             )}
           </Box>
 
@@ -87,7 +88,7 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
           {verdict && (
             <Alert severity={verdict.blocker ? "warning" : "success"} className="neutral bg-background-paper/60!">
               <Typography variant="body2" className="text-text-primary">
-                {verdict.blocker ?? "Nothing is standing in this account's way."}
+                {verdict.blocker ?? "Nada está travando esta conta."}
               </Typography>
               <Typography variant="body2" className="text-text-secondary">
                 {verdict.action}
@@ -98,25 +99,25 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
           {loadError ? (
             // A dossier that failed to load is an error, never a thin account.
             <Alert severity="error" className="neutral bg-background-paper/60!">
-              Could not load this account&apos;s detail: {loadError}
+              Não foi possível carregar o detalhe desta conta: {loadError}
             </Alert>
           ) : !dossier ? (
             <Box className="flex min-h-40 items-center gap-3">
-              <CircularProgress size={20} aria-label="Loading" />
+              <CircularProgress size={20} aria-label="Carregando" />
               <Typography variant="body2" className="text-text-secondary">
-                Reading everything this account holds…
+                Lendo tudo o que esta conta guarda…
               </Typography>
             </Box>
           ) : (
             <>
-              <Section title="Who she is">
-                <Row label="Name" value={owner?.name ?? "—"} />
+              <Section title="Quem ela é">
+                <Row label="Nome" value={owner?.name ?? "—"} />
                 <Row
-                  label="Title and registration"
+                  label="Título e registro"
                   value={
                     owner?.registration || owner?.title
                       ? [owner?.title, owner?.registration].filter(Boolean).join(" · ")
-                      : "not filled in — every document she issues goes out with no credential on it"
+                      : "não preenchido — todo documento que ela emite sai sem credencial"
                   }
                 />
                 <Row
@@ -131,111 +132,114 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                     )
                   }
                 />
-                <Row label="E-mail confirmed" value={owner?.confirmed ? "yes" : "no — sign-up never completed"} />
                 <Row
-                  label="Phone (practice)"
+                  label="E-mail confirmado"
+                  value={owner?.confirmed ? "sim" : "não — o cadastro nunca foi concluído"}
+                />
+                <Row
+                  label="Telefone (consultório)"
                   value={
                     dossier.identity.billingPhone ? (
                       <a href={`tel:${dossier.identity.billingPhone}`} className="text-primary">
                         {dossier.identity.billingPhone}
                       </a>
                     ) : (
-                      "not provided"
+                      "não informado"
                     )
                   }
                 />
                 <Row
-                  label="Fiscal identity"
+                  label="CPF/CNPJ"
                   value={
-                    dossier.identity.fiscalId ??
-                    "none on file — the payment provider cannot create a customer without it"
+                    dossier.identity.fiscalId ?? "não consta — o provedor de pagamento não cria uma cliente sem ele"
                   }
                 />
                 <Row
-                  label="Checkout ready"
+                  label="Pronta para o checkout"
                   value={
                     dossier.identity.checkoutReady
-                      ? "yes — fiscal id, postal code and address number are all on file"
-                      : `no — missing ${[
-                          !dossier.identity.fiscalId ? "fiscal id" : null,
-                          !dossier.identity.postalCodeOnFile ? "postal code" : null,
-                          !dossier.identity.addressNumberOnFile ? "address number" : null,
+                      ? "sim — CPF/CNPJ, CEP e número do endereço estão todos no cadastro"
+                      : `não — falta ${[
+                          !dossier.identity.fiscalId ? "CPF/CNPJ" : null,
+                          !dossier.identity.postalCodeOnFile ? "CEP" : null,
+                          !dossier.identity.addressNumberOnFile ? "número do endereço" : null,
                         ]
                           .filter(Boolean)
                           .join(", ")}`
                   }
                 />
-                <Row label="Modalities" value={listOf(dossier.identity.modalities)} />
-                <Row label="Areas" value={listOf(dossier.identity.areas)} />
+                <Row label="Modalidades" value={listOf(dossier.identity.modalities)} />
+                <Row label="Áreas" value={listOf(dossier.identity.areas)} />
                 <Row
-                  label="Started with"
+                  label="Começou por"
                   value={
                     dossier.identity.onboarding?.track
-                      ? `the "${dossier.identity.onboarding.track}" track${dossier.identity.onboarding.completedAt ? ", completed" : ", never completed"}`
-                      : "no start choice recorded"
+                      ? `a trilha "${dossier.identity.onboarding.track}"${dossier.identity.onboarding.completedAt ? ", concluída" : ", nunca concluída"}`
+                      : "nenhuma escolha de início registrada"
                   }
                 />
                 <Row
-                  label="Lifecycle e-mail"
+                  label="E-mail de ciclo de vida"
                   value={
                     dossier.identity.lifecycleEmailOptOut
-                      ? "opted out — the trial and usage automation is silent for her"
-                      : "receiving"
+                      ? "descadastrada — a automação de trial e uso fica muda para ela"
+                      : "recebendo"
                   }
                 />
                 <Row
-                  label="Workspace"
-                  value={`${account.name} · ${account.slug} · created ${formatDate(account.createdAt)} · ${account.timezone ?? "no timezone"}${dossier.identity.timezoneConfirmed ? "" : " (never confirmed)"}`}
+                  label="Consultório"
+                  value={`${account.name} · ${account.slug} · criado em ${formatDate(account.createdAt)} · ${account.timezone ?? "sem fuso"}${dossier.identity.timezoneConfirmed ? "" : " (nunca confirmado)"}`}
                 />
-                <Row label="Workspace id" value={account.orgId} />
+                <Row label="Id do consultório" value={account.orgId} />
               </Section>
 
-              <Section title="Money">
+              <Section title="Dinheiro">
                 <Row
-                  label="Plan"
-                  value={`${billing.planName ?? "no live subscription"}${billing.status ? ` · ${billing.status}` : ""}${
-                    billing.isFree === false && !billing.providerManaged ? " · comped, nobody is charged" : ""
+                  label="Plano"
+                  value={`${billing.planName ?? "nenhuma assinatura em andamento"}${billing.status ? ` · ${SUBSCRIPTION_STATUS_LABEL[billing.status] ?? billing.status}` : ""}${
+                    billing.isFree === false && !billing.providerManaged ? " · cortesia, ninguém é cobrado" : ""
                   }`}
                 />
                 <Row
-                  label="Lifetime paid"
+                  label="Total já pago"
                   value={
                     dossier.money.payments > 0
-                      ? `${formatMoney(dossier.money.lifetimePaidCents, dossier.money.currency)} over ${dossier.money.payments} payment${dossier.money.payments === 1 ? "" : "s"}${
+                      ? `${formatMoney(dossier.money.lifetimePaidCents, dossier.money.currency)} em ${dossier.money.payments} pagamento${dossier.money.payments === 1 ? "" : "s"}${
                           dossier.money.refundedCents > 0
-                            ? ` · ${formatMoney(dossier.money.refundedCents, dossier.money.currency)} refunded`
+                            ? ` · ${formatMoney(dossier.money.refundedCents, dossier.money.currency)} estornado`
                             : ""
                         }`
                       : billing.isFree === false
-                        ? "comped — never charged"
-                        : "never charged"
+                        ? "cortesia — nunca cobrada"
+                        : "nunca cobrada"
                   }
                 />
                 <Row
-                  label="Paying since"
+                  label="Pagando desde"
                   value={
                     dossier.money.payingSince
-                      ? `${formatDate(dossier.money.payingSince)}${dossier.money.daysToFirstPayment !== null ? ` · ${dossier.money.daysToFirstPayment} d after sign-up` : ""}`
+                      ? `${formatDate(dossier.money.payingSince)}${dossier.money.daysToFirstPayment !== null ? ` · ${dossier.money.daysToFirstPayment} d após o cadastro` : ""}`
                       : "—"
                   }
                 />
                 <Row
-                  label="Renews"
+                  label="Renova"
                   value={
                     billing.currentPeriodEnd
-                      ? `${formatDate(billing.currentPeriodEnd)}${billing.renewalDays !== null ? ` (in ${billing.renewalDays} d)` : ""}`
+                      ? `${formatDate(billing.currentPeriodEnd)}${billing.renewalDays !== null ? ` (em ${billing.renewalDays} d)` : ""}`
                       : billing.isFree === false
-                        ? "no renewal date — a comped plan meters by calendar month"
+                        ? "sem data de renovação — um plano cortesia conta por mês do calendário"
                         : "—"
                   }
                 />
-                {billing.cancelAtPeriodEnd && <Row label="Cancellation" value="scheduled for the end of the period" />}
+                {billing.cancelAtPeriodEnd && <Row label="Cancelamento" value="marcado para o fim do período" />}
                 {dossier.money.failedCharges.count > 0 && (
                   <Row
-                    label="Failing charge"
+                    label="Cobrança falhando"
                     value={
                       <>
-                        {dossier.money.failedCharges.count} open since {formatDate(dossier.money.failedCharges.since)}
+                        {dossier.money.failedCharges.count} em aberto desde{" "}
+                        {formatDate(dossier.money.failedCharges.since)}
                         {dossier.money.failedCharges.invoiceUrl ? (
                           <>
                             {" · "}
@@ -245,7 +249,7 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                               target="_blank"
                               rel="noreferrer"
                             >
-                              payment link
+                              link de pagamento
                             </a>
                           </>
                         ) : null}
@@ -255,10 +259,10 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                 )}
                 {dossier.money.openCheckout && (
                   <Row
-                    label="Open checkout"
+                    label="Checkout em aberto"
                     value={
                       <>
-                        {dossier.money.openCheckout.planName}, abandoned {dossier.money.openCheckout.ageDays} d ago
+                        {dossier.money.openCheckout.planName}, abandonado há {dossier.money.openCheckout.ageDays} d
                         {dossier.money.openCheckout.url ? (
                           <>
                             {" · "}
@@ -268,7 +272,7 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                               target="_blank"
                               rel="noreferrer"
                             >
-                              open link
+                              link aberto
                             </a>
                           </>
                         ) : null}
@@ -278,27 +282,27 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                 )}
                 {dossier.money.coupon && (
                   <Row
-                    label="Coupon"
+                    label="Cupom"
                     value={`${dossier.money.coupon.code} (${dossier.money.coupon.value} ${dossier.money.coupon.type})`}
                   />
                 )}
                 <Row
-                  label="At the provider"
+                  label="No provedor"
                   value={
                     dossier.money.providerCustomerId
-                      ? `${billing.provider ?? "provider"} · customer ${dossier.money.providerCustomerId}`
-                      : "no provider record"
+                      ? `${billing.provider ?? "provedor"} · cliente ${dossier.money.providerCustomerId}`
+                      : "sem registro no provedor"
                   }
                 />
                 {dossier.money.offers.length > 0 && (
                   <Row
-                    label="Conversion offers"
+                    label="Ofertas de conversão"
                     value={dossier.money.offers.map((offer) => `${offer.trigger}: ${offer.state}`).join(" · ")}
                   />
                 )}
                 {dossier.money.invoices.length > 0 && (
                   <Row
-                    label="Last invoices"
+                    label="Últimas faturas"
                     value={dossier.money.invoices
                       .slice(0, 4)
                       .map(
@@ -310,78 +314,84 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                 )}
               </Section>
 
-              <Section title="Is she using it">
+              <Section title="Ela está usando">
                 <Row
-                  label="Activation"
-                  value={`first patient ${dossier.usage.daysToFirstPatient ?? "—"} d after sign-up · first finalized record ${
-                    dossier.usage.daysToFirstRecord ?? "never"
-                  }${dossier.usage.daysToFirstRecord !== null ? " d" : ""}`}
+                  label="Ativação"
+                  value={`primeiro paciente ${
+                    dossier.usage.daysToFirstPatient !== null
+                      ? `${dossier.usage.daysToFirstPatient} d após o cadastro`
+                      : "nunca"
+                  } · primeiro atendimento finalizado ${
+                    dossier.usage.daysToFirstRecord !== null
+                      ? `${dossier.usage.daysToFirstRecord} d após o cadastro`
+                      : "nunca"
+                  }`}
                 />
                 <Row
-                  label="Patients"
-                  value={`${dossier.usage.activePatients} active · ${dossier.usage.archivedPatients} archived`}
+                  label="Pacientes"
+                  value={`${dossier.usage.activePatients} ativas · ${dossier.usage.archivedPatients} arquivadas`}
                 />
                 <Row
-                  label="Records"
-                  value={`${dossier.usage.funnel.finalized} finalized · ${dossier.usage.funnel.draft} her drafts · ${dossier.usage.funnel.awaitingReview} awaiting her review (the AI's pile) · ${dossier.usage.funnel.scheduled} scheduled · ${dossier.usage.funnel.cancelled} cancelled`}
+                  label="Atendimentos"
+                  value={`${dossier.usage.funnel.finalized} finalizados · ${dossier.usage.funnel.draft} rascunhos dela · ${dossier.usage.funnel.awaitingReview} esperando revisão dela (a pilha da IA) · ${dossier.usage.funnel.scheduled} agendados · ${dossier.usage.funnel.cancelled} cancelados`}
                 />
                 {dossier.usage.oldestOpenRecordDays !== null && (
-                  <Row label="Oldest untouched open record" value={`${dossier.usage.oldestOpenRecordDays} d`} />
+                  <Row label="Atendimento aberto mais antigo" value={`${dossier.usage.oldestOpenRecordDays} d`} />
                 )}
                 <Row
-                  label="How records are made"
-                  value={`${dossier.usage.recordsFromAudio} from audio · ${dossier.usage.recordsTyped} typed by hand`}
+                  label="Como os atendimentos nascem"
+                  value={`${dossier.usage.recordsFromAudio} do áudio · ${dossier.usage.recordsTyped} digitados à mão`}
                 />
                 <Row
-                  label="Recordings"
-                  value={`${dossier.usage.recordings.total} total · ${dossier.usage.recordings.ready} ready · ${dossier.usage.recordings.modeAi} with AI, ${dossier.usage.recordings.modeAudioOnly} audio-only · last ${sinceDays(dossier.usage.recordings.lastAt)}`}
+                  label="Gravações"
+                  value={`${dossier.usage.recordings.total} no total · ${dossier.usage.recordings.ready} prontas · ${dossier.usage.recordings.modeAi} com IA, ${dossier.usage.recordings.modeAudioOnly} só áudio · última ${sinceDays(dossier.usage.recordings.lastAt)}`}
                 />
                 <Row
-                  label="Captured on"
+                  label="Capturado em"
                   value={
                     Object.keys(dossier.usage.captureSurface).length > 0
                       ? Object.entries(dossier.usage.captureSurface)
                           .map(([surface, count]) => `${surface} ${count}`)
                           .join(" · ")
-                      : "nothing captured yet"
+                      : "nada capturado ainda"
                   }
                 />
                 <Row
-                  label="Companion app"
+                  label="Aplicativo companheiro"
                   value={
                     dossier.usage.mobileDevices.count > 0
-                      ? `${dossier.usage.mobileDevices.count} device (${dossier.usage.mobileDevices.platforms.join(", ")}) · last seen ${sinceDays(dossier.usage.mobileDevices.lastSeenAt)}`
-                      : "never installed"
+                      ? `${dossier.usage.mobileDevices.count} dispositivo (${dossier.usage.mobileDevices.platforms.join(", ")}) · visto ${sinceDays(dossier.usage.mobileDevices.lastSeenAt)}`
+                      : "nunca instalado"
                   }
                 />
                 <Row
-                  label="Minutes"
-                  value={`${minutes.used} of ${minutes.limit} this cycle (${minutes.percent}%) · ${minutes.remaining} left · ${dossier.usage.minutes.lifetimeCycle + dossier.usage.minutes.lifetimePack} min lifetime${
+                  label="Minutos"
+                  value={`${minutes.used} de ${minutes.limit} neste ciclo (${minutes.percent}%) · ${minutes.remaining} restantes · ${dossier.usage.minutes.lifetimeCycle + dossier.usage.minutes.lifetimePack} min no total${
                     dossier.usage.minutes.perFinalizedRecord !== null
-                      ? ` · ${dossier.usage.minutes.perFinalizedRecord} min per record`
+                      ? ` · ${dossier.usage.minutes.perFinalizedRecord} min por atendimento`
                       : ""
                   }`}
                 />
-                <Row label="Minute verdict" value={MINUTE_REASON[minutes.reason] ?? minutes.reason} />
+                <Row label="Situação dos minutos" value={MINUTE_REASON[minutes.reason] ?? minutes.reason} />
                 {dossier.usage.weeklyRecordings && (
                   <Row
-                    label="Recordings per week"
-                    value={`${dossier.usage.weeklyRecordings.join(" · ")} (oldest → this week)`}
+                    label="Gravações por semana"
+                    value={`${dossier.usage.weeklyRecordings.join(" · ")} (mais antiga → esta semana)`}
                   />
                 )}
                 <Row
-                  label="Documents"
-                  value={`${dossier.usage.documents.issued} issued · ${dossier.usage.documents.revoked} revoked · ${dossier.usage.shareLinks.created} share links, opened ${dossier.usage.shareLinks.totalOpens}×`}
+                  label="Documentos"
+                  value={`${dossier.usage.documents.issued} emitidos · ${dossier.usage.documents.revoked} revogados · ${dossier.usage.shareLinks.created} links de compartilhamento, abertos ${dossier.usage.shareLinks.totalOpens}×`}
                 />
-                <Row label="Addenda written" value={String(dossier.usage.addenda)} />
+                <Row label="Adendos escritos" value={String(dossier.usage.addenda)} />
               </Section>
 
-              <Section title="Anything broken">
+              <Section title="Algo quebrado">
                 {isBroken(dossier) ? (
                   <>
                     <Row
-                      label="Failed recordings"
-                      value={`${dossier.broken.failedRecordings30d} in 30 days · ${dossier.broken.failedRecordingsTotal} ever${
+                      label="Gravações com falha"
+                      value={`${dossier.broken.failedRecordings30d} em 30 dias · ${dossier.broken.failedRecordingsTotal} desde sempre${
                         Object.keys(dossier.broken.failureStages).length > 0
                           ? ` · ${Object.entries(dossier.broken.failureStages)
                               .map(([stage, count]) => `${stage} ${count}`)
@@ -391,11 +401,11 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                     />
                     {dossier.broken.lastFailure && (
                       <Row
-                        label="Last failure"
+                        label="Última falha"
                         value={
                           <Box component="span" className="font-mono">
                             {formatDateTime(dossier.broken.lastFailure.at)} ·{" "}
-                            {dossier.broken.lastFailure.errorCode ?? "no code"}
+                            {dossier.broken.lastFailure.errorCode ?? "sem código"}
                             {dossier.broken.lastFailure.message ? ` · ${dossier.broken.lastFailure.message}` : ""}
                           </Box>
                         }
@@ -403,99 +413,99 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                     )}
                     {dossier.broken.stuckProcessing.count > 0 && (
                       <Row
-                        label="Stuck in processing"
-                        value={`${dossier.broken.stuckProcessing.count} with an expired lease · up to ${dossier.broken.stuckProcessing.maxAttempts} attempts`}
+                        label="Travadas no processamento"
+                        value={`${dossier.broken.stuckProcessing.count} com o lease vencido · até ${dossier.broken.stuckProcessing.maxAttempts} tentativas`}
                       />
                     )}
                     {dossier.broken.strandedUploads > 0 && (
                       <Row
-                        label="Stranded uploads"
-                        value={`${dossier.broken.strandedUploads} delivered, nothing picked them up`}
+                        label="Uploads órfãos"
+                        value={`${dossier.broken.strandedUploads} entregues, e nada os pegou`}
                       />
                     )}
                     {dossier.broken.audioDeletionPending.count > 0 && (
                       <Row
-                        label="Audio deletion pending"
-                        value={`${dossier.broken.audioDeletionPending.count} since ${formatDate(dossier.broken.audioDeletionPending.oldest)}`}
+                        label="Exclusão de áudio pendente"
+                        value={`${dossier.broken.audioDeletionPending.count} desde ${formatDate(dossier.broken.audioDeletionPending.oldest)}`}
                       />
                     )}
                     {dossier.money.checkout.failed90d > 0 && (
                       <Row
-                        label="Checkout failures (90 d)"
-                        value={`${dossier.money.checkout.failed90d}${dossier.money.checkout.lastError ? ` · last: ${dossier.money.checkout.lastError}` : ""}`}
+                        label="Falhas de checkout (90 d)"
+                        value={`${dossier.money.checkout.failed90d}${dossier.money.checkout.lastError ? ` · última: ${dossier.money.checkout.lastError}` : ""}`}
                       />
                     )}
                     {dossier.broken.imports.length > 0 && (
                       <Row
-                        label="Imports"
+                        label="Importações"
                         value={dossier.broken.imports
-                          .map((batch) => `${batch.kind} ${batch.status}${batch.revertedAt ? " (reverted)" : ""}`)
+                          .map((batch) => `${batch.kind} ${batch.status}${batch.revertedAt ? " (revertida)" : ""}`)
                           .join(" · ")}
                       />
                     )}
                   </>
                 ) : (
                   <Typography variant="body2" className="text-text-secondary">
-                    Nothing broken: no failed or stuck recordings, no stranded audio, no failed checkout, no pending
-                    deletion.
+                    Nada quebrado: nenhuma gravação com falha ou travada, nenhum áudio órfão, nenhum checkout com falha,
+                    nenhuma exclusão pendente.
                   </Typography>
                 )}
               </Section>
 
               {!showEverything ? (
                 <Button variant="text" onClick={() => setShowEverything(true)}>
-                  Show the AI verdict, consent, access and timeline
+                  Ver o veredito da IA, consentimento, acesso e linha do tempo
                 </Button>
               ) : (
                 <>
-                  <Section title="Does the AI work for her">
+                  <Section title="A IA funciona para ela">
                     <Row
-                      label="Library"
+                      label="Biblioteca"
                       value={
                         dossier.ai.library?.unlimited
-                          ? "unlimited on this plan"
-                          : `${String(dossier.ai.library?.used ?? 0)} of ${String(dossier.ai.library?.limit ?? "—")} messages this month`
+                          ? "ilimitada neste plano"
+                          : `${String(dossier.ai.library?.used ?? 0)} de ${String(dossier.ai.library?.limit ?? "—")} mensagens neste mês`
                       }
                     />
                     <Row
-                      label="Library habit"
+                      label="Hábito na biblioteca"
                       value={
                         dossier.ai.libraryLedger.lastAt
-                          ? `${dossier.ai.libraryLedger.viaApp} in-app · ${dossier.ai.libraryLedger.viaMcp} via connector · active in ${dossier.ai.libraryLedger.activeMonths} month(s) · last ${sinceDays(dossier.ai.libraryLedger.lastAt)}`
-                          : "never asked the library anything"
+                          ? `${dossier.ai.libraryLedger.viaApp} no app · ${dossier.ai.libraryLedger.viaMcp} pelo conector · ativa em ${dossier.ai.libraryLedger.activeMonths} mês(es) · última ${sinceDays(dossier.ai.libraryLedger.lastAt)}`
+                          : "nunca perguntou nada à biblioteca"
                       }
                     />
                     <Row
-                      label="Anamnesis from audio"
-                      value={`${dossier.ai.anamnesis.fromAudio} fields filled · ${dossier.ai.anamnesis.edited} she corrected · ${dossier.ai.anamnesis.rejected} she threw away`}
+                      label="Anamnese a partir do áudio"
+                      value={`${dossier.ai.anamnesis.fromAudio} campos preenchidos · ${dossier.ai.anamnesis.edited} que ela corrigiu · ${dossier.ai.anamnesis.rejected} que ela descartou`}
                     />
                     <Row
-                      label="Hypotheses"
-                      value={`${dossier.ai.hypotheses.total} prepared · ${dossier.ai.hypotheses.awaitingReview} still unreviewed · ${dossier.ai.hypotheses.accepted} accepted · ${dossier.ai.hypotheses.edited} edited · ${dossier.ai.hypotheses.rejected} rejected${
+                      label="Hipóteses"
+                      value={`${dossier.ai.hypotheses.total} preparadas · ${dossier.ai.hypotheses.awaitingReview} ainda sem revisão · ${dossier.ai.hypotheses.accepted} aceitas · ${dossier.ai.hypotheses.edited} editadas · ${dossier.ai.hypotheses.rejected} rejeitadas${
                         dossier.ai.hypotheses.withoutLibrary > 0
-                          ? ` · ${dossier.ai.hypotheses.withoutLibrary} prepared without the library`
+                          ? ` · ${dossier.ai.hypotheses.withoutLibrary} preparadas sem a biblioteca`
                           : ""
                       }`}
                     />
                     <Row
-                      label="Therapeutic plans"
-                      value={`${dossier.ai.plans.ai} AI-drafted (${dossier.ai.plans.aiValidated} validated) · ${dossier.ai.plans.manual} written by hand`}
+                      label="Planos terapêuticos"
+                      value={`${dossier.ai.plans.ai} rascunhados pela IA (${dossier.ai.plans.aiValidated} validados) · ${dossier.ai.plans.manual} escritos à mão`}
                     />
                     <Row
-                      label="Case reviews"
-                      value={`${dossier.ai.caseReviews.total} conversations, ${dossier.ai.caseReviews.aboutAPatient} about a patient`}
+                      label="Revisões de caso"
+                      value={`${dossier.ai.caseReviews.total} conversas, ${dossier.ai.caseReviews.aboutAPatient} sobre uma paciente`}
                     />
                     <Row
-                      label="Her own protocols"
-                      value={`${dossier.ai.ownProtocols.total} loaded (${dossier.ai.ownProtocols.ready} ready, ${dossier.ai.ownProtocols.failed} failed)`}
+                      label="Protocolos dela"
+                      value={`${dossier.ai.ownProtocols.total} carregados (${dossier.ai.ownProtocols.ready} prontos, ${dossier.ai.ownProtocols.failed} com falha)`}
                     />
                     <Row
-                      label="Reasoning paywall"
-                      value={`seen ${dossier.ai.reasoningPaywall.viewed}× · clicked ${dossier.ai.reasoningPaywall.clicked}×`}
+                      label="Paywall do raciocínio"
+                      value={`vista ${dossier.ai.reasoningPaywall.viewed}× · clicada ${dossier.ai.reasoningPaywall.clicked}×`}
                     />
                     {Object.keys(dossier.ai.usageAlerts).length > 0 && (
                       <Row
-                        label="Quota alerts"
+                        label="Alertas de cota"
                         value={Object.entries(dossier.ai.usageAlerts)
                           .map(([meter, alert]) => `${meter} ${alert.maxThreshold}% (${sinceDays(alert.lastAt)})`)
                           .join(" · ")}
@@ -503,111 +513,115 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                     )}
                   </Section>
 
-                  <Section title="Consent and risk">
+                  <Section title="Consentimento e risco">
                     <Row
-                      label="Patients cleared"
-                      value={`${dossier.consent.clearedForAudio} for recording · ${dossier.consent.clearedForAi} for AI processing · of ${dossier.consent.activePatients} active`}
+                      label="Pacientes autorizadas"
+                      value={`${dossier.consent.clearedForAudio} para gravação · ${dossier.consent.clearedForAi} para processamento por IA · de ${dossier.consent.activePatients} ativas`}
                     />
                     <Row
-                      label="Who manifested it"
-                      value={`${dossier.consent.signedByPatient} signed by the patient · ${dossier.consent.declaredByProfessional} declared by the professional`}
+                      label="Quem manifestou"
+                      value={`${dossier.consent.signedByPatient} assinados pela paciente · ${dossier.consent.declaredByProfessional} declarados pela profissional`}
                     />
-                    <Row label="Purposes refused" value={String(dossier.consent.refusals)} />
+                    <Row label="Finalidades recusadas" value={String(dossier.consent.refusals)} />
                     <Row
-                      label="QR consent sessions"
-                      value={`${dossier.consent.qrSessions.completed} completed of ${dossier.consent.qrSessions.total}${
-                        dossier.consent.qrSessions.pending > 0 ? ` · ${dossier.consent.qrSessions.pending} open` : ""
+                      label="Sessões de consentimento por QR"
+                      value={`${dossier.consent.qrSessions.completed} concluídas de ${dossier.consent.qrSessions.total}${
+                        dossier.consent.qrSessions.pending > 0
+                          ? ` · ${dossier.consent.qrSessions.pending} em aberto`
+                          : ""
                       }`}
                     />
                     <Row
-                      label="Audio under revoked consent"
+                      label="Áudio sob consentimento revogado"
                       value={
                         dossier.consent.audioUnderRevokedConsent > 0
-                          ? `${dossier.consent.audioUnderRevokedConsent} — delete today`
-                          : "none"
+                          ? `${dossier.consent.audioUnderRevokedConsent} — apague hoje`
+                          : "nenhum"
                       }
                     />
                     <Row
-                      label="Patient erasure requests"
+                      label="Pedidos de exclusão de pacientes"
                       value={
                         dossier.consent.erasureRequests.count > 0
-                          ? `${dossier.consent.erasureRequests.count} pending, oldest ${formatDate(dossier.consent.erasureRequests.oldest)}`
-                          : "none"
+                          ? `${dossier.consent.erasureRequests.count} pendentes, o mais antigo ${formatDate(dossier.consent.erasureRequests.oldest)}`
+                          : "nenhum"
                       }
                     />
-                    <Row label="Audio retention" value={dossier.identity.audioRetention ?? "—"} />
+                    <Row label="Retenção de áudio" value={dossier.identity.audioRetention ?? "—"} />
                     <Row
-                      label="Full exports"
+                      label="Exportações completas"
                       value={
                         dossier.consent.exports.last
-                          ? `${dossier.consent.exports.count} requested · last ${dossier.consent.exports.last.status} on ${formatDate(dossier.consent.exports.last.requestedAt)}${
-                              dossier.consent.exports.last.lastDownloadedAt ? ", downloaded" : ", never downloaded"
+                          ? `${dossier.consent.exports.count} pedidas · última ${dossier.consent.exports.last.status} em ${formatDate(dossier.consent.exports.last.requestedAt)}${
+                              dossier.consent.exports.last.lastDownloadedAt ? ", baixada" : ", nunca baixada"
                             }`
-                          : "never exported her practice"
+                          : "nunca exportou o consultório"
                       }
                     />
                   </Section>
 
-                  <Section title="Access and support">
+                  <Section title="Acesso e suporte">
                     <Row
-                      label="Sign-ins"
+                      label="Acessos"
                       value={
                         dossier.access.trailAvailable
-                          ? `${dossier.access.signIns.total} total · ${dossier.access.signIns.last30d} in 30 days · last ${sinceDays(dossier.access.signIns.lastAt)}`
-                          : "no trail recorded"
+                          ? `${dossier.access.signIns.total} no total · ${dossier.access.signIns.last30d} em 30 dias · último ${sinceDays(dossier.access.signIns.lastAt)}`
+                          : "nenhuma trilha registrada"
                       }
                     />
                     <Row
-                      label="Password"
-                      value={`${dossier.identity.hasPassword ? "set" : "no password (social sign-in)"}${
+                      label="Senha"
+                      value={`${dossier.identity.hasPassword ? "definida" : "sem senha (login social)"}${
                         dossier.identity.recoverySentAt
-                          ? ` · reset e-mail sent ${sinceDays(dossier.identity.recoverySentAt)}`
+                          ? ` · e-mail de redefinição enviado ${sinceDays(dossier.identity.recoverySentAt)}`
                           : ""
                       }`}
                     />
-                    {dossier.identity.emailChangePending && <Row label="E-mail change" value="pending confirmation" />}
+                    {dossier.identity.emailChangePending && (
+                      <Row label="Troca de e-mail" value="aguardando confirmação" />
+                    )}
                     <Row
                       label="2FA"
                       value={
                         dossier.access.mfa.verified > 0
-                          ? `${dossier.access.mfa.verified} verified factor(s)`
+                          ? `${dossier.access.mfa.verified} fator(es) verificado(s)`
                           : dossier.access.mfa.unverified > 0
-                            ? "enrolment started and abandoned"
-                            : "not enrolled"
+                            ? "cadastro começado e abandonado"
+                            : "não cadastrado"
                       }
                     />
                     <Row
-                      label="Support visits"
+                      label="Visitas de suporte"
                       value={
                         dossier.access.supportVisits.count > 0
-                          ? `${dossier.access.supportVisits.count} · last by ${dossier.access.supportVisits.lastActor ?? "unknown"} ${sinceDays(dossier.access.supportVisits.lastAt)}`
-                          : "never visited"
+                          ? `${dossier.access.supportVisits.count} · última por ${dossier.access.supportVisits.lastActor ?? "desconhecida"} ${sinceDays(dossier.access.supportVisits.lastAt)}`
+                          : "nunca visitada"
                       }
                     />
-                    <Row label="Account created" value={formatDateTime(dossier.identity.userCreatedAt)} />
+                    <Row label="Conta criada em" value={formatDateTime(dossier.identity.userCreatedAt)} />
                   </Section>
 
-                  <Section title="Origin">
+                  <Section title="Origem">
                     {attribution ? (
                       <>
-                        <Row label="Origin" value={attribution.origem ?? "—"} />
-                        <Row label="Wave" value={attribution.onda ?? "—"} />
-                        <Row label="UTM source" value={attribution.utmSource ?? "—"} />
-                        <Row label="UTM campaign" value={attribution.utmCampaign ?? "—"} />
-                        <Row label="Landing page" value={attribution.landingPath ?? "—"} />
+                        <Row label="Origem" value={attribution.origem ?? "—"} />
+                        <Row label="Onda" value={attribution.onda ?? "—"} />
+                        <Row label="Origem UTM" value={attribution.utmSource ?? "—"} />
+                        <Row label="Campanha UTM" value={attribution.utmCampaign ?? "—"} />
+                        <Row label="Página de entrada" value={attribution.landingPath ?? "—"} />
                       </>
                     ) : (
                       <Typography variant="body2" className="text-text-secondary">
-                        No attribution recorded — the account predates sign-up tracking, or arrived with no campaign
-                        data.
+                        Nenhuma atribuição registrada — a conta é anterior ao rastreio de cadastro, ou chegou sem dados
+                        de campanha.
                       </Typography>
                     )}
                   </Section>
 
-                  <Section title="Last 20 actions">
+                  <Section title="Últimas 20 ações">
                     {dossier.timeline.length === 0 ? (
                       <Typography variant="body2" className="text-text-secondary">
-                        Nothing audited in this workspace yet.
+                        Nada auditado neste consultório ainda.
                       </Typography>
                     ) : (
                       dossier.timeline.map((entry, index) => (
@@ -631,7 +645,7 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
       </DialogContent>
       <DialogActions>
         <Button variant="contained" onClick={onClose}>
-          Close
+          Fechar
         </Button>
       </DialogActions>
     </Dialog>
@@ -639,7 +653,7 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
 }
 
 const listOf = (values: string[] | null | undefined) =>
-  values && values.length > 0 ? values.join(", ") : "not declared";
+  values && values.length > 0 ? values.join(", ") : "não declarado";
 
 const isBroken = (dossier: Dossier) =>
   dossier.broken.failedRecordings30d > 0 ||

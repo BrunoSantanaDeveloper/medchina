@@ -85,7 +85,7 @@ export default function AuditEventsAdmin() {
     () => [
       {
         field: "createdAt",
-        headerName: "When",
+        headerName: "Quando",
         flex: 1,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<AuditRow, string>) => (
@@ -98,7 +98,7 @@ export default function AuditEventsAdmin() {
       },
       {
         field: "action",
-        headerName: "Action",
+        headerName: "Ação",
         flex: 1,
         minWidth: 200,
         renderCell: (params: GridRenderCellParams<AuditRow, string>) => (
@@ -109,7 +109,7 @@ export default function AuditEventsAdmin() {
       },
       {
         field: "entity",
-        headerName: "Entity",
+        headerName: "Entidade",
         flex: 1.5,
         minWidth: 220,
         // The searched text must be reachable as the cell value, not only in
@@ -127,7 +127,7 @@ export default function AuditEventsAdmin() {
       },
       {
         field: "actorName",
-        headerName: "Actor",
+        headerName: "Autor",
         flex: 1,
         minWidth: 160,
         renderCell: (params: GridRenderCellParams<AuditRow, string | null>) => (
@@ -140,7 +140,7 @@ export default function AuditEventsAdmin() {
       },
       {
         field: "orgName",
-        headerName: "Workspace",
+        headerName: "Consultório",
         flex: 1,
         minWidth: 160,
         renderCell: (params: GridRenderCellParams<AuditRow, string | null>) => (
@@ -162,7 +162,7 @@ export default function AuditEventsAdmin() {
           <GridActionsCellItem
             key="metadata"
             icon={<NiBraces size="medium" />}
-            label="View metadata"
+            label="Ver metadados"
             onClick={() => setDetail(params.row)}
             showInMenu
           />,
@@ -189,21 +189,21 @@ export default function AuditEventsAdmin() {
           noRowsOverlay={
             <EmptyState
               icon={<NiShieldCheck size="medium" />}
-              title="No audit events yet"
-              description="Events recorded through logAuditEvent (packages/audit) appear here — the trail is append-only, so nothing can be edited or deleted."
+              title="Nenhum evento de auditoria ainda"
+              description="Eventos registrados por logAuditEvent (packages/audit) aparecem aqui — a trilha é append-only, então nada pode ser editado ou excluído."
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No events match your search.
+              Nenhum evento corresponde à sua busca.
             </Typography>
           }
         />
       )}
 
       <Dialog open={Boolean(detail)} onClose={() => setDetail(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{detail?.action ?? "Event metadata"}</DialogTitle>
+        <DialogTitle>{detail?.action ?? "Metadados do evento"}</DialogTitle>
         <DialogContent>
           <Box className="flex flex-col gap-3 pt-1">
             <Typography variant="body2" className="text-text-secondary">
@@ -217,14 +217,14 @@ export default function AuditEventsAdmin() {
               <Typography component="pre" variant="body2" className="font-mono whitespace-pre-wrap">
                 {detail && Object.keys(detail.metadata).length > 0
                   ? JSON.stringify(detail.metadata, null, 2)
-                  : "No metadata was recorded with this event."}
+                  : "Nenhum metadado foi registrado neste evento."}
               </Typography>
             </Box>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button variant="text" color="grey" onClick={() => setDetail(null)}>
-            Close
+            Fechar
           </Button>
         </DialogActions>
       </Dialog>

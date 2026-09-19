@@ -140,9 +140,9 @@ export default function CouponsAdmin() {
         discount:
           row.discount_type === "percent"
             ? `${row.discount_value}%`
-            : `${((row.discount_value as number) / 100).toFixed(2)} fixed`,
+            : `${((row.discount_value as number) / 100).toFixed(2)} fixo`,
         redeemed: `${row.redeemed_count}${row.max_redemptions ? `/${row.max_redemptions}` : ""}`,
-        validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : "no expiry",
+        validUntil: row.valid_until ? String(row.valid_until).slice(0, 10) : "sem validade",
         isActive: Boolean(row.is_active),
         raw: row,
       })),
@@ -153,7 +153,7 @@ export default function CouponsAdmin() {
     () => [
       {
         field: "code",
-        headerName: "Code",
+        headerName: "Código",
         flex: 2,
         minWidth: 220,
         // The description is searched and exported with the code, even though
@@ -172,12 +172,12 @@ export default function CouponsAdmin() {
           </Box>
         ),
       },
-      { field: "discount", headerName: "Discount", minWidth: 140 },
-      { field: "redeemed", headerName: "Redeemed", minWidth: 130 },
-      { field: "validUntil", headerName: "Valid until", minWidth: 150 },
+      { field: "discount", headerName: "Desconto", minWidth: 140 },
+      { field: "redeemed", headerName: "Resgates", minWidth: 130 },
+      { field: "validUntil", headerName: "Válido até", minWidth: 150 },
       {
         field: "isActive",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 130,
         type: "boolean",
         renderCell: (params: GridRenderCellParams<CouponRow, boolean>) => (
@@ -187,7 +187,7 @@ export default function CouponsAdmin() {
                 —
               </Typography>
             ) : (
-              <Chip label="inactive" size="small" variant="outlined" />
+              <Chip label="inativo" size="small" variant="outlined" />
             )}
           </Box>
         ),
@@ -203,7 +203,7 @@ export default function CouponsAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row.raw)}
             showInMenu
           />,
@@ -235,59 +235,55 @@ export default function CouponsAdmin() {
               startIcon={<NiPlus size="small" />}
               onClick={() => openEdit()}
             >
-              New coupon
+              Novo cupom
             </Button>
           }
           noRowsOverlay={
             <EmptyState
               icon={<NiTicket size="medium" />}
-              title="No coupons yet"
-              description="A coupon discounts a plan at checkout — percent or fixed amount, with an optional redemption cap and expiry date."
-              action={{ label: "New coupon", onClick: () => openEdit() }}
+              title="Nenhum cupom ainda"
+              description="Um cupom dá desconto num plano no checkout — percentual ou valor fixo, com limite de resgates e data de validade opcionais."
+              action={{ label: "Novo cupom", onClick: () => openEdit() }}
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No coupons match your search.
+              Nenhum cupom corresponde à sua busca.
             </Typography>
           }
         />
       )}
 
       <Dialog open={form !== null} onClose={() => setForm(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>{form?.id ? "Edit coupon" : "New coupon"}</DialogTitle>
+        <DialogTitle>{form?.id ? "Editar cupom" : "Novo cupom"}</DialogTitle>
         {form && (
           <DialogContent className="flex flex-col">
-            <Field label="Code" value={form.code} onChange={(v) => setForm({ ...form, code: v.toUpperCase() })} />
-            <Field
-              label="Description"
-              value={form.description}
-              onChange={(v) => setForm({ ...form, description: v })}
-            />
+            <Field label="Código" value={form.code} onChange={(v) => setForm({ ...form, code: v.toUpperCase() })} />
+            <Field label="Descrição" value={form.description} onChange={(v) => setForm({ ...form, description: v })} />
             <SelectField
-              label="Discount type"
+              label="Tipo de desconto"
               value={form.discount_type}
               options={[
-                { value: "percent", label: "Percent (%)" },
-                { value: "fixed", label: "Fixed (cents)" },
+                { value: "percent", label: "Percentual (%)" },
+                { value: "fixed", label: "Fixo (centavos)" },
               ]}
               onChange={(v) => setForm({ ...form, discount_type: v })}
             />
             <Field
-              label={form.discount_type === "percent" ? "Discount (%)" : "Discount (cents)"}
+              label={form.discount_type === "percent" ? "Desconto (%)" : "Desconto (centavos)"}
               type="number"
               value={form.discount_value}
               onChange={(v) => setForm({ ...form, discount_value: Number(v) })}
             />
             <Field
-              label="Max redemptions (empty = unlimited)"
+              label="Máximo de resgates (vazio = ilimitado)"
               type="number"
               value={form.max_redemptions}
               onChange={(v) => setForm({ ...form, max_redemptions: v === "" ? "" : Number(v) })}
             />
             <Field
-              label="Valid until (YYYY-MM-DD, empty = no expiry)"
+              label="Válido até (AAAA-MM-DD, vazio = sem validade)"
               value={form.valid_until}
               onChange={(v) => setForm({ ...form, valid_until: v })}
             />
@@ -299,7 +295,7 @@ export default function CouponsAdmin() {
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                 />
               }
-              label="Active"
+              label="Ativo"
             />
             {error && (
               <Alert severity="error" className="neutral bg-background-paper/60! mt-2">
@@ -310,10 +306,10 @@ export default function CouponsAdmin() {
         )}
         <DialogActions>
           <Button color="grey" variant="text" onClick={() => setForm(null)}>
-            Cancel
+            Cancelar
           </Button>
           <Button variant="contained" onClick={save}>
-            Save
+            Salvar
           </Button>
         </DialogActions>
       </Dialog>

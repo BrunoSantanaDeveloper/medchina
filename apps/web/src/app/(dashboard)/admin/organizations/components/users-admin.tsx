@@ -89,7 +89,7 @@ export default function UsersAdmin() {
     setRows(
       (data ?? []).map((row) => ({
         id: row.id,
-        displayName: row.display_name ?? "Unnamed user",
+        displayName: row.display_name ?? "Profissional sem nome",
         isSuperadmin: row.is_superadmin,
         createdAt: row.created_at,
         orgCount: (row.memberships as unknown as { count: number }[])?.[0]?.count ?? 0,
@@ -157,7 +157,7 @@ export default function UsersAdmin() {
     () => [
       {
         field: "displayName",
-        headerName: "User",
+        headerName: "Profissional",
         flex: 2,
         minWidth: 200,
         renderCell: (params: GridRenderCellParams<UserTableRow, string>) => (
@@ -166,14 +166,14 @@ export default function UsersAdmin() {
               {params.row.displayName}
             </Typography>
             <Typography variant="body2" className="text-text-secondary truncate">
-              since {new Date(params.row.createdAt).toLocaleDateString()}
+              desde {new Date(params.row.createdAt).toLocaleDateString()}
             </Typography>
           </Box>
         ),
       },
       {
         field: "email",
-        headerName: "Email",
+        headerName: "E-mail",
         flex: 2,
         minWidth: 200,
         valueGetter: (_, row) => row.email ?? "",
@@ -187,7 +187,7 @@ export default function UsersAdmin() {
       },
       {
         field: "orgCount",
-        headerName: "Orgs",
+        headerName: "Consultórios",
         type: "number",
         minWidth: 90,
       },
@@ -195,24 +195,24 @@ export default function UsersAdmin() {
         // A real date value, so sorting orders by time instead of by the
         // formatted string.
         field: "lastSignInAt",
-        headerName: "Last sign-in",
+        headerName: "Último acesso",
         type: "date",
         minWidth: 150,
         valueGetter: (_, row) => (row.lastSignInAt ? new Date(row.lastSignInAt) : null),
       },
       {
         field: "badges",
-        headerName: "State",
+        headerName: "Situação",
         flex: 1,
         minWidth: 200,
         sortable: false,
         valueGetter: (_, row) => badgesOf(row, selfId),
         renderCell: (params: GridRenderCellParams<UserTableRow, string>) => (
           <Box className="flex h-full flex-row flex-wrap items-center gap-1">
-            {params.row.id === selfId && <Chip label="you" size="small" color="primary" variant="outlined" />}
+            {params.row.id === selfId && <Chip label="você" size="small" color="primary" variant="outlined" />}
             {params.row.isSuperadmin && <Chip label="superadmin" size="small" color="warning" variant="outlined" />}
             {params.row.hasMfa && <Chip label="2FA" size="small" color="success" variant="outlined" />}
-            {params.row.banned && <Chip label="banned" size="small" color="error" variant="outlined" />}
+            {params.row.banned && <Chip label="bloqueada" size="small" color="error" variant="outlined" />}
           </Box>
         ),
       },
@@ -244,7 +244,7 @@ export default function UsersAdmin() {
                   <GridActionsCellItem
                     key="impersonate"
                     icon={<NiEyeOpen size="medium" />}
-                    label="Impersonate"
+                    label="Entrar como"
                     onClick={() => setImpersonating(row)}
                     showInMenu
                   />,
@@ -255,7 +255,7 @@ export default function UsersAdmin() {
                   <GridActionsCellItem
                     key="reset-mfa"
                     icon={<NiShieldCross size="medium" />}
-                    label="Reset 2FA (lost-device recovery)"
+                    label="Redefinir 2FA (perdeu o aparelho)"
                     onClick={() => handleResetMfa(row)}
                     showInMenu
                   />,
@@ -266,7 +266,7 @@ export default function UsersAdmin() {
                   <GridActionsCellItem
                     key="superadmin"
                     icon={row.isSuperadmin ? <NiShield size="medium" /> : <NiCrown size="medium" />}
-                    label={row.isSuperadmin ? "Remove platform superadmin" : "Make platform superadmin"}
+                    label={row.isSuperadmin ? "Remover superadmin" : "Tornar superadmin"}
                     onClick={() => setRoleChange({ row, grant: !row.isSuperadmin })}
                     showInMenu
                   />,
@@ -277,7 +277,7 @@ export default function UsersAdmin() {
                   <GridActionsCellItem
                     key="ban"
                     icon={row.banned ? <NiUserCheck size="medium" /> : <NiUserCross size="medium" />}
-                    label={row.banned ? "Unban from the platform" : "Ban from the platform"}
+                    label={row.banned ? "Desbloquear na plataforma" : "Bloquear na plataforma"}
                     onClick={() => toggleBan(row)}
                     showInMenu
                   />,
@@ -288,7 +288,7 @@ export default function UsersAdmin() {
                   <GridActionsCellItem
                     key="delete"
                     icon={<NiBinEmpty size="medium" />}
-                    label="Delete account and all data"
+                    label="Excluir conta e todos os dados"
                     onClick={() => setDeleting(row)}
                     showInMenu
                   />,
@@ -305,8 +305,8 @@ export default function UsersAdmin() {
     <Box className="flex flex-col gap-3">
       {serviceAvailable === false && (
         <Alert severity="info" className="neutral bg-background-paper/60!">
-          Set SUPABASE_SERVICE_ROLE_KEY to show emails, last sign-in and enable impersonation, 2FA reset, ban/unban and
-          account deletion.
+          Defina SUPABASE_SERVICE_ROLE_KEY para ver e-mails e último acesso e habilitar entrar como, redefinir 2FA,
+          bloquear/desbloquear e excluir conta.
         </Alert>
       )}
 
@@ -325,14 +325,14 @@ export default function UsersAdmin() {
           noRowsOverlay={
             <EmptyState
               icon={<NiUsers size="medium" />}
-              title="No users yet"
-              description="Every account created through sign-up appears here, with its organizations and auth state."
+              title="Nenhuma profissional ainda"
+              description="Toda conta criada pelo cadastro aparece aqui, com seus consultórios e o estado de autenticação."
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No users match your search.
+              Nenhuma profissional corresponde à busca.
             </Typography>
           }
         />

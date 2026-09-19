@@ -47,21 +47,21 @@ export default function AdminBilling() {
     <Grid container spacing={5}>
       <Grid size={12}>
         <Typography variant="h1" component="h1" className="mb-0">
-          Billing Administration
+          Administração de faturamento
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
-          <Typography variant="body2">Billing</Typography>
+          <Typography variant="body2">Faturamento</Typography>
         </Breadcrumbs>
       </Grid>
 
       {allowed === false && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            This area is restricted to platform superadmins.
+            Esta área é restrita aos superadmins da plataforma.
           </Alert>
         </Grid>
       )}
@@ -71,11 +71,11 @@ export default function AdminBilling() {
           <Card component="section">
             <CardContent>
               <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-6">
-                <Tab label="Plans" />
-                <Tab label="Modules" />
-                <Tab label="Coupons" />
-                <Tab label="Subscriptions" />
-                <Tab label="Offers" />
+                <Tab label="Planos" />
+                <Tab label="Módulos" />
+                <Tab label="Cupons" />
+                <Tab label="Assinaturas" />
+                <Tab label="Ofertas" />
               </Tabs>
               <Box hidden={tab !== 0}>{tab === 0 && <PlansAdmin />}</Box>
               <Box hidden={tab !== 1}>{tab === 1 && <ModulesAdmin />}</Box>
@@ -91,27 +91,27 @@ export default function AdminBilling() {
                   <Box className="flex flex-col gap-8">
                     <Box className="flex flex-col gap-3">
                       <Box>
-                        <Typography variant="subtitle1">Campaign offer · /assinar</Typography>
+                        <Typography variant="subtitle1">Oferta de campanha · /assinar</Typography>
                         <Typography variant="body2" className="text-text-secondary">
-                          What paid traffic is offered. The deadline here is the one the checkout enforces.
+                          O que o tráfego pago recebe. O prazo daqui é o que o checkout aplica.
                         </Typography>
                       </Box>
                       <CampaignOfferAdmin />
                     </Box>
                     <Box className="flex flex-col gap-3">
                       <Box>
-                        <Typography variant="subtitle1">Founders offer · /fundadores</Typography>
+                        <Typography variant="subtitle1">Oferta fundadores · /fundadores</Typography>
                         <Typography variant="body2" className="text-text-secondary">
-                          The warm-audience condition, limited by seats and sold on calls.
+                          A condição do público aquecido, limitada por vagas e vendida em call.
                         </Typography>
                       </Box>
                       <FoundersAdmin />
                     </Box>
                     <Box className="flex flex-col gap-3">
                       <Box>
-                        <Typography variant="subtitle1">Trial conversion offers</Typography>
+                        <Typography variant="subtitle1">Ofertas de conversão do trial</Typography>
                         <Typography variant="body2" className="text-text-secondary">
-                          Offered inside the product at the two moments of highest intent, once per workspace.
+                          Oferecidas dentro do produto nos dois momentos de maior intenção, uma vez por consultório.
                         </Typography>
                       </Box>
                       <ConversionOffersAdmin />

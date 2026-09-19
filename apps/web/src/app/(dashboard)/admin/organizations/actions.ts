@@ -73,7 +73,7 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<Ad
   const { userId: callerId, allowed } = await isCallerSuperadmin();
   if (!allowed) return { ok: false, error: "forbidden" };
   if (!isServiceConfigured()) return { ok: false, error: "not-configured" };
-  if (userId === callerId) return { ok: false, error: "You cannot ban your own account." };
+  if (userId === callerId) return { ok: false, error: "Você não pode banir a sua própria conta." };
 
   const service = createServiceClient();
   // Supabase has no permanent ban flag: "876000h" ≈ 100 years; "none" lifts it.
@@ -140,10 +140,10 @@ export type AccountDeletionResult = {
 };
 
 const BLOCKER_MESSAGE: Record<string, string> = {
-  self: "You cannot delete your own account — ask another superadmin.",
-  superadmin: "This account holds the platform superadmin role. Remove the role first, then delete the account.",
+  self: "Você não pode excluir a sua própria conta — peça a outra superadmin.",
+  superadmin: "Esta conta tem o papel de superadmin da plataforma. Remova o papel primeiro, depois exclua a conta.",
   shared_workspace:
-    "She owns a workspace other people still belong to. Transfer ownership or remove the other members first.",
+    "Ela é responsável por um consultório do qual outras pessoas ainda fazem parte. Transfira a responsabilidade ou remova os outros membros primeiro.",
 };
 
 /** The database answers in codes; the console answers in reasons. */
@@ -151,23 +151,23 @@ function deletionMessage(raw: string): string {
   if (raw.includes("self_delete_forbidden")) return BLOCKER_MESSAGE.self;
   if (raw.includes("target_is_superadmin")) return BLOCKER_MESSAGE.superadmin;
   if (raw.includes("shared_workspace")) return BLOCKER_MESSAGE.shared_workspace;
-  if (raw.includes("confirmation_mismatch")) return "The typed e-mail does not match the account. Nothing was deleted.";
-  if (raw.includes("reason_required")) return "State why this account is being deleted (at least 8 characters).";
+  if (raw.includes("confirmation_mismatch")) return "O e-mail digitado não corresponde à conta. Nada foi excluído.";
+  if (raw.includes("reason_required")) return "Diga por que esta conta está sendo excluída (no mínimo 8 caracteres).";
   if (raw.includes("provider_subscription_live")) {
-    return "A subscription is still being charged at the payment provider. Nothing was deleted.";
+    return "Uma assinatura ainda está sendo cobrada no provedor de pagamento. Nada foi excluído.";
   }
-  if (raw.includes("user_not_found")) return "This account no longer exists. Reload the list.";
+  if (raw.includes("user_not_found")) return "Esta conta não existe mais. Recarregue a lista.";
   if (raw.includes("workspace_still_exists") || raw.includes("user_still_exists")) {
-    return "The account still exists: its files are only removed after the account itself is deleted.";
+    return "A conta ainda existe: os arquivos só são removidos depois que a própria conta é excluída.";
   }
   if (raw.includes("not_authorized")) {
-    return "Only a platform superadmin can delete accounts, and never from a support session.";
+    return "Só uma superadmin da plataforma pode excluir contas, e nunca de dentro de uma sessão de suporte.";
   }
   // The deletion is one transaction: a refusal from the database means it
   // rolled back whole. Say so — a raw constraint name leaves the operator
   // wondering what is already gone.
   if (raw.includes("violates foreign key constraint")) {
-    return `The database refused the deletion and rolled it back — nothing was deleted, the account is intact. (${raw})`;
+    return `O banco recusou a exclusão e desfez tudo — nada foi excluído, a conta está intacta. (${raw})`;
   }
   return raw;
 }
@@ -260,7 +260,7 @@ export async function deleteAccount(
         const detail = cancelError instanceof Error ? cancelError.message : String(cancelError);
         return {
           ok: false,
-          error: `Could not cancel the ${subscription.provider} subscription, so nothing was deleted: ${detail}`,
+          error: `Não foi possível cancelar a assinatura ${subscription.provider}, então nada foi excluído: ${detail}`,
         };
       }
     }
@@ -271,7 +271,7 @@ export async function deleteAccount(
     if (markError) {
       return {
         ok: false,
-        error: `The ${subscription.provider} subscription was canceled at the provider, but recording that failed (${markError.message}). Nothing else was deleted — retry.`,
+        error: `A assinatura ${subscription.provider} foi cancelada no provedor, mas registrar isso falhou (${markError.message}). Nada mais foi excluído — tente de novo.`,
       };
     }
     canceled += 1;
@@ -290,7 +290,7 @@ export async function deleteAccount(
   if (deleteError) {
     const already =
       canceled > 0
-        ? ` (${plural(canceled, "provider subscription was", "provider subscriptions were")} already canceled.)`
+        ? ` (${plural(canceled, "assinatura no provedor já foi cancelada", "assinaturas no provedor já foram canceladas")}.)`
         : "";
     return { ok: false, error: `${deletionMessage(deleteError.message)}${already}` };
   }

@@ -128,48 +128,62 @@ export type AccountsOverview = {
 
 /** Tiles double as filters: the number and the list always come from one query. */
 export const ACCOUNT_FILTERS: { key: string; label: string; total: keyof AccountTotals; hint: string }[] = [
-  { key: "all", label: "All accounts", total: "accounts", hint: "Every workspace on the platform" },
-  { key: "paid", label: "Paying", total: "paid", hint: "On a paid plan and not suspended" },
-  { key: "trial_ending", label: "Trial ending", total: "trialEnding", hint: "Pro trial with three days or less" },
-  { key: "trial_over", label: "Trial over", total: "trialOver", hint: "Trial ended and never converted" },
-  { key: "past_due", label: "Past due", total: "pastDue", hint: "The provider could not charge" },
-  { key: "idle", label: "Idle 14d+", total: "idle", hint: "Worked before, nothing for two weeks" },
-  { key: "never_activated", label: "Never activated", total: "neverActivated", hint: "No finalized record yet" },
-  { key: "unconfirmed", label: "Unconfirmed", total: "unconfirmed", hint: "Signed up, never confirmed the e-mail" },
-  { key: "new", label: "New 7d", total: "new", hint: "Created in the last seven days" },
-  { key: "suspended", label: "Suspended", total: "suspended", hint: "Access switched off by an operator" },
+  { key: "all", label: "Todas as contas", total: "accounts", hint: "Todos os consultórios da plataforma" },
+  { key: "paid", label: "Pagantes", total: "paid", hint: "Em plano pago e sem suspensão" },
+  { key: "trial_ending", label: "Trial acabando", total: "trialEnding", hint: "Trial Pro com três dias ou menos" },
+  { key: "trial_over", label: "Trial encerrado", total: "trialOver", hint: "Trial terminou e não converteu" },
+  { key: "past_due", label: "Inadimplentes", total: "pastDue", hint: "O provedor não conseguiu cobrar" },
+  { key: "idle", label: "Paradas 14d+", total: "idle", hint: "Já trabalhou, nada há duas semanas" },
+  { key: "never_activated", label: "Nunca ativou", total: "neverActivated", hint: "Nenhum atendimento finalizado" },
+  {
+    key: "unconfirmed",
+    label: "Não confirmadas",
+    total: "unconfirmed",
+    hint: "Cadastrou-se e nunca confirmou o e-mail",
+  },
+  { key: "new", label: "Novas 7d", total: "new", hint: "Criadas nos últimos sete dias" },
+  { key: "suspended", label: "Suspensas", total: "suspended", hint: "Acesso desligado por uma operadora" },
 ];
 
 /** What the database means by each reason on the minute allowance. */
 export const MINUTE_REASON: Record<string, string> = {
-  ok: "Can record",
-  pack_only: "Recording on purchased minutes",
-  past_due_grace: "Recording inside the past-due grace window",
-  past_due_blocked: "Blocked: payment overdue",
-  suspended: "Blocked: access suspended",
-  trial_not_started: "Trial not started yet",
-  trial_over: "Trial over",
-  cycle_exhausted: "Cycle minutes exhausted",
-  no_plan: "No plan with minutes",
+  ok: "Pode gravar",
+  pack_only: "Gravando com minutos avulsos comprados",
+  past_due_grace: "Gravando dentro da carência da inadimplência",
+  past_due_blocked: "Bloqueada: pagamento em atraso",
+  suspended: "Bloqueada: acesso suspenso",
+  trial_not_started: "Trial ainda não começou",
+  trial_over: "Trial encerrado",
+  cycle_exhausted: "Minutos do ciclo esgotados",
+  no_plan: "Sem plano com minutos",
+};
+
+/** The subscription status enum as the operator reads it; unknown values fall back to the raw one. */
+export const SUBSCRIPTION_STATUS_LABEL: Record<string, string> = {
+  active: "ativa",
+  trialing: "em trial",
+  past_due: "inadimplente",
+  incomplete: "incompleta",
+  canceled: "cancelada",
 };
 
 export const FLAG_LABEL: Record<string, string> = {
-  no_owner: "no owner",
-  suspended: "suspended",
-  past_due: "past due",
-  canceling: "canceling",
-  trial_active: "trial",
-  trial_ending: "trial ending",
-  trial_over: "trial over",
-  paid: "paying",
-  never_activated: "never activated",
-  idle: "idle",
-  unconfirmed: "unconfirmed",
-  banned: "banned",
-  new: "new",
+  no_owner: "sem responsável",
+  suspended: "suspensa",
+  past_due: "inadimplente",
+  canceling: "cancelando",
+  trial_active: "em trial",
+  trial_ending: "trial acabando",
+  trial_over: "trial encerrado",
+  paid: "pagante",
+  never_activated: "nunca ativou",
+  idle: "parada",
+  unconfirmed: "não confirmada",
+  banned: "bloqueada",
+  new: "nova",
 };
 
-/** Money is Brazilian even though this console speaks English to operators. */
+/** The console speaks pt-BR to its single operator; so does the money. */
 export const formatMoney = (cents: number | null | undefined, currency: string | null | undefined) =>
   new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -181,25 +195,25 @@ export const formatDate = (value: string | null | undefined) => (value ? new Dat
 
 export const formatDateTime = (value: string | null | undefined) => (value ? new Date(value).toLocaleString() : "—");
 
-/** "today" / "3 d ago" / "never" — the operator reads distance, not dates. */
+/** "hoje" / "há 3 d" / "nunca" — the operator reads distance, not dates. */
 export function sinceDays(value: string | null | undefined): string {
-  if (!value) return "never";
+  if (!value) return "nunca";
   const days = Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000);
-  if (days <= 0) return "today";
-  if (days === 1) return "yesterday";
-  return `${days} d ago`;
+  if (days <= 0) return "hoje";
+  if (days === 1) return "ontem";
+  return `há ${days} d`;
 }
 
 /** What the renewal column says, in one place so the dialog agrees with it. */
 export function renewalLabel(billing: AccountBilling): string {
-  if (billing.status === "past_due") return "past due";
-  if (billing.renewalDays === null) return billing.isFree === false ? "comped" : "—";
-  if (billing.renewalDays < 0) return `${Math.abs(billing.renewalDays)} d overdue`;
+  if (billing.status === "past_due") return "inadimplente";
+  if (billing.renewalDays === null) return billing.isFree === false ? "cortesia" : "—";
+  if (billing.renewalDays < 0) return `${Math.abs(billing.renewalDays)} d vencida`;
   return `${billing.renewalDays} d`;
 }
 
 export function trialLabel(trial: AccountTrial | null, minutesRemaining: number): string {
-  if (!trial) return "not started";
-  if (!trial.active) return "ended";
+  if (!trial) return "não começou";
+  if (!trial.active) return "encerrado";
   return `${trial.daysLeft} d · ${minutesRemaining} min`;
 }

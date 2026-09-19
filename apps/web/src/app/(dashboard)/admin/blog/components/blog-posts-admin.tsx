@@ -188,7 +188,7 @@ export default function BlogPostsAdmin() {
     () => [
       {
         field: "title",
-        headerName: "Title",
+        headerName: "Título",
         flex: 2,
         minWidth: 220,
         renderCell: (params: GridRenderCellParams<PostRow, string>) => (
@@ -203,7 +203,7 @@ export default function BlogPostsAdmin() {
         // The old row let the operator filter by slug — keep the slug the
         // cell's VALUE so the quick filter still reaches it.
         field: "slug",
-        headerName: "Slug",
+        headerName: "Caminho",
         flex: 1.5,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<PostRow, string>) => (
@@ -216,7 +216,7 @@ export default function BlogPostsAdmin() {
       },
       {
         field: "locale",
-        headerName: "Locale",
+        headerName: "Idioma",
         minWidth: 110,
         renderCell: (params: GridRenderCellParams<PostRow, string>) => (
           <Box className="flex h-full items-center">
@@ -226,21 +226,21 @@ export default function BlogPostsAdmin() {
       },
       {
         field: "authorName",
-        headerName: "Author",
+        headerName: "Autor",
         minWidth: 150,
         valueGetter: (_, row) => row.authorName ?? "—",
       },
       {
         field: "publishedAt",
-        headerName: "Published at",
+        headerName: "Publicado em",
         minWidth: 150,
         valueGetter: (_, row) => (row.publishedAt ? new Date(row.publishedAt).toLocaleDateString() : "—"),
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 120,
-        valueGetter: (_, row) => (row.isPublished ? "published" : "draft"),
+        valueGetter: (_, row) => (row.isPublished ? "publicado" : "rascunho"),
         renderCell: (params: GridRenderCellParams<PostRow, string>) => (
           <Box className="flex h-full items-center">
             <Chip
@@ -256,18 +256,18 @@ export default function BlogPostsAdmin() {
         // Publish/unpublish is a kill switch: it stays visible on the row,
         // never buried in the kebab.
         field: "isPublished",
-        headerName: "Published",
+        headerName: "Publicado",
         minWidth: 110,
         type: "boolean",
         renderCell: (params: GridRenderCellParams<PostRow, boolean>) => (
           <Box className="flex h-full items-center">
-            <Tooltip title={params.row.isPublished ? "Unpublish" : "Publish"}>
+            <Tooltip title={params.row.isPublished ? "Despublicar" : "Publicar"}>
               <Switch
                 checked={params.row.isPublished}
                 onChange={() => togglePublished(params.row)}
                 size="small"
                 slotProps={{
-                  input: { "aria-label": params.row.isPublished ? "Unpublish post" : "Publish post" },
+                  input: { "aria-label": params.row.isPublished ? "Despublicar post" : "Publicar post" },
                 }}
               />
             </Tooltip>
@@ -285,7 +285,7 @@ export default function BlogPostsAdmin() {
           <GridActionsCellItem
             key="edit"
             icon={<NiPen size="medium" />}
-            label="Edit"
+            label="Editar"
             onClick={() => openEdit(params.row)}
             showInMenu
           />,
@@ -307,30 +307,30 @@ export default function BlogPostsAdmin() {
         <Box className="border-grey-100 flex flex-col gap-3 rounded-2xl border p-4">
           <Box className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <SelectField
-              label="Locale"
+              label="Idioma"
               value={form.locale}
               options={LOCALES.map((locale) => ({ value: locale, label: locale }))}
               onChange={(value) => setForm({ ...form, locale: value })}
             />
             <Field
-              label="Slug (empty = from title)"
+              label="Slug (vazio = a partir do título)"
               value={form.slug}
               onChange={(value) => setForm({ ...form, slug: value })}
             />
             <Field
-              label="Author (optional)"
+              label="Autor (opcional)"
               value={form.authorName}
               onChange={(value) => setForm({ ...form, authorName: value })}
             />
           </Box>
-          <Field label="Title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
+          <Field label="Título" value={form.title} onChange={(value) => setForm({ ...form, title: value })} />
           <Field
-            label="Excerpt (shown on the blog index)"
+            label="Resumo (aparece na lista do blog)"
             value={form.excerpt}
             onChange={(value) => setForm({ ...form, excerpt: value })}
           />
           <FormControl className="outlined" variant="standard" size="small" fullWidth>
-            <FormLabel component="label">Body (Markdown)</FormLabel>
+            <FormLabel component="label">Conteúdo (Markdown)</FormLabel>
             <Input
               multiline
               minRows={12}
@@ -341,12 +341,12 @@ export default function BlogPostsAdmin() {
           </FormControl>
           <Box className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field
-              label="Cover image URL (optional)"
+              label="URL da imagem de capa (opcional)"
               value={form.coverUrl}
               onChange={(value) => setForm({ ...form, coverUrl: value })}
             />
             <Field
-              label="Tags (comma-separated)"
+              label="Tags (separadas por vírgula)"
               value={form.tags}
               onChange={(value) => setForm({ ...form, tags: value })}
             />
@@ -357,18 +357,18 @@ export default function BlogPostsAdmin() {
               onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
               size="small"
             />
-            <Typography variant="body2">Published</Typography>
+            <Typography variant="body2">Publicado</Typography>
           </Box>
           <Box className="flex flex-row gap-2">
             <Button variant="contained" size="small" onClick={save} disabled={!form.title.trim()}>
-              {form.id ? "Save changes" : "Create post"}
+              {form.id ? "Salvar alterações" : "Criar post"}
             </Button>
             <Button variant="text" color="grey" size="small" onClick={() => setForm(null)}>
-              Cancel
+              Cancelar
             </Button>
             {form.id && (
               <Button variant="text" color="error" size="small" onClick={() => remove(form.id!)}>
-                Delete post (and its comments)
+                Excluir post (e os comentários)
               </Button>
             )}
           </Box>
@@ -384,28 +384,28 @@ export default function BlogPostsAdmin() {
           actions={
             form ? undefined : (
               <Button variant="outlined" size="small" onClick={() => setForm(EMPTY_FORM)}>
-                New post
+                Novo post
               </Button>
             )
           }
           noRowsOverlay={
             form ? (
               <Typography variant="body2" className="text-text-secondary">
-                No blog posts yet.
+                Nenhum post ainda.
               </Typography>
             ) : (
               <EmptyState
                 icon={<NiDocumentFull size="medium" />}
-                title="No blog posts yet"
-                description="Posts published here appear on the public /blog page — announcements, guides, product thinking."
-                action={{ label: "New post", onClick: () => setForm(EMPTY_FORM) }}
+                title="Nenhum post ainda"
+                description="Os posts publicados aqui aparecem na página pública /blog — anúncios, guias, ideias sobre o produto."
+                action={{ label: "Novo post", onClick: () => setForm(EMPTY_FORM) }}
                 className="border-none"
               />
             )
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No posts match your search.
+              Nenhum post corresponde à busca.
             </Typography>
           }
           pageSize={20}

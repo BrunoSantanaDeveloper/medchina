@@ -40,22 +40,22 @@ type DeletionPreview = {
 };
 
 const BLOCKERS: Record<string, string> = {
-  self: "This is your own account. Another superadmin has to delete it.",
+  self: "Esta é a sua própria conta. Outra superadmin precisa excluí-la.",
   superadmin:
-    "This account holds the platform superadmin role. Remove the role first (same menu), then delete the account.",
+    "Esta conta tem o papel de superadmin da plataforma. Remova o papel primeiro (mesmo menu), depois exclua a conta.",
   shared_workspace:
-    "She owns a workspace other people still belong to. Its records are not hers alone: transfer ownership or remove the other members first.",
+    "Ela é responsável por um consultório do qual outras pessoas ainda fazem parte. Os atendimentos não são só dela: transfira a responsabilidade ou remova os outros membros primeiro.",
 };
 
 const plural = (count: number, one: string, many = `${one}s`) =>
   `${count.toLocaleString()} ${count === 1 ? one : many}`;
 
-const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString() : "an unknown date");
+const formatDate = (value: string | null) => (value ? new Date(value).toLocaleDateString() : "uma data desconhecida");
 
 function actionError(error: string): string {
-  if (error === "forbidden") return "Only a platform superadmin can delete accounts.";
+  if (error === "forbidden") return "Só uma superadmin da plataforma pode excluir contas.";
   if (error === "not-configured") {
-    return "Set SUPABASE_SERVICE_ROLE_KEY: stored files can only be removed with the service role, so deletion is disabled without it.";
+    return "Defina SUPABASE_SERVICE_ROLE_KEY: os arquivos guardados só podem ser removidos com a service role, então a exclusão fica desligada sem ela.";
   }
   return error;
 }
@@ -144,20 +144,20 @@ export default function DeleteAccountDialog({
 
   return (
     <Dialog open onClose={close} maxWidth="sm" fullWidth>
-      <DialogTitle>{result ? "Account deleted" : `Delete ${userName}'s account and all of its data?`}</DialogTitle>
+      <DialogTitle>{result ? "Conta excluída" : `Excluir a conta de ${userName} e todos os dados dela?`}</DialogTitle>
       <DialogContent>
         {result ? (
           <DeletionOutcome userName={userName} result={result} error={error} />
         ) : loadError ? (
           // A failed count is an error, never an empty-looking account.
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            Could not load what this deletion would remove: {loadError}
+            Não foi possível carregar o que esta exclusão removeria: {loadError}
           </Alert>
         ) : !preview ? (
           <Box className="flex min-h-40 items-center gap-3">
-            <CircularProgress size={20} aria-label="Loading" />
+            <CircularProgress size={20} aria-label="Carregando" />
             <Typography variant="body2" className="text-text-secondary">
-              Counting everything this account holds…
+              Contando tudo o que esta conta guarda…
             </Typography>
           </Box>
         ) : blockers.length > 0 ? (
@@ -176,56 +176,65 @@ export default function DeleteAccountDialog({
         ) : (
           <Box className="flex flex-col gap-4 pt-1">
             <Typography variant="body2" className="text-text-secondary">
-              Everything below is removed for good. There is no trash, no restore and no undo anywhere in the product.
+              Tudo abaixo é removido para sempre. Não existe lixeira, restauração nem desfazer em lugar nenhum do
+              produto.
             </Typography>
 
             <Box component="ul" className="m-0 flex list-disc flex-col gap-1 pl-5">
               <li>
                 <Typography variant="body2">
                   {preview.workspaces.length === 0
-                    ? "No workspace — she does not run one on her own"
-                    : `${preview.workspaces.length === 1 ? "The workspace" : "The workspaces"} ${preview.workspaces
+                    ? "Nenhum consultório — ela não tem um próprio"
+                    : `${preview.workspaces.length === 1 ? "O consultório" : "Os consultórios"} ${preview.workspaces
                         .map((workspace) => workspace.name)
                         .join(", ")}`}
                 </Typography>
               </li>
               <li>
                 <Typography variant="body2">
-                  {plural(preview.counts.patients, "patient")}, with their consent records
+                  {plural(preview.counts.patients, "paciente")}, com os registros de consentimento delas
                 </Typography>
               </li>
               <li>
                 <Typography variant="body2">
-                  {plural(preview.counts.consultations, "consultation")} and agenda entries (
-                  {preview.counts.upcomingAppointments} upcoming)
+                  {plural(preview.counts.consultations, "consulta")} e compromissos da agenda (
+                  {preview.counts.upcomingAppointments} futuros)
                 </Typography>
               </li>
               <li>
                 <Typography variant="body2">
-                  {plural(preview.counts.documents, "issued document")} — their verification links stop working
+                  {plural(preview.counts.documents, "documento emitido", "documentos emitidos")} — os links de
+                  verificação deles param de funcionar
                 </Typography>
               </li>
               <li>
                 <Typography variant="body2">
-                  {plural(preview.counts.recordings, "recording")}, {plural(preview.counts.attachments, "attachment")}{" "}
-                  and {plural(preview.counts.storageObjects, "stored file")}
+                  {plural(preview.counts.recordings, "gravação", "gravações")},{" "}
+                  {plural(preview.counts.attachments, "anexo")} e{" "}
+                  {plural(preview.counts.storageObjects, "arquivo guardado", "arquivos guardados")}
                 </Typography>
               </li>
               <li>
                 <Typography variant="body2">
-                  {plural(preview.counts.historyVersions, "change-history entry", "change-history entries")}
+                  {plural(
+                    preview.counts.historyVersions,
+                    "entrada do histórico de alterações",
+                    "entradas do histórico de alterações",
+                  )}
                 </Typography>
               </li>
               <li>
-                <Typography variant="body2">Her login, profile, notifications and sign-in history</Typography>
+                <Typography variant="body2">
+                  O login, o perfil, as notificações e o histórico de acessos dela
+                </Typography>
               </li>
             </Box>
 
             {preview.providerSubscriptions.length > 0 && (
               <Alert severity="info" className="neutral bg-background-paper/60!">
-                {plural(preview.providerSubscriptions.length, "subscription")} still charging at{" "}
-                {[...new Set(preview.providerSubscriptions.map((subscription) => subscription.provider))].join(" and ")}{" "}
-                will be canceled at the provider first. If that fails, nothing is deleted.
+                {plural(preview.providerSubscriptions.length, "assinatura")} ainda cobrando em{" "}
+                {[...new Set(preview.providerSubscriptions.map((subscription) => subscription.provider))].join(" e ")}{" "}
+                será cancelada no provedor primeiro. Se isso falhar, nada é excluído.
               </Alert>
             )}
 
@@ -234,36 +243,37 @@ export default function DeleteAccountDialog({
                 <li>
                   {preview.lastExport
                     ? preview.lastExport.status === "ready"
-                      ? `Her last full export was ready on ${formatDate(preview.lastExport.completedAt)}. It is deleted with the account — make sure she downloaded it.`
-                      : `Her last full export request is "${preview.lastExport.status}" — she does not have a copy yet.`
-                    : "She never exported her practice. If she needs her records, ask her to export before you continue."}
+                      ? `A última exportação completa dela ficou pronta em ${formatDate(preview.lastExport.completedAt)}. Ela é excluída junto com a conta — confirme que ela baixou.`
+                      : `O último pedido de exportação completa dela está "${preview.lastExport.status}" — ela ainda não tem uma cópia.`
+                    : "Ela nunca exportou o consultório. Se ela precisa dos atendimentos, peça que exporte antes de você continuar."}
                 </li>
                 <li>
-                  She may owe a legal retention of these records (in Brazil, 20 years from the last entry — Law
-                  13.787/2018). Delete on her request with her copy in hand, or when that duty does not apply.
+                  Ela pode ter obrigação legal de guardar estes atendimentos (no Brasil, 20 anos a partir do último
+                  registro — Lei 13.787/2018). Exclua a pedido dela com a cópia na mão, ou quando esse dever não se
+                  aplicar.
                 </li>
-                <li>Automatic backups keep a copy until they are pruned (30 days by default).</li>
+                <li>Os backups automáticos guardam uma cópia até serem descartados (30 dias por padrão).</li>
               </Box>
             </Alert>
 
             <FormControl className="outlined" variant="standard">
-              <FormLabel htmlFor="delete-account-reason">Why is this account being deleted?</FormLabel>
+              <FormLabel htmlFor="delete-account-reason">Por que esta conta está sendo excluída?</FormLabel>
               <Input
                 id="delete-account-reason"
-                placeholder="Holder's request by e-mail — ticket 1234"
+                placeholder="Pedido da titular por e-mail — ticket 1234"
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
                 disabled={busy}
                 autoFocus
               />
               <Typography variant="caption" className="text-text-secondary mt-1">
-                Stored in the audit trail with your name, together with how much was deleted.
+                Fica na trilha de auditoria com o seu nome, junto com quanto foi excluído.
               </Typography>
             </FormControl>
 
             <FormControl className="outlined" variant="standard">
               <FormLabel htmlFor="delete-account-confirm">
-                Type <strong>{expected}</strong> to confirm
+                Digite <strong>{expected}</strong> para confirmar
               </FormLabel>
               <Input
                 id="delete-account-confirm"
@@ -287,21 +297,21 @@ export default function DeleteAccountDialog({
           <>
             {result.storage.remaining !== 0 && (
               <Button variant="text" onClick={retry} disabled={busy}>
-                {busy ? "Retrying…" : "Retry file cleanup"}
+                {busy ? "Tentando…" : "Tentar de novo a limpeza dos arquivos"}
               </Button>
             )}
             <Button variant="contained" onClick={onDeleted} disabled={busy}>
-              Done
+              Pronto
             </Button>
           </>
         ) : (
           <>
             <Button variant="text" color="grey" onClick={close} disabled={busy}>
-              {canConfirm ? "Cancel" : "Close"}
+              {canConfirm ? "Cancelar" : "Fechar"}
             </Button>
             {canConfirm && (
               <Button variant="contained" color="error" onClick={confirm} disabled={busy || !reasonOk || !confirmed}>
-                {busy ? "Deleting…" : "Delete permanently"}
+                {busy ? "Excluindo…" : "Excluir para sempre"}
               </Button>
             )}
           </>
@@ -324,24 +334,26 @@ function DeletionOutcome({
   return (
     <Box className="flex flex-col gap-3 pt-1">
       <Alert severity="success" className="neutral bg-background-paper/60!">
-        {userName}&apos;s account was deleted: {plural(result.deletedWorkspaces.length, "workspace")},{" "}
-        {plural(counts.patients ?? 0, "patient")} and {plural(counts.consultations ?? 0, "consultation")}.
+        A conta de {userName} foi excluída: {plural(result.deletedWorkspaces.length, "consultório", "consultórios")},{" "}
+        {plural(counts.patients ?? 0, "paciente")} e {plural(counts.consultations ?? 0, "consulta")}.
         {result.canceledSubscriptions > 0
-          ? ` ${plural(result.canceledSubscriptions, "provider subscription")} canceled.`
+          ? ` ${plural(result.canceledSubscriptions, "assinatura no provedor", "assinaturas no provedor")} cancelada(s).`
           : ""}
       </Alert>
       {storage.remaining === 0 ? (
         <Typography variant="body2" className="text-text-secondary">
-          All {plural(storage.removed, "stored file")} removed.
+          Todos os {plural(storage.removed, "arquivo guardado", "arquivos guardados")} foram removidos.
         </Typography>
       ) : storage.remaining > 0 ? (
         <Alert severity="warning" className="neutral bg-background-paper/60!">
-          {plural(storage.remaining, "stored file")} could not be removed yet. They belong to no account anymore — retry
-          now. The workspace ids are also recorded in the audit trail.
+          {plural(storage.remaining, "arquivo guardado", "arquivos guardados")} ainda não puderam ser removidos. Eles
+          não pertencem mais a nenhuma conta — tente de novo agora. Os ids dos consultórios também ficam na trilha de
+          auditoria.
         </Alert>
       ) : (
         <Alert severity="warning" className="neutral bg-background-paper/60!">
-          File cleanup could not be verified{storage.error ? `: ${storage.error}` : ""}. Retry now.
+          Não foi possível verificar a limpeza dos arquivos{storage.error ? `: ${storage.error}` : ""}. Tente de novo
+          agora.
         </Alert>
       )}
       {error && (

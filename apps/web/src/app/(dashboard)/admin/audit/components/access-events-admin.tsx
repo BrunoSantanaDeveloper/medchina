@@ -91,7 +91,7 @@ export default function AccessEventsAdmin() {
     () => [
       {
         field: "createdAt",
-        headerName: "When",
+        headerName: "Quando",
         flex: 1,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<AccessRow, string>) => (
@@ -104,13 +104,13 @@ export default function AccessEventsAdmin() {
       },
       {
         field: "userName",
-        headerName: "User",
+        headerName: "Profissional",
         flex: 1.2,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<AccessRow, string | null>) => (
           <Box className="flex h-full items-center">
             <Typography variant="body2" className="text-text-secondary truncate">
-              {params.value ?? "Unknown user"}
+              {params.value ?? "Profissional desconhecida"}
             </Typography>
           </Box>
         ),
@@ -133,7 +133,7 @@ export default function AccessEventsAdmin() {
         // reaches it (the old plain-text filter searched the raw string); the
         // cell shows the scannable summary, with the raw string in a tooltip.
         field: "userAgent",
-        headerName: "Device",
+        headerName: "Dispositivo",
         flex: 1.2,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<AccessRow, string | null>) => (
@@ -148,12 +148,12 @@ export default function AccessEventsAdmin() {
       },
       {
         field: "aal",
-        headerName: "Assurance",
+        headerName: "Autenticação",
         minWidth: 130,
         renderCell: (params: GridRenderCellParams<AccessRow, string | null>) => (
           <Box className="flex h-full items-center">
             <Chip
-              label={params.row.aal === "aal2" ? "2FA" : "password"}
+              label={params.row.aal === "aal2" ? "2FA" : "senha"}
               size="small"
               color={params.row.aal === "aal2" ? "success" : "default"}
               variant="outlined"
@@ -182,14 +182,14 @@ export default function AccessEventsAdmin() {
           noRowsOverlay={
             <EmptyState
               icon={<NiFingerprint size="medium" />}
-              title="No sign-ins recorded yet"
-              description="Every new session lands here automatically (trigger on auth.sessions, migration 0016). If sign-ins are happening but nothing shows, apply the migration."
+              title="Nenhum acesso registrado ainda"
+              description="Toda nova sessão cai aqui automaticamente (trigger em auth.sessions, migração 0016). Se há acessos acontecendo e nada aparece, aplique a migração."
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No sign-ins match your search.
+              Nenhum acesso corresponde à sua busca.
             </Typography>
           }
         />

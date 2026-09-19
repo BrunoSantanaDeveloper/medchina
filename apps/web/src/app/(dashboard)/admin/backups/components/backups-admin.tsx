@@ -31,6 +31,19 @@ const STATUS_COLOR: Record<string, "success" | "error" | "warning"> = {
   running: "warning",
 };
 
+/** The status enum as the operator reads it; an unknown value falls back to the raw one. */
+const STATUS_LABEL: Record<string, string> = {
+  success: "concluído",
+  error: "erro",
+  running: "rodando",
+};
+
+/** What started the run, in words. */
+const TRIGGER_LABEL: Record<string, string> = {
+  cron: "automático",
+  manual: "manual",
+};
+
 const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
   const kb = bytes / 1024;
@@ -48,10 +61,10 @@ const duration = (start: string, end: string | null) => {
 /** The old row's secondary line: what the run produced, or why it failed. */
 const summaryOf = (row: RunRow) =>
   row.status === "error"
-    ? (row.error ?? "Failed")
+    ? (row.error ?? "Falhou")
     : [
-        `${row.tableCount} tables`,
-        `${row.rowCount.toLocaleString()} rows`,
+        `${row.tableCount} tabelas`,
+        `${row.rowCount.toLocaleString()} linhas`,
         formatBytes(row.totalBytes),
         duration(row.startedAt, row.finishedAt),
       ]
@@ -121,8 +134,8 @@ export default function BackupsAdmin() {
     }
     setInfo(
       result.data.mode === "queued"
-        ? "Backup queued — it runs in the background and appears below when done. Refresh in a moment."
-        : "Backup finished (ran inline). See the newest run below.",
+        ? "Backup na fila — ele roda em segundo plano e aparece abaixo quando terminar. Atualize em instantes."
+        : "Backup concluído (rodou direto, sem fila). Veja a execução mais recente abaixo.",
     );
     refresh();
   }, [refresh]);
@@ -140,14 +153,14 @@ export default function BackupsAdmin() {
     for (const file of result.data) {
       window.open(file.url, "_blank");
     }
-    if (result.data.length === 0) setInfo("This run has no stored files.");
+    if (result.data.length === 0) setInfo("Esta execução não tem arquivos armazenados.");
   }, []);
 
   const columns = useMemo<GridColDef<RunRow>[]>(
     () => [
       {
         field: "startedAt",
-        headerName: "Started",
+        headerName: "Início",
         flex: 1,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<RunRow, string>) => (
@@ -160,7 +173,7 @@ export default function BackupsAdmin() {
       },
       {
         field: "summary",
-        headerName: "Result",
+        headerName: "Resultado",
         flex: 2,
         minWidth: 260,
         sortable: false,
@@ -177,21 +190,32 @@ export default function BackupsAdmin() {
       },
       {
         field: "triggeredBy",
-        headerName: "Trigger",
+        headerName: "Origem",
         minWidth: 120,
+        valueGetter: (_, row) => TRIGGER_LABEL[row.triggeredBy] ?? row.triggeredBy,
         renderCell: (params: GridRenderCellParams<RunRow, RunRow["triggeredBy"]>) => (
           <Box className="flex h-full items-center">
-            <Chip label={params.row.triggeredBy} size="small" variant="outlined" />
+            <Chip
+              label={TRIGGER_LABEL[params.row.triggeredBy] ?? params.row.triggeredBy}
+              size="small"
+              variant="outlined"
+            />
           </Box>
         ),
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 120,
+        valueGetter: (_, row) => STATUS_LABEL[row.status] ?? row.status,
         renderCell: (params: GridRenderCellParams<RunRow, RunRow["status"]>) => (
           <Box className="flex h-full items-center">
-            <Chip label={params.row.status} size="small" color={STATUS_COLOR[params.row.status]} variant="outlined" />
+            <Chip
+              label={STATUS_LABEL[params.row.status] ?? params.row.status}
+              size="small"
+              color={STATUS_COLOR[params.row.status]}
+              variant="outlined"
+            />
           </Box>
         ),
       },
@@ -212,7 +236,7 @@ export default function BackupsAdmin() {
             <GridActionsCellItem
               key="download"
               icon={busy ? <CircularProgress size={14} /> : <NiDownloadCloud size="medium" />}
-              label="Download archives"
+              label="Baixar arquivos"
               disabled={busy}
               onClick={() => handleDownload(prefix)}
             />,
@@ -247,32 +271,32 @@ export default function BackupsAdmin() {
           header={
             <Box>
               <Typography variant="h5" component="h2" className="card-title mb-1">
-                Automatic backups
+                Backups automáticos
               </Typography>
               <Typography variant="body2" className="text-text-secondary">
                 {lastSuccess
-                  ? `Last successful backup ${new Date(lastSuccess.startedAt).toLocaleString()} · ${lastSuccess.tableCount} tables · ${formatBytes(lastSuccess.totalBytes)}`
-                  : "No successful backup recorded yet. The nightly job runs at 03:00 UTC; you can also run one now."}
+                  ? `Último backup concluído em ${new Date(lastSuccess.startedAt).toLocaleString()} · ${lastSuccess.tableCount} tabelas · ${formatBytes(lastSuccess.totalBytes)}`
+                  : "Nenhum backup concluído até agora. A rotina noturna roda às 03:00 UTC; você também pode rodar um agora."}
               </Typography>
             </Box>
           }
           actions={
             <Button variant="contained" size="small" onClick={handleRunNow} disabled={running}>
-              {running ? "Starting…" : "Run backup now"}
+              {running ? "Iniciando…" : "Rodar backup agora"}
             </Button>
           }
           noRowsOverlay={
             <EmptyState
               icon={<NiArchive size="medium" />}
-              title="No backups yet"
-              description="Each run exports every table to the private backups bucket. Start one now, or wait for the nightly job — it needs DATABASE_URL and SUPABASE_SERVICE_ROLE_KEY set."
-              action={{ label: "Run backup now", onClick: handleRunNow }}
+              title="Nenhum backup ainda"
+              description="Cada execução exporta todas as tabelas para o bucket privado de backups. Rode uma agora ou espere a rotina noturna — ela precisa de DATABASE_URL e SUPABASE_SERVICE_ROLE_KEY configuradas."
+              action={{ label: "Rodar backup agora", onClick: handleRunNow }}
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No backup runs match your search.
+              Nenhuma execução corresponde à sua busca.
             </Typography>
           }
         />

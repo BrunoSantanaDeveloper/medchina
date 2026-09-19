@@ -30,6 +30,12 @@ const STATUS_COLOR: Record<string, "warning" | "success" | "default"> = {
   rejected: "default",
 };
 
+const STATUS_LABEL: Record<CommentRow["status"], string> = {
+  pending: "Pendente",
+  approved: "Aprovado",
+  rejected: "Rejeitado",
+};
+
 /**
  * Comment moderation queue: pending comments wait here; approving one
  * makes it public on the post instantly.
@@ -94,7 +100,7 @@ export default function BlogCommentsAdmin() {
     () => [
       {
         field: "body",
-        headerName: "Comment",
+        headerName: "Comentário",
         flex: 2,
         minWidth: 260,
         renderCell: (params: GridRenderCellParams<CommentRow, string>) => (
@@ -107,7 +113,7 @@ export default function BlogCommentsAdmin() {
       },
       {
         field: "authorName",
-        headerName: "Author",
+        headerName: "Autor",
         minWidth: 150,
         valueGetter: (_, row) => row.authorName ?? "—",
       },
@@ -126,18 +132,19 @@ export default function BlogCommentsAdmin() {
       },
       {
         field: "createdAt",
-        headerName: "Received",
+        headerName: "Recebido",
         minWidth: 180,
         valueGetter: (_, row) => new Date(row.createdAt).toLocaleString(),
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 120,
+        valueGetter: (_, row) => STATUS_LABEL[row.status],
         renderCell: (params: GridRenderCellParams<CommentRow, CommentRow["status"]>) => (
           <Box className="flex h-full items-center">
             <Chip
-              label={params.row.status}
+              label={STATUS_LABEL[params.row.status]}
               size="small"
               color={STATUS_COLOR[params.row.status]}
               variant="outlined"
@@ -159,7 +166,7 @@ export default function BlogCommentsAdmin() {
                 <GridActionsCellItem
                   key="approve"
                   icon={<NiCheck size="medium" />}
-                  label="Approve"
+                  label="Aprovar"
                   onClick={() => moderate(params.row.id, "approved")}
                   showInMenu
                 />,
@@ -170,7 +177,7 @@ export default function BlogCommentsAdmin() {
                 <GridActionsCellItem
                   key="reject"
                   icon={<NiCross size="medium" />}
-                  label="Reject"
+                  label="Rejeitar"
                   onClick={() => moderate(params.row.id, "rejected")}
                   showInMenu
                 />,
@@ -187,9 +194,9 @@ export default function BlogCommentsAdmin() {
       {/* The status tabs drive the QUERY (one status is fetched at a time),
           so they stay above the table, not in the grid's filter row. */}
       <Tabs value={statusTab} onChange={(_, value) => setStatusTab(value)}>
-        <Tab label="Pending" />
-        <Tab label="Approved" />
-        <Tab label="Rejected" />
+        <Tab label="Pendentes" />
+        <Tab label="Aprovados" />
+        <Tab label="Rejeitados" />
       </Tabs>
 
       {error && (
@@ -207,18 +214,22 @@ export default function BlogCommentsAdmin() {
           noRowsOverlay={
             <EmptyState
               icon={<NiMessages size="medium" />}
-              title={status === "pending" ? "Nothing waiting for review" : `No ${status} comments`}
+              title={
+                status === "pending"
+                  ? "Nada esperando revisão"
+                  : `Nenhum comentário ${STATUS_LABEL[status].toLowerCase()}`
+              }
               description={
                 status === "pending"
-                  ? "New comments land here before going public — an empty queue means you're up to date."
-                  : "Comments you moderate show up under their status."
+                  ? "Comentários novos caem aqui antes de ficarem públicos — fila vazia quer dizer que você está em dia."
+                  : "Os comentários que você modera aparecem na situação correspondente."
               }
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No comments match your search.
+              Nenhum comentário corresponde à busca.
             </Typography>
           }
           pageSize={20}
@@ -228,7 +239,7 @@ export default function BlogCommentsAdmin() {
 
       {rows.length > 0 && (
         <Typography variant="body2" className="text-text-secondary">
-          Approving makes a comment public on the post immediately.
+          Aprovar deixa o comentário público no post na hora.
         </Typography>
       )}
     </Box>

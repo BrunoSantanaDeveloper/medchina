@@ -34,6 +34,16 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
   failed: "error",
 };
 
+/** The delivery enum as the operator reads it; an unknown value falls back to the raw one. */
+const STATUS_LABEL: Record<string, string> = {
+  sent: "enviada",
+  delivered: "entregue",
+  read: "lida",
+  queued: "na fila",
+  scheduled: "agendada",
+  failed: "falhou",
+};
+
 /** The old row's primary line: what was actually sent. */
 const messageOf = (row: WaRow) => row.text ?? (row.template ? `template: ${row.template}` : row.kind);
 
@@ -87,7 +97,7 @@ export default function WaLogAdmin() {
     () => [
       {
         field: "createdAt",
-        headerName: "When",
+        headerName: "Quando",
         flex: 1,
         minWidth: 180,
         renderCell: (params: GridRenderCellParams<WaRow, string>) => (
@@ -100,12 +110,12 @@ export default function WaLogAdmin() {
       },
       {
         field: "direction",
-        headerName: "Direction",
+        headerName: "Direção",
         minWidth: 120,
         renderCell: (params: GridRenderCellParams<WaRow, string>) => (
           <Box className="flex h-full items-center">
             <Chip
-              label={params.row.direction === "inbound" ? "in" : "out"}
+              label={params.row.direction === "inbound" ? "entrada" : "saída"}
               size="small"
               color={params.row.direction === "inbound" ? "secondary" : "primary"}
               variant="outlined"
@@ -115,7 +125,7 @@ export default function WaLogAdmin() {
       },
       {
         field: "message",
-        headerName: "Message",
+        headerName: "Mensagem",
         flex: 2,
         minWidth: 260,
         // The body must stay reachable by the quick filter, as it was by the
@@ -133,7 +143,7 @@ export default function WaLogAdmin() {
       },
       {
         field: "fromNumber",
-        headerName: "From",
+        headerName: "De",
         minWidth: 150,
         renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
           <Box className="flex h-full items-center">
@@ -145,7 +155,7 @@ export default function WaLogAdmin() {
       },
       {
         field: "toNumber",
-        headerName: "To",
+        headerName: "Para",
         minWidth: 150,
         renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
           <Box className="flex h-full items-center">
@@ -157,7 +167,7 @@ export default function WaLogAdmin() {
       },
       {
         field: "orgName",
-        headerName: "Workspace",
+        headerName: "Consultório",
         flex: 1,
         minWidth: 150,
         renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
@@ -170,7 +180,7 @@ export default function WaLogAdmin() {
       },
       {
         field: "provider",
-        headerName: "Provider",
+        headerName: "Provedor",
         minWidth: 130,
         renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
           <Box className="flex h-full items-center">
@@ -182,13 +192,14 @@ export default function WaLogAdmin() {
       },
       {
         field: "status",
-        headerName: "Status",
+        headerName: "Situação",
         minWidth: 130,
+        valueGetter: (_, row) => STATUS_LABEL[row.status] ?? row.status,
         renderCell: (params: GridRenderCellParams<WaRow, string>) => (
           <Box className="flex h-full items-center">
             <Tooltip title={params.row.error ?? ""}>
               <Chip
-                label={params.row.status}
+                label={STATUS_LABEL[params.row.status] ?? params.row.status}
                 size="small"
                 color={STATUS_COLOR[params.row.status] ?? "default"}
                 variant="outlined"
@@ -202,7 +213,7 @@ export default function WaLogAdmin() {
         // The delivery error was a fragment of the old secondary line; kept as
         // its own column (hidden by default) so it stays readable/exportable.
         field: "error",
-        headerName: "Error",
+        headerName: "Erro",
         flex: 1.5,
         minWidth: 220,
         renderCell: (params: GridRenderCellParams<WaRow, string | null>) => (
@@ -237,14 +248,14 @@ export default function WaLogAdmin() {
           noRowsOverlay={
             <EmptyState
               icon={<NiMessages size="medium" />}
-              title="No WhatsApp messages yet"
-              description="Every message sent or received through the WhatsApp dispatcher (packages/whatsapp) is logged here with its delivery status."
+              title="Nenhuma mensagem do WhatsApp ainda"
+              description="Toda mensagem enviada ou recebida pelo dispatcher do WhatsApp (packages/whatsapp) fica registrada aqui com a situação de entrega."
               className="border-none"
             />
           }
           noResultsOverlay={
             <Typography variant="body2" className="text-text-secondary">
-              No messages match your search.
+              Nenhuma mensagem corresponde à sua busca.
             </Typography>
           }
         />

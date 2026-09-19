@@ -47,7 +47,7 @@ export default function AdminBlog() {
         </Typography>
         <Breadcrumbs>
           <Link color="inherit" href="/inicio">
-            Home
+            Início
           </Link>
           <Typography variant="body2">Admin</Typography>
           <Typography variant="body2">Blog</Typography>
@@ -57,7 +57,7 @@ export default function AdminBlog() {
       {allowed === false && (
         <Grid size={12}>
           <Alert severity="error" className="neutral bg-background-paper/60!">
-            This area is restricted to platform superadmins.
+            Esta área é restrita aos superadmins da plataforma.
           </Alert>
         </Grid>
       )}
@@ -68,7 +68,7 @@ export default function AdminBlog() {
             <CardContent>
               <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-6">
                 <Tab label="Posts" />
-                <Tab label="Comments" />
+                <Tab label="Comentários" />
               </Tabs>
               <Box hidden={tab !== 0}>{tab === 0 && <BlogPostsAdmin />}</Box>
               <Box hidden={tab !== 1}>{tab === 1 && <BlogCommentsAdmin />}</Box>

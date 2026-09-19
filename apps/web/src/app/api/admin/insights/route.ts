@@ -87,27 +87,27 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Não autenticada." }, { status: 401 });
 
   const { data: profile } = await supabase.from("profiles").select("is_superadmin").eq("id", user.id).maybeSingle();
-  if (!profile?.is_superadmin) return NextResponse.json({ error: "Superadmin only." }, { status: 403 });
+  if (!profile?.is_superadmin) return NextResponse.json({ error: "Restrito a superadmins." }, { status: 403 });
 
   const provider = PROVIDERS.find((entry) => entry.enabled);
   if (!provider) {
     return NextResponse.json(
-      { error: "No AI provider is configured. Set ANTHROPIC_API_KEY, GEMINI_API_KEY or OPENROUTER_API_KEY." },
+      { error: "Nenhum provedor de IA configurado. Defina ANTHROPIC_API_KEY, GEMINI_API_KEY ou OPENROUTER_API_KEY." },
       { status: 503 },
     );
   }
   if (!process.env.DATABASE_URL) {
     return NextResponse.json(
-      { error: "DATABASE_URL is not set — insights query the database directly." },
+      { error: "DATABASE_URL não está definida — os insights consultam o banco diretamente." },
       { status: 503 },
     );
   }
 
   const { question } = (await request.json()) as InsightsRequest;
-  if (!question?.trim()) return NextResponse.json({ error: "Empty question." }, { status: 400 });
+  if (!question?.trim()) return NextResponse.json({ error: "Pergunta vazia." }, { status: 400 });
 
   const sql = postgres(process.env.DATABASE_URL, { prepare: false, max: 1 });
   const chat = getChatProvider(provider.name);
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
       })) as Step;
 
       if (step.action === "final" || !step.sql) {
-        return NextResponse.json({ answer: step.answer ?? "I could not reach an answer.", steps });
+        return NextResponse.json({ answer: step.answer ?? "Não cheguei a uma resposta.", steps });
       }
 
       // The READ ONLY transaction is the safety boundary — not prompt wording.
@@ -164,7 +164,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      { answer: "I ran out of query attempts before reaching an answer. Try narrowing the question.", steps },
+      {
+        answer: "Esgotei as tentativas de consulta antes de chegar a uma resposta. Tente estreitar a pergunta.",
+        steps,
+      },
       { status: 200 },
     );
   } catch (error) {
