@@ -3150,7 +3150,12 @@
     "practice-area-fertility-hint": "Bei den Patientinnen, die Sie in der Akte markieren, erhält die Anamnese den Block zu Zyklus, Fruchtbarkeit und Wechseljahren — und die KI füllt ihn auch aus der Aufnahme aus.",
     "patient-fertility-care": "Begleitung von Zyklus und Fruchtbarkeit",
     "patient-fertility-care-hint": "Zeigt den Block Menstruationszyklus und Fruchtbarkeit in den Behandlungen dieser Patientin.",
-    "patient-fertility-care-on": "Aktiv"
+    "patient-fertility-care-on": "Aktiv",
+    "billing-checkout-focus-title": "Abonnement abschließen",
+    "billing-checkout-step-profile": "Schritt 2 von 3 · Rechnungsdaten",
+    "billing-checkout-step-pay": "Schritt 3 von 3 · Zahlung",
+    "billing-checkout-all-settings": "Alle Abrechnungseinstellungen anzeigen",
+    "billing-profile-save-continue": "Speichern und zur Zahlung"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",
@@ -3243,6 +3248,11 @@
     "get-verification-resend": "Bestätigungs-E-Mail erneut senden",
     "get-verification-resend-wait": "Erneut senden in {seconds}s",
     "get-verification-resend-sent": "Fertig. Falls für diese Adresse eine Registrierung auf Bestätigung wartet, wurde der Link soeben verschickt. Prüfen Sie auch den Spam-Ordner.",
-    "get-verification-resend-error": "Wir konnten gerade nicht erneut senden. Bitte versuchen Sie es in Kürze noch einmal."
+    "get-verification-resend-error": "Wir konnten gerade nicht erneut senden. Bitte versuchen Sie es in Kürze noch einmal.",
+    "signup-offer-title": "Konto erstellen",
+    "signup-offer-subtitle": "Schritt 1 von 3. Danach: Rechnungsdaten und Zahlung.",
+    "signup-offer-continue": "Konto erstellen und fortfahren",
+    "signup-offer-practice-note": "Ihr Arbeitsbereich startet mit Ihrem Namen. Sie können ihn jederzeit in den Einstellungen umbenennen.",
+    "get-verification-offer-note": "Nach der Bestätigung kehren Sie direkt zum Zahlungsbildschirm zurück. Nichts von dem, was Sie eingegeben haben, geht verloren."
   }
 }

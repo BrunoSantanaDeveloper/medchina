@@ -13,10 +13,13 @@ export async function generateMetadata(): Promise<Metadata> {
 /**
  * Terms of use.
  *
- * Clause 1 now identifies the contracting entity (marketing namespace,
+ * Clause 1 identifies the contracting entity (marketing namespace,
  * `terms-1-body`) — an offer page that takes money has to say who is selling.
- * The remaining clauses are the template's and STILL REQUIRE COUNSEL REVIEW;
- * versioned acceptance can be wired to the consent terms in packages/audit.
+ *
+ * Reviewed by counsel; this text is the approved wording. Any edit beyond a
+ * typo is a new legal review, not a copy change. Still open on the engineering
+ * side: versioned acceptance, which can be wired to the consent terms in
+ * packages/audit.
  */
 export default async function TermsPage() {
   const t = await getTranslations("marketing");

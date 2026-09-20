@@ -37,6 +37,9 @@ export default function BillingSettings() {
   // Set when the provider refused the checkout for a missing CPF/CNPJ, so the
   // form leads with WHY it is suddenly being asked for.
   const [needsBillingProfile, setNeedsBillingProfile] = useState(false);
+  // Bumped when the fiscal form is saved while she is completing a purchase:
+  // the plan grid watches it and opens the checkout without a second click.
+  const [continueCheckout, setContinueCheckout] = useState(0);
   const {
     configured,
     loading,
@@ -56,6 +59,19 @@ export default function BillingSettings() {
     refreshDetails,
   } = useBilling();
   const { allowance, trialParams, reload: reloadAllowance } = useAudioAllowance(currentOrg?.id ?? null);
+
+  /**
+   * She came from an offer page to BUY, not to administer a subscription.
+   *
+   * This screen is the settings hub — usage meters, packs, invoice history —
+   * and every one of those blocks is a reason to stop and read on the last
+   * step before paying. So when she arrives with a plan in the link and has
+   * nothing to administer yet, the page shows only what completes the
+   * purchase: the fiscal field the provider demands, and the plan. Nothing is
+   * removed, only deferred: the full screen is one link away, and the moment a
+   * subscription exists this mode stops applying by itself.
+   */
+  const checkoutFocus = Boolean(offerSlug) && canManage && !subscription;
 
   const loadCheckoutAvailability = useCallback(async () => {
     setCheckoutState(remoteLoading());
@@ -84,17 +100,26 @@ export default function BillingSettings() {
         <Grid size={12} spacing={2.5} container>
           <Grid size={{ xs: 12, md: "grow" }}>
             <Typography variant="h1" component="h1" className="mb-0">
-              {t("billing-title")}
+              {checkoutFocus ? t("billing-checkout-focus-title") : t("billing-title")}
             </Typography>
-            <Breadcrumbs>
-              <Link color="inherit" href="/inicio">
-                {t("settings-home")}
-              </Link>
-              <Link color="inherit" href="/settings">
-                {t("settings-title")}
-              </Link>
-              <Typography variant="body2">{t("settings-billing")}</Typography>
-            </Breadcrumbs>
+            {/* Where she is in the path, not where she is in the site tree.
+                Mid-purchase, a breadcrumb back to Settings is an exit; the step
+                line is the thing that makes a short flow feel short. */}
+            {checkoutFocus ? (
+              <Typography variant="body2" className="text-text-secondary">
+                {billingProfile.document ? t("billing-checkout-step-pay") : t("billing-checkout-step-profile")}
+              </Typography>
+            ) : (
+              <Breadcrumbs>
+                <Link color="inherit" href="/inicio">
+                  {t("settings-home")}
+                </Link>
+                <Link color="inherit" href="/settings">
+                  {t("settings-title")}
+                </Link>
+                <Typography variant="body2">{t("settings-billing")}</Typography>
+              </Breadcrumbs>
+            )}
           </Grid>
           <Grid size={{ xs: 12, md: "auto" }} className="lg:hidden">
             <Tooltip title={t("settings-open-menu")}>
@@ -203,24 +228,33 @@ export default function BillingSettings() {
                 orgId={currentOrg.id}
                 profile={billingProfile}
                 required={needsBillingProfile}
+                // In checkout mode the button says where it goes, and going
+                // there is the same click: saving the document was never a
+                // destination, it was the provider's requirement.
+                continuesToCheckout={checkoutFocus}
                 onSaved={() => {
                   setNeedsBillingProfile(false);
+                  if (checkoutFocus) setContinueCheckout((token) => token + 1);
                   void refreshDetails();
                 }}
               />
             )}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <AudioUsageCard showWhenEmpty />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <LibraryUsageCard />
-            </Grid>
-            <CurrentSubscription
-              orgId={currentOrg.id}
-              subscription={subscription}
-              canManage={canManage}
-              onChanged={refreshDetails}
-            />
+            {!checkoutFocus && (
+              <>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <AudioUsageCard showWhenEmpty />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <LibraryUsageCard />
+                </Grid>
+                <CurrentSubscription
+                  orgId={currentOrg.id}
+                  subscription={subscription}
+                  canManage={canManage}
+                  onChanged={refreshDetails}
+                />
+              </>
+            )}
             <PlansGrid
               orgId={currentOrg.id}
               subscription={subscription}
@@ -230,19 +264,34 @@ export default function BillingSettings() {
               trialParams={trialParams}
               offerSlug={offerSlug}
               onBillingProfileRequired={() => setNeedsBillingProfile(true)}
+              continueCheckout={continueCheckout}
             />
             {/* After the tiers on purpose: for most people an upgrade is the
                 better deal, and a pack is the answer only once that has been
                 considered and the cycle still ran out. */}
-            <MinutePacksCard
-              orgId={currentOrg.id}
-              packs={packs}
-              allowance={allowance}
-              canManage={canManage}
-              checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
-              onPurchased={reloadAllowance}
-            />
-            <InvoicesCard invoices={invoices} />
+            {!checkoutFocus && (
+              <>
+                <MinutePacksCard
+                  orgId={currentOrg.id}
+                  packs={packs}
+                  allowance={allowance}
+                  canManage={canManage}
+                  checkoutAvailable={checkoutState.status === "success" && checkoutAvailable === true}
+                  onPurchased={reloadAllowance}
+                />
+                <InvoicesCard invoices={invoices} />
+              </>
+            )}
+            {/* Deferred, never removed: the settings she did not come for stay
+                one click away, and the link drops the `plan` parameter so the
+                full screen is what loads. */}
+            {checkoutFocus && (
+              <Grid size={12}>
+                <Button variant="text" color="grey" LinkComponent={Link} href="/settings/billing">
+                  {t("billing-checkout-all-settings")}
+                </Button>
+              </Grid>
+            )}
           </>
         )}
 

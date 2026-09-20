@@ -1,0 +1,135 @@
+{
+  "_readme": "Machine-readable catalog of the PRODUCT component library (mirror of components/marketing/catalog.json for the authenticated app). The PreToolUse product-screen-guard injects a digest of this file into every write/edit under app/(dashboard)/** or components/product/**, so the full expressive range of the template is in context on every generation — not just the primitives the model happens to remember. Two kinds of entry: `components` are shared components that already exist in this repo (import them), and `template` are patterns the flyee template ships that have NOT been packaged yet (port them from the cited source instead of inventing a new shape). Keep entries in sync when props change; guard lines render as `Name(props) — use`.",
+
+  "contract": [
+    "Before rendering a value, ask which catalog entry is the right shape for it. A counter set, a ratio, a share and a series each have a component — a run-on sentence of numbers is a defect, not a style.",
+    "Never invent a chart to fill space. A visual earns its place only when it answers a question the user actually asks, and only on data the payload already carries. Vanity metrics and decorative charts are forbidden (.claude/rules/app-ux.md).",
+    "Never hand-roll a shape that exists here. If the nearest entry does not fit, port the `template` pattern from the cited source (recoverable with `git show \"bd92373^:<path>\"`) rather than writing a one-off.",
+    "Red is reserved for clinical risk and failure. Commercial ceilings, queues and declines use `attention` (accent-3 terracotta) — see usage-meter and library-usage-card for the precedent.",
+    "Type scale: body1 14px, body2 12px, subtitle2 14px semibold, h5 18px, h4 20px. `caption` is below 12px — never for informative text."
+  ],
+
+  "tones": {
+    "rule": "Icon containers use TILE_TONE (bg-{tone}-light/10 + text-{tone}), tones primary | secondary | accent-1..4. Bars and meters use the UsageMeter vocabulary: primary | secondary | attention | empty. Status labels use the pastel badge, never colour alone."
+  },
+
+  "components": [
+    {
+      "name": "EmptyState",
+      "from": "@/components/product/empty-state",
+      "props": "icon, title, description?, action?, secondaryAction?, className?",
+      "use": "Every zero-data view: icon + why it is empty + the ONE next action. Never a bare 'no data'."
+    },
+    {
+      "name": "UsageMeter",
+      "from": "@/components/product/usage-meter",
+      "props": "headline, caption?, segments[{key,label,value,display,tone}], ariaLabel",
+      "use": "A consumption readout — used vs remaining, with each pool NAMED. Use for any x-of-y allowance (minutes, quota). Beats a plain progress bar when the pools differ in nature (cycle vs purchased)."
+    },
+    {
+      "name": "MetricBars",
+      "from": "@/components/product/metric-bars",
+      "props": "items[{key,label,value,tone?,hint?}], total?, spacing?",
+      "use": "Two to six counters that describe one population (a status funnel, accepted/edited/rejected, failures by stage). Replaces a sentence of counts. Port of the template's Application Status."
+    },
+    {
+      "name": "TrendSparkline",
+      "from": "@/components/product/trend-sparkline",
+      "props": "label, data[], plotType?, formatValue?, caption?, tone?",
+      "use": "A SERIES the payload already carries: value + change against the previous point + the curve. Never synthesize a series to decorate. Port of the template's stat-with-sparkline."
+    },
+    {
+      "name": "StatTile",
+      "from": "@/components/product/home-tiles",
+      "props": "href, icon, tone, label, value",
+      "use": "A counter as a tile: tinted icon band (h-[4.5rem]) + label + value in h5. Use for a row of counts, including clickable filters. Port of dashboard-analytics-stats."
+    },
+    {
+      "name": "QuickActionTile",
+      "from": "@/components/product/home-tiles",
+      "props": "href, icon, tone, title, description",
+      "use": "A shortcut: full-height tinted icon column (w-16) + title + one-line description. Four across, never two columns."
+    },
+    {
+      "name": "TILE_TONE",
+      "from": "@/components/product/tile-tone",
+      "props": "TILE_TONE[tone] -> { bg, text }",
+      "use": "The only source of icon-container tinting. Never hand-write bg-primary/10 — the template tint is bg-{tone}-light/10."
+    },
+    {
+      "name": "ConsultationStatusChip",
+      "from": "@/components/product/consultation-status-chip",
+      "props": "status, className?",
+      "use": "A lifecycle stage as the template's pastel badge (Button size=tiny variant=pastel). The pattern to copy for any status label: the state is NAMED, not just coloured."
+    },
+    {
+      "name": "ConfirmActionDialog",
+      "from": "@/components/product/confirm-action-dialog",
+      "props": "title, intro?, consequences[], stays?, staysTitle?, reasonLabel?, reasonPlaceholder?, reasonHelp?, reasonMinLength?, confirmLabel, tone?, onConfirm(reason)->Promise<string|null>, onClose",
+      "use": "Any operator action that changes someone else's account. It forces the three things a confirmation owes the reader: what the action DOES (`consequences`), what it deliberately does NOT do (`stays` — half the risk is assuming it reaches further), and a stated reason for the audit trail. Mount it conditionally with a `key` so it never changes identity on the way out. Never ship a destructive action on a bare click."
+    },
+    {
+      "name": "InfoHint",
+      "from": "@/components/product/info-hint",
+      "props": "label/title",
+      "use": "A definition attached to a number. A bare Tooltip on a non-focusable Box disappears on touch and for keyboards — use this instead."
+    },
+    {
+      "name": "WeekSchedule",
+      "from": "@/components/product/week-schedule",
+      "props": "items, timeZone, locale, agendaHref, scheduleHref, startingId, onStart, onBriefing",
+      "use": "A day strip plus the selected day's items. Port of the template's Schedule card; deliberately NOT the agenda page."
+    },
+    {
+      "name": "DataTable",
+      "from": "@/components/data-grid/data-table",
+      "props": "rows, columns, loading, header?, actions?, filters?, noRowsOverlay, noResultsOverlay, onQuickFilterChange?, initialColumnVisibility?",
+      "use": "The app's ONE table, and only when the job really is scan/compare/manage many rows. Put the page title in `header` and the primary action in `actions` — those slots render empty otherwise. Imports the community DataGrid: pinnedColumns needs the wrapper switched to @mui/x-data-grid-premium (installed and licensed)."
+    },
+    {
+      "name": "OnboardingChecklist / ActivationProgress / SetupWizard",
+      "from": "@/components/product/*",
+      "props": "see each file",
+      "use": "Steps to first value, completion drive, and progressive disclosure for long setups. Never points, badges, leaderboards or streaks."
+    }
+  ],
+
+  "template": [
+    {
+      "name": "Medidor circular (gauge)",
+      "source": "dashboards/analytics/sections/dashboard-analytics-progresses.tsx",
+      "props": "CircularProgress variant=\"determinate\" + centred label + outline-grey-100 track ring",
+      "use": "One ratio that must read at a glance next to its x/y. No chart library. Not packaged yet — port it when a screen needs a single prominent ratio."
+    },
+    {
+      "name": "Tile horizontal com variação",
+      "source": "pages/user/overview/sections/user-overview-stats.tsx",
+      "props": "Card flex-row p-1 + Box h-24 w-16 rounded-2xl bg-{tone}-light/10 + label body1 + value h5 + NiTriangleUp/Down change",
+      "use": "A counter that has a previous period to compare against. Requires real prior-period data — otherwise use StatTile."
+    },
+    {
+      "name": "Rosca / radar",
+      "source": "dashboards/analytics/sections/dashboard-analytics-categories.tsx, -orders-stocks.tsx",
+      "props": "PieChart / RadarChart from @mui/x-charts",
+      "use": "Only above ~6 categories, or to compare two comparable series. Below that, MetricBars reads better — prefer it."
+    },
+    {
+      "name": "Card ilustrado",
+      "source": "dashboards/default/sections/dashboard-default-banner.tsx",
+      "props": "h4 card-title + body1 + Illustration* h-64 max-w-xs + contained/outlined actions",
+      "use": "The zero-data state of a whole screen, when the path to value deserves more than an EmptyState. Packaged example: components/product/home-empty-banner.tsx."
+    },
+    {
+      "name": "Timeline de atividade",
+      "source": "dashboards/default/sections/dashboard-default-activity.tsx",
+      "props": "@mui/lab Timeline + TimelineDot variant=outlined + subtitle2/body2 + relative time",
+      "use": "'What happened recently' when the order IS the meaning. Packaged example: the recent-records card in app/(dashboard)/inicio/page.tsx."
+    }
+  ],
+
+  "traps": [
+    "MUI 9 emits `MuiButton-{variant}` + `MuiButton-color{Color}` — composed classes like `MuiButton-pastelAccent-2` no longer exist. The same applies to Chip: `.MuiChip-outlined.MuiChip-outlined{Color}` selectors in style/data-display/chip.css are dead, so an outlined Chip's colour prop paints nothing.",
+    "useHighlightedSparkline derives its y-axis from the data: an empty array yields -Infinity. Guard the series before rendering.",
+    "The template's `caption` variant is below 12px. Consequence text ('this is recorded with your name') belongs in body2."
+  ]
+}

@@ -31,12 +31,20 @@ export default function BillingProfileCard({
   orgId,
   profile,
   required,
+  continuesToCheckout = false,
   onSaved,
 }: {
   orgId: string;
   profile: BillingProfile;
   /** She just tried to buy and the document was missing — lead with the why. */
   required: boolean;
+  /**
+   * She is completing a purchase and the page will open the payment screen as
+   * soon as this saves. The button has to say so: a "Salvar alterações" that
+   * silently redirects to a payment provider is the kind of surprise that ends
+   * in a chargeback, and the promise costs one label.
+   */
+  continuesToCheckout?: boolean;
   onSaved: () => void;
 }) {
   const t = useTranslations("product");
@@ -141,7 +149,7 @@ export default function BillingProfileCard({
           {status === "saved" && <Alert severity="success">{t("billing-profile-saved")}</Alert>}
           <Box>
             <Button variant="contained" onClick={() => void save()} disabled={saving}>
-              {t("settings-save")}
+              {t(continuesToCheckout ? "billing-profile-save-continue" : "settings-save")}
             </Button>
           </Box>
         </CardContent>

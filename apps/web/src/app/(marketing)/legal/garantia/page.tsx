@@ -30,8 +30,10 @@ export async function generateMetadata(): Promise<Metadata> {
  * (migration 0081).
  *
  * The day count comes from `getGuaranteeDays()` so the page and the future
- * refund window cannot drift apart. COMMERCIAL COMMITMENT — the copy should be
- * reviewed by counsel before launch, like the other pages under /legal.
+ * refund window cannot drift apart. COMMERCIAL COMMITMENT, reviewed by counsel
+ * like the other pages under /legal: the wording is approved, and changing the
+ * promise is a legal decision, not a copy edit. The NUMBER is the exception —
+ * it is `platform_settings.guarantee` and is meant to be changed there.
  */
 export default async function GuaranteePage() {
   const [t, days] = await Promise.all([getTranslations("marketing"), getGuaranteeDays()]);

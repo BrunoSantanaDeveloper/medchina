@@ -1,3 +1,4 @@
+import OfferTestimonials from "../components/offer-testimonials";
 import { Metadata } from "next";
 
 import TrackEvent from "@/components/consent/track-event";
@@ -228,36 +229,40 @@ export default async function AssinarPage({
         </div>
       </section>
 
+      {/* Os títulos são frases que a leitora diria, não rótulos do problema.
+          Um cartão intitulado "Um prontuário emprestado" descreve a situação de
+          fora; "Meu sistema não tem onde escrever língua e pulso" é a queixa
+          dela, e é o que faz a página parecer escrita para quem está lendo. */}
       <section className="section offer-section--tinted">
         <div className="section-heading section-heading--center">
           <p className="eyebrow">Você reconhece?</p>
           <h2>
-            A consulta não deveria acontecer <em>entre você e uma tela.</em>
+            Se alguma destas frases é sua, <em>você está no lugar certo.</em>
           </h2>
         </div>
         <div className="offer-includes">
           <article>
             <Clock size={30} weight="duotone" aria-hidden="true" />
-            <h3>Digitar enquanto ela fala</h3>
+            <h3>&ldquo;Enquanto eu digito, perco o que ela está me mostrando.&rdquo;</h3>
             <p>
-              Anotar durante o atendimento custa o contato visual, e é justamente olhar, ouvir e observar que a sua
-              prática exige.
+              A face, a postura, o jeito de descrever a dor: metade da consulta é o que você observa. E é justamente
+              nessa hora que o teclado pede a sua atenção.
             </p>
           </article>
           <article>
             <FileArrowDown size={30} weight="duotone" aria-hidden="true" />
-            <h3>Reconstruir a consulta à noite</h3>
+            <h3>&ldquo;Termino o dia e ainda tenho prontuário para escrever.&rdquo;</h3>
             <p>
-              O registro feito horas depois perde detalhe, e o detalhe é o que sustenta a comparação com a próxima
-              consulta.
+              O registro feito à noite já perdeu detalhe. E é exatamente esse detalhe que você vai procurar na próxima
+              sessão, quando precisar comparar a evolução.
             </p>
           </article>
           <article>
             <Sparkle size={30} weight="duotone" aria-hidden="true" />
-            <h3>Um prontuário emprestado</h3>
+            <h3>&ldquo;No meu sistema não existe campo para língua e pulso.&rdquo;</h3>
             <p>
-              Sistemas genéricos não têm anamnese energética, língua, pulso, pontos nem padrões. Você adapta o seu
-              raciocínio ao formulário de outra medicina.
+              Sem anamnese energética, sem padrões, sem pontos e meridianos, sobra o campo de observações. Você encaixa
+              o seu raciocínio no formulário de outra medicina.
             </p>
           </article>
         </div>
@@ -368,6 +373,11 @@ export default async function AssinarPage({
           </div>
         </section>
       ) : null}
+
+      {/* Answers "funcionou para alguém como eu?", que é a objeção imediatamente
+          anterior a "e se eu me arrepender?" — por isso vem logo antes da
+          garantia. Some da página enquanto não houver depoimento aprovado. */}
+      <OfferTestimonials title="Quem já atende assim" accent="conta o que mudou." />
 
       <section className="section">
         {/* Same visual weight as the price, on purpose: the objection here is not

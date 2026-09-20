@@ -3150,7 +3150,12 @@
     "practice-area-fertility-hint": "Pour les patientes que vous cochez dans leur dossier, l’anamnèse reçoit le bloc cycle, fertilité et ménopause — et l’IA le remplit aussi à partir de l’enregistrement.",
     "patient-fertility-care": "Suivi du cycle et de la fertilité",
     "patient-fertility-care-hint": "Affiche le bloc Cycle menstruel et fertilité dans les consultations de cette patiente.",
-    "patient-fertility-care-on": "Activé"
+    "patient-fertility-care-on": "Activé",
+    "billing-checkout-focus-title": "Finaliser l'abonnement",
+    "billing-checkout-step-profile": "Étape 2 sur 3 · coordonnées de facturation",
+    "billing-checkout-step-pay": "Étape 3 sur 3 · paiement",
+    "billing-checkout-all-settings": "Voir tous les réglages de facturation",
+    "billing-profile-save-continue": "Enregistrer et passer au paiement"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",
@@ -3243,6 +3248,11 @@
     "get-verification-resend": "Renvoyer l’e-mail de confirmation",
     "get-verification-resend-wait": "Renvoyer dans {seconds}s",
     "get-verification-resend-sent": "C’est fait. Si une inscription attend confirmation pour cette adresse, le lien vient de partir. Vérifiez aussi le dossier spam.",
-    "get-verification-resend-error": "Nous n’avons pas pu renvoyer pour le moment. Réessayez dans un instant."
+    "get-verification-resend-error": "Nous n’avons pas pu renvoyer pour le moment. Réessayez dans un instant.",
+    "signup-offer-title": "Créer votre compte",
+    "signup-offer-subtitle": "Étape 1 sur 3. Ensuite : coordonnées de facturation et paiement.",
+    "signup-offer-continue": "Créer le compte et continuer",
+    "signup-offer-practice-note": "Votre espace de travail prend votre nom. Vous pouvez le renommer à tout moment dans les Réglages.",
+    "get-verification-offer-note": "En confirmant, vous revenez directement à l'écran de paiement. Rien de ce que vous avez saisi n'est perdu."
   }
 }

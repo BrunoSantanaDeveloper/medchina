@@ -26,6 +26,9 @@ import {
   Typography,
 } from "@mui/material";
 
+import MetricBars from "@/components/product/metric-bars";
+import TrendSparkline from "@/components/product/trend-sparkline";
+import UsageMeter from "@/components/product/usage-meter";
 import { createClient } from "@flyee/auth/client";
 
 /**
@@ -301,15 +304,28 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                   />
                 )}
                 {dossier.money.invoices.length > 0 && (
+                  // The concatenation threw away every invoiceUrl — while the
+                  // verdict above tells the operator to send the payment link.
                   <Row
                     label="Últimas faturas"
-                    value={dossier.money.invoices
-                      .slice(0, 4)
-                      .map(
-                        (invoice) =>
-                          `${formatDate(invoice.at)} ${formatMoney(invoice.amountCents, dossier.money.currency)} ${invoice.status}`,
-                      )
-                      .join(" · ")}
+                    value={
+                      <Box component="ul" className="m-0 flex list-none flex-col gap-1 p-0">
+                        {dossier.money.invoices.slice(0, 4).map((invoice, index) => (
+                          <Box component="li" key={`${invoice.at}-${index}`} className="flex flex-row gap-2">
+                            <span className="tabular-nums">{formatDate(invoice.at)}</span>
+                            <span className="tabular-nums">
+                              {formatMoney(invoice.amountCents, dossier.money.currency)}
+                            </span>
+                            <span className="text-text-secondary">{invoice.status}</span>
+                            {invoice.invoiceUrl && (
+                              <a href={invoice.invoiceUrl} className="text-primary" target="_blank" rel="noreferrer">
+                                abrir
+                              </a>
+                            )}
+                          </Box>
+                        ))}
+                      </Box>
+                    }
                   />
                 )}
               </Section>
@@ -331,10 +347,40 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                   label="Pacientes"
                   value={`${dossier.usage.activePatients} ativas · ${dossier.usage.archivedPatients} arquivadas`}
                 />
-                <Row
-                  label="Atendimentos"
-                  value={`${dossier.usage.funnel.finalized} finalizados · ${dossier.usage.funnel.draft} rascunhos dela · ${dossier.usage.funnel.awaitingReview} esperando revisão dela (a pilha da IA) · ${dossier.usage.funnel.scheduled} agendados · ${dossier.usage.funnel.cancelled} cancelados`}
-                />
+                {/* Six counters in one sentence made the reader divide in
+                    their head, and `inProgress` never even reached the screen.
+                    Migration 0106 warns that merging "rascunho" with
+                    "aguardando revisão" hides WHICH SIDE is stuck, so the two
+                    queues carry different tones: terracotta is our pile, and
+                    the hint says whose move it is. */}
+                <Box className="py-1">
+                  <Typography variant="body2" className="text-text-secondary mb-2">
+                    Atendimentos
+                  </Typography>
+                  <MetricBars
+                    spacing="dense"
+                    items={[
+                      { key: "finalized", label: "Finalizados", value: dossier.usage.funnel.finalized },
+                      {
+                        key: "awaiting",
+                        label: "Esperando revisão dela",
+                        hint: "a pilha que a IA preparou",
+                        value: dossier.usage.funnel.awaitingReview,
+                        tone: "attention",
+                      },
+                      {
+                        key: "draft",
+                        label: "Rascunhos dela",
+                        hint: "parados com a profissional",
+                        value: dossier.usage.funnel.draft,
+                        tone: "secondary",
+                      },
+                      { key: "in-progress", label: "Em atendimento agora", value: dossier.usage.funnel.inProgress },
+                      { key: "scheduled", label: "Agendados", value: dossier.usage.funnel.scheduled },
+                      { key: "cancelled", label: "Cancelados", value: dossier.usage.funnel.cancelled, tone: "empty" },
+                    ]}
+                  />
+                </Box>
                 {dossier.usage.oldestOpenRecordDays !== null && (
                   <Row label="Atendimento aberto mais antigo" value={`${dossier.usage.oldestOpenRecordDays} d`} />
                 )}
@@ -364,21 +410,77 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                       : "nunca instalado"
                   }
                 />
-                <Row
-                  label="Minutos"
-                  value={`${minutes.used} de ${minutes.limit} neste ciclo (${minutes.percent}%) · ${minutes.remaining} restantes · ${dossier.usage.minutes.lifetimeCycle + dossier.usage.minutes.lifetimePack} min no total${
-                    dossier.usage.minutes.perFinalizedRecord !== null
-                      ? ` · ${dossier.usage.minutes.perFinalizedRecord} min por atendimento`
-                      : ""
-                  }`}
-                />
-                <Row label="Situação dos minutos" value={MINUTE_REASON[minutes.reason] ?? minutes.reason} />
-                {dossier.usage.weeklyRecordings && (
-                  <Row
-                    label="Gravações por semana"
-                    value={`${dossier.usage.weeklyRecordings.join(" · ")} (mais antiga → esta semana)`}
-                  />
+                {/* The same meter the professional sees on her own screen
+                    (audio-usage-card), on the same numbers: "vai bater o teto
+                    antes do fim do ciclo?" is a proportion, and it was being
+                    asked of a three-clause sentence. A meter of 0 of 0 is
+                    noise, though: an account with no allowance has no
+                    proportion to show, only a reason. */}
+                {minutes.limit <= 0 ? (
+                  <Row label="Minutos" value={MINUTE_REASON[minutes.reason] ?? minutes.reason} />
+                ) : (
+                  <Box className="py-1">
+                    <Typography variant="body2" className="text-text-secondary mb-2">
+                      Minutos do ciclo
+                    </Typography>
+                    <UsageMeter
+                      ariaLabel="Minutos do ciclo"
+                      headline={`${minutes.used} de ${minutes.limit} min usados neste ciclo (${minutes.percent}%)`}
+                      caption={`${MINUTE_REASON[minutes.reason] ?? minutes.reason} · ${
+                        dossier.usage.minutes.lifetimeCycle + dossier.usage.minutes.lifetimePack
+                      } min desde sempre${
+                        dossier.usage.minutes.perFinalizedRecord !== null
+                          ? ` · ${dossier.usage.minutes.perFinalizedRecord} min por atendimento`
+                          : ""
+                      }`}
+                      segments={[
+                        {
+                          key: "used",
+                          label: "Usados",
+                          value: minutes.used,
+                          display: `${minutes.used} min`,
+                          // Amber past 80%, never red: a commercial ceiling is
+                          // not clinical risk (same rule as the audio meter).
+                          tone: minutes.percent >= 80 ? "attention" : "primary",
+                        },
+                        {
+                          key: "remaining",
+                          label: "Restantes",
+                          value: Math.max(0, minutes.remaining),
+                          display: `${minutes.remaining} min`,
+                          tone: "empty",
+                        },
+                      ]}
+                    />
+                  </Box>
                 )}
+                {/* Eight weeks of recordings were printed as "3 · 5 · 4 · 6".
+                    The `idle` flag only fires at 14 days; the slope shows the
+                    slide three weeks earlier, which is when a call still
+                    changes the outcome.
+
+                    The RPC's last bucket is the CURRENT week, still running
+                    (0106: generate_series(7, 0, -1), oldest first). Charting
+                    it would compare a partial week against whole ones and
+                    invent a drop every single time, so the trend is drawn on
+                    complete weeks only and the week in progress is stated in
+                    words instead. */}
+                {(() => {
+                  const weeks = dossier.usage.weeklyRecordings ?? [];
+                  const complete = weeks.slice(0, -1);
+                  const current = weeks.at(-1) ?? 0;
+                  if (complete.length < 2) return null;
+                  return (
+                    <Box className="py-1">
+                      <TrendSparkline
+                        label="Gravações por semana"
+                        data={complete}
+                        plotType="bar"
+                        caption={`Sete semanas completas, da mais antiga à mais recente — passe o mouse para ler cada uma. A semana em curso, com ${current}, ainda não entra na comparação.`}
+                      />
+                    </Box>
+                  );
+                })()}
                 <Row
                   label="Documentos"
                   value={`${dossier.usage.documents.issued} emitidos · ${dossier.usage.documents.revoked} revogados · ${dossier.usage.shareLinks.created} links de compartilhamento, abertos ${dossier.usage.shareLinks.totalOpens}×`}
@@ -475,18 +577,65 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
                           : "nunca perguntou nada à biblioteca"
                       }
                     />
-                    <Row
-                      label="Anamnese a partir do áudio"
-                      value={`${dossier.ai.anamnesis.fromAudio} campos preenchidos · ${dossier.ai.anamnesis.edited} que ela corrigiu · ${dossier.ai.anamnesis.rejected} que ela descartou`}
-                    />
-                    <Row
-                      label="Hipóteses"
-                      value={`${dossier.ai.hypotheses.total} preparadas · ${dossier.ai.hypotheses.awaitingReview} ainda sem revisão · ${dossier.ai.hypotheses.accepted} aceitas · ${dossier.ai.hypotheses.edited} editadas · ${dossier.ai.hypotheses.rejected} rejeitadas${
-                        dossier.ai.hypotheses.withoutLibrary > 0
-                          ? ` · ${dossier.ai.hypotheses.withoutLibrary} preparadas sem a biblioteca`
-                          : ""
-                      }`}
-                    />
+                    {/* How the professional JUDGED the AI — the only honest
+                        measure of clinical quality the platform has. As a
+                        sentence nobody computed the ratio; as shares of what
+                        she reviewed, "ela corrige tudo" is visible at once. */}
+                    <Box className="py-1">
+                      <Typography variant="body2" className="text-text-secondary mb-2">
+                        Anamnese a partir do áudio — {dossier.ai.anamnesis.fromAudio} campos preenchidos
+                      </Typography>
+                      <MetricBars
+                        spacing="dense"
+                        total={dossier.ai.anamnesis.fromAudio || undefined}
+                        items={[
+                          {
+                            key: "kept",
+                            label: "Aceitos como vieram",
+                            value: Math.max(
+                              0,
+                              dossier.ai.anamnesis.fromAudio -
+                                dossier.ai.anamnesis.edited -
+                                dossier.ai.anamnesis.rejected,
+                            ),
+                          },
+                          {
+                            key: "edited",
+                            label: "Que ela corrigiu",
+                            value: dossier.ai.anamnesis.edited,
+                            tone: "secondary",
+                          },
+                          {
+                            key: "rejected",
+                            label: "Que ela descartou",
+                            value: dossier.ai.anamnesis.rejected,
+                            tone: "attention",
+                          },
+                        ]}
+                      />
+                    </Box>
+                    <Box className="py-1">
+                      <Typography variant="body2" className="text-text-secondary mb-2">
+                        Hipóteses — {dossier.ai.hypotheses.total} preparadas, {dossier.ai.hypotheses.awaitingReview}{" "}
+                        ainda sem revisão
+                        {dossier.ai.hypotheses.withoutLibrary > 0
+                          ? `, ${dossier.ai.hypotheses.withoutLibrary} sem a biblioteca`
+                          : ""}
+                      </Typography>
+                      <MetricBars
+                        spacing="dense"
+                        items={[
+                          { key: "accepted", label: "Aceitas", value: dossier.ai.hypotheses.accepted },
+                          { key: "edited", label: "Editadas", value: dossier.ai.hypotheses.edited, tone: "secondary" },
+                          {
+                            key: "rejected",
+                            label: "Rejeitadas",
+                            value: dossier.ai.hypotheses.rejected,
+                            tone: "attention",
+                          },
+                        ]}
+                      />
+                    </Box>
                     <Row
                       label="Planos terapêuticos"
                       value={`${dossier.ai.plans.ai} rascunhados pela IA (${dossier.ai.plans.aiValidated} validados) · ${dossier.ai.plans.manual} escritos à mão`}

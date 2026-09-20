@@ -25,9 +25,9 @@ const SECTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
  * a cookie refusal, because they do not depend on those cookies; see
  * `docs/TRACKING.md` and the cookie policy).
  *
- * STILL REQUIRES COUNSEL REVIEW before it is treated as final, and the
- * identification block quotes the CNPJ printed on the 2021 document — confirm
- * it is still the contracting entity.
+ * Reviewed by counsel; this text is the approved wording. Any edit beyond a
+ * typo is a new legal review, not a copy change — and the identification block
+ * names the contracting entity, so it changes only with the company data.
  */
 export default async function PrivacyPage() {
   const t = await getTranslations("marketing");

@@ -20,7 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
  * change to `lib/meta-capi.ts` or `lib/ga4-mp.ts` that starts or stops honouring
  * the refusal has to change this copy in the same commit.
  *
- * STILL REQUIRES COUNSEL REVIEW before it is treated as final.
+ * Reviewed by counsel; this text is the approved wording. Any edit beyond a
+ * typo is a new legal review, not a copy change.
  */
 export default async function CookiesPage() {
   const t = await getTranslations("marketing");

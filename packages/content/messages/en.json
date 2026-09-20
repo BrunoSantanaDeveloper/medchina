@@ -3150,7 +3150,12 @@
     "practice-area-fertility-hint": "For the patients you mark in their record, the anamnesis gains the cycle, fertility and menopause block — and the AI also fills it from the recording.",
     "patient-fertility-care": "Cycle and fertility follow-up",
     "patient-fertility-care-hint": "Shows the Menstrual cycle and fertility block in this patient’s consultations.",
-    "patient-fertility-care-on": "On"
+    "patient-fertility-care-on": "On",
+    "billing-checkout-focus-title": "Complete your subscription",
+    "billing-checkout-step-profile": "Step 2 of 3 · billing details",
+    "billing-checkout-step-pay": "Step 3 of 3 · payment",
+    "billing-checkout-all-settings": "See all billing settings",
+    "billing-profile-save-continue": "Save and go to payment"
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",
@@ -3243,6 +3248,11 @@
     "get-verification-resend": "Resend confirmation e-mail",
     "get-verification-resend-wait": "Resend in {seconds}s",
     "get-verification-resend-sent": "Done. If there is a sign-up awaiting confirmation for that address, the link has just gone out. Check the spam folder too.",
-    "get-verification-resend-error": "We could not resend right now. Please try again in a moment."
+    "get-verification-resend-error": "We could not resend right now. Please try again in a moment.",
+    "signup-offer-title": "Create your account",
+    "signup-offer-subtitle": "Step 1 of 3. Next: billing details and payment.",
+    "signup-offer-continue": "Create account and continue",
+    "signup-offer-practice-note": "Your workspace starts with your name. You can rename it any time in Settings.",
+    "get-verification-offer-note": "Confirming takes you straight back to the payment screen. Nothing you filled in is lost."
   }
 }

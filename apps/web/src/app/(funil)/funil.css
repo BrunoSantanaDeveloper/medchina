@@ -487,3 +487,73 @@
   font-weight: 700;
   color: var(--jade-deep);
 }
+
+/* ---------- Testimonials ----------
+   Rendered only when `lib/testimonials.ts` has an approved entry, so these
+   rules can ship before the quotes do. Deliberately quieter than the price
+   block: a quote card that shouts reads as an advertisement written by us,
+   which is exactly what a testimonial must not read as. */
+
+.offer-quotes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 18px;
+  max-width: 1060px;
+  margin: 0 auto;
+}
+
+.offer-quotes figure {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.offer-quotes figure > svg {
+  color: var(--jade);
+  opacity: 0.55;
+}
+
+.offer-quotes blockquote {
+  margin: 0;
+  flex: 1;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+.offer-quotes figcaption {
+  display: grid;
+  gap: 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.offer-quotes figcaption strong {
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.offer-quotes figcaption span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* Development-only banner. Never renders in production: the section itself is
+   dropped there while nothing is approved. */
+.offer-quotes-draft {
+  margin: 14px auto 0;
+  max-width: 720px;
+  padding: 10px 16px;
+  border: 1px dashed var(--coral);
+  border-radius: 14px;
+  color: var(--coral);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}

@@ -39,6 +39,7 @@ export default function PlansGrid({
   trialParams,
   offerSlug,
   onBillingProfileRequired,
+  continueCheckout = 0,
 }: {
   orgId: string;
   subscription: SubscriptionInfo | null;
@@ -54,6 +55,16 @@ export default function PlansGrid({
   offerSlug?: string | null;
   /** Surfaces the fiscal-data form when the provider needs it to proceed. */
   onBillingProfileRequired?: () => void;
+  /**
+   * Incremented by the page when the fiscal form is saved mid-purchase. Filling
+   * in a CPF was never a step she wanted to take — it is the provider's
+   * requirement — so completing it opens the checkout for the plan she arrived
+   * with, instead of returning her to a button she already pressed once.
+   *
+   * A counter rather than a boolean: she may save the form again (a typo in
+   * the document, a corrected phone), and each save has to be able to continue.
+   */
+  continueCheckout?: number;
 }) {
   const t = useTranslations("product");
   const locale = useLocale();
@@ -152,9 +163,6 @@ export default function PlansGrid({
     void applyCoupon(stored, true);
   }, [applyCoupon]);
 
-  if (!canManage) return null;
-  if (!paidPlans.length) return null;
-
   const subscribe = async (plan: PlanRow) => {
     setError(null);
     setConfirming(null);
@@ -184,6 +192,9 @@ export default function PlansGrid({
     window.location.assign(result.url);
   };
 
+  const subscribeRef = useRef<((plan: PlanRow) => Promise<void>) | null>(null);
+  subscribeRef.current = subscribe;
+
   /**
    * Switching plans starts a NEW subscription and retires the current one
    * immediately — no proration, at either provider. Whoever is mid-cycle is
@@ -199,6 +210,27 @@ export default function PlansGrid({
     }
     void subscribe(plan);
   };
+
+  /**
+   * Continue straight to payment once the fiscal form is saved.
+   *
+   * Only after an explicit save whose button said it would go to payment, and
+   * only for the plan she arrived with — never on load, and never for a plan
+   * she is already paying for. Without this the last step of the purchase was
+   * pressing the same button a second time, after a detour she never asked to
+   * take.
+   */
+  const continuedToken = useRef(0);
+  useEffect(() => {
+    if (continueCheckout <= 0 || continueCheckout === continuedToken.current) return;
+    continuedToken.current = continueCheckout;
+    if (!canManage || !checkoutAvailable || !offerPlan) return;
+    if (subscription?.planId === offerPlan.id) return;
+    void subscribeRef.current?.(offerPlan);
+  }, [continueCheckout, canManage, checkoutAvailable, offerPlan, subscription?.planId]);
+
+  if (!canManage) return null;
+  if (!paidPlans.length) return null;
 
   return (
     <Grid size={12}>

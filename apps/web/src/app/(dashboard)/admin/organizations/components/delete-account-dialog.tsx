@@ -111,8 +111,14 @@ export default function DeleteAccountDialog({
   const blockers = preview?.blockers ?? [];
   const canConfirm = Boolean(preview) && blockers.length === 0 && !result;
 
+  // Files the purge could not remove (or could not verify) are the one state
+  // this dialog must not let go of: `retryAccountStoragePurge` needs
+  // `result.deletedWorkspaces`, which exists only in this component's state.
+  // Once it closes, the only trace left is the audit trail.
+  const storagePending = Boolean(result) && result!.storage.remaining !== 0;
+
   const close = () => {
-    if (busy) return;
+    if (busy || storagePending) return;
     if (result) onDeleted();
     else onClose();
   };
@@ -143,6 +149,9 @@ export default function DeleteAccountDialog({
   };
 
   return (
+    // `open` is controlled and `close` refuses while files are stranded, so
+    // backdrop and Escape are already inert — MUI 9 dropped the
+    // `disableEscapeKeyDown` prop and this needs nothing in its place.
     <Dialog open onClose={close} maxWidth="sm" fullWidth>
       <DialogTitle>{result ? "Conta excluída" : `Excluir a conta de ${userName} e todos os dados dela?`}</DialogTitle>
       <DialogContent>
@@ -294,16 +303,22 @@ export default function DeleteAccountDialog({
       </DialogContent>
       <DialogActions>
         {result ? (
-          <>
-            {result.storage.remaining !== 0 && (
-              <Button variant="text" onClick={retry} disabled={busy}>
+          storagePending ? (
+            // Retry is the primary action while files are stranded; leaving is
+            // still possible, but it has to be chosen, not stumbled into.
+            <>
+              <Button variant="text" color="grey" onClick={onDeleted} disabled={busy}>
+                Fechar mesmo assim
+              </Button>
+              <Button variant="contained" onClick={retry} disabled={busy}>
                 {busy ? "Tentando…" : "Tentar de novo a limpeza dos arquivos"}
               </Button>
-            )}
+            </>
+          ) : (
             <Button variant="contained" onClick={onDeleted} disabled={busy}>
               Pronto
             </Button>
-          </>
+          )
         ) : (
           <>
             <Button variant="text" color="grey" onClick={close} disabled={busy}>

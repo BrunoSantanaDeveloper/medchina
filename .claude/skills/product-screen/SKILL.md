@@ -52,6 +52,26 @@ Distilled from the gamification research — most of it is a WARNING:
 - **Inline, translated feedback**: each field takes `invalidMessage` (product namespace) and flags complete-but-invalid values as the user types — never only on submit.
 - Respect the loading and error states — skeletons that reserve space (no layout shift), errors that say what to do next.
 
+## Component conformance (check BEFORE writing markup)
+
+`apps/web/src/components/product/catalog.json` is the machine-readable catalog of this layer, and the `product-screen-guard` hook injects a digest of it into every write/edit here — so the full range is always in context. Two kinds of entry: `components` already exist (import them) and `template` are flyee patterns not packaged yet (port from the cited source, recoverable with `git show "bd92373^:<path>"`, and register the port in the catalog).
+
+**The check is about SHAPE, not only tokens.** For every value you are about to render, ask which entry fits it:
+
+| The data is | The component |
+| --- | --- |
+| a series the payload already carries | `TrendSparkline` |
+| an x-of-y allowance | `UsageMeter` |
+| 2–6 counters describing one population | `MetricBars` |
+| a single counter, or a clickable filter | `StatTile` |
+| a lifecycle state | `ConsultationStatusChip` (pastel badge — the state is NAMED, never colour alone) |
+| a definition attached to a number | `InfoHint` (a `Tooltip` on a plain `Box` dies on touch and keyboard) |
+| zero data | `EmptyState`, or the illustrated banner when the whole screen is empty |
+
+A series, a ratio, a share or a counter set rendered as a **sentence of numbers** is a defect — it makes the reader do arithmetic the component would have done. Equally a defect: hand-rolling a shape the catalog already has, and hardcoding `bg-primary/10` where `TILE_TONE` prescribes `bg-{tone}-light/10`.
+
+The inverse is also a defect: **never invent a chart to fill space.** A visual earns its place only when it answers a question the user actually asks, on data that already exists. Below ~6 categories `MetricBars` beats a donut; without real prior-period data there is no trend to draw.
+
 ## Reusable building blocks
 
 `apps/web/src/components/product/`: `EmptyState`, `OnboardingChecklist`, `OnboardingChecklistCard`, `ActivationProgress`, `SetupWizard`. State persistence: `@flyee/onboarding` (`getOnboardingState`, `completeStep`, `computeProgress`) over `onboarding_state` (migration 0009). Step definitions live in the project's code; only state is persisted.
@@ -62,6 +82,6 @@ Distilled from the gamification research — most of it is a WARNING:
 
 ## Before finishing
 
-Walk the screen as a brand-new user (empty data) AND as a returning one. Confirm: no blank empty states; a first-run path to value exists; no CRUD table where a focused view fits the job better; strings translated; tokens only; `npm run build` + `npm run lint:fix` pass.
+Walk the screen as a brand-new user (empty data) AND as a returning one. Confirm: no blank empty states; a first-run path to value exists; no CRUD table where a focused view fits the job better; **every value is in the catalog shape that fits it — no series, ratio or counter set left as a sentence, and no chart added that the data does not support**; strings translated; tokens only; `npm run build` + `npm run lint:fix` pass.
 
 For a new flow or a substantial edit, run the `product-verify` skill — it drives the real app through the journey (new + returning user, 1440/390, light/dark) and judges dead ends, lost context, error-vs-empty and leftover demo surfaces. Code that was never run is not verified.

@@ -1,5 +1,6 @@
 import "./fundadores.css";
 
+import OfferTestimonials from "../components/offer-testimonials";
 import { Metadata } from "next";
 
 import TrackEvent from "@/components/consent/track-event";
@@ -374,6 +375,11 @@ export default async function FundadoresPage() {
           </article>
         </div>
       </section>
+
+      {/* Mesma regra da /assinar: a seção só existe quando há depoimento
+          aprovado em `lib/testimonials.ts`. Aqui ela pesa ainda mais, porque a
+          condição de fundadora pede confiança antes de existir histórico. */}
+      <OfferTestimonials title="Quem já atende assim" accent="conta o que mudou." />
 
       <section className="section">
         {/* Same visual weight as the price, on purpose (docs/FUNIL.md T3.1): the

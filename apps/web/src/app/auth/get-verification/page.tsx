@@ -43,6 +43,13 @@ export default function Page() {
   const t = useTranslations("auth");
   const requestedNext = useSearchParams().get("next");
   const next = requestedNext ? sanitizeInternalNext(requestedNext) : null;
+  /**
+   * She is mid-purchase, and this screen is the only place in the flow that
+   * asks her to leave the page. Saying what the link leads back to is the
+   * difference between "confirm your e-mail" (a chore) and "confirm and finish
+   * subscribing" (the thing she came to do).
+   */
+  const buyingPlan = Boolean(next?.startsWith("/settings/billing"));
 
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -106,6 +113,11 @@ export default function Page() {
             <Alert severity="info" icon={<NiEmailOpen />} className="neutral bg-background-paper/60!">
               <AlertTitle variant="subtitle2">{t("get-verification-title")}</AlertTitle>
               {t("get-verification-body")}
+              {buyingPlan && (
+                <Typography variant="body2" className="text-text-primary mt-2">
+                  {t("get-verification-offer-note")}
+                </Typography>
+              )}
             </Alert>
 
             <Box className="flex flex-col gap-3">

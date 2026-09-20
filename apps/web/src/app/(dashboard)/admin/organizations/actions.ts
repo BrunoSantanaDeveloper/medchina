@@ -68,12 +68,26 @@ export async function listUserAdminInfo(): Promise<AdminActionResult<UserAdminIn
   return { ok: true, data: users };
 }
 
-/** Ban or unban a user platform-wide (Supabase auth ban). */
-export async function setUserBanned(userId: string, banned: boolean): Promise<AdminActionResult<null>> {
+/** The floor the rest of the product already uses for an operator's reason
+ *  (support access, account deletion). */
+const REASON_MIN = 8;
+
+const cleanReason = (reason: string) => reason.trim();
+
+/**
+ * Ban or unban a user platform-wide (Supabase auth ban).
+ *
+ * The reason is required and lands in the audit metadata: `audit_events` has
+ * columns for who and when, and nothing else survives to say WHY an account
+ * was cut off — which is the question asked months later.
+ */
+export async function setUserBanned(userId: string, banned: boolean, reason: string): Promise<AdminActionResult<null>> {
   const { userId: callerId, allowed } = await isCallerSuperadmin();
   if (!allowed) return { ok: false, error: "forbidden" };
   if (!isServiceConfigured()) return { ok: false, error: "not-configured" };
   if (userId === callerId) return { ok: false, error: "Você não pode banir a sua própria conta." };
+  const trimmed = cleanReason(reason);
+  if (trimmed.length < REASON_MIN) return { ok: false, error: "reason-required" };
 
   const service = createServiceClient();
   // Supabase has no permanent ban flag: "876000h" ≈ 100 years; "none" lifts it.
@@ -84,6 +98,7 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<Ad
   await recordAudit(await createClient(), banned ? "admin.user.banned" : "admin.user.unbanned", {
     entityType: "user",
     entityId: userId,
+    metadata: { reason: trimmed },
   });
   return { ok: true, data: null };
 }
@@ -93,23 +108,45 @@ export async function setUserBanned(userId: string, banned: boolean): Promise<Ad
  * someone loses their authenticator and is locked out at the 2FA step-up.
  * The user can sign in with password alone afterwards and re-enroll.
  */
-export async function resetUserMfa(userId: string): Promise<AdminActionResult<null>> {
-  const { allowed } = await isCallerSuperadmin();
+export async function resetUserMfa(userId: string, reason: string): Promise<AdminActionResult<null>> {
+  const { userId: callerId, allowed } = await isCallerSuperadmin();
   if (!allowed) return { ok: false, error: "forbidden" };
   if (!isServiceConfigured()) return { ok: false, error: "not-configured" };
+  // Removing your own second factor here would cost you support access
+  // (impersonation requires AAL2) without you being told why.
+  if (userId === callerId) return { ok: false, error: "self-mfa" };
+  const trimmed = cleanReason(reason);
+  if (trimmed.length < REASON_MIN) return { ok: false, error: "reason-required" };
 
   const service = createServiceClient();
   const { data, error } = await service.auth.admin.mfa.listFactors({ userId });
   if (error) return { ok: false, error: error.message };
+
+  // A partial removal used to return before recordAudit: factors were gone and
+  // the trail said nothing. Count what actually went and audit either way.
+  let removed = 0;
+  let failure: string | null = null;
   for (const factor of data?.factors ?? []) {
     const { error: deleteError } = await service.auth.admin.mfa.deleteFactor({ id: factor.id, userId });
-    if (deleteError) return { ok: false, error: deleteError.message };
+    if (deleteError) {
+      failure = deleteError.message;
+      break;
+    }
+    removed += 1;
   }
-  await recordAudit(await createClient(), "admin.user.mfa_reset", {
-    entityType: "user",
-    entityId: userId,
-    metadata: { factorsRemoved: data?.factors?.length ?? 0 },
-  });
+  if (removed > 0 || !failure) {
+    await recordAudit(await createClient(), "admin.user.mfa_reset", {
+      entityType: "user",
+      entityId: userId,
+      metadata: {
+        reason: trimmed,
+        factorsRemoved: removed,
+        factorsFound: data?.factors?.length ?? 0,
+        ...(failure ? { partialFailure: failure } : {}),
+      },
+    });
+  }
+  if (failure) return { ok: false, error: failure };
   return { ok: true, data: null };
 }
 

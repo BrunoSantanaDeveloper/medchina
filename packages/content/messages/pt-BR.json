@@ -3150,7 +3150,12 @@
     "practice-area-fertility-hint": "Para as pacientes que você marcar no cadastro, a anamnese ganha o bloco de ciclo, fertilidade e climatério — e a IA também passa a preenchê-lo a partir da gravação.",
     "patient-fertility-care": "Acompanhamento de ciclo e fertilidade",
     "patient-fertility-care-hint": "Mostra o bloco Ciclo menstrual e fertilidade nas consultas desta paciente.",
-    "patient-fertility-care-on": "Ativo"
+    "patient-fertility-care-on": "Ativo",
+    "billing-checkout-focus-title": "Concluir assinatura",
+    "billing-checkout-step-profile": "Passo 2 de 3 · dados de cobrança",
+    "billing-checkout-step-pay": "Passo 3 de 3 · pagamento",
+    "billing-checkout-all-settings": "Ver todas as configurações de cobrança",
+    "billing-profile-save-continue": "Salvar e ir para o pagamento"
   },
   "auth": {
     "invite-workspace-conflict": "Esta conta já possui um consultório. No modelo atual, cada profissional usa apenas um espaço de trabalho.",
@@ -3243,6 +3248,11 @@
     "get-verification-resend": "Reenviar e-mail de confirmação",
     "get-verification-resend-wait": "Reenviar em {seconds}s",
     "get-verification-resend-sent": "Pronto. Se houver um cadastro aguardando confirmação para esse endereço, o link acabou de sair. Confira também a caixa de spam.",
-    "get-verification-resend-error": "Não conseguimos reenviar agora. Tente de novo em instantes."
+    "get-verification-resend-error": "Não conseguimos reenviar agora. Tente de novo em instantes.",
+    "signup-offer-title": "Criar sua conta",
+    "signup-offer-subtitle": "Passo 1 de 3. Depois: dados de cobrança e pagamento.",
+    "signup-offer-continue": "Criar conta e continuar",
+    "signup-offer-practice-note": "Sua área de trabalho começa com o seu nome. Você renomeia quando quiser, em Configurações.",
+    "get-verification-offer-note": "Ao confirmar, você volta direto para a tela de pagamento. Nada do que você preencheu se perde."
   }
 }

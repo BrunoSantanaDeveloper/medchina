@@ -14,6 +14,7 @@ import {
   SUBSCRIPTION_STATUS_LABEL,
   trialLabel,
 } from "./account-overview";
+import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -25,6 +26,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Skeleton,
   Switch,
   Tooltip,
   Typography,
@@ -32,6 +34,7 @@ import {
 import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
 import DataTable from "@/components/data-grid/data-table";
+import ConfirmActionDialog from "@/components/product/confirm-action-dialog";
 import EmptyState from "@/components/product/empty-state";
 import NiBuilding from "@/icons/nexture/ni-building";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
@@ -41,6 +44,10 @@ import { createClient } from "@flyee/auth/client";
 
 type AccountRow = AccountOverview & { id: string };
 type MemberRow = { userId: string; role: string; displayName: string; joinedAt: string };
+
+/** A roster that failed to load must never render as a roster that is empty:
+ *  "este consultório não tem membros" was being stated on a discarded error. */
+type MemberState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; rows: MemberRow[] };
 
 /** The membership role enum as the operator reads it. */
 const ROLE_LABEL: Record<string, string> = {
@@ -86,9 +93,14 @@ export default function OrgsAdmin() {
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [detail, setDetail] = useState<AccountRow | null>(null);
+  const [suspending, setSuspending] = useState<{ account: AccountRow; suspend: boolean } | null>(null);
+  const [suspendingId, setSuspendingId] = useState<string | null>(null);
+  const { enqueueSnackbar } = useSnackbar();
   const [membersOrg, setMembersOrg] = useState<AccountRow | null>(null);
-  const [members, setMembers] = useState<Record<string, MemberRow[]>>({});
-  // Mirrors which rosters were already fetched so the column defs stay stable.
+  const [members, setMembers] = useState<Record<string, MemberState>>({});
+  // Mirrors which rosters loaded SUCCESSFULLY, so the column defs stay stable
+  // and a failed read can still be retried (it used to be marked as fetched
+  // before the request, which made the failure permanent until remount).
   const fetchedMembers = useRef<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
@@ -123,54 +135,91 @@ export default function OrgsAdmin() {
     if (requested && ACCOUNT_FILTERS.some((entry) => entry.key === requested)) setFilter(requested);
   }, []);
 
-  const openMembers = useCallback(async (account: AccountRow) => {
-    setMembersOrg(account);
-    if (fetchedMembers.current.has(account.orgId)) return;
-    fetchedMembers.current.add(account.orgId);
+  const loadMembers = useCallback(async (orgId: string) => {
+    setMembers((current) => ({ ...current, [orgId]: { status: "loading" } }));
     const supabase = createClient();
-    const { data } = await supabase
+    // Named apart from the component's `error` state so it cannot shadow it —
+    // the previous version discarded this value entirely.
+    const { data, error: membersError } = await supabase
       .from("memberships")
       .select("user_id, role, created_at, profiles(display_name)")
-      .eq("org_id", account.orgId)
+      .eq("org_id", orgId)
       .order("created_at");
+    if (membersError) {
+      setMembers((current) => ({ ...current, [orgId]: { status: "error", message: membersError.message } }));
+      return;
+    }
+    fetchedMembers.current.add(orgId);
     setMembers((current) => ({
       ...current,
-      [account.orgId]: (data ?? []).map((row) => ({
-        userId: row.user_id,
-        role: row.role,
-        displayName:
-          (row.profiles as unknown as { display_name: string | null } | null)?.display_name ?? "Profissional sem nome",
-        joinedAt: row.created_at,
-      })),
+      [orgId]: {
+        status: "ok",
+        rows: (data ?? []).map((row) => ({
+          userId: row.user_id,
+          role: row.role,
+          displayName:
+            (row.profiles as unknown as { display_name: string | null } | null)?.display_name ??
+            "Profissional sem nome",
+          joinedAt: row.created_at,
+        })),
+      },
     }));
   }, []);
 
-  // Superadmin kill-switch on the live subscription, same semantics as the
-  // Billing console (access suspension independent of the provider state).
-  const toggleSuspended = useCallback(
+  const openMembers = useCallback(
     async (account: AccountRow) => {
+      setMembersOrg(account);
+      if (fetchedMembers.current.has(account.orgId)) return;
+      await loadMembers(account.orgId);
+    },
+    [loadMembers],
+  );
+
+  /**
+   * The superadmin kill-switch on the live subscription — and it is NOT a
+   * kill-switch on access. Writing `admin_suspended` only closes the gates
+   * that read it: AI recording, hypotheses/plan/summary, the library chat,
+   * data import, the MCP connectors and any purchase. Login, the app, the
+   * patients and the clinical record are governed by membership RLS
+   * (0020_clinical.sql) and keep working. Cutting off entry is the ban, on
+   * the other tab.
+   *
+   * It now goes through a confirmation that spells both halves out, and the
+   * reason lands in the audit metadata — the trail recorded who and when, and
+   * nothing at all about why.
+   */
+  const applySuspension = useCallback(
+    async (account: AccountRow, suspend: boolean, reason: string): Promise<string | null> => {
       const subscriptionId = account.billing.subscriptionId;
-      if (!subscriptionId) return;
+      if (!subscriptionId) return "Esta conta não tem assinatura viva para suspender.";
       setError(null);
-      const suspended = Boolean(account.billing.suspended);
+      setSuspendingId(account.orgId);
       const supabase = createClient();
       const { error: updateError } = await supabase
         .from("subscriptions")
-        .update({ admin_suspended: !suspended })
+        .update({ admin_suspended: suspend })
         .eq("id", subscriptionId);
       if (updateError) {
-        setError(updateError.message);
-        return;
+        setSuspendingId(null);
+        return updateError.message;
       }
-      recordAudit(supabase, suspended ? "admin.org.reactivated" : "admin.org.suspended", {
+      recordAudit(supabase, suspend ? "admin.org.suspended" : "admin.org.reactivated", {
         orgId: account.orgId,
         entityType: "subscription",
         entityId: subscriptionId,
-        metadata: { org: account.name },
+        metadata: { org: account.name, reason },
       });
-      refresh();
+      enqueueSnackbar(
+        suspend
+          ? `Recursos pagos de ${account.name} suspensos. Ela continua entrando e lendo o prontuário.`
+          : `Recursos pagos de ${account.name} reativados.`,
+        { variant: "success" },
+      );
+      await refresh();
+      setSuspendingId(null);
+      return null;
     },
-    [refresh],
+    [enqueueSnackbar, refresh],
   );
 
   const columns = useMemo<GridColDef<AccountRow>[]>(
@@ -256,7 +305,10 @@ export default function OrgsAdmin() {
         field: "use",
         headerName: "Uso (30 d)",
         minWidth: 150,
-        valueGetter: (_, row) => `${row.usage.finalized30d} records ${row.usage.minutes30d} min`,
+        // The searchable value must read like the cell: "records" was English
+        // in an otherwise pt-BR console, so the word on screen found nothing.
+        valueGetter: (_, row) =>
+          `${row.usage.finalized30d} atendimentos ${row.usage.minutes30d} min ${row.usage.patients} pacientes`,
         renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
           <Box className="flex h-full flex-col justify-center">
             <Typography variant="body2" className="text-text-primary">
@@ -294,30 +346,30 @@ export default function OrgsAdmin() {
         ),
       },
       {
-        // Suspend/reactivate is the audited kill-switch: it stays visible on
-        // the row, never buried in the kebab.
+        // The audited kill-switch on paid capability. It stays visible on the
+        // row, never buried in the kebab — but the header says what it really
+        // governs: it was called "Acesso" and does not touch access.
         field: "access",
-        headerName: "Acesso",
-        minWidth: 110,
+        headerName: "Recursos pagos",
+        minWidth: 140,
         type: "boolean",
         valueGetter: (_, row) => Boolean(row.billing.subscriptionId && !row.billing.suspended),
         renderCell: (params: GridRenderCellParams<AccountRow, boolean>) => {
           const { billing } = params.row;
           if (!billing.subscriptionId) return null;
+          const suspended = Boolean(billing.suspended);
+          const label = suspended
+            ? `Reativar os recursos pagos de ${params.row.name}`
+            : `Suspender os recursos pagos de ${params.row.name} — ela continua entrando e lendo o prontuário`;
           return (
             <Box className="flex h-full items-center">
-              <Tooltip title={billing.suspended ? "Reativar acesso" : "Suspender acesso"}>
+              <Tooltip title={label}>
                 <Switch
-                  checked={!billing.suspended}
-                  onChange={() => toggleSuspended(params.row)}
+                  checked={!suspended}
+                  disabled={suspendingId === params.row.orgId}
+                  onChange={() => setSuspending({ account: params.row, suspend: !suspended })}
                   size="small"
-                  slotProps={{
-                    input: {
-                      "aria-label": billing.suspended
-                        ? `Reativar o acesso de ${params.row.name}`
-                        : `Suspender o acesso de ${params.row.name}`,
-                    },
-                  }}
+                  slotProps={{ input: { "aria-label": label } }}
                 />
               </Tooltip>
             </Box>
@@ -349,7 +401,7 @@ export default function OrgsAdmin() {
         ],
       },
     ],
-    [openMembers, toggleSuspended],
+    [openMembers, suspendingId],
   );
 
   const visibleRows = useMemo(
@@ -460,17 +512,25 @@ export default function OrgsAdmin() {
         <DialogTitle>Membros de {membersOrg?.name}</DialogTitle>
         <DialogContent>
           <Box className="flex flex-col gap-3 pt-1">
-            {!roster && (
+            {(!roster || roster.status === "loading") &&
+              // Skeletons that reserve the row height, instead of a line of
+              // text that collapses the dialog and then jumps.
+              [0, 1, 2].map((index) => <Skeleton key={index} variant="rounded" height={44} className="rounded-lg" />)}
+            {roster?.status === "error" && (
+              <Alert
+                severity="error"
+                className="neutral bg-background-paper/60!"
+                action={<Button onClick={() => membersOrg && loadMembers(membersOrg.orgId)}>{"Tentar de novo"}</Button>}
+              >
+                Não foi possível ler os membros deste consultório: {roster.message}
+              </Alert>
+            )}
+            {roster?.status === "ok" && roster.rows.length === 0 && (
               <Typography variant="body2" className="text-text-secondary">
-                Carregando membros…
+                Este consultório não tem nenhum membro — nem responsável. É uma anomalia: toda conta nasce com uma.
               </Typography>
             )}
-            {roster && roster.length === 0 && (
-              <Typography variant="body2" className="text-text-secondary">
-                Este consultório não tem membros.
-              </Typography>
-            )}
-            {(roster ?? []).map((member) => (
+            {(roster?.status === "ok" ? roster.rows : []).map((member) => (
               <Box key={member.userId} className="flex flex-row items-center gap-3">
                 <Box className="flex min-w-0 flex-1 flex-col">
                   <Typography variant="body1" className="text-text-primary truncate font-medium">
@@ -496,6 +556,55 @@ export default function OrgsAdmin() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Both halves stated: what stops, and — the half that was missing — what
+          keeps working. An operator who believes "suspender" cuts access will
+          tell the customer so, and be wrong. */}
+      {suspending && (
+        <ConfirmActionDialog
+          key={`${suspending.account.orgId}-${suspending.suspend}`}
+          title={
+            suspending.suspend
+              ? `Suspender os recursos pagos de ${suspending.account.name}?`
+              : `Reativar os recursos pagos de ${suspending.account.name}?`
+          }
+          intro={
+            suspending.suspend
+              ? "Isto NÃO bloqueia o acesso dela. Para impedir que ela entre, use “Bloquear na plataforma”, na aba Profissionais."
+              : undefined
+          }
+          consequences={
+            suspending.suspend
+              ? [
+                  "Param na hora: gravações com IA, hipóteses, plano terapêutico e resumo, o chat da biblioteca, a importação de dados, os conectores externos (MCP) e qualquer nova compra.",
+                  "Os minutos avulsos já pagos também param — a suspensão é a única coisa que eles não sobrevivem.",
+                  "Se houver trial Pro disponível, ele deixa de poder ser iniciado.",
+                ]
+              : [
+                  "Gravação com IA, biblioteca, importação, conectores e compras voltam a funcionar conforme o plano dela.",
+                ]
+          }
+          stays={
+            suspending.suspend
+              ? [
+                  "Ela continua entrando na conta, criando e editando pacientes, e lendo e escrevendo o prontuário.",
+                  "Agenda, emissão de documentos e o acervo da biblioteca seguem funcionando — o que para é o chat sobre o acervo.",
+                  "Gravar áudio sem IA continua permitido, e uma gravação já enviada termina de ser processada.",
+                  "É reversível: basta religar este mesmo interruptor.",
+                ]
+              : undefined
+          }
+          confirmLabel={suspending.suspend ? "Suspender recursos pagos" : "Reativar recursos pagos"}
+          tone={suspending.suspend ? "danger" : "warning"}
+          reasonPlaceholder={
+            suspending.suspend
+              ? "Ticket 1234 — inadimplência confirmada, sem resposta há 30 dias"
+              : "Ticket 1234 — pagamento confirmado"
+          }
+          onConfirm={(reason) => applySuspension(suspending.account, suspending.suspend, reason)}
+          onClose={() => setSuspending(null)}
+        />
+      )}
 
       {detail && <AccountDetailDialog account={detail} onClose={() => setDetail(null)} />}
     </Box>
