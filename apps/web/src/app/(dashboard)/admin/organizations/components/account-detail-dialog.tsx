@@ -11,6 +11,7 @@ import {
   sinceDays,
   SUBSCRIPTION_STATUS_LABEL,
 } from "./account-overview";
+import { useSnackbar } from "notistack";
 import { useEffect, useState } from "react";
 
 import {
@@ -29,6 +30,9 @@ import {
 import MetricBars from "@/components/product/metric-bars";
 import TrendSparkline from "@/components/product/trend-sparkline";
 import UsageMeter from "@/components/product/usage-meter";
+import NiClipboard from "@/icons/nexture/ni-clipboard";
+import NiEmail from "@/icons/nexture/ni-email";
+import NiPhone from "@/icons/nexture/ni-phone";
 import { createClient } from "@flyee/auth/client";
 
 /**
@@ -42,10 +46,41 @@ import { createClient } from "@flyee/auth/client";
  * here recomputes them, which is what keeps this screen from disagreeing with
  * the product it describes.
  */
-export default function AccountDetailDialog({ account, onClose }: { account: AccountOverview; onClose: () => void }) {
+export default function AccountDetailDialog({
+  account,
+  onClose,
+  actions,
+}: {
+  account: AccountOverview;
+  onClose: () => void;
+  /** Person-level actions (support access) supplied by the list, so the
+   *  dossier and the row offer the same thing with the same guards. */
+  actions?: React.ReactNode;
+}) {
+  const { enqueueSnackbar } = useSnackbar();
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showEverything, setShowEverything] = useState(false);
+
+  /**
+   * The verdict above says "mande o link de pagamento para ela" — so the
+   * footer hands it over. Copy, not open: the operator is going to paste it
+   * into a message to the customer, and opening the provider's page in her
+   * own browser is not that.
+   */
+  const copyLink = async (url: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      enqueueSnackbar(`${what} copiado. Cole na mensagem para ela.`, { variant: "success" });
+    } catch {
+      // Clipboard can be refused (permission, insecure context); opening the
+      // link still lets her get at it instead of leaving her with nothing.
+      window.open(url, "_blank", "noreferrer");
+    }
+  };
+
+  const paymentUrl = dossier?.money.failedCharges.invoiceUrl ?? dossier?.money.openCheckout?.url ?? null;
+  const paymentLabel = dossier?.money.failedCharges.invoiceUrl ? "Link da fatura" : "Link do checkout";
 
   useEffect(() => {
     let cancelled = false;
@@ -792,8 +827,43 @@ export default function AccountDetailDialog({ account, onClose }: { account: Acc
           )}
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button variant="contained" onClick={onClose}>
+      {/* The dossier used to end here with "Fechar" as its only primary
+          action — after telling the operator, in the imperative, to send a
+          payment link or to call. Every prescription the verdict can make now
+          has a button, and closing is demoted to what it is. */}
+      <DialogActions className="flex-wrap justify-end gap-1">
+        {paymentUrl && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<NiClipboard size="medium" />}
+            onClick={() => copyLink(paymentUrl, paymentLabel)}
+          >
+            Copiar link de pagamento
+          </Button>
+        )}
+        {dossier?.identity.billingPhone && (
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<NiPhone size="medium" />}
+            href={`tel:${dossier.identity.billingPhone}`}
+          >
+            Ligar
+          </Button>
+        )}
+        {owner?.email && (
+          <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<NiEmail size="medium" />}
+            href={`mailto:${owner.email}`}
+          >
+            E-mail
+          </Button>
+        )}
+        {actions}
+        <Button variant="text" color="grey" onClick={onClose}>
           Fechar
         </Button>
       </DialogActions>

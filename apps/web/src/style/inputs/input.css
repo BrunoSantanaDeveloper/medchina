@@ -143,7 +143,7 @@
     }
 
     &.MuiInputBase-sizeSmall {
-      .MuiInputBase-inputSizeSmall {
+      .MuiInputBase-input {
         @apply rounded-md px-[1rem] py-[.5rem];
       }
       .MuiOutlinedInput-notchedOutline {
@@ -216,7 +216,7 @@
     }
 
     &.MuiInputBase-sizeSmall {
-      .MuiInputBase-inputSizeSmall {
+      .MuiInputBase-input {
         @apply rounded-md pt-[1.125rem] pb-[.25rem];
       }
     }
@@ -332,13 +332,13 @@
     @apply pr-4!;
   }
 
-  .MuiFilledInput-adornedStart .MuiInputBase-input.MuiInputBase-inputAdornedStart,
-  .MuiOutlinedInput-root.MuiInputBase-adornedStart .MuiInputBase-input.MuiInputBase-inputAdornedStart {
+  .MuiFilledInput-adornedStart .MuiInputBase-input,
+  .MuiOutlinedInput-root.MuiInputBase-adornedStart .MuiInputBase-input {
     @apply pl-2!;
   }
 
-  .MuiFilledInput-adornedEnd .MuiInputBase-input.MuiInputBase-inputAdornedEnd,
-  .MuiOutlinedInput-root.MuiInputBase-adornedEnd .MuiInputBase-input.MuiInputBase-inputAdornedEnd {
+  .MuiFilledInput-adornedEnd .MuiInputBase-input,
+  .MuiOutlinedInput-root.MuiInputBase-adornedEnd .MuiInputBase-input {
     @apply pr-2!;
   }
 
@@ -380,7 +380,7 @@
     @apply mr-0! ml-0!;
   }
 
-  .MuiInputBase-inputAdornedStart {
+  .MuiInputBase-adornedStart .MuiInputBase-input {
     @apply pl-2!;
   }
 
@@ -388,7 +388,7 @@
     @apply -mr-1! ml-0!;
   }
 
-  .MuiInputBase-inputAdornedEnd {
+  .MuiInputBase-adornedEnd .MuiInputBase-input {
     @apply pr-2!;
   }
 

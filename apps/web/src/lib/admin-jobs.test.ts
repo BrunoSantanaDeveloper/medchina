@@ -113,6 +113,41 @@ describe("the daily operator watch", () => {
     expect(notifyUsers.mock.calls[0][1].href).toBe("/admin/organizations?filter=trial_over");
   });
 
+  it("reports a cancellation while a phone call still reverses it", async () => {
+    const outcome = await watchAccounts(
+      supabaseWith([account(["canceling"], { billing: { planName: "Pro", pastDueSince: null, renewalDays: 4 } })]),
+    );
+
+    expect(outcome).toMatchObject({ accounts: 1, notified: 1 });
+    expect(notifyUsers.mock.calls[0][1].href).toBe("/admin/organizations?filter=canceling");
+    expect(notifyUsers.mock.calls[0][1].body).toContain("termina em 4 dias");
+  });
+
+  it("stays quiet about a cancellation whose period ends months from now", async () => {
+    // `cancel_at_period_end` is true from the request until the period ends,
+    // which on a yearly plan is up to a year. Without the window this account
+    // would be mailed every morning until then.
+    const outcome = await watchAccounts(
+      supabaseWith([account(["canceling"], { billing: { planName: "Pro", pastDueSince: null, renewalDays: 240 } })]),
+    );
+
+    expect(outcome).toMatchObject({ notified: 0, reason: "nothing-to-report" });
+    expect(sendDigest).not.toHaveBeenCalled();
+  });
+
+  it("does not report the same account twice when it is both overdue and cancelling", async () => {
+    const outcome = await watchAccounts(
+      supabaseWith([
+        account(["past_due", "canceling"], {
+          billing: { planName: "Pro", pastDueSince: new Date().toISOString(), renewalDays: 3 },
+        }),
+      ]),
+    );
+
+    expect(outcome).toMatchObject({ accounts: 1, notified: 1 });
+    expect(notifyUsers.mock.calls[0][1].href).toBe("/admin/organizations?filter=past_due");
+  });
+
   it("does not e-mail an operator who already has today's digest", async () => {
     // The bell's source_key is the fence for the whole digest: a second run
     // (a retry, a re-deploy of the cron) writes nothing and sends nothing.

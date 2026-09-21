@@ -16,6 +16,7 @@ import { createClient } from "@flyee/auth/client";
  */
 export default function AdminOrganizations() {
   const [tab, setTab] = useState(0);
+  const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
   const [allowed, setAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -65,12 +66,25 @@ export default function AdminOrganizations() {
         <Grid size={12}>
           <Card component="section">
             <CardContent>
-              <Tabs value={tab} onChange={(_, value) => setTab(value)} className="mb-6">
+              <Tabs
+                value={tab}
+                onChange={(_, value: number) => {
+                  setTab(value);
+                  setSeen((current) => (current.has(value) ? current : new Set(current).add(value)));
+                }}
+                className="mb-6"
+              >
                 <Tab label="Contas" />
                 <Tab label="Profissionais" />
               </Tabs>
-              <Box hidden={tab !== 0}>{tab === 0 && <OrgsAdmin />}</Box>
-              <Box hidden={tab !== 1}>{tab === 1 && <UsersAdmin />}</Box>
+              {/* Mounted on first visit and kept mounted after it. Unmounting
+                  re-ran the RPC and threw away the filter, the search, the
+                  page and the member cache every time the operator looked at
+                  the other tab — and she moves between them inside a single
+                  support call. `seen` keeps the second panel from loading
+                  before it is asked for. */}
+              <Box hidden={tab !== 0}>{seen.has(0) && <OrgsAdmin />}</Box>
+              <Box hidden={tab !== 1}>{seen.has(1) && <UsersAdmin />}</Box>
             </CardContent>
           </Card>
         </Grid>

@@ -76,7 +76,12 @@ export default function PendingCheckoutCard({
             <Typography variant="h5" component="h2" className="card-title mb-0">
               {t("billing-pending-title")}
             </Typography>
-            <Chip label={t("billing-status-incomplete")} size="small" color="primary" variant="outlined" />
+            {/* Neutral, like the operator console already shows the same
+                status (STATUS_COLOR.incomplete = "default" in
+                admin/billing/components/subscriptions-admin.tsx). A checkout
+                that did NOT complete must not wear the brand's affirmative
+                Teal, which here sits beside "Plano atual". */}
+            <Chip label={t("billing-status-incomplete")} size="small" variant="outlined" />
           </Box>
           <Typography variant="body2" className="text-text-secondary">
             {t("billing-pending-body", {

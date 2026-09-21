@@ -133,6 +133,13 @@ export const ACCOUNT_FILTERS: { key: string; label: string; total: keyof Account
   { key: "trial_ending", label: "Trial acabando", total: "trialEnding", hint: "Trial Pro com três dias ou menos" },
   { key: "trial_over", label: "Trial encerrado", total: "trialOver", hint: "Trial terminou e não converteu" },
   { key: "past_due", label: "Inadimplentes", total: "pastDue", hint: "O provedor não conseguiu cobrar" },
+  // The flag, the label and the count all existed (migration 0104 emits
+  // 'canceling' and counts it); only the tile was missing, so the one group
+  // where a phone call still changes the outcome was the one group the
+  // console could not isolate. The hint deliberately does NOT claim this
+  // matches the "Em risco" money: that sum also requires a provider
+  // subscription, and this flag does not.
+  { key: "canceling", label: "Cancelando", total: "canceling", hint: "Pediu para encerrar no fim do período" },
   { key: "idle", label: "Paradas 14d+", total: "idle", hint: "Já trabalhou, nada há duas semanas" },
   { key: "never_activated", label: "Nunca ativou", total: "neverActivated", hint: "Nenhum atendimento finalizado" },
   {
@@ -210,6 +217,34 @@ export function renewalLabel(billing: AccountBilling): string {
   if (billing.renewalDays === null) return billing.isFree === false ? "cortesia" : "—";
   if (billing.renewalDays < 0) return `${Math.abs(billing.renewalDays)} d vencida`;
   return `${billing.renewalDays} d`;
+}
+
+/**
+ * The ONE time fact that matters for this account right now, by precedence.
+ *
+ * Renewal and trial used to be two sortable columns, and together with the
+ * plan they cost 420px in a grid that has ~932px to work with at 1440. They
+ * are rarely both interesting: what the operator needs on the row is the
+ * nearest deadline, whatever kind it is. The raw values stay available as
+ * hidden columns and in the dossier.
+ */
+export function clockLabel(billing: AccountBilling, trial: AccountTrial | null): string {
+  if (billing.status === "past_due") {
+    const since = billing.pastDueSince
+      ? Math.max(0, Math.floor((Date.now() - new Date(billing.pastDueSince).getTime()) / 86_400_000))
+      : null;
+    return since === null ? "inadimplente" : `inadimplente há ${since} d`;
+  }
+  if (billing.cancelAtPeriodEnd) {
+    return billing.renewalDays !== null ? `cancela em ${billing.renewalDays} d` : "cancelamento marcado";
+  }
+  if (trial?.active) return `trial acaba em ${trial.daysLeft} d`;
+  if (billing.renewalDays !== null) {
+    return billing.renewalDays < 0
+      ? `${Math.abs(billing.renewalDays)} d vencida`
+      : `renova em ${billing.renewalDays} d`;
+  }
+  return billing.isFree === false ? "cortesia, sem cobrança" : "sem cobrança";
 }
 
 export function trialLabel(trial: AccountTrial | null, minutesRemaining: number): string {

@@ -151,6 +151,29 @@
     }
   }
 
+  /* MUI picks a contained button's text colour with `getContrastText`, which
+     needs to READ the background. This palette is written as `hsl(var(--x))`,
+     `getContrastRatio` returns NaN for that, and the comparison falls through
+     to the light branch — so EVERY contained button, whatever its colour, is
+     handed `rgba(0,0,0,0.87)`. On six of the ten palette colours black is the
+     better choice anyway and MUI is left alone. On these four it is not, and
+     the brand's own primary CTA is among them:
+
+       primary   black 3.95:1  white 4.89:1
+       accent-2  black 4.14:1  white 4.65:1
+       accent-4  black 3.71:1  white 5.22:1
+       error     black 3.68:1  white 5.31:1
+
+     Same vocabulary the dark block at the end of this file already uses. The
+     dark block sits outside @layer utilities, so it still wins where it
+     applies; these only cover the light theme, where nothing did. */
+  .MuiButton-contained.MuiButton-colorPrimary,
+  .MuiButton-contained.MuiButton-colorAccent-2,
+  .MuiButton-contained.MuiButton-colorAccent-4,
+  .MuiButton-contained.MuiButton-colorError {
+    @apply text-text-contrast;
+  }
+
   .MuiButton-containedPrimary {
     &:hover {
       @apply bg-primary-light;
@@ -1242,7 +1265,7 @@
     }
   }
 
-  .MuiButton-surfacePrimary {
+  .MuiButton-surface.MuiButton-colorPrimary {
     @apply text-primary;
 
     &.Mui-disabled {
@@ -1254,7 +1277,7 @@
     }
   }
 
-  .MuiButton-surfaceSecondary {
+  .MuiButton-surface.MuiButton-colorSecondary {
     @apply text-secondary;
     &.Mui-disabled {
       @apply text-secondary opacity-disabled;
@@ -1265,7 +1288,7 @@
     }
   }
 
-  .MuiButton-surfaceAccent-1 {
+  .MuiButton-surface.MuiButton-colorAccent-1 {
     @apply text-accent-1;
     &.Mui-disabled {
       @apply text-accent-1 opacity-disabled;
@@ -1276,7 +1299,7 @@
     }
   }
 
-  .MuiButton-surfaceAccent-2 {
+  .MuiButton-surface.MuiButton-colorAccent-2 {
     @apply text-accent-2;
     &.Mui-disabled {
       @apply text-accent-2 opacity-disabled;
@@ -1287,7 +1310,7 @@
     }
   }
 
-  .MuiButton-surfaceAccent-3 {
+  .MuiButton-surface.MuiButton-colorAccent-3 {
     @apply text-accent-3;
     &.Mui-disabled {
       @apply text-accent-3 opacity-disabled;
@@ -1298,7 +1321,7 @@
     }
   }
 
-  .MuiButton-surfaceAccent-4 {
+  .MuiButton-surface.MuiButton-colorAccent-4 {
     @apply text-accent-4;
     &.Mui-disabled {
       @apply text-accent-4 opacity-disabled;
@@ -1309,7 +1332,7 @@
     }
   }
 
-  .MuiButton-surfaceText-primary {
+  .MuiButton-surface.MuiButton-colorText-primary {
     @apply text-text-primary;
     &.Mui-disabled {
       @apply text-text-primary opacity-disabled;
@@ -1320,7 +1343,7 @@
     }
   }
 
-  .MuiButton-surfaceText-secondary {
+  .MuiButton-surface.MuiButton-colorText-secondary {
     @apply text-text-secondary;
     &.Mui-disabled {
       @apply text-text-secondary opacity-disabled;
@@ -1331,7 +1354,7 @@
     }
   }
 
-  .MuiButton-surfaceText-disabled {
+  .MuiButton-surface.MuiButton-colorText-disabled {
     @apply text-text-disabled;
     &.Mui-disabled {
       @apply text-text-disabled opacity-disabled;
@@ -1342,7 +1365,7 @@
     }
   }
 
-  .MuiButton-surfaceSuccess {
+  .MuiButton-surface.MuiButton-colorSuccess {
     @apply text-success;
     &.Mui-disabled {
       @apply text-success opacity-disabled;
@@ -1353,7 +1376,7 @@
     }
   }
 
-  .MuiButton-surfaceError {
+  .MuiButton-surface.MuiButton-colorError {
     @apply text-error;
     &.Mui-disabled {
       @apply text-error opacity-disabled;
@@ -1364,7 +1387,7 @@
     }
   }
 
-  .MuiButton-surfaceWarning {
+  .MuiButton-surface.MuiButton-colorWarning {
     @apply text-warning;
     &.Mui-disabled {
       @apply text-warning opacity-disabled;
@@ -1375,7 +1398,7 @@
     }
   }
 
-  .MuiButton-surfaceInfo {
+  .MuiButton-surface.MuiButton-colorInfo {
     @apply text-info;
     &.Mui-disabled {
       @apply text-info opacity-disabled;
@@ -1386,7 +1409,7 @@
     }
   }
 
-  .MuiButton-surfaceGrey {
+  .MuiButton-surface.MuiButton-colorGrey {
     @apply text-text-primary;
     &.Mui-disabled {
       @apply text-text-primary opacity-disabled;
@@ -1686,73 +1709,73 @@
     @apply ring-grey-100 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfacePrimary:focus,
-  .MuiButton-surfacePrimary.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorPrimary:focus,
+  .MuiButton-surface.MuiButton-colorPrimary.focusable:focus {
     @apply ring-primary/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceSecondary:focus,
-  .MuiButton-surfaceSecondary.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorSecondary:focus,
+  .MuiButton-surface.MuiButton-colorSecondary.focusable:focus {
     @apply ring-secondary/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceAccent-1:focus,
-  .MuiButton-surfaceAccent-1.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorAccent-1:focus,
+  .MuiButton-surface.MuiButton-colorAccent-1.focusable:focus {
     @apply ring-accent-1/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceAccent-2:focus,
-  .MuiButton-surfaceAccent-2.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorAccent-2:focus,
+  .MuiButton-surface.MuiButton-colorAccent-2.focusable:focus {
     @apply ring-accent-2/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceAccent-3:focus,
-  .MuiButton-surfaceAccent-3.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorAccent-3:focus,
+  .MuiButton-surface.MuiButton-colorAccent-3.focusable:focus {
     @apply ring-accent-3/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceAccent-4:focus,
-  .MuiButton-surfaceAccent-4.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorAccent-4:focus,
+  .MuiButton-surface.MuiButton-colorAccent-4.focusable:focus {
     @apply ring-accent-4/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceText-primary:focus,
-  .MuiButton-surfaceText-primary.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorText-primary:focus,
+  .MuiButton-surface.MuiButton-colorText-primary.focusable:focus {
     @apply ring-text-primary/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceText-secondary:focus,
-  .MuiButton-surfaceText-secondary.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorText-secondary:focus,
+  .MuiButton-surface.MuiButton-colorText-secondary.focusable:focus {
     @apply ring-text-secondary/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceText-disabled:focus,
-  .MuiButton-surfaceText-disabled.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorText-disabled:focus,
+  .MuiButton-surface.MuiButton-colorText-disabled.focusable:focus {
     @apply ring-text-disabled/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceSuccess:focus,
-  .MuiButton-surfaceSuccess.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorSuccess:focus,
+  .MuiButton-surface.MuiButton-colorSuccess.focusable:focus {
     @apply ring-success/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceError:focus,
-  .MuiButton-surfaceError.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorError:focus,
+  .MuiButton-surface.MuiButton-colorError.focusable:focus {
     @apply ring-error/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceWarning:focus,
-  .MuiButton-surfaceWarning.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorWarning:focus,
+  .MuiButton-surface.MuiButton-colorWarning.focusable:focus {
     @apply ring-warning/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceInfo:focus,
-  .MuiButton-surfaceInfo.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorInfo:focus,
+  .MuiButton-surface.MuiButton-colorInfo.focusable:focus {
     @apply ring-info/40 ring-2 ring-offset-1;
   }
 
-  form .MuiButton-surfaceGrey:focus,
-  .MuiButton-surfaceGrey.focusable:focus {
+  form .MuiButton-surface.MuiButton-colorGrey:focus,
+  .MuiButton-surface.MuiButton-colorGrey.focusable:focus {
     @apply ring-grey-100 ring-2 ring-offset-1;
   }
 }

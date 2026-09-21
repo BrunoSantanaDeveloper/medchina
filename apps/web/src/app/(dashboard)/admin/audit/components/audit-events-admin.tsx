@@ -103,7 +103,11 @@ export default function AuditEventsAdmin() {
         minWidth: 200,
         renderCell: (params: GridRenderCellParams<AuditRow, string>) => (
           <Box className="flex h-full items-center">
-            <Chip label={params.row.action} size="small" color="primary" variant="outlined" />
+            {/* No colour: the value is constant down the whole column, so a
+                colour would distinguish nothing — and primary is the system's
+                action colour, which would make a non-clickable pill read as a
+                button. */}
+            <Chip label={params.row.action} size="small" variant="outlined" />
           </Box>
         ),
       },

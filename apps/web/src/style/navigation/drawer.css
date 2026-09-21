@@ -3,19 +3,19 @@
     @apply bg-background-paper;
   }
 
-  .MuiDrawer-paperAnchorLeft {
+  .MuiDrawer-anchorLeft .MuiDrawer-paper {
     @apply rounded-r-2xl;
   }
 
-  .MuiDrawer-paperAnchorRight {
+  .MuiDrawer-anchorRight .MuiDrawer-paper {
     @apply rounded-l-2xl;
   }
 
-  .MuiDrawer-paperAnchorBottom {
+  .MuiDrawer-anchorBottom .MuiDrawer-paper {
     @apply rounded-t-2xl;
   }
 
-  .MuiDrawer-paperAnchorTop {
+  .MuiDrawer-anchorTop .MuiDrawer-paper {
     @apply rounded-b-2xl;
   }
 }

@@ -22,7 +22,7 @@
 
   /* Sizes and marks */
   .MuiSlider-sizeMedium {
-    .MuiSlider-thumbSizeMedium {
+    .MuiSlider-thumb {
       @apply h-5 w-5 border-4;
     }
 
@@ -38,7 +38,7 @@
   }
 
   .MuiSlider-sizeSmall {
-    .MuiSlider-thumbSizeSmall {
+    .MuiSlider-thumb {
       @apply h-3.5 w-3.5 border-2;
     }
 

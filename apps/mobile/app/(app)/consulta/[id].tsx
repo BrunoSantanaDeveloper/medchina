@@ -264,7 +264,7 @@ export default function ConsultationCapture() {
             <Text variant="titleSmall">{t("capture-alerts")}</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: GRID / 2 }}>
               {result.consultation.alerts.map((alert, index) => (
-                <Chip key={index} compact mode="outlined" textStyle={{ fontSize: 11 }}>
+                <Chip key={index} compact mode="outlined" accessibilityRole="text" textStyle={{ fontSize: 12 }}>
                   {alert.label}
                 </Chip>
               ))}

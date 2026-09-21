@@ -27,12 +27,23 @@ const CRON = "30 11 * * *";
 /** A trial that ended is news for two days; after that it is a statistic. */
 const TRIAL_ENDED_NEWS_HOURS = 48;
 
+/**
+ * A scheduled cancellation is the one state on this list where a phone call
+ * still changes the outcome — but `cancel_at_period_end` stays true from the
+ * request until the period actually ends, which on a yearly plan is up to a
+ * year. Reporting the flag itself would mail the same account every morning
+ * for months, and a digest that repeats stops being read. So report it only
+ * while the deadline is close enough to act on, exactly as `trial_ending`
+ * limits itself to its last three days.
+ */
+const CANCELING_WINDOW_DAYS = 7;
+
 /** Enough of the overview to decide; the console has the rest. */
 type WatchedAccount = {
   orgId: string;
   name: string;
   owner: { name: string | null; email: string | null } | null;
-  billing: { planName: string | null; pastDueSince: string | null };
+  billing: { planName: string | null; pastDueSince: string | null; renewalDays: number | null };
   trial: { endsAt: string; daysLeft: number } | null;
   minutes: { remaining: number };
   flags: string[];
@@ -55,11 +66,12 @@ const describe = (account: WatchedAccount) => `${account.owner?.name ?? "sem res
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-export function summarizeWatch(trialEnding: number, pastDue: number, trialEnded: number): string {
+export function summarizeWatch(trialEnding: number, pastDue: number, trialEnded: number, canceling = 0): string {
   const parts = [
     trialEnding > 0 ? plural(trialEnding, "trial terminando", "trials terminando") : null,
     pastDue > 0 ? plural(pastDue, "conta inadimplente", "contas inadimplentes") : null,
     trialEnded > 0 ? plural(trialEnded, "trial encerrado", "trials encerrados") : null,
+    canceling > 0 ? plural(canceling, "cancelamento marcado", "cancelamentos marcados") : null,
   ].filter(Boolean) as string[];
   if (parts.length === 0) return "Nenhuma conta pede atenção hoje";
   if (parts.length === 1) return `${parts[0]} hoje`;
@@ -77,6 +89,16 @@ export async function watchAccounts(supabase: SupabaseClient): Promise<WatchOutc
   // otherwise the same account would be reported every morning forever.
   const trialEnded = accounts.filter(
     (account) => account.flags.includes("trial_over") && hoursSince(account.trial?.endsAt) <= TRIAL_ENDED_NEWS_HOURS,
+  );
+  // Past due is reported on its own line already, and it is the more urgent
+  // reason; an account that is both would otherwise appear twice in one mail.
+  const canceling = accounts.filter(
+    (account) =>
+      account.flags.includes("canceling") &&
+      !account.flags.includes("past_due") &&
+      account.billing.renewalDays !== null &&
+      account.billing.renewalDays >= 0 &&
+      account.billing.renewalDays <= CANCELING_WINDOW_DAYS,
   );
 
   const items = [
@@ -96,6 +118,10 @@ export async function watchAccounts(supabase: SupabaseClient): Promise<WatchOutc
       account: describe(account),
       detail: "Trial Pro terminou e a conta não converteu",
     })),
+    ...canceling.map((account) => ({
+      account: describe(account),
+      detail: `Pediu cancelamento e o acesso termina em ${plural(account.billing.renewalDays ?? 0, "dia", "dias")} (${account.billing.planName ?? "sem plano"})`,
+    })),
   ];
 
   // No "all clear" digest: an alert that arrives every day stops being read.
@@ -110,8 +136,17 @@ export async function watchAccounts(supabase: SupabaseClient): Promise<WatchOutc
   const operatorIds = (operators ?? []).map((row) => row.id as string);
   if (operatorIds.length === 0) return { notified: 0, accounts: items.length, emailed: 0, reason: "no-operator" };
 
-  const headline = summarizeWatch(trialEnding.length, pastDue.length, trialEnded.length);
-  const filter = trialEnding.length > 0 ? "trial_ending" : pastDue.length > 0 ? "past_due" : "trial_over";
+  const headline = summarizeWatch(trialEnding.length, pastDue.length, trialEnded.length, canceling.length);
+  // Most urgent first; the tile keys are validated against ACCOUNT_FILTERS
+  // by the console, so a new key here has to exist there too.
+  const filter =
+    trialEnding.length > 0
+      ? "trial_ending"
+      : pastDue.length > 0
+        ? "past_due"
+        : canceling.length > 0
+          ? "canceling"
+          : "trial_over";
   const href = `/admin/organizations?filter=${filter}`;
 
   const bell = await notifyUsers(operatorIds, {

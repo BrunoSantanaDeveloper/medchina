@@ -121,7 +121,7 @@ export default function SuperadminDialog({
               disabled={busy}
               autoFocus
             />
-            <Typography variant="caption" className="text-text-secondary mt-1">
+            <Typography variant="body2" className="text-text-secondary mt-1">
               Quem concedeu o papel a quem fica registrado de qualquer jeito. A nota é o único lugar onde o motivo
               sobrevive.
             </Typography>

@@ -89,7 +89,7 @@ export default function ImpersonateDialog({
               disabled={busy}
               autoFocus
             />
-            <Typography variant="caption" className="text-text-secondary mt-1">
+            <Typography variant="body2" className="text-text-secondary mt-1">
               Fica guardado com o acesso e visível para ela. Cite o ticket ou o sintoma relatado.
             </Typography>
           </FormControl>

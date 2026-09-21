@@ -1,25 +1,15 @@
 "use client";
 
-import { listUserAdminInfo, resetUserMfa, setUserBanned, UserAdminInfo } from "../actions";
-import DeleteAccountDialog from "./delete-account-dialog";
-import ImpersonateDialog from "./impersonate-dialog";
-import SuperadminDialog from "./superadmin-dialog";
-import { useSnackbar } from "notistack";
+import { listUserAdminInfo, UserAdminInfo } from "../actions";
+import { sinceDays } from "./account-overview";
+import { usePersonActions } from "./person-actions";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Alert, Box, Chip, Typography } from "@mui/material";
-import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
+import { Alert, Box, Button, Chip, Typography } from "@mui/material";
+import { type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
 import DataTable from "@/components/data-grid/data-table";
-import ConfirmActionDialog from "@/components/product/confirm-action-dialog";
 import EmptyState from "@/components/product/empty-state";
-import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
-import NiCrown from "@/icons/nexture/ni-crown";
-import NiEyeOpen from "@/icons/nexture/ni-eye-open";
-import NiShield from "@/icons/nexture/ni-shield";
-import NiShieldCross from "@/icons/nexture/ni-shield-cross";
-import NiUserCheck from "@/icons/nexture/ni-user-check";
-import NiUserCross from "@/icons/nexture/ni-user-cross";
 import NiUsers from "@/icons/nexture/ni-users";
 import { createClient } from "@flyee/auth/client";
 
@@ -43,91 +33,20 @@ type UserTableRow = UserRow & {
 const isBanned = (info?: UserAdminInfo) =>
   Boolean(info?.bannedUntil && new Date(info.bannedUntil).getTime() > Date.now());
 
-/** The database and the auth API speak in codes; the console has to speak in
- *  reasons. Same idea as `messageFor` in the superadmin dialog. */
-const actionError = (raw: string): string => {
-  if (raw === "forbidden") return "Só uma superadmin da plataforma pode fazer isto.";
-  if (raw === "not-configured") {
-    return "Defina SUPABASE_SERVICE_ROLE_KEY: esta ação usa a API de administração da autenticação e fica desligada sem ela.";
-  }
-  if (raw === "reason-required") return "Escreva um motivo com pelo menos 8 caracteres.";
-  if (raw === "self-mfa") {
-    return "Você não pode redefinir o seu próprio 2FA aqui — perderia o acesso de suporte, que exige segundo fator. Refaça o cadastro em Ajustes → Segurança.";
-  }
-  return raw;
-};
-
-/**
- * What each escalated action REALLY does, verified against the code that runs
- * it. These sentences are what the operator will believe and repeat to a
- * customer, so each one is traceable: the ban writes `banned_until` and
- * nothing else (no session is revoked anywhere in this repo), and the 2FA
- * reset loops over every factor the listing returns, without filtering.
- */
-type ConfirmKind = "ban" | "unban" | "mfa";
-
-const CONFIRM_COPY: Record<
-  ConfirmKind,
-  {
-    title: (name: string) => string;
-    intro?: string;
-    consequences: string[];
-    stays: string[];
-    confirm: string;
-    tone: "warning" | "danger";
-    placeholder: string;
-  }
-> = {
-  ban: {
-    title: (name) => `Bloquear o acesso de ${name} à plataforma?`,
-    intro: "O bloqueio é na conta de autenticação, então vale para o site e para o aplicativo.",
-    consequences: [
-      "Novas tentativas de entrar passam a ser recusadas, sem prazo para acabar.",
-      "A tela de entrada não explica o bloqueio: ela vê uma mensagem genérica de erro e não é avisada por nós.",
-      "Esta ação NÃO encerra uma sessão que já esteja aberta — não revogamos o token. Se ela estiver com a tela aberta, não dá para garantir que o acesso pare na hora.",
-      "Enquanto estiver bloqueada, “Entrar como” fica indisponível: para ver a conta por dentro é preciso desbloquear antes.",
-    ],
-    stays: [
-      "Nada é apagado: pacientes, consultas, documentos e a conta seguem intactos.",
-      "A assinatura continua como está — suspender os recursos pagos é outra ação, na aba Contas.",
-      "É reversível: “Desbloquear na plataforma” devolve o acesso, com senha e 2FA intactos.",
-    ],
-    confirm: "Bloquear na plataforma",
-    tone: "danger",
-    placeholder: "Ticket 1234 — uso indevido confirmado",
-  },
-  unban: {
-    title: (name) => `Devolver o acesso de ${name} à plataforma?`,
-    consequences: ["Ela volta a conseguir entrar, com a senha e o 2FA que já tinha."],
-    stays: ["Nada além do bloqueio é alterado."],
-    confirm: "Desbloquear na plataforma",
-    tone: "warning",
-    placeholder: "Ticket 1234 — bloqueio aplicado por engano",
-  },
-  mfa: {
-    title: (name) => `Redefinir o 2FA de ${name}?`,
-    intro: "É o caminho de recuperação de quem perdeu o aparelho e ficou presa na verificação em duas etapas.",
-    consequences: [
-      "Remove TODOS os fatores de verificação da conta — o código apaga cada fator que a listagem devolver, sem filtrar.",
-      "Ela passa a entrar só com e-mail e senha, e nada a obriga a cadastrar outro aplicativo depois.",
-      "Ela não é avisada: nenhum e-mail, nenhuma notificação no aplicativo.",
-      "O único sinal visível depois é o selo “2FA” sumir desta lista.",
-    ],
-    stays: [
-      "A senha, a sessão e os dados da conta não são tocados.",
-      "Ela pode cadastrar um novo autenticador quando quiser, em Ajustes → Segurança.",
-    ],
-    confirm: "Redefinir 2FA",
-    tone: "danger",
-    placeholder: "Ticket 1234 — perdeu o celular, confirmou identidade por vídeo",
-  },
-};
-
 /** One source for the badge wording, so the cell, the quick filter and the CSV
  *  all say the same thing. They used to disagree: the cell read "bloqueada"
  *  while the searchable value was "banned", so searching what you SAW on the
  *  screen returned nothing. */
 const BADGE_LABEL = { self: "você", superadmin: "superadmin", mfa: "2FA", banned: "bloqueada" } as const;
+
+/**
+ * One page, deliberately: this console is for scanning, not for paging. But a
+ * cap that never says it capped turns the roster into a claim — from the 201st
+ * professional on, the console would state that the platform has 200 and that
+ * a search found nobody, indistinguishable from a legitimate empty result.
+ * So ask for ONE row more than is shown: if it comes back, the list is short.
+ */
+const PAGE = 200;
 
 const badgesOf = (row: UserTableRow, selfId: string | null) =>
   [
@@ -151,13 +70,8 @@ export default function UsersAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [truncated, setTruncated] = useState(false);
   const [selfId, setSelfId] = useState<string | null>(null);
-  const [impersonating, setImpersonating] = useState<UserTableRow | null>(null);
-  const [roleChange, setRoleChange] = useState<{ row: UserTableRow; grant: boolean } | null>(null);
-  const [deleting, setDeleting] = useState<UserTableRow | null>(null);
-  const [confirming, setConfirming] = useState<{ kind: ConfirmKind; row: UserTableRow } | null>(null);
-  const { enqueueSnackbar } = useSnackbar();
-
   const refresh = useCallback(async () => {
     const supabase = createClient();
     const {
@@ -169,15 +83,17 @@ export default function UsersAdmin() {
       .from("profiles")
       .select("id, display_name, is_superadmin, created_at, memberships(count)")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(PAGE + 1);
     if (readError) {
       setError(readError.message);
       setLoadFailed(true);
       setLoaded(true);
       return;
     }
+    const page = data ?? [];
+    setTruncated(page.length > PAGE);
     setRows(
-      (data ?? []).map((row) => ({
+      page.slice(0, PAGE).map((row) => ({
         id: row.id,
         displayName: row.display_name ?? "Profissional sem nome",
         isSuperadmin: row.is_superadmin,
@@ -201,31 +117,7 @@ export default function UsersAdmin() {
     refresh();
   }, [refresh]);
 
-  /**
-   * Both escalated actions run behind the same confirmation now. They return
-   * an error string (which keeps the dialog open with the reason still typed)
-   * or null, and a success says so out loud — these used to change someone
-   * else's account on a single click, in silence.
-   */
-  const runConfirmed = useCallback(
-    async (kind: ConfirmKind, row: UserTableRow, reason: string): Promise<string | null> => {
-      setError(null);
-      const result =
-        kind === "mfa" ? await resetUserMfa(row.id, reason) : await setUserBanned(row.id, kind === "ban", reason);
-      if (!result.ok) return actionError(result.error);
-      enqueueSnackbar(
-        kind === "mfa"
-          ? `2FA de ${row.displayName} redefinido. Ela entra só com a senha até cadastrar outro aplicativo.`
-          : kind === "ban"
-            ? `${row.displayName} foi bloqueada na plataforma.`
-            : `${row.displayName} voltou a ter acesso.`,
-        { variant: "success" },
-      );
-      refresh();
-      return null;
-    },
-    [enqueueSnackbar, refresh],
-  );
+  const { buildItems, dialogs } = usePersonActions({ selfId, serviceAvailable, onChanged: refresh });
 
   const tableRows = useMemo<UserTableRow[]>(
     () =>
@@ -288,6 +180,29 @@ export default function UsersAdmin() {
         type: "date",
         minWidth: 150,
         valueGetter: (_, row) => (row.lastSignInAt ? new Date(row.lastSignInAt) : null),
+        // An empty cell fused two different facts: "she signed up and never
+        // came back" — the strongest support signal on this tab — and "the
+        // auth lookup failed, so we do not know". Both used to render as
+        // nothing. Say which one it is, and never claim "nunca acessou" on a
+        // roster whose sign-in data never arrived.
+        renderCell: (params: GridRenderCellParams<UserTableRow, Date | null>) => {
+          const at = params.row.lastSignInAt;
+          if (at) {
+            return (
+              <Box className="flex h-full items-center">
+                <Typography variant="body2">{sinceDays(at)}</Typography>
+              </Box>
+            );
+          }
+          const known = serviceAvailable === true;
+          return (
+            <Box className="flex h-full items-center">
+              <Typography variant="body2" className={known ? "text-accent-3" : "text-text-secondary"}>
+                {known ? "nunca acessou" : "não verificado"}
+              </Typography>
+            </Box>
+          );
+        },
       },
       {
         field: "badges",
@@ -298,14 +213,32 @@ export default function UsersAdmin() {
         valueGetter: (_, row) => badgesOf(row, selfId),
         renderCell: (params: GridRenderCellParams<UserTableRow, string>) => (
           <Box className="flex h-full flex-row flex-wrap items-center gap-1">
+            {/* These two come from `profiles` and are always true or false. */}
             {params.row.id === selfId && (
               <Chip label={BADGE_LABEL.self} size="small" color="primary" variant="outlined" />
             )}
             {params.row.isSuperadmin && (
               <Chip label={BADGE_LABEL.superadmin} size="small" color="warning" variant="outlined" />
             )}
-            {params.row.hasMfa && <Chip label={BADGE_LABEL.mfa} size="small" color="success" variant="outlined" />}
-            {params.row.banned && <Chip label={BADGE_LABEL.banned} size="small" color="error" variant="outlined" />}
+            {/* These two do not. `hasMfa` and `banned` are derived from the
+                auth listing, and both collapse to false for EVERY row when
+                that call fails — so drawing nothing would have the console
+                swear that nobody has a second factor and nobody is blocked.
+                Absence of an answer is not an answer. */}
+            {serviceAvailable === true ? (
+              <>
+                {params.row.hasMfa && <Chip label={BADGE_LABEL.mfa} size="small" color="success" variant="outlined" />}
+                {params.row.banned && <Chip label={BADGE_LABEL.banned} size="small" color="error" variant="outlined" />}
+              </>
+            ) : (
+              // Same two words the "Último acesso" column uses in the same
+              // situation, and short on purpose: this repeats on every row,
+              // and the alert at the top of the tab spells out which fields
+              // it covers.
+              <Typography variant="body2" className="text-text-secondary">
+                não verificado
+              </Typography>
+            )}
           </Box>
         ),
       },
@@ -316,93 +249,54 @@ export default function UsersAdmin() {
         minWidth: 70,
         align: "right",
         headerAlign: "right",
-        // The auth-side actions need the service role: without it the kebab
-        // offers only what RLS alone can authorize (the platform role, whose
-        // gate lives in the database — migration 0096).
-        getActions: (params) => {
-          const row = params.row;
-          const canImpersonate = Boolean(serviceAvailable) && row.id !== selfId && !row.isSuperadmin && !row.banned;
-          // Never on yourself: wiping your own second factor costs you support
-          // access (impersonation requires AAL2) and nothing here would say so.
-          // The server refuses it too, so offering it would only produce an error.
-          const canResetMfa = Boolean(serviceAvailable) && row.hasMfa && row.id !== selfId;
-          const canBan = Boolean(serviceAvailable) && row.id !== selfId;
-          // Never on yourself, in either direction — the database refuses it
-          // too, so offering it would only produce an error.
-          const canChangeRole = row.id !== selfId;
-          // Irreversible, and service-role backed (files go through the Storage
-          // API). A superadmin has to lose the role first — the database
-          // refuses otherwise, so the menu does not offer it.
-          const canDelete = Boolean(serviceAvailable) && row.id !== selfId && !row.isSuperadmin;
-          return [
-            ...(canImpersonate
-              ? [
-                  <GridActionsCellItem
-                    key="impersonate"
-                    icon={<NiEyeOpen size="medium" />}
-                    label="Entrar como"
-                    onClick={() => setImpersonating(row)}
-                    showInMenu
-                  />,
-                ]
-              : []),
-            ...(canResetMfa
-              ? [
-                  <GridActionsCellItem
-                    key="reset-mfa"
-                    icon={<NiShieldCross size="medium" />}
-                    label="Redefinir 2FA (perdeu o aparelho)"
-                    onClick={() => setConfirming({ kind: "mfa", row })}
-                    showInMenu
-                  />,
-                ]
-              : []),
-            ...(canChangeRole
-              ? [
-                  <GridActionsCellItem
-                    key="superadmin"
-                    icon={row.isSuperadmin ? <NiShield size="medium" /> : <NiCrown size="medium" />}
-                    label={row.isSuperadmin ? "Remover superadmin" : "Tornar superadmin"}
-                    onClick={() => setRoleChange({ row, grant: !row.isSuperadmin })}
-                    showInMenu
-                  />,
-                ]
-              : []),
-            ...(canBan
-              ? [
-                  <GridActionsCellItem
-                    key="ban"
-                    icon={row.banned ? <NiUserCheck size="medium" /> : <NiUserCross size="medium" />}
-                    label={row.banned ? "Desbloquear na plataforma" : "Bloquear na plataforma"}
-                    onClick={() => setConfirming({ kind: row.banned ? "unban" : "ban", row })}
-                    showInMenu
-                  />,
-                ]
-              : []),
-            ...(canDelete
-              ? [
-                  <GridActionsCellItem
-                    key="delete"
-                    icon={<NiBinEmpty size="medium" />}
-                    label="Excluir conta e todos os dados"
-                    onClick={() => setDeleting(row)}
-                    showInMenu
-                  />,
-                ]
-              : []),
-          ];
-        },
+        // Every escalated action lives in `usePersonActions`, so this tab and
+        // the accounts tab offer the same set with the same guards. They used
+        // to exist only here, while the accounts tab identified its rows BY
+        // the professional and offered none of them.
+        getActions: (params) =>
+          buildItems({
+            userId: params.row.id,
+            name: params.row.displayName,
+            email: params.row.email,
+            isSuperadmin: params.row.isSuperadmin,
+            hasMfa: params.row.hasMfa,
+            banned: params.row.banned,
+          }),
       },
     ],
-    [selfId, serviceAvailable],
+    [buildItems, selfId, serviceAvailable],
   );
 
   return (
     <Box className="flex flex-col gap-3">
       {serviceAvailable === false && (
         <Alert severity="info" className="neutral bg-background-paper/60!">
-          Defina SUPABASE_SERVICE_ROLE_KEY para ver e-mails e último acesso e habilitar entrar como, redefinir 2FA,
-          bloquear/desbloquear e excluir conta.
+          Defina SUPABASE_SERVICE_ROLE_KEY para ver e-mail, último acesso, 2FA e bloqueio, e para habilitar entrar como,
+          redefinir 2FA, bloquear/desbloquear e excluir conta.
+        </Alert>
+      )}
+
+      {/* A check that FAILED is not the same as a key that is missing, and it
+          must not read as "these actions do not exist". */}
+      {serviceAvailable === null && loaded && (
+        <Alert
+          severity="warning"
+          className="neutral bg-background-paper/60!"
+          action={<Button onClick={refresh}>Tentar de novo</Button>}
+        >
+          Não foi possível consultar a autenticação agora: e-mail, último acesso, 2FA e bloqueio aparecem como não
+          verificados, e entrar como, redefinir 2FA, bloquear e excluir estão fora do menu. A lista de profissionais
+          abaixo está completa — o que falta é o lado da autenticação.
+        </Alert>
+      )}
+
+      {/* The cap has to announce itself. Without this the roster silently
+          becomes a claim: "the platform has 200" and "your search found
+          nobody" would be indistinguishable from the truth. */}
+      {truncated && (
+        <Alert severity="info" className="neutral bg-background-paper/60!">
+          Esta lista mostra as {PAGE} profissionais mais recentes e há mais cadastradas. A busca aqui só procura dentro
+          destas {PAGE} — para achar alguém mais antiga, procure pela conta dela na aba Contas.
         </Alert>
       )}
 
@@ -434,65 +328,7 @@ export default function UsersAdmin() {
         />
       )}
 
-      {confirming && (
-        <ConfirmActionDialog
-          key={`${confirming.kind}-${confirming.row.id}`}
-          title={CONFIRM_COPY[confirming.kind].title(confirming.row.displayName)}
-          intro={CONFIRM_COPY[confirming.kind].intro}
-          consequences={CONFIRM_COPY[confirming.kind].consequences}
-          stays={CONFIRM_COPY[confirming.kind].stays}
-          confirmLabel={CONFIRM_COPY[confirming.kind].confirm}
-          tone={CONFIRM_COPY[confirming.kind].tone}
-          reasonPlaceholder={CONFIRM_COPY[confirming.kind].placeholder}
-          onConfirm={(reason) => runConfirmed(confirming.kind, confirming.row, reason)}
-          onClose={() => setConfirming(null)}
-        />
-      )}
-
-      {/* Mounted only while open and keyed by user, like the deletion dialog.
-          Kept permanently mounted they changed identity on the way out — the
-          title read "…de ?" during the fade — and, worse, ImpersonateDialog
-          never reset its reason: the justification typed for one account, which
-          is AUDITED and shown to that professional, came back on the next. */}
-      {impersonating && (
-        <ImpersonateDialog
-          key={impersonating.id}
-          open
-          userId={impersonating.id}
-          userName={impersonating.displayName}
-          onClose={() => setImpersonating(null)}
-        />
-      )}
-
-      {roleChange && (
-        <SuperadminDialog
-          key={`${roleChange.row.id}-${roleChange.grant}`}
-          open
-          userId={roleChange.row.id}
-          userName={roleChange.row.displayName}
-          grant={roleChange.grant}
-          onClose={() => setRoleChange(null)}
-          onDone={() => {
-            setRoleChange(null);
-            refresh();
-          }}
-        />
-      )}
-
-      {/* Mounted only while open and keyed by user: every account starts from
-          a fresh count of what it holds, never from the previous one's. */}
-      {deleting && (
-        <DeleteAccountDialog
-          key={deleting.id}
-          userId={deleting.id}
-          userName={deleting.displayName}
-          onClose={() => setDeleting(null)}
-          onDeleted={() => {
-            setDeleting(null);
-            refresh();
-          }}
-        />
-      )}
+      {dialogs}
     </Box>
   );
 }

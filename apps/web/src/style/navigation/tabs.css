@@ -7,7 +7,10 @@
     @apply mb-5 min-h-0;
   }
 
-  .MuiTabs-flexContainer {
+  /* MUI 9 renamed this slot from `flexContainer` to `list`. The old name has
+     matched nothing since the upgrade, which is why every tab strip in the app
+     sits flush instead of spaced. */
+  .MuiTabs-list {
     @apply gap-1;
   }
 

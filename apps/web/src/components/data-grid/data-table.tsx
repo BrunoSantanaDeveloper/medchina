@@ -366,7 +366,18 @@ export default function DataTable<R extends GridValidRowModel>({
       hideFooterSelectedRowCount
       showToolbar
       className={cn("full-page border-none", onRowClick && "[&_.MuiDataGrid-row]:cursor-pointer")}
-      onRowClick={onRowClick ? (params: GridRowParams<R>) => onRowClick(params.row) : undefined}
+      onRowClick={
+        onRowClick
+          ? (params: GridRowParams<R>, event: React.MouseEvent) => {
+              // A click on a control INSIDE the row (the actions kebab, a
+              // link, a switch) must not also trigger the row itself —
+              // otherwise opening the menu also opens whatever the row does,
+              // behind it. MUI's GridActionsCell does not stop propagation.
+              if ((event.target as HTMLElement)?.closest?.("button, a, input, label, [role='menuitem']")) return;
+              onRowClick(params.row);
+            }
+          : undefined
+      }
       onFilterModelChange={
         onQuickFilterChange
           ? (model: GridFilterModel) => onQuickFilterChange((model.quickFilterValues ?? []).join(" ").trim())

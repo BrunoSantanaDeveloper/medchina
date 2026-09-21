@@ -91,10 +91,20 @@ const PERIOD_LABEL: Record<string, string> = { yearly: "por ano", monthly: "por 
  */
 export default async function FundadoresPage() {
   const [offer, guaranteeDays] = await Promise.all([getFoundersOffer(), getGuaranteeDays()]);
-  const plan = offer?.planSlug ? await getPlanBySlug(offer.planSlug) : null;
-  const comparePlan = offer?.comparePlanSlug ? await getPlanBySlug(offer.comparePlanSlug) : null;
+  // Resolvido SÓ com a oferta aberta, e este "só" é a correção de um vazamento
+  // real: a FAQ, o rodapé de preço e a linha de franquia leem `plan` FORA do
+  // bloco `open && plan`, então uma oferta cadastrada e ainda fechada fazia a
+  // página dizer "a assinatura é renovada a cada ano" e "o plano inclui 72.000
+  // minutos" logo abaixo de um herói que diz que a condição não está aberta.
+  // Anunciar os termos de uma campanha que não começou é o mesmo tipo de
+  // desonestidade que a regra da escassez real proíbe — e ficou visível no
+  // instante em que o cadastro passou a existir antes da abertura (0107).
+  const plan = offer && !offer.closed && offer.planSlug ? await getPlanBySlug(offer.planSlug) : null;
+  const comparePlan = plan && offer?.comparePlanSlug ? await getPlanBySlug(offer.comparePlanSlug) : null;
 
-  const open = Boolean(offer && !offer.closed && plan);
+  // `plan` já só existe para uma oferta aberta, então isto é só a checagem
+  // de que o slug configurado casa com um plano ativo de verdade.
+  const open = Boolean(plan);
   // The checkout link carries the plan through sign-up: `?next=` survives the
   // e-mail confirmation, so she lands on the offer already selected.
   const nextAfterAuth = plan ? `/settings/billing?plan=${plan.slug}` : null;

@@ -44,7 +44,7 @@ export function QueueItemRow({
         <Text variant="bodyMedium">
           {time} · {t("delivery-minutes", { minutes })}
         </Text>
-        <Chip compact mode="flat" textStyle={{ fontSize: 11 }}>
+        <Chip compact mode="flat" accessibilityRole="text" textStyle={{ fontSize: 12 }}>
           {stateLabels[item.state]}
         </Chip>
       </View>

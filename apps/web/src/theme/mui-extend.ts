@@ -55,21 +55,13 @@ declare module "@mui/material/Chip" {
     colorWarning: string;
     colorInfo: string;
     colorGrey: string;
-    outlinedPrimary: string;
-    outlinedSecondary: string;
-    "outlinedGrey-500": string;
-    "outlinedAccent-1": string;
-    "outlinedAccent-2": string;
-    "outlinedAccent-3": string;
-    "outlinedAccent-4": string;
-    "outlinedText-primary": string;
-    "outlinedText-secondary": string;
-    "outlinedText-disabled": string;
-    outlinedSuccess: string;
-    outlinedError: string;
-    outlinedWarning: string;
-    outlinedInfo: string;
-    outlinedGrey: string;
+    // MUI 9 builds the root class list as root + {variant} + size{Size} +
+    // color{Color} (Chip.js, useUtilityClasses). The composed
+    // `outlined{Color}` of MUI 5 is gone. Fifteen declarations for it used to
+    // sit here, and because TypeScript accepted `chipClasses.outlinedError`
+    // without complaint, fourteen stylesheet rules written against those
+    // classes stayed dead and invisible for the whole life of the file.
+    // Declare only what the DOM actually receives.
   }
 
   interface ChipOwnProps {

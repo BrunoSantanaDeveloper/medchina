@@ -275,7 +275,7 @@ export default function DeleteAccountDialog({
                 disabled={busy}
                 autoFocus
               />
-              <Typography variant="caption" className="text-text-secondary mt-1">
+              <Typography variant="body2" className="text-text-secondary mt-1">
                 Fica na trilha de auditoria com o seu nome, junto com quanto foi excluído.
               </Typography>
             </FormControl>

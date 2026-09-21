@@ -1,11 +1,13 @@
 "use client";
 
+import { listUserAdminInfo, type UserAdminInfo } from "../actions";
 import AccountDetailDialog from "./account-detail-dialog";
 import {
   ACCOUNT_FILTERS,
   type AccountOverview,
   type AccountsOverview,
   type AccountTotals,
+  clockLabel,
   FLAG_LABEL,
   formatDate,
   formatMoney,
@@ -14,6 +16,12 @@ import {
   SUBSCRIPTION_STATUS_LABEL,
   trialLabel,
 } from "./account-overview";
+import { usePersonActions } from "./person-actions";
+import PersonWithoutWorkspaceDialog, {
+  CAUSE_LABEL,
+  type PeopleWithoutWorkspace,
+  type PersonWithoutWorkspace,
+} from "./person-without-workspace";
 import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -27,7 +35,6 @@ import {
   DialogContent,
   DialogTitle,
   Skeleton,
-  Switch,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -38,11 +45,34 @@ import ConfirmActionDialog from "@/components/product/confirm-action-dialog";
 import EmptyState from "@/components/product/empty-state";
 import NiBuilding from "@/icons/nexture/ni-building";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
+import NiPause from "@/icons/nexture/ni-pause";
+import NiPower from "@/icons/nexture/ni-power";
+import NiRefresh from "@/icons/nexture/ni-refresh";
 import NiUsers from "@/icons/nexture/ni-users";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
 type AccountRow = AccountOverview & { id: string };
+
+/**
+ * One row for either kind of subject the operator searches for.
+ *
+ * A console that lists ORGANIZATIONS cannot show a professional who has none
+ * — and she is precisely the "me cadastrei e não consigo usar" call. Rather
+ * than a hollow account with invented zeros, the row carries whichever
+ * subject it is and the few display fields both share, so the cells stay
+ * simple and nothing is faked.
+ */
+type GridRow = {
+  id: string;
+  kind: "workspace" | "person";
+  title: string;
+  subtitle: string;
+  searchText: string;
+  flags: string[];
+  account: AccountRow | null;
+  person: PersonWithoutWorkspace | null;
+};
 type MemberRow = { userId: string; role: string; displayName: string; joinedAt: string };
 
 /** A roster that failed to load must never render as a roster that is empty:
@@ -61,6 +91,28 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
   trialing: "warning",
   past_due: "error",
 };
+
+/** Which signal earns the scarce space on the row, most urgent first. */
+const FLAG_SEVERITY: Record<string, number> = {
+  banned: 0,
+  past_due: 1,
+  no_workspace: 2,
+  suspended: 3,
+  canceling: 4,
+  no_owner: 5,
+  trial_ending: 6,
+  unconfirmed: 7,
+  never_activated: 8,
+  idle: 9,
+  trial_over: 10,
+  trial_active: 11,
+  new: 12,
+};
+
+const bySeverity = (a: string, b: string) => (FLAG_SEVERITY[a] ?? 50) - (FLAG_SEVERITY[b] ?? 50);
+
+/** The account flags plus the ones only a person without a workspace has. */
+const ROW_FLAG_LABEL: Record<string, string> = { ...FLAG_LABEL, no_workspace: "sem consultório", ...CAUSE_LABEL };
 
 /** Everything scanned or searched must be reachable as a cell VALUE. */
 const searchTextOf = (row: AccountRow) =>
@@ -86,6 +138,8 @@ const statusTextOf = (row: AccountRow) =>
  */
 export default function OrgsAdmin() {
   const [rows, setRows] = useState<AccountRow[]>([]);
+  const [people, setPeople] = useState<PeopleWithoutWorkspace | null>(null);
+  const [personDetail, setPersonDetail] = useState<PersonWithoutWorkspace | null>(null);
   const [totals, setTotals] = useState<AccountTotals | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
@@ -95,6 +149,18 @@ export default function OrgsAdmin() {
   const [detail, setDetail] = useState<AccountRow | null>(null);
   const [suspending, setSuspending] = useState<{ account: AccountRow; suspend: boolean } | null>(null);
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
+  /** Mirrors the quick filter so the page can phrase its own empty state and
+   *  let a search reach past the active tile. */
+  const [query, setQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  // Auth-side facts about the OWNER, so this grid can offer the same escalated
+  // actions the professionals tab has. Without them the menu would offer
+  // "redefinir 2FA" to someone with no factor and "excluir" to a superadmin —
+  // the action-without-fact class the confirmations were built to remove.
+  const [selfId, setSelfId] = useState<string | null>(null);
+  const [serviceAvailable, setServiceAvailable] = useState<boolean | null>(null);
+  const [authInfo, setAuthInfo] = useState<Record<string, UserAdminInfo>>({});
+  const [superadminIds, setSuperadminIds] = useState<Set<string>>(() => new Set());
   const { enqueueSnackbar } = useSnackbar();
   const [membersOrg, setMembersOrg] = useState<AccountRow | null>(null);
   const [members, setMembers] = useState<Record<string, MemberState>>({});
@@ -120,6 +186,26 @@ export default function OrgsAdmin() {
     setGeneratedAt(overview.generatedAt);
     setLoadFailed(false);
     setLoaded(true);
+
+    const [{ data: auth }, roles, info, orphans] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.from("profiles").select("id").eq("is_superadmin", true),
+      listUserAdminInfo(),
+      // Migration 0108. Deliberately its own query and its own payload key:
+      // folded into `accounts` it would change what `totals.accounts` means
+      // and make the nightly digest report the same person every morning
+      // forever (being workspace-less is a permanent condition).
+      supabase.rpc("admin_people_without_workspace"),
+    ]);
+    if (!orphans.error) setPeople(orphans.data as PeopleWithoutWorkspace);
+    setSelfId(auth.user?.id ?? null);
+    setSuperadminIds(new Set((roles.data ?? []).map((row) => row.id as string)));
+    if (info.ok) {
+      setServiceAvailable(true);
+      setAuthInfo(Object.fromEntries(info.data.map((entry) => [entry.id, entry])));
+    } else {
+      setServiceAvailable(info.error === "not-configured" ? false : null);
+    }
   }, []);
 
   useEffect(() => {
@@ -134,6 +220,24 @@ export default function OrgsAdmin() {
     const requested = new URLSearchParams(window.location.search).get("filter");
     if (requested && ACCOUNT_FILTERS.some((entry) => entry.key === requested)) setFilter(requested);
   }, []);
+
+  /** Picking a tile writes it back to the URL, so the view survives a reload
+   *  and can be pasted to the other operator — the digest already links this
+   *  way, and the console could only receive such a link, never make one. */
+  const selectFilter = useCallback((key: string) => {
+    setFilter(key);
+    const params = new URLSearchParams(window.location.search);
+    if (key === "all") params.delete("filter");
+    else params.set("filter", key);
+    const search = params.toString();
+    window.history.replaceState(null, "", search ? `?${search}` : window.location.pathname);
+  }, []);
+
+  const { buildItems, dialogs, canImpersonate, openImpersonation } = usePersonActions({
+    selfId,
+    serviceAvailable,
+    onChanged: refresh,
+  });
 
   const loadMembers = useCallback(async (orgId: string) => {
     setMembers((current) => ({ ...current, [orgId]: { status: "loading" } }));
@@ -222,84 +326,134 @@ export default function OrgsAdmin() {
     [enqueueSnackbar, refresh],
   );
 
-  const columns = useMemo<GridColDef<AccountRow>[]>(
+  const columns = useMemo<GridColDef<GridRow>[]>(
     () => [
       {
         field: "account",
         headerName: "Conta",
         flex: 2,
-        minWidth: 240,
-        valueGetter: (_, row) => searchTextOf(row),
-        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
+        minWidth: 260,
+        valueGetter: (_, row) => row.searchText,
+        renderCell: (params: GridRenderCellParams<GridRow, string>) => (
           <Box className="flex h-full flex-col justify-center">
             <Typography variant="body1" className="text-text-primary truncate font-medium">
-              {params.row.owner?.name ?? "Sem responsável"}
+              {params.row.title}
             </Typography>
             <Typography variant="body2" className="text-text-secondary truncate">
-              {params.row.owner?.email ?? "sem e-mail"} · {params.row.name}
+              {params.row.subtitle}
             </Typography>
           </Box>
         ),
       },
       {
-        // Plan and status read as one fact ("Pro · active"). Measured on the
-        // real screen: as two columns they pushed the kill-switch and the
-        // kebab off a 1680px viewport. Suspended/canceling live in Signals.
+        // Plan, status and the nearest deadline as ONE column. As three
+        // (Plano 190 + Renovação 110 + Trial 120 = 420px) they were the single
+        // biggest reason the grid needed ~1.690px of viewport to fit, while
+        // the widest it ever gets to use is ~932px at 1440.
         field: "plan",
-        headerName: "Plano",
-        minWidth: 190,
-        valueGetter: (_, row) => `${row.billing.planName ?? "sem assinatura"} ${statusTextOf(row)}`,
-        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
-          <Box className="flex h-full flex-row flex-wrap items-center gap-1">
-            <Chip label={params.row.billing.planName ?? "sem assinatura"} size="small" variant="outlined" />
-            {params.row.billing.status && (
-              <Chip
-                label={SUBSCRIPTION_STATUS_LABEL[params.row.billing.status] ?? params.row.billing.status}
-                size="small"
-                color={STATUS_COLOR[params.row.billing.status] ?? "default"}
-                variant="outlined"
-                className="first-letter:uppercase"
-              />
-            )}
-            {/* A plan an operator gave away has no provider behind it (0067). */}
-            {params.row.billing.isFree === false && !params.row.billing.providerManaged && (
-              <Chip label="cortesia" size="small" color="warning" variant="outlined" />
-            )}
-          </Box>
-        ),
+        headerName: "Plano e prazo",
+        minWidth: 200,
+        valueGetter: (_, row) =>
+          row.account
+            ? `${row.account.billing.planName ?? "sem assinatura"} ${statusTextOf(row.account)} ${clockLabel(row.account.billing, row.account.trial)}`
+            : "sem consultório",
+        renderCell: (params: GridRenderCellParams<GridRow, string>) => {
+          const account = params.row.account;
+          // Nothing invented for a person with no workspace: there is no plan
+          // and no cycle, so the cell says so instead of showing a zero.
+          if (!account) {
+            return (
+              <Box className="flex h-full items-center">
+                <Typography variant="body2" className="text-text-secondary">
+                  —
+                </Typography>
+              </Box>
+            );
+          }
+          return (
+            <Box className="flex h-full flex-col justify-center gap-0.5">
+              <Box className="flex flex-row flex-wrap items-center gap-1">
+                <Chip label={account.billing.planName ?? "sem assinatura"} size="small" variant="outlined" />
+                {account.billing.status && (
+                  <Chip
+                    label={SUBSCRIPTION_STATUS_LABEL[account.billing.status] ?? account.billing.status}
+                    size="small"
+                    color={STATUS_COLOR[account.billing.status] ?? "default"}
+                    variant="outlined"
+                    className="first-letter:uppercase"
+                  />
+                )}
+                {/* A plan an operator gave away has no provider behind it (0067). */}
+                {account.billing.isFree === false && !account.billing.providerManaged && (
+                  <Chip label="cortesia" size="small" color="warning" variant="outlined" />
+                )}
+              </Box>
+              <Typography variant="body2" className="text-text-secondary truncate">
+                {clockLabel(account.billing, account.trial)}
+              </Typography>
+            </Box>
+          );
+        },
       },
       {
-        // Numeric so the operator can sort by "who renews next"; the cell
-        // still reads in words.
+        // Kept for sorting by "who renews next" and for the CSV, hidden by
+        // default: the row already carries the nearest deadline in words.
         field: "renewal",
         headerName: "Renovação",
         type: "number",
         minWidth: 110,
-        valueGetter: (_, row) => row.billing.renewalDays,
-        renderCell: (params: GridRenderCellParams<AccountRow, number>) => (
-          <Box className="flex h-full flex-col justify-center">
-            <Typography variant="body2" className="text-text-primary">
-              {renewalLabel(params.row.billing)}
-            </Typography>
-            <Typography variant="body2" className="text-text-secondary truncate">
-              {params.row.billing.currentPeriodEnd ? formatDate(params.row.billing.currentPeriodEnd) : ""}
-            </Typography>
-          </Box>
-        ),
+        valueGetter: (_, row) => row.account?.billing.renewalDays ?? null,
+        renderCell: (params: GridRenderCellParams<GridRow, number>) =>
+          params.row.account ? (
+            <Box className="flex h-full flex-col justify-center">
+              <Typography variant="body2" className="text-text-primary">
+                {renewalLabel(params.row.account.billing)}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary truncate">
+                {params.row.account.billing.currentPeriodEnd
+                  ? formatDate(params.row.account.billing.currentPeriodEnd)
+                  : ""}
+              </Typography>
+            </Box>
+          ) : null,
       },
       {
         field: "trial",
         headerName: "Trial Pro",
         type: "number",
         minWidth: 120,
-        valueGetter: (_, row) => (row.trial?.active ? row.trial.daysLeft : null),
-        renderCell: (params: GridRenderCellParams<AccountRow, number>) => (
-          <Box className="flex h-full items-center">
-            <Typography variant="body2" className="text-text-primary">
-              {trialLabel(params.row.trial, params.row.minutes.remaining)}
-            </Typography>
-          </Box>
-        ),
+        valueGetter: (_, row) => (row.account?.trial?.active ? row.account.trial.daysLeft : null),
+        renderCell: (params: GridRenderCellParams<GridRow, number>) =>
+          params.row.account ? (
+            <Box className="flex h-full items-center">
+              <Typography variant="body2" className="text-text-primary">
+                {trialLabel(params.row.account.trial, params.row.account.minutes.remaining)}
+              </Typography>
+            </Box>
+          ) : null,
+      },
+      {
+        // "Nunca acessou" spelled out. As a bare date column the null rendered
+        // as an empty cell, which reads as "unknown" for the single strongest
+        // support signal there is: signed up and never came back.
+        field: "lastSignIn",
+        headerName: "Último acesso",
+        type: "date",
+        minWidth: 130,
+        valueGetter: (_, row) => {
+          const at = row.account?.owner?.lastSignInAt ?? row.person?.lastSignInAt ?? null;
+          return at ? new Date(at) : null;
+        },
+        renderCell: (params: GridRenderCellParams<GridRow, Date | null>) => {
+          const at = params.row.account?.owner?.lastSignInAt ?? params.row.person?.lastSignInAt ?? null;
+          return (
+            <Box className="flex h-full items-center">
+              <Typography variant="body2" className={at ? "" : "text-accent-3"}>
+                {at ? sinceDays(at) : "nunca acessou"}
+              </Typography>
+            </Box>
+          );
+        },
       },
       {
         field: "use",
@@ -308,70 +462,70 @@ export default function OrgsAdmin() {
         // The searchable value must read like the cell: "records" was English
         // in an otherwise pt-BR console, so the word on screen found nothing.
         valueGetter: (_, row) =>
-          `${row.usage.finalized30d} atendimentos ${row.usage.minutes30d} min ${row.usage.patients} pacientes`,
-        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
-          <Box className="flex h-full flex-col justify-center">
-            <Typography variant="body2" className="text-text-primary">
-              {params.row.usage.finalized30d} atendimentos · {params.row.usage.minutes30d} min
-            </Typography>
-            <Typography variant="body2" className="text-text-secondary truncate">
-              {params.row.usage.patients} pacientes · ativa {sinceDays(params.row.usage.lastActivityAt)}
-            </Typography>
-          </Box>
-        ),
+          row.account
+            ? `${row.account.usage.finalized30d} atendimentos ${row.account.usage.minutes30d} min ${row.account.usage.patients} pacientes`
+            : "",
+        renderCell: (params: GridRenderCellParams<GridRow, string>) => {
+          const account = params.row.account;
+          if (!account) {
+            return (
+              <Box className="flex h-full items-center">
+                <Typography variant="body2" className="text-text-secondary">
+                  nunca teve consultório
+                </Typography>
+              </Box>
+            );
+          }
+          return (
+            <Box className="flex h-full flex-col justify-center">
+              <Typography variant="body2" className="text-text-primary">
+                {account.usage.finalized30d} atendimentos · {account.usage.minutes30d} min
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary truncate">
+                {account.usage.patients} pacientes · ativa {sinceDays(account.usage.lastActivityAt)}
+              </Typography>
+            </Box>
+          );
+        },
       },
       {
         field: "signals",
         headerName: "Sinais",
-        minWidth: 190,
+        minWidth: 160,
         sortable: false,
-        valueGetter: (_, row) => row.flags.map((flag) => FLAG_LABEL[flag] ?? flag).join(" "),
-        // Three at most, so a busy row stays one line and nothing renders
-        // half-cut; the detail dialog carries the full set.
-        renderCell: (params: GridRenderCellParams<AccountRow, string>) => (
-          <Box className="flex h-full flex-row flex-wrap items-center gap-1">
-            {params.row.flags
-              .filter((flag) => flag !== "paid")
-              .slice(0, 3)
-              .map((flag) => (
+        // The searchable value keeps EVERY flag, including the ones the cell
+        // had to drop - searching "suspensa" must find the row even when the
+        // chip did not fit.
+        valueGetter: (_, row) => row.flags.map((flag) => ROW_FLAG_LABEL[flag] ?? flag).join(" "),
+        renderCell: (params: GridRenderCellParams<GridRow, string>) => {
+          // Two at most in 160px, and the most urgent first: a row whose
+          // access the operator herself cut must not hide "suspensa" behind
+          // "nova" just because of the order the database returned them.
+          const shown = params.row.flags.filter((flag) => flag !== "paid").sort(bySeverity);
+          const extra = shown.length - 2;
+          return (
+            <Box className="flex h-full flex-row flex-wrap items-center gap-1">
+              {shown.slice(0, 2).map((flag) => (
                 <Chip
                   key={flag}
-                  label={FLAG_LABEL[flag] ?? flag}
+                  label={ROW_FLAG_LABEL[flag] ?? flag}
                   size="small"
                   variant="outlined"
                   color={flag === "past_due" || flag === "banned" ? "error" : "default"}
                 />
               ))}
-          </Box>
-        ),
-      },
-      {
-        // The audited kill-switch on paid capability. It stays visible on the
-        // row, never buried in the kebab — but the header says what it really
-        // governs: it was called "Acesso" and does not touch access.
-        field: "access",
-        headerName: "Recursos pagos",
-        minWidth: 140,
-        type: "boolean",
-        valueGetter: (_, row) => Boolean(row.billing.subscriptionId && !row.billing.suspended),
-        renderCell: (params: GridRenderCellParams<AccountRow, boolean>) => {
-          const { billing } = params.row;
-          if (!billing.subscriptionId) return null;
-          const suspended = Boolean(billing.suspended);
-          const label = suspended
-            ? `Reativar os recursos pagos de ${params.row.name}`
-            : `Suspender os recursos pagos de ${params.row.name} — ela continua entrando e lendo o prontuário`;
-          return (
-            <Box className="flex h-full items-center">
-              <Tooltip title={label}>
-                <Switch
-                  checked={!suspended}
-                  disabled={suspendingId === params.row.orgId}
-                  onChange={() => setSuspending({ account: params.row, suspend: !suspended })}
-                  size="small"
-                  slotProps={{ input: { "aria-label": label } }}
-                />
-              </Tooltip>
+              {extra > 0 && (
+                <Tooltip
+                  title={shown
+                    .slice(2)
+                    .map((flag) => ROW_FLAG_LABEL[flag] ?? flag)
+                    .join(" | ")}
+                >
+                  <Typography variant="body2" className="text-text-secondary">
+                    +{extra}
+                  </Typography>
+                </Tooltip>
+              )}
             </Box>
           );
         },
@@ -383,36 +537,146 @@ export default function OrgsAdmin() {
         minWidth: 70,
         align: "right",
         headerAlign: "right",
-        getActions: (params) => [
-          <GridActionsCellItem
-            key="detail"
-            icon={<NiEyeOpen size="medium" />}
-            label="Detalhe da conta"
-            onClick={() => setDetail(params.row)}
-            showInMenu
-          />,
-          <GridActionsCellItem
-            key="members"
-            icon={<NiUsers size="medium" />}
-            label="Ver membros"
-            onClick={() => openMembers(params.row)}
-            showInMenu
-          />,
-        ],
+        getActions: (params) => {
+          const account = params.row.account;
+          const person = params.row.person;
+          // A person with no workspace has no dossier (`admin_account_dossier`
+          // takes an org) and nothing to suspend; what she has is a cause and
+          // the escalated actions, which need only a user id.
+          if (person) {
+            return [
+              <GridActionsCellItem
+                key="person"
+                icon={<NiEyeOpen size="medium" />}
+                label="Por que ela está sem consultório"
+                onClick={() => setPersonDetail(person)}
+                showInMenu
+              />,
+              ...buildItems({
+                userId: person.userId,
+                name: person.name ?? "Profissional sem nome",
+                email: person.email,
+                isSuperadmin: person.isSuperadmin,
+                hasMfa: Boolean(authInfo[person.userId]?.hasMfa),
+                banned: Boolean(person.bannedUntil && new Date(person.bannedUntil).getTime() > Date.now()),
+              }),
+            ];
+          }
+          if (!account) return [];
+          const suspended = Boolean(account.billing.suspended);
+          return [
+            <GridActionsCellItem
+              key="detail"
+              icon={<NiEyeOpen size="medium" />}
+              label="Detalhe da conta"
+              onClick={() => setDetail(account)}
+              showInMenu
+            />,
+            <GridActionsCellItem
+              key="members"
+              icon={<NiUsers size="medium" />}
+              label="Ver membros"
+              onClick={() => openMembers(account)}
+              showInMenu
+            />,
+            // The kill-switch moved off the row: at 140px it was the last
+            // column before the kebab, and both were the first to leave the
+            // screen. It always opened a confirmation anyway, so the cost is
+            // one click; the STATE stays readable as the "suspensa" signal.
+            ...(account.billing.subscriptionId
+              ? [
+                  <GridActionsCellItem
+                    key="suspend"
+                    icon={suspended ? <NiPower size="medium" /> : <NiPause size="medium" />}
+                    label={suspended ? "Reativar recursos pagos" : "Suspender recursos pagos"}
+                    disabled={suspendingId === account.orgId}
+                    onClick={() => setSuspending({ account, suspend: !suspended })}
+                    showInMenu
+                  />,
+                ]
+              : []),
+            // The support actions, on the row that already NAMES the
+            // professional. A call that arrives with an e-mail used to cost
+            // two searches on two tabs.
+            ...(account.owner
+              ? buildItems({
+                  userId: account.owner.userId,
+                  name: account.owner.name ?? account.name,
+                  email: account.owner.email,
+                  isSuperadmin: superadminIds.has(account.owner.userId),
+                  hasMfa: Boolean(authInfo[account.owner.userId]?.hasMfa),
+                  banned: Boolean(
+                    account.owner.bannedUntil && new Date(account.owner.bannedUntil).getTime() > Date.now(),
+                  ),
+                })
+              : []),
+          ];
+        },
       },
     ],
-    [openMembers, suspendingId],
+    [authInfo, buildItems, openMembers, superadminIds, suspendingId],
   );
 
+  const searching = query.trim().length > 0;
+
+  /** The two subjects, in one list. Counts stay with the query that produced
+   *  them, so a tile can never disagree with the rows it filters. */
+  const gridRows = useMemo<GridRow[]>(() => {
+    const accounts: GridRow[] = rows.map((account) => ({
+      id: account.orgId,
+      kind: "workspace",
+      title: account.owner?.name ?? "Sem responsável",
+      subtitle: `${account.owner?.email ?? "sem e-mail"} · ${account.name}`,
+      searchText: searchTextOf(account),
+      flags: account.flags,
+      account,
+      person: null,
+    }));
+    const orphans: GridRow[] = (people?.people ?? []).map((person) => ({
+      id: `user:${person.userId}`,
+      kind: "person",
+      title: person.name ?? "Profissional sem nome",
+      subtitle: `${person.email ?? "sem e-mail"} · sem consultório`,
+      searchText: [person.name, person.email, person.invite?.orgName].filter(Boolean).join(" "),
+      // `no_workspace` first so it wins the two chips the column fits.
+      flags: ["no_workspace", person.cause],
+      account: null,
+      person,
+    }));
+    return [...accounts, ...orphans];
+  }, [rows, people]);
+
   const visibleRows = useMemo(
-    () => (filter === "all" ? rows : rows.filter((row) => row.flags.includes(filter))),
-    [rows, filter],
+    () => (searching || filter === "all" ? gridRows : gridRows.filter((row) => row.flags.includes(filter))),
+    [gridRows, filter, searching],
   );
   const roster = membersOrg ? members[membersOrg.orgId] : undefined;
   const activeFilter = ACCOUNT_FILTERS.find((entry) => entry.key === filter);
 
   return (
     <Box className="flex flex-col gap-4">
+      {/* Says WHY half the menu is missing, instead of letting the operator
+          conclude the actions do not exist. Both states are named: not
+          configured is a setup task, and a FAILED check is a failure — which
+          used to render as plain absence, the one thing an error must never
+          look like. */}
+      {serviceAvailable === false && (
+        <Alert severity="info" className="neutral bg-background-paper/60!">
+          Defina SUPABASE_SERVICE_ROLE_KEY para habilitar entrar como, redefinir 2FA, bloquear/desbloquear e excluir
+          conta a partir desta lista.
+        </Alert>
+      )}
+      {serviceAvailable === null && loaded && (
+        <Alert
+          severity="warning"
+          className="neutral bg-background-paper/60!"
+          action={<Button onClick={refresh}>Tentar de novo</Button>}
+        >
+          Não foi possível consultar a autenticação agora, então entrar como, redefinir 2FA, bloquear e excluir estão
+          fora do menu. Não é que a conta não permita — é que a verificação falhou.
+        </Alert>
+      )}
+
       {error && (
         <Alert severity="error" className="neutral bg-background-paper/60!">
           {error}
@@ -453,7 +717,10 @@ export default function OrgsAdmin() {
               type="button"
               aria-pressed={active}
               title={entry.hint}
-              onClick={() => setFilter(entry.key)}
+              // The filter goes to the URL so it survives a reload and can be
+              // shared — the daily digest already links in this way, and until
+              // now the console could only receive that link, never produce one.
+              onClick={() => selectFilter(entry.key)}
               className={`flex min-w-32 cursor-pointer flex-col items-start rounded-lg border px-3 py-2 text-left ${
                 active ? "border-primary bg-primary/5" : "border-divider bg-background-paper"
               }`}
@@ -467,20 +734,80 @@ export default function OrgsAdmin() {
             </Box>
           );
         })}
+        {/* Counted by its own query (migration 0108) and filtering the rows
+            that same query produced, so the number and the list cannot
+            disagree. Hidden when there is nobody: an always-zero tile next to
+            nine others is noise, and this one is an anomaly, not a category. */}
+        {people && people.totals.people > 0 && (
+          <Box
+            component="button"
+            type="button"
+            aria-pressed={filter === "no_workspace"}
+            title="Cadastraram-se e nunca tiveram um consultório — não conseguem usar o produto"
+            onClick={() => selectFilter("no_workspace")}
+            className={`flex min-w-32 cursor-pointer flex-col items-start rounded-lg border px-3 py-2 text-left ${
+              filter === "no_workspace" ? "border-primary bg-primary/5" : "border-divider bg-background-paper"
+            }`}
+          >
+            <Typography
+              variant="h5"
+              component="span"
+              className={filter === "no_workspace" ? "text-primary" : "text-text-primary"}
+            >
+              {people.totals.people}
+            </Typography>
+            <Typography variant="body2" className="text-text-secondary">
+              Sem consultório
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* A failed load is an error, never an empty-looking table. */}
       {!loadFailed && (
-        <DataTable<AccountRow>
+        <DataTable<GridRow>
           rows={visibleRows}
           columns={columns}
           loading={!loaded}
+          // A workspace row opens its dossier; a person without one has no dossier
+          // to open, so the row explains WHY she has no workspace instead of
+          // going nowhere.
+          onRowClick={(row) => (row.account ? setDetail(row.account) : row.person && setPersonDetail(row.person))}
+          onQuickFilterChange={setQuery}
+          // Renewal, trial and last sign-in stay defined — sortable from the
+          // Columns panel — but off the default view: the row already carries
+          // the nearest deadline in words, and the width budget is the binding
+          // constraint at 1440.
+          initialColumnVisibility={{ renewal: false, trial: false, lastSignIn: false }}
+          header={
+            generatedAt && (
+              <Typography variant="body2" className="text-text-secondary">
+                Planos, trials e uso conforme {new Date(generatedAt).toLocaleString()}.
+              </Typography>
+            )
+          }
+          actions={
+            <Button
+              variant="surface"
+              color="grey"
+              size="medium"
+              startIcon={<NiRefresh size="medium" />}
+              disabled={refreshing || !loaded}
+              onClick={async () => {
+                setRefreshing(true);
+                await refresh();
+                setRefreshing(false);
+              }}
+            >
+              {refreshing ? "Atualizando…" : "Atualizar"}
+            </Button>
+          }
           noRowsOverlay={
-            filter === "all" ? (
+            filter === "all" || searching ? (
               <EmptyState
                 icon={<NiBuilding size="medium" />}
                 title="Nenhuma conta ainda"
-                description="Todo cadastro cria um consultório e aparece aqui, com plano, trial e uso."
+                description="Todo cadastro com nome de consultório cria um e aparece aqui, com plano, trial e uso."
                 className="border-none"
               />
             ) : (
@@ -488,24 +815,25 @@ export default function OrgsAdmin() {
                 <Typography variant="body2" className="text-text-secondary">
                   Nenhuma conta em &quot;{activeFilter?.label ?? "este filtro"}&quot; agora.
                 </Typography>
-                <Button variant="text" onClick={() => setFilter("all")}>
+                <Button variant="text" onClick={() => selectFilter("all")}>
                   Ver todas as contas
                 </Button>
               </Box>
             )
           }
           noResultsOverlay={
-            <Typography variant="body2" className="text-text-secondary">
-              Nenhuma conta corresponde à busca.
-            </Typography>
+            <Box className="flex h-full flex-col items-center justify-center gap-1 text-center">
+              <Typography variant="body2" className="text-text-secondary">
+                Nenhuma conta corresponde a &quot;{query}&quot;.
+              </Typography>
+              {/* Say it, because the alternative is the operator assuming the
+                  active tile hid the person she is looking for. */}
+              <Typography variant="body2" className="text-text-secondary">
+                A busca já procurou em todas as contas, não só no filtro ativo.
+              </Typography>
+            </Box>
           }
         />
-      )}
-
-      {generatedAt && (
-        <Typography variant="caption" className="text-text-secondary">
-          Planos, trials e uso conforme {new Date(generatedAt).toLocaleString()}.
-        </Typography>
       )}
 
       <Dialog open={Boolean(membersOrg)} onClose={() => setMembersOrg(null)} maxWidth="sm" fullWidth>
@@ -606,7 +934,43 @@ export default function OrgsAdmin() {
         />
       )}
 
-      {detail && <AccountDetailDialog account={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <AccountDetailDialog
+          account={detail}
+          onClose={() => setDetail(null)}
+          // Support access as a footer button, with the same guard the row
+          // uses. The rest of the escalated set stays in the kebab: a footer
+          // of red buttons invites the click it should discourage.
+          actions={(() => {
+            const owner = detail.owner;
+            if (!owner) return null;
+            const target = {
+              userId: owner.userId,
+              name: owner.name ?? detail.name,
+              email: owner.email,
+              isSuperadmin: superadminIds.has(owner.userId),
+              hasMfa: Boolean(authInfo[owner.userId]?.hasMfa),
+              banned: Boolean(owner.bannedUntil && new Date(owner.bannedUntil).getTime() > Date.now()),
+            };
+            if (!canImpersonate(target)) return null;
+            return (
+              <Button variant="outlined" color="primary" onClick={() => openImpersonation(target)}>
+                Entrar como
+              </Button>
+            );
+          })()}
+        />
+      )}
+
+      {personDetail && (
+        <PersonWithoutWorkspaceDialog
+          key={personDetail.userId}
+          person={personDetail}
+          onClose={() => setPersonDetail(null)}
+        />
+      )}
+
+      {dialogs}
     </Box>
   );
 }

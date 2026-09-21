@@ -3,49 +3,79 @@
     @apply font-body rounded-md text-base leading-5 font-normal;
   }
 
-  .MuiAlert-standardSuccess {
-    @apply bg-success-light/10 text-success-dark;
+  /* ---------------------------------------------------------------------- */
+  /* Severity panel                                                          */
+  /*                                                                         */
+  /* MUI 9 builds the class list as `MuiAlert-{variant}` + */
+  /* `MuiAlert-color{Severity}`; the composed `standardSuccess` of MUI 5 is */
+  /* gone (alertClasses.js lists every real slot, and none of the composed */
+  /* names is there). These four rules were written against the dead name, */
+  /* so no Alert in this app has ever had a panel behind it. */
+  /*                                                                         */
+  /* MUI's own fallback is dead too, for an unrelated reason: the palette is */
+  /* written as `hsl(var(--token))` with cssVariables on, `decomposeColor` */
+  /* returns NaN for that, and every DERIVED colour — Alert.{sev}StandardBg, */
+  /* Alert.{sev}Color — resolves to `hsl(NaN, undefined%, NaN%)`, which the */
+  /* browser discards. The icon survives because `Alert.{sev}IconColor` is */
+  /* `palette[sev].main`, a direct reference with nothing to derive. */
+  /*                                                                         */
+  /* So today the severity reaches the reader through the icon alone, and */
+  /* the background is what is missing. Background is all that is restored */
+  /* here. The template also set `text-{sev}-dark` on the root; measured */
+  /* against THIS palette that takes the message from 9.2:1 down to 2.51:1 */
+  /* (info), 2.56:1 (success) and 2.95:1 (warning) in the light theme, and */
+  /* to 2.15:1 for error in the dark one — because `--{sev}-dark` holds the */
+  /* same value in both themes. Colour that costs a clinical message its */
+  /* legibility is not a restoration, so the text keeps inheriting. */
+  /*                                                                         */
+  /* The opacity is 20%, not the template's 10%. Measured against this */
+  /* palette, a 10% wash steps only 1.006:1 to 1.047:1 away from the page */
+  /* behind it, and a panel nobody can see is not a panel. At 20% the step is */
+  /* 1.05:1 to 1.16:1, next to the 1.225:1 that the grey border of `neutral` */
+  /* below already uses to delimit itself, and the message still reads at */
+  /* 8.0:1 or better. The template's 10% was written for its own palette. */
+  /* ---------------------------------------------------------------------- */
+
+  .MuiAlert-standard.MuiAlert-colorSuccess {
+    @apply bg-success-light/20;
   }
 
-  .MuiAlert-standardInfo {
-    @apply bg-info-light/10 text-info-dark;
+  .MuiAlert-standard.MuiAlert-colorInfo {
+    @apply bg-info-light/20;
   }
 
-  .MuiAlert-standardWarning {
-    @apply bg-warning-light/10 text-warning-dark;
+  .MuiAlert-standard.MuiAlert-colorWarning {
+    @apply bg-warning-light/20;
   }
 
-  .MuiAlert-standardError {
-    @apply bg-error-light/10 text-error-dark;
+  .MuiAlert-standard.MuiAlert-colorError {
+    @apply bg-error-light/20;
   }
 
   .MuiAlert-action {
     @apply items-center pt-0;
   }
 
-  .MuiAlert-outlinedSuccess {
-    @apply text-success;
-  }
+  /* The template's `outlined` rules painted the message in the severity
+     colour. Deleted rather than renamed: MUI already draws the border from
+     `palette[sev].light` (a direct reference, so it works), and the message
+     colour would land in the same contrast hole as above. No Alert outside
+     the /ui showcase uses this variant. */
 
-  .MuiAlert-outlinedError {
-    @apply text-error;
-  }
-
-  .MuiAlert-outlinedWarning {
-    @apply text-warning;
-  }
-
-  .MuiAlert-outlinedInfo {
-    @apply text-info;
-  }
-
-  .MuiAlert-filledSuccess,
-  .MuiAlert-filledWarning,
-  .MuiAlert-filledInfo,
-  .MuiAlert-filledError {
+  /* `filled` is the one place where the template's intent still holds, and
+     only for error. MUI picks the text colour with `getContrastText`, which
+     returns black for all four: right for success (9.86:1), info (9.90:1)
+     and warning (8.38:1), wrong for error, where black lands at 3.95:1 and
+     white would give 5.31:1. So error is overridden and the other three are
+     left to MUI. */
+  .MuiAlert-filled.MuiAlert-colorError {
     @apply text-text-contrast;
   }
 
+  /* `neutral` is the app's own quiet Alert, and by far its most common one:
+     186 of the 298 in the product carry it. It comes AFTER the severity
+     rules on purpose — same specificity, so source order is what keeps a
+     deliberately quiet panel quiet. */
   .MuiAlert-root.neutral {
     @apply border-grey-100 bg-background-paper border border-solid;
 

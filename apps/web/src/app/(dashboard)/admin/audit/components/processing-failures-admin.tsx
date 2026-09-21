@@ -117,9 +117,12 @@ export default function ProcessingFailuresAdmin() {
         headerName: "Etapa",
         minWidth: 150,
         renderCell: (params: GridRenderCellParams<FailureRow, string | null>) => (
+          // No colour on the chip: every row in this grid is a failure, so red
+          // would mark nothing here and would spend the one signal that has to
+          // stay scarce. The stage is a place, not a severity.
           <Box className="flex h-full items-center">
             {params.value ? (
-              <Chip label={params.value} size="small" color="error" variant="outlined" />
+              <Chip label={params.value} size="small" variant="outlined" />
             ) : (
               <Typography variant="body2" className="text-text-secondary">
                 —

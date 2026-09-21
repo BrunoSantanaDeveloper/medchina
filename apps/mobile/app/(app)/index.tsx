@@ -144,7 +144,7 @@ export default function Today() {
                   {time(consultation.startedAt)}
                 </Text>
                 {consultation.status === "in_progress" && (
-                  <Chip compact mode="flat" textStyle={{ fontSize: 11 }}>
+                  <Chip compact mode="flat" accessibilityRole="text" textStyle={{ fontSize: 12 }}>
                     {t("today-in-progress")}
                   </Chip>
                 )}
@@ -159,7 +159,7 @@ export default function Today() {
               {consultation.alerts.length > 0 && (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: GRID / 2, marginTop: GRID / 2 }}>
                   {consultation.alerts.map((alert, index) => (
-                    <Chip key={index} compact mode="outlined" textStyle={{ fontSize: 11 }}>
+                    <Chip key={index} compact mode="outlined" accessibilityRole="text" textStyle={{ fontSize: 12 }}>
                       {alert.label}
                     </Chip>
                   ))}
