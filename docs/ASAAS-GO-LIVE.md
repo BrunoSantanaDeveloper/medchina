@@ -75,21 +75,28 @@ O código já trata — e depende de — cinco eventos que **o Asaas não está 
 
 **Ação:** adicionar os cinco ao webhook, em sandbox e em produção.
 
-### 1.5 O domínio de retorno não está registrado
+### 1.5 Nenhum site cadastrado na conta — BLOQUEIA a venda (confirmado em produção)
 
-O checkout agora manda `callback.successUrl` para que a cliente volte ao app depois de pagar.
-O Asaas recusa a cobrança se o domínio não estiver cadastrado:
+O checkout manda `callback.successUrl` para que a cliente volte ao app depois de pagar.
+O Asaas recusa **a cobrança inteira** se a conta não tiver um site cadastrado. Ele usa
+redações diferentes por ambiente, o que custou caro:
 
 ```
-invalid_object: É necessário enviar uma URL que use o mesmo domínio cadastrado
-                nas suas Minha Conta na aba Informações.
+sandbox:   invalid_object: É necessário enviar uma URL que use o mesmo domínio
+                           cadastrado nas suas Minha Conta na aba Informações.
+produção:  invalid_object: Não há nenhum domínio configurado em sua conta.
+                           Cadastre um site em Minha Conta na aba Informações.
 ```
 
-O código trata isso: detecta essa recusa específica e recria a cobrança **sem** o callback,
-registrando `asaas_callback_domain_not_registered`. Ou seja, a venda nunca quebra por
-causa disso — mas sem o cadastro a cliente fica parada na página do Asaas depois de pagar.
+O fallback original casava a prosa da primeira mensagem e **não reconheceu a segunda**:
+na primeira venda real de produção o erro subiu como "unavailable" e a assinatura não
+foi criada. Corrigido — a repetição sem callback agora é decidida pelo **status 400**,
+nunca pelo texto (401/403/5xx continuam subindo como si mesmos). Verificado contra as
+duas redações.
 
-**Ação:** cadastrar `ai.medchinaprontuarios.com.br` em *Minha Conta → Informações*.
+**Ação — ainda necessária:** cadastrar `ai.medchinaprontuarios.com.br` em
+*Minha Conta → Informações*. Sem isso a venda passa, mas a cliente fica parada na página
+do Asaas depois de pagar, em vez de voltar para o app.
 
 ### 1.6 E-mail transacional desligado
 
@@ -171,6 +178,15 @@ O Stripe continua mandando a metadata completa: lá o limite é 500 por valor.
 O parser aceita as duas formas, então uma cobrança criada antes disso ainda reconcilia.
 O teste `billing-reference.test.ts` fixa o comprimento em 98 — uma quarta chave não entra
 sem o teste recusar.
+
+### 2.6 A causa da falha passou a ficar no banco
+
+`billing_operations.error_code` gravava o literal `provider_unavailable` para um payload
+recusado, uma chave no ambiente errado e uma conta em análise — três problemas com três
+soluções. Duas vezes seguidas, diagnosticar uma venda perdida exigiu reproduzir a chamada
+à mão. Agora o erro do Asaas é tipado (`AsaasApiError`, com status, code e description) e
+a falha se nomeia sozinha: `provider_400_invalid_object`, `provider_401_invalid_environment`,
+`provider_403_account_disabled`. Sem dado de cliente, legível numa query.
 
 ---
 

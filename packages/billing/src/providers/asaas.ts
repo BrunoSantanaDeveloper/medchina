@@ -32,9 +32,46 @@ function baseUrl() {
   return configured ? configured.replace(/\/+$/u, "") : "https://api-sandbox.asaas.com/v3";
 }
 
+/**
+ * What Asaas actually said, in a form the caller can record.
+ *
+ * A thrown string is enough for a log nobody is reading at 9pm on launch day.
+ * Twice now, diagnosing a refused checkout meant reproducing the call by hand
+ * because the only durable trace was `provider_unavailable` — the same code
+ * for a rejected payload, a wrong environment and an account still in review.
+ * The status and the provider's own error code ride along so the failure can
+ * name itself in `billing_operations`.
+ */
+export class AsaasApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly description: string;
+  readonly endpoint: string;
+
+  constructor(endpoint: string, status: number, body: string) {
+    let code = "";
+    let description = "";
+    try {
+      const parsed = JSON.parse(body) as { errors?: { code?: string; description?: string }[] };
+      code = parsed.errors?.[0]?.code ?? "";
+      description = parsed.errors?.[0]?.description ?? "";
+    } catch {
+      // Not the documented error envelope — keep the raw body as the reason.
+      description = body.slice(0, 200);
+    }
+    super(`Asaas ${endpoint} failed (${status})${code ? ` ${code}` : ""}: ${description || body.slice(0, 200)}`);
+    this.name = "AsaasApiError";
+    this.status = status;
+    this.code = code;
+    this.description = description;
+    this.endpoint = endpoint;
+  }
+}
+
 async function asaasFetch<T>(path: string, init?: RequestInit, idempotencyKey?: string): Promise<T> {
   const key = process.env.ASAAS_API_KEY;
   if (!key) throw new Error("ASAAS_API_KEY is not set");
+  const method = init?.method ?? "GET";
   const response = await fetch(`${baseUrl()}${path}`, {
     ...init,
     headers: {
@@ -45,8 +82,7 @@ async function asaasFetch<T>(path: string, init?: RequestInit, idempotencyKey?: 
     },
   });
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Asaas ${init?.method ?? "GET"} ${path} failed (${response.status}): ${body}`);
+    throw new AsaasApiError(`${method} ${path}`, response.status, await response.text());
   }
   return (await response.json()) as T;
 }
@@ -65,12 +101,22 @@ const digits = (value: string | null | undefined) => (value ?? "").replace(/\D/g
  * ("your plan is live") happens with nobody looking. `successUrl` is the same
  * URL the Stripe checkout already returns to.
  *
- * The catch, learned against the sandbox: Asaas REFUSES the request when the
- * callback domain is not registered under "Minha Conta → Informações"
- * (`invalid_object: É necessário enviar uma URL que use o mesmo domínio…`).
- * A return link is a nicety; a refused checkout is a lost sale. So the request
- * is retried without the callback on exactly that rejection, and the reason is
- * logged so the operator can register the domain.
+ * Asaas refuses the whole request when the account has no site registered
+ * under "Minha Conta → Informações", or when the URL's domain is not that
+ * site. A return link is a nicety; a refused checkout is a lost sale, so the
+ * request is retried without it.
+ *
+ * **The retry is decided by the STATUS, never by the message.** The previous
+ * version matched the Portuguese description, and the provider has at least
+ * two wordings for this same condition — sandbox says "é necessário enviar uma
+ * URL que use o mesmo domínio", production says "não há nenhum domínio
+ * configurado em sua conta". The regex was written against the first and met
+ * the second in production, on the launch's first real sale: it did not match,
+ * the error surfaced as a generic "unavailable", and the customer could not
+ * subscribe. Matching prose from a third party is a guess; the callback is the
+ * only optional thing in this payload, so a 400 on a request that carries it
+ * is reason enough to try once without it and let the outcome say which it
+ * was.
  */
 async function createWithReturnCallback<T>(
   path: string,
@@ -89,13 +135,39 @@ async function createWithReturnCallback<T>(
       idempotencyKey,
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (!/mesmo dom[ií]nio|callback/iu.test(message)) throw error;
-    console.warn("asaas_callback_domain_not_registered", { path, successUrl: returnTo });
-    // A DIFFERENT idempotency key: the first attempt already spent this one,
-    // and a provider that caches the rejected response under it would hand
-    // back the 400 forever instead of creating the charge.
-    return asaasFetch<T>(path, { method: "POST", body: JSON.stringify(body) }, `${idempotencyKey}:nocallback`);
+    // Anything other than a rejected payload (401, 403, 5xx, a network fault)
+    // has nothing to do with the callback and must surface as itself.
+    if (!(error instanceof AsaasApiError) || error.status !== 400) throw error;
+
+    let created: T;
+    try {
+      // A DIFFERENT idempotency key: the first attempt already spent this one,
+      // and a provider that caches the rejected response under it would hand
+      // back the 400 forever instead of creating the charge.
+      created = await asaasFetch<T>(
+        path,
+        { method: "POST", body: JSON.stringify(body) },
+        `${idempotencyKey}:nocallback`,
+      );
+    } catch (withoutCallback) {
+      // The callback was not the problem. Surface THIS error, not the first:
+      // the payload without our optional field is what actually failed, and
+      // its message is the one that names the real cause.
+      throw withoutCallback;
+    }
+
+    // It worked without the callback, so the callback WAS the rejected part.
+    // Said plainly, because the fix is a two-minute change in the Asaas panel
+    // and the cost of not making it is every customer stranded on the payment
+    // page after paying.
+    console.warn("asaas_callback_rejected_register_site", {
+      path,
+      successUrl: returnTo,
+      providerCode: error.code,
+      providerDescription: error.description,
+      fix: "Cadastre o site em Minha Conta → Informações no painel do Asaas.",
+    });
+    return created;
   }
 }
 

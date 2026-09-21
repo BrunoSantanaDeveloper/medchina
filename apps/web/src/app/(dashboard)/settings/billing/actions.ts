@@ -203,11 +203,42 @@ type ActiveBillingClaim = {
  * between eight paths that share one code. The message is the operator's, not
  * the customer's.
  */
+/**
+ * A short, storable reason for a provider refusal.
+ *
+ * `billing_operations.error_code` was always the literal `provider_unavailable`,
+ * which is true of a rejected payload, a key pointing at the wrong
+ * environment, and an account still under review — three problems with three
+ * different fixes. Reading the real cause meant hunting through hosting logs
+ * during a launch. The provider's own status and error code are short, carry
+ * no customer data, and turn that hunt into one query.
+ */
+function providerFailureCode(error: unknown): string {
+  if (!(error instanceof Error)) return "provider_unavailable";
+  const status = (error as { status?: number }).status;
+  const code = (error as { code?: string }).code;
+  if (status || code) {
+    return `provider_${status ?? "error"}${code ? `_${code}` : ""}`.slice(0, 120);
+  }
+  // Not a provider HTTP failure (a thrown URL parse, a missing key…): keep the
+  // message, trimmed, rather than collapsing it to nothing.
+  return `provider_error_${error.message.replace(/\s+/gu, " ").slice(0, 90)}`;
+}
+
 function logBillingFailure(stage: string, context: Record<string, unknown>, error?: unknown) {
   console.error("billing_checkout_failed", {
     stage,
     ...context,
-    ...(error instanceof Error ? { message: error.message, name: error.name } : error ? { error: String(error) } : {}),
+    ...(error instanceof Error
+      ? {
+          message: error.message,
+          name: error.name,
+          providerStatus: (error as { status?: number }).status,
+          providerCode: (error as { code?: string }).code,
+        }
+      : error
+        ? { error: String(error) }
+        : {}),
   });
 }
 
@@ -429,7 +460,7 @@ export async function startCheckout(input: {
     // a base URL that is not a URL. Losing it is what turns "she cannot
     // subscribe" into an archaeology exercise over billing_operations.
     logBillingFailure("provider_call_threw", { orgId: input.orgId, planId: input.planId }, error);
-    await failBillingClaim(activeClaim, "provider_unavailable");
+    await failBillingClaim(activeClaim, providerFailureCode(error));
     return { error: "unavailable" };
   }
 }
@@ -609,7 +640,7 @@ export async function startPackCheckout(input: {
     // a base URL that is not a URL. Losing it is what turns "she cannot
     // subscribe" into an archaeology exercise over billing_operations.
     logBillingFailure("provider_call_threw", { orgId: input.orgId, planId: input.planId }, error);
-    await failBillingClaim(activeClaim, "provider_unavailable");
+    await failBillingClaim(activeClaim, providerFailureCode(error));
     if (error instanceof Error && error.message === "asaas_missing_document") {
       return { error: "billing_profile_required" };
     }
