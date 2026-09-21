@@ -13,12 +13,20 @@ import { createClient } from "@flyee/auth/client";
 type OfferConfig = {
   enabled: boolean;
   plan_slug: string;
+  /** Second price offered beside the first. Empty = one price only. */
+  annual_plan_slug: string;
   compare_plan_slug: string;
   /** ISO string, or "" for no deadline. */
   deadline: string;
 };
 
-const EMPTY: OfferConfig = { enabled: false, plan_slug: "", compare_plan_slug: "", deadline: "" };
+const EMPTY: OfferConfig = {
+  enabled: false,
+  plan_slug: "",
+  annual_plan_slug: "",
+  compare_plan_slug: "",
+  deadline: "",
+};
 
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time; the setting stores ISO. */
 function toLocalInput(iso: string): string {
@@ -67,6 +75,7 @@ export default function CampaignOfferAdmin() {
     setConfig({
       enabled: value.enabled === true,
       plan_slug: typeof value.plan_slug === "string" ? value.plan_slug : "",
+      annual_plan_slug: typeof value.annual_plan_slug === "string" ? value.annual_plan_slug : "",
       compare_plan_slug: typeof value.compare_plan_slug === "string" ? value.compare_plan_slug : "",
       deadline: typeof value.deadline === "string" ? value.deadline : "",
     });
@@ -89,6 +98,7 @@ export default function CampaignOfferAdmin() {
         ...rawValue,
         enabled: config.enabled,
         plan_slug: config.plan_slug.trim(),
+        annual_plan_slug: config.annual_plan_slug.trim(),
         compare_plan_slug: config.compare_plan_slug.trim(),
         deadline: config.deadline || null,
       },
@@ -102,6 +112,7 @@ export default function CampaignOfferAdmin() {
       metadata: {
         enabled: config.enabled,
         plan_slug: config.plan_slug.trim(),
+        annual_plan_slug: config.annual_plan_slug.trim(),
         compare_plan_slug: config.compare_plan_slug.trim(),
         deadline: config.deadline || null,
       },
@@ -115,6 +126,7 @@ export default function CampaignOfferAdmin() {
   const state = resolveCampaignOffer({
     enabled: config.enabled,
     plan_slug: config.plan_slug,
+    annual_plan_slug: config.annual_plan_slug,
     compare_plan_slug: config.compare_plan_slug,
     deadline: config.deadline || null,
   });
@@ -145,6 +157,18 @@ export default function CampaignOfferAdmin() {
       </RowLine>
 
       <OfferPreview plans={plans} planSlug={config.plan_slug} compareSlug={config.compare_plan_slug} label="/assinar" />
+      {/* Read separately because the annual line is where the audio quota goes
+          wrong: the franchise is spent inside ONE billing cycle, so a yearly
+          row needs twelve times the monthly figure, and copying the monthly
+          number delivers a twelfth of what the page promises. */}
+      {config.annual_plan_slug.trim() ? (
+        <OfferPreview
+          plans={plans}
+          planSlug={config.annual_plan_slug}
+          compareSlug={config.compare_plan_slug}
+          label="/assinar (segundo preço)"
+        />
+      ) : null}
 
       <FormControlLabel
         control={
@@ -160,6 +184,11 @@ export default function CampaignOfferAdmin() {
         label="Slug do plano da campanha (o plano que os anúncios vendem)"
         value={config.plan_slug}
         onChange={(value) => setConfig({ ...config, plan_slug: value })}
+      />
+      <Field
+        label="Slug do segundo plano, normalmente o anual (vazio = um preço só)"
+        value={config.annual_plan_slug}
+        onChange={(value) => setConfig({ ...config, annual_plan_slug: value })}
       />
       <Field
         label="Slug do plano de âncora (preço riscado — vazio para nenhum)"

@@ -557,3 +557,74 @@
   font-size: 0.9rem;
   line-height: 1.5;
 }
+
+/* ---------- Billing cycle switch ----------
+   Only one price is ever on screen. Two full price cards would turn a
+   cold-traffic page into a comparison exercise before the visitor knows what
+   the product does, and the monthly figure — the one that removes the
+   barrier — would stop being what she reads first. */
+
+.offer-cycle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+}
+
+.offer-cycle-option {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.offer-cycle-option:hover {
+  color: var(--ink);
+}
+
+.offer-cycle-option.is-active {
+  background: var(--jade);
+  color: var(--white);
+}
+
+.offer-cycle-option span {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.offer-cycle-option:not(.is-active) span {
+  color: var(--jade-deep);
+}
+
+.offer-cycle-option:focus-visible {
+  outline: 2px solid var(--jade-deep);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .offer-cycle {
+    width: 100%;
+  }
+
+  .offer-cycle-option {
+    flex: 1;
+    justify-content: center;
+    padding: 9px 10px;
+  }
+}

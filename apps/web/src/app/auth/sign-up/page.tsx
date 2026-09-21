@@ -73,7 +73,7 @@ export default function Page() {
    * being asked for. Three fields, and the header says how many steps are left,
    * because an unbounded form reads as bureaucracy even when it is short.
    */
-  const buyingPlan = Boolean(next?.startsWith("/settings/billing"));
+  const buyingPlan = Boolean(next?.startsWith("/assinatura") || next?.startsWith("/settings/billing"));
   const [serverError, setServerError] = useState<string | null>(null);
 
   const validationSchema = yup.object({

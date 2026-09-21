@@ -1,3 +1,4 @@
+import OfferPriceChoice, { type PriceOption } from "../components/offer-price-choice";
 import OfferTestimonials from "../components/offer-testimonials";
 import { Metadata } from "next";
 
@@ -98,42 +99,100 @@ export default async function AssinarPage({
   // desonestidade que a regra da escassez real proíbe — e ficou visível no
   // instante em que o cadastro passou a existir antes da abertura (0107).
   const plan = offer && !offer.closed && offer.planSlug ? await getPlanBySlug(offer.planSlug) : null;
+  // The second cycle, only ever beside a first one: an annual slug configured
+  // without a default plan opens nothing, by the same rule `resolveCampaignOffer`
+  // applies.
+  const annualPlan = plan && offer?.annualPlanSlug ? await getPlanBySlug(offer.annualPlanSlug) : null;
   const comparePlan = plan && offer?.comparePlanSlug ? await getPlanBySlug(offer.comparePlanSlug) : null;
   // `plan` já só existe para uma oferta aberta, então isto é só a checagem
   // de que o slug configurado casa com um plano ativo de verdade.
   const open = Boolean(plan);
 
-  const nextAfterAuth = plan ? `/settings/billing?plan=${plan.slug}` : null;
-  const checkoutHref = nextAfterAuth ? `/auth/sign-up?next=${encodeURIComponent(nextAfterAuth)}` : "/contato";
+  /**
+   * Straight to the checkout screen, through sign-up.
+   *
+   * Not to `/settings/billing` any more: that is the settings hub, and a
+   * visitor who came from an ad to buy was landing on usage meters, minute
+   * packs, invoice history and a card announcing the free plan she is on —
+   * with a whole app menu beside it. `/assinatura` is one screen with nothing
+   * to click but forward.
+   *
+   * Through `/auth/sign-up` rather than straight at `/assinatura` because the
+   * middleware sends an anonymous visitor to sign-IN, which is the wrong door
+   * for cold traffic. Sign-up is the right door, and the middleware already
+   * bounces an ALREADY signed-in visitor from it directly to `next` — so the
+   * one link serves both without asking who she is.
+   */
+  const checkoutPath = (slug: string) => `/assinatura?plan=${slug}`;
+  const checkoutFor = (slug: string) => `/auth/sign-up?next=${encodeURIComponent(checkoutPath(slug))}`;
+  const checkoutHref = plan ? checkoutFor(plan.slug) : "/contato";
   // Part of this audience already has an account from the card-less trial, and
   // signing up again lands on "confirme seu e-mail" for a message that never
   // arrives. The way back in belongs on the page.
-  const signInHref = nextAfterAuth ? `/auth/sign-in?next=${encodeURIComponent(nextAfterAuth)}` : null;
+  const signInHref = plan ? `/auth/sign-in?next=${encodeURIComponent(checkoutPath(plan.slug))}` : null;
 
-  const periodSuffix = plan?.period ? (PERIOD_SUFFIX[plan.period] ?? "") : "";
-  const periodEvery = plan?.period ? (PERIOD_EVERY[plan.period] ?? "a cada ciclo") : "a cada ciclo";
-
-  // The anchor is a REAL catalogue price. A monthly table price anchoring a
-  // yearly offer is annualized and said out loud; anything else would be a
-  // struck price nobody was ever charged.
-  const anchorCents =
-    comparePlan && plan
-      ? comparePlan.period === "monthly" && plan.period === "yearly"
+  /**
+   * One price option, formatted here so the client component computes nothing.
+   *
+   * The anchor is a REAL catalogue price. A monthly table price anchoring a
+   * yearly offer is annualized and said out loud; anything else would be a
+   * struck price nobody was ever charged, and a period pair that cannot be
+   * compared yields no anchor at all rather than a made-up one.
+   */
+  const buildOption = (row: NonNullable<typeof plan>, cycleLabel: string, tabBadge: string | null): PriceOption => {
+    const anchorCents = comparePlan
+      ? comparePlan.period === "monthly" && row.period === "yearly"
         ? comparePlan.priceCents * 12
-        : comparePlan.period === plan.period
+        : comparePlan.period === row.period
           ? comparePlan.priceCents
           : 0
       : 0;
-  const anchorNote =
-    comparePlan && anchorCents > 0 && comparePlan.period === "monthly" && plan?.period === "yearly"
-      ? `Preço de tabela do ${comparePlan.name}: 12 × ${BRL.format(comparePlan.priceCents / 100)} por mês.`
-      : comparePlan && anchorCents > 0
-        ? `Preço de tabela do ${comparePlan.name}.`
-        : null;
-  const savings =
-    plan && anchorCents > plan.priceCents ? Math.round(((anchorCents - plan.priceCents) / anchorCents) * 100) : null;
+    const savings =
+      anchorCents > row.priceCents ? Math.round(((anchorCents - row.priceCents) / anchorCents) * 100) : null;
+    const monthlyEquivalentCents = row.period === "yearly" ? Math.round(row.priceCents / 12) : null;
+    return {
+      slug: row.slug,
+      cycleLabel,
+      price: BRL.format(row.priceCents / 100),
+      periodSuffix: row.period ? (PERIOD_SUFFIX[row.period] ?? "") : "",
+      struck: anchorCents > 0 ? BRL.format(anchorCents / 100) : null,
+      savings,
+      note: monthlyEquivalentCents
+        ? `Equivale a ${BRL.format(monthlyEquivalentCents / 100)} por mês, em um pagamento anual único.`
+        : null,
+      anchorNote:
+        comparePlan && anchorCents > 0 && comparePlan.period === "monthly" && row.period === "yearly"
+          ? `Preço de tabela do ${comparePlan.name}: 12 × ${BRL.format(comparePlan.priceCents / 100)} por mês.`
+          : comparePlan && anchorCents > 0
+            ? `Preço de tabela do ${comparePlan.name}.`
+            : null,
+      tabBadge,
+      href: checkoutFor(row.slug),
+      ctaLabel: `Assinar o ${row.name}`,
+    };
+  };
 
-  const monthlyEquivalentCents = plan && plan.period === "yearly" ? Math.round(plan.priceCents / 12) : null;
+  /**
+   * "2 meses grátis" only when it is literally true.
+   *
+   * Derived from the two rows rather than written: the badge appears only when
+   * the annual divides exactly into whole monthly payments, so it can never
+   * announce a round number the prices do not produce. Anything else falls
+   * back to the percentage the panel already shows.
+   */
+  const monthsFree =
+    plan && annualPlan && plan.priceCents > 0 && annualPlan.priceCents % plan.priceCents === 0
+      ? 12 - annualPlan.priceCents / plan.priceCents
+      : null;
+
+  const priceOptions: PriceOption[] = plan
+    ? [
+        buildOption(plan, plan.period === "yearly" ? "Anual" : "Mensal", null),
+        ...(annualPlan
+          ? [buildOption(annualPlan, "Anual", monthsFree && monthsFree > 0 ? `${monthsFree} meses grátis` : null)]
+          : []),
+      ]
+    : [];
 
   // An `audio_minutes` limit is spent over one billing cycle
   // (`org_audio_allowance`, migration 0024), so it is printed with the plan's
@@ -142,6 +201,13 @@ export default async function AssinarPage({
   const audioMinutes = plan?.limits?.audio_minutes ?? 0;
   const audioSuffix = plan?.period ? (PERIOD_SUFFIX[plan.period] ?? "por ciclo") : "por ciclo";
   const hasReasoning = (plan?.limits?.clinical_reasoning ?? 0) > 0;
+  // With two cycles on the page, naming one of them in the FAQ is wrong for
+  // whoever picked the other.
+  const renewalSentence = annualPlan
+    ? "no mesmo ciclo que você escolher, mensal ou anual"
+    : plan?.period
+      ? (PERIOD_EVERY[plan.period] ?? "a cada ciclo")
+      : "a cada ciclo";
 
   const deadlineLabel = offer?.deadline ? DEADLINE_FORMAT.format(new Date(offer.deadline)) : null;
 
@@ -165,32 +231,7 @@ export default async function AssinarPage({
 
             {open && plan ? (
               <>
-                <div className="offer-price">
-                  {savings ? (
-                    <p className="offer-price-was">
-                      <s>
-                        {BRL.format(anchorCents / 100)}
-                        {periodSuffix ? `/${periodSuffix.replace("por ", "")}` : ""}
-                      </s>
-                      <span className="offer-price-badge">{savings}% de economia</span>
-                    </p>
-                  ) : null}
-                  <p className="offer-price-now">
-                    <strong>{BRL.format(plan.priceCents / 100)}</strong>
-                    <small>{periodSuffix}</small>
-                  </p>
-                  {monthlyEquivalentCents ? (
-                    <p className="offer-price-note">
-                      Equivale a {BRL.format(monthlyEquivalentCents / 100)} por mês, em um pagamento anual único.
-                    </p>
-                  ) : null}
-                  {anchorNote ? <p className="offer-price-note">{anchorNote}</p> : null}
-                </div>
-                <div className="hero-actions">
-                  <a className="button" href={checkoutHref}>
-                    Assinar o {plan.name} <ArrowRight size={18} />
-                  </a>
-                </div>
+                <OfferPriceChoice options={priceOptions} />
                 <p className="hero-guarantee">
                   <CheckCircle size={16} weight="fill" /> {guaranteeDays} dias de garantia · PIX, boleto ou cartão ·
                   cancele pelo painel
@@ -472,7 +513,10 @@ export default async function AssinarPage({
               <span aria-hidden="true">2</span>
               <div>
                 <h3>Informe CPF ou CNPJ</h3>
-                <p>É o dado fiscal que a operadora de pagamento exige para emitir a sua fatura.</p>
+                <p>
+                  Numa tela só, junto com o resumo do plano. É o dado fiscal que a operadora exige para emitir a fatura,
+                  e o mesmo botão que salva já abre o pagamento.
+                </p>
               </div>
             </li>
             <li>
@@ -539,9 +583,10 @@ export default async function AssinarPage({
               <span aria-hidden="true">+</span>
             </summary>
             <p>
-              A assinatura é renovada {periodEvery}, por PIX, boleto ou cartão, e você cancela quando quiser pelo
+              A assinatura é renovada {renewalSentence}, por PIX, boleto ou cartão, e você cancela quando quiser pelo
               próprio painel, mantendo o acesso até o fim do período já pago. Dentro dos {guaranteeDays} dias, o
-              reembolso é integral.
+              reembolso é integral. O preço desta condição fica travado enquanto a sua assinatura durar: não existe
+              reajuste para o valor de tabela na renovação.
             </p>
           </details>
           {audioMinutes > 0 ? (
@@ -551,9 +596,10 @@ export default async function AssinarPage({
                 <span aria-hidden="true">+</span>
               </summary>
               <p>
-                O plano inclui {NUMBER.format(audioMinutes)} minutos de áudio {audioSuffix}. Quando a franquia acaba, o
-                prontuário, a agenda e as consultas escritas seguem funcionando, e você pode comprar um pacote avulso de
-                minutos pelo painel.
+                O plano inclui {NUMBER.format(audioMinutes)} minutos de áudio {audioSuffix}
+                {annualPlan ? ", e o anual traz a franquia do ano inteiro" : ""}. Quando a franquia acaba, o prontuário,
+                a agenda e as consultas escritas seguem funcionando, e você pode comprar um pacote avulso de minutos
+                pelo painel.
               </p>
             </details>
           ) : null}

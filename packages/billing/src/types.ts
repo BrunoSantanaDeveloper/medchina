@@ -183,6 +183,72 @@ export interface PaymentProvider {
   parseWebhook(rawBody: string, headers: Record<string, string | null>): Promise<BillingEvent[]>;
 }
 
+/**
+ * The checkout metadata, packed to survive a provider's field limit.
+ *
+ * Asaas caps `externalReference` at **100 characters** — measured against the
+ * API, not documented (101 is rejected with `invalid_externalReference`). The
+ * obvious encoding, `JSON.stringify(metadata)`, produces 177: three UUIDs plus
+ * their long key names. So EVERY Asaas checkout was refused before the
+ * customer ever saw a payment page — subscriptions and minute packs alike —
+ * and the only trace was a generic "unavailable".
+ *
+ * The packed form is the three ids that the webhook actually reads, stripped
+ * of their hyphens and joined by a dot: `<org>.<plan>[.<coupon>]`. Worst case
+ * 98 characters, which the unit test pins. What it deliberately drops is what
+ * nothing consumes: `billing_operation_key` (never read) and `module_ids`
+ * (MedChina ships no order-bump modules, and Stripe — whose metadata has no
+ * such limit — still carries both).
+ */
+const HEX32 = /^[0-9a-f]{32}$/u;
+const compactId = (id: string) => id.replace(/-/gu, "").toLowerCase();
+const expandId = (hex: string) =>
+  `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+
+export function packCheckoutReference(metadata: {
+  org_id: string;
+  plan_id: string;
+  coupon_id?: string;
+}): string {
+  const parts = [compactId(metadata.org_id), compactId(metadata.plan_id)];
+  if (metadata.coupon_id) parts.push(compactId(metadata.coupon_id));
+  return parts.join(".");
+}
+
+/**
+ * Reads back what `packCheckoutReference` wrote.
+ *
+ * Also accepts the legacy JSON shape, because a charge created before this
+ * change still has to reconcile, and returns `{}` for anything else — an
+ * Asaas account delivers webhooks for charges created by hand in its panel,
+ * whose reference is any string the operator typed.
+ */
+export function parseCheckoutReference(reference: string | null | undefined): Partial<CheckoutMetadata> {
+  const raw = reference?.trim();
+  if (!raw) return {};
+
+  const segments = raw.split(".");
+  if (segments.length >= 2 && segments.length <= 3 && segments.every((part) => HEX32.test(part))) {
+    return {
+      org_id: expandId(segments[0]),
+      plan_id: expandId(segments[1]),
+      ...(segments[2] ? { coupon_id: expandId(segments[2]) } : {}),
+    };
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    // Only an object is our metadata; a number or an array would otherwise be
+    // spread and read as a malformed org id downstream.
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Partial<CheckoutMetadata>;
+    }
+  } catch {
+    // Someone else's reference — not ours to interpret.
+  }
+  return {};
+}
+
 /** Discounted total in cents for a one-off charge (plan + one-time modules). */
 export function applyDiscount(totalCents: number, coupon?: CheckoutCoupon): number {
   if (!coupon) return totalCents;

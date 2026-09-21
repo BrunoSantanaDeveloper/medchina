@@ -6,7 +6,7 @@ import type {
   CheckoutResult,
   PaymentProvider,
 } from "../types";
-import { applyDiscount } from "../types";
+import { applyDiscount, packCheckoutReference, parseCheckoutReference } from "../types";
 
 const PERIOD_TO_CYCLE: Record<BillingPeriod, string> = {
   weekly: "WEEKLY",
@@ -206,14 +206,13 @@ export class AsaasProvider implements PaymentProvider {
       idempotencyKey: input.idempotencyKey,
     });
 
-    const metadata: CheckoutMetadata = {
+    // Packed, not JSON: Asaas rejects an `externalReference` over 100 chars,
+    // and the JSON form is 177. See packCheckoutReference.
+    const externalReference = packCheckoutReference({
       org_id: input.orgId,
       plan_id: plan.id,
-      module_ids: modules.map((m) => m.id).join(","),
-      billing_operation_key: input.idempotencyKey,
       ...(coupon ? { coupon_id: coupon.id } : {}),
-    };
-    const externalReference = JSON.stringify(metadata);
+    });
 
     const recurringCents =
       plan.priceCents + modules.filter((m) => m.kind === "recurring").reduce((sum, m) => sum + m.priceCents, 0);
@@ -345,19 +344,11 @@ export class AsaasProvider implements PaymentProvider {
 
     const providerEventId = body.id ?? `${body.event}:${payment?.id ?? subscription?.id}`;
 
-    let metadata: Partial<CheckoutMetadata> = {};
-    try {
-      const reference = payment?.externalReference ?? subscription?.externalReference;
-      const parsed: unknown = reference ? JSON.parse(reference) : {};
-      // A charge created in the Asaas panel can carry any string here. Only an
-      // object is our metadata; a number or an array would otherwise be spread
-      // into `metadata` and read as a malformed org id downstream.
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        metadata = parsed as Partial<CheckoutMetadata>;
-      }
-    } catch {
-      // externalReference set by someone else — ignore.
-    }
+    // Handles the packed form, the legacy JSON, and anything a human typed in
+    // the Asaas panel (which yields {} and is skipped as a foreign event).
+    const metadata: Partial<CheckoutMetadata> = parseCheckoutReference(
+      payment?.externalReference ?? subscription?.externalReference,
+    );
 
     /** Asaas sends "yyyy-MM-dd"; anything unparseable must not become an Invalid Date. */
     const paidAt = (): Date => {

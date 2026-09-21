@@ -71,7 +71,16 @@ export default function BillingSettings() {
    * removed, only deferred: the full screen is one link away, and the moment a
    * subscription exists this mode stops applying by itself.
    */
-  const checkoutFocus = Boolean(offerSlug) && canManage && !subscription;
+  //
+  // `subscription.isFree`, NUNCA `!subscription`: toda organização nasce com
+  // uma assinatura ATIVA do plano Gratuito, criada por gatilho de banco
+  // (0001_billing.sql, `where is_free and is_active`). Com `!subscription` a
+  // condição era falsa para todo usuário real e este modo nunca ligava em
+  // produção — a pessoa que veio do anúncio caía na tela de configurações
+  // inteira, com medidor de uso, pacotes avulsos, histórico de faturas e um
+  // cartão anunciando "Seu plano: Gratuito", que é justamente o que a oferta
+  // não menciona. O teste local não pegou porque lá não havia workspace.
+  const checkoutFocus = Boolean(offerSlug) && canManage && (!subscription || subscription.isFree);
 
   const loadCheckoutAvailability = useCallback(async () => {
     setCheckoutState(remoteLoading());

@@ -49,7 +49,7 @@ export default function Page() {
    * difference between "confirm your e-mail" (a chore) and "confirm and finish
    * subscribing" (the thing she came to do).
    */
-  const buyingPlan = Boolean(next?.startsWith("/settings/billing"));
+  const buyingPlan = Boolean(next?.startsWith("/assinatura") || next?.startsWith("/settings/billing"));
 
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");

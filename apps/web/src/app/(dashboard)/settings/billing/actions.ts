@@ -144,9 +144,15 @@ async function offerBlock(
 
     if (!campaign.error) {
       const offer = resolveCampaignOffer((campaign.data?.value ?? null) as CampaignOfferSetting | null);
+      // BOTH slugs, not just the default one. A campaign that sells a monthly
+      // and an annual side by side has two plans whose price the deadline
+      // promised; gating only the first would let the annual keep selling
+      // after the condition it was announced under had ended, which is the
+      // fake-scarcity failure the whole mechanism exists to prevent.
+      const named = offer.planSlug === planSlug || offer.annualPlanSlug === planSlug;
       // `not_configured` names the absence of a campaign, not a closed one:
       // the plan is then an ordinary catalogue plan and sells normally.
-      if (offer.planSlug === planSlug && offer.closed && offer.reason !== "not_configured") return offer.reason;
+      if (named && offer.closed && offer.reason !== "not_configured") return offer.reason;
     }
 
     return null;

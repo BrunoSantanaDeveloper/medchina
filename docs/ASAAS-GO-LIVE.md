@@ -151,6 +151,27 @@ custo de errar é uma cobrança órfã. Agora são até 6 tentativas com espera 
 do item 1.5. A chave de idempotência do retry é diferente da original, porque a primeira já
 foi gasta na requisição recusada.
 
+### 2.5 `externalReference` estourava o limite — nenhuma venda Asaas jamais passou
+
+Descoberto em 21/09, com o erro real do `pro-anual`. O Asaas recusa um
+`externalReference` acima de **100 caracteres** (medido contra a API: 100 passa,
+101 devolve `invalid_externalReference`; a documentação não menciona o limite).
+A metadata ia como `JSON.stringify` e dava **177** caracteres — três UUIDs mais os
+nomes longos das chaves.
+
+Ou seja: **todo** checkout Asaas era recusado antes de a cliente ver qualquer
+tela de pagamento — assinatura e pacote de minutos, mensal e anual. O `billing_operations`
+de produção confirma: zero operações concluídas, só `provider_unavailable`.
+
+Correção: a referência virou `<org>.<plano>[.<cupom>]`, UUIDs sem hífen, **98 caracteres
+no pior caso** (com cupom). O que foi descartado é o que ninguém lia — `billing_operation_key`
+(nunca consumido pelo webhook) e `module_ids` (o MedChina não tem módulos de order bump).
+O Stripe continua mandando a metadata completa: lá o limite é 500 por valor.
+
+O parser aceita as duas formas, então uma cobrança criada antes disso ainda reconcilia.
+O teste `billing-reference.test.ts` fixa o comprimento em 98 — uma quarta chave não entra
+sem o teste recusar.
+
 ---
 
 ## 3. Verificado e correto (não mexer)
