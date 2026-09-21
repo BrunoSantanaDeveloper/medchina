@@ -29,12 +29,17 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Grid,
   Skeleton,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -43,11 +48,18 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 import DataTable from "@/components/data-grid/data-table";
 import ConfirmActionDialog from "@/components/product/confirm-action-dialog";
 import EmptyState from "@/components/product/empty-state";
+import { StatTile } from "@/components/product/home-tiles";
+import MetricBars from "@/components/product/metric-bars";
+import { type TileTone } from "@/components/product/tile-tone";
+import NiArrowOutRight from "@/icons/nexture/ni-arrow-out-right";
 import NiBuilding from "@/icons/nexture/ni-building";
+import NiClock from "@/icons/nexture/ni-clock";
+import NiCreditCard from "@/icons/nexture/ni-credit-card";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
 import NiPause from "@/icons/nexture/ni-pause";
 import NiPower from "@/icons/nexture/ni-power";
 import NiRefresh from "@/icons/nexture/ni-refresh";
+import NiRocket from "@/icons/nexture/ni-rocket";
 import NiUsers from "@/icons/nexture/ni-users";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
@@ -93,6 +105,62 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
 };
 
 /** Which signal earns the scarce space on the row, most urgent first. */
+/**
+ * The four tiles that open the screen, in lifecycle order: the charge broke,
+ * she asked to leave, the window is closing, she never got value. The first
+ * three are exactly what the daily digest mails about (lib/admin-jobs.ts), so
+ * the console and the e-mail cannot disagree about what needs attention.
+ *
+ * Terracotta (accent-3) is the repo's colour for a commercial problem; red
+ * stays reserved for clinical risk. Every key here must exist in
+ * ACCOUNT_FILTERS, which is what validates the `?filter=` in the URL.
+ */
+const HEADLINE_TILES: {
+  key: string;
+  total: keyof AccountTotals;
+  label: string;
+  hint: string;
+  tone: TileTone;
+  icon: typeof NiCreditCard;
+}[] = [
+  {
+    key: "past_due",
+    total: "pastDue",
+    label: "Inadimplentes",
+    hint: "O provedor não conseguiu cobrar",
+    tone: "accent-3",
+    icon: NiCreditCard,
+  },
+  {
+    key: "canceling",
+    total: "canceling",
+    label: "Cancelando",
+    hint: "Pediu para encerrar no fim do período",
+    tone: "accent-4",
+    icon: NiArrowOutRight,
+  },
+  {
+    key: "trial_ending",
+    total: "trialEnding",
+    label: "Trial acabando",
+    hint: "Trial Pro com três dias ou menos",
+    tone: "secondary",
+    icon: NiClock,
+  },
+  {
+    key: "never_activated",
+    total: "neverActivated",
+    label: "Nunca ativou",
+    hint: "Nenhum atendimento finalizado",
+    tone: "primary",
+    icon: NiRocket,
+  },
+];
+
+/** Everything else stays reachable, as one exclusive control below the tiles. */
+const HEADLINE_KEYS = new Set(HEADLINE_TILES.map((tile) => tile.key));
+const SECONDARY_FILTERS = ACCOUNT_FILTERS.filter((entry) => !HEADLINE_KEYS.has(entry.key));
+
 const FLAG_SEVERITY: Record<string, number> = {
   banned: 0,
   past_due: 1,
@@ -653,6 +721,45 @@ export default function OrgsAdmin() {
   const roster = membersOrg ? members[membersOrg.orgId] : undefined;
   const activeFilter = ACCOUNT_FILTERS.find((entry) => entry.key === filter);
 
+  /**
+   * The three money pools as ONE population: what the book is worth per month,
+   * and how much of that is secured, leaving, or given away. The bars carry
+   * the share, so the question "how exposed am I" is answered before a figure
+   * is read.
+   */
+  const monthly = useMemo(() => {
+    const secured = Math.max(0, totals?.mrrCents ?? 0);
+    const atRisk = Math.max(0, totals?.atRiskMrrCents ?? 0);
+    const comped = Math.max(0, totals?.compedMrrCents ?? 0);
+    const money = (cents: number) => formatMoney(cents, totals?.currency);
+    return {
+      total: secured + atRisk + comped,
+      items: [
+        {
+          key: "secured",
+          label: `Garantido · ${money(secured)}`,
+          value: secured,
+          tone: "primary" as const,
+          hint: "Cobrado todo mês pelo provedor; plano anual normalizado para um mês",
+        },
+        {
+          key: "at-risk",
+          label: `Em risco · ${money(atRisk)}`,
+          value: atRisk,
+          tone: "attention" as const,
+          hint: "Em atraso no provedor ou marcado para cancelar no fim do período",
+        },
+        {
+          key: "comped",
+          label: `Cortesia · ${money(comped)}`,
+          value: comped,
+          tone: "secondary" as const,
+          hint: "Plano pago concedido pelo console: capacidade dada, nunca contada como receita",
+        },
+      ],
+    };
+  }, [totals]);
+
   return (
     <Box className="flex flex-col gap-4">
       {/* Says WHY half the menu is missing, instead of letting the operator
@@ -683,85 +790,101 @@ export default function OrgsAdmin() {
         </Alert>
       )}
 
-      {/* What the account book adds up to. Not a filter — the state of the
-          business, counted by the same query as the rows below. */}
+      {/* What the account book adds up to. Three money pools that describe ONE
+          population — the monthly value of the book — so they belong in the
+          template's Application Status block, not in a row of bare figures.
+          The bars answer "how much of this is at risk" before a number is
+          read; three numbers side by side made the reader divide in their
+          head. */}
       {totals && (
-        <Box className="border-divider bg-background-paper flex flex-row flex-wrap items-center gap-8 rounded-lg border px-4 py-3">
-          <Stat
-            label="MRR"
-            value={formatMoney(totals.mrrCents, totals.currency)}
-            hint="O que os provedores cobram por mês; plano anual normalizado para um mês"
-          />
-          <Stat
-            label="Em risco"
-            value={formatMoney(totals.atRiskMrrCents, totals.currency)}
-            hint="Em atraso no provedor ou marcado para cancelar no fim do período"
-          />
-          <Stat
-            label="Cortesia"
-            value={formatMoney(totals.compedMrrCents, totals.currency)}
-            hint="Planos pagos concedidos pelo console: capacidade dada, nunca contada como receita"
-          />
-        </Box>
+        <Card component="section">
+          <CardContent className="flex flex-col gap-4">
+            <Box className="flex flex-row items-baseline justify-between gap-4">
+              <Typography variant="h5" component="h2" className="card-title mb-0">
+                Valor mensal da carteira
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary tabular-nums">
+                {formatMoney(monthly.total, totals.currency)}
+              </Typography>
+            </Box>
+            {monthly.total > 0 ? (
+              <MetricBars items={monthly.items} total={monthly.total} />
+            ) : (
+              // A meter of three empty bars says nothing and looks broken. Say
+              // the fact instead: nobody is paying yet.
+              <Typography variant="body2" className="text-text-secondary">
+                Nenhuma conta gera receita ainda. Assim que a primeira assinatura for cobrada, a divisão entre
+                garantido, em risco e cortesia aparece aqui.
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      {/* Where to look today, before the list of everything. Each tile is the
-          count the same query produced, and clicking it filters the table. */}
-      <Box className="flex flex-row flex-wrap gap-2">
-        {ACCOUNT_FILTERS.map((entry) => {
-          const active = filter === entry.key;
-          return (
-            <Box
-              key={entry.key}
-              component="button"
-              type="button"
-              aria-pressed={active}
-              title={entry.hint}
+      {/* Where to look today, before the list of everything. Four tiles, four
+          across, in the template's stats shape (dashboards/analytics/sections/
+          dashboard-analytics-stats.tsx). Eleven equal boxes, eight of them
+          zero, ranked nothing: these four are the lifecycle in order — the
+          charge broke, she asked to leave, the window is closing, she never
+          got value. The first three are exactly what the daily digest mails
+          about (lib/admin-jobs.ts), so the screen and the e-mail cannot
+          disagree about what "needs attention" means. */}
+      <Grid container spacing={4}>
+        {HEADLINE_TILES.map((tile) => (
+          <Grid key={tile.key} size={{ xs: 6, sm: 3 }}>
+            <StatTile
+              icon={<tile.icon size="large" />}
+              tone={tile.tone}
+              label={tile.label}
+              hint={tile.hint}
+              value={totals ? totals[tile.total] : "—"}
+              pressed={filter === tile.key}
               // The filter goes to the URL so it survives a reload and can be
               // shared — the daily digest already links in this way, and until
               // now the console could only receive that link, never produce one.
-              onClick={() => selectFilter(entry.key)}
-              className={`flex min-w-32 cursor-pointer flex-col items-start rounded-lg border px-3 py-2 text-left ${
-                active ? "border-primary bg-primary/5" : "border-divider bg-background-paper"
-              }`}
-            >
-              <Typography variant="h5" component="span" className={active ? "text-primary" : "text-text-primary"}>
-                {totals ? totals[entry.total] : "—"}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary">
-                {entry.label}
-              </Typography>
-            </Box>
-          );
-        })}
+              onClick={() => selectFilter(tile.key)}
+            />
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* The rest of the book, as one exclusive control instead of seven more
+          boxes competing with the four above. ToggleButtonGroup is what the
+          template styles for "pick one of N", and it carries the roving focus
+          and the pressed state that a row of divs never had. */}
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={filter}
+        onChange={(_, next) => next && selectFilter(next)}
+        aria-label="Filtrar as contas"
+        className="flex flex-row flex-wrap gap-1"
+      >
+        {SECONDARY_FILTERS.map((entry) => (
+          <ToggleButton key={entry.key} value={entry.key} title={entry.hint} className="rounded-lg! border!">
+            {entry.label}
+            <Typography component="span" variant="body2" className="text-text-secondary ml-2 tabular-nums">
+              {totals ? totals[entry.total] : "—"}
+            </Typography>
+          </ToggleButton>
+        ))}
         {/* Counted by its own query (migration 0108) and filtering the rows
             that same query produced, so the number and the list cannot
-            disagree. Hidden when there is nobody: an always-zero tile next to
-            nine others is noise, and this one is an anomaly, not a category. */}
+            disagree. Hidden when there is nobody: being workspace-less is an
+            anomaly, not a category, and an always-zero entry is noise. */}
         {people && people.totals.people > 0 && (
-          <Box
-            component="button"
-            type="button"
-            aria-pressed={filter === "no_workspace"}
+          <ToggleButton
+            value="no_workspace"
             title="Cadastraram-se e nunca tiveram um consultório — não conseguem usar o produto"
-            onClick={() => selectFilter("no_workspace")}
-            className={`flex min-w-32 cursor-pointer flex-col items-start rounded-lg border px-3 py-2 text-left ${
-              filter === "no_workspace" ? "border-primary bg-primary/5" : "border-divider bg-background-paper"
-            }`}
+            className="rounded-lg! border!"
           >
-            <Typography
-              variant="h5"
-              component="span"
-              className={filter === "no_workspace" ? "text-primary" : "text-text-primary"}
-            >
+            Sem consultório
+            <Typography component="span" variant="body2" className="text-text-secondary ml-2 tabular-nums">
               {people.totals.people}
             </Typography>
-            <Typography variant="body2" className="text-text-secondary">
-              Sem consultório
-            </Typography>
-          </Box>
+          </ToggleButton>
         )}
-      </Box>
+      </ToggleButtonGroup>
 
       {/* A failed load is an error, never an empty-looking table. */}
       {!loadFailed && (
@@ -972,20 +1095,5 @@ export default function OrgsAdmin() {
 
       {dialogs}
     </Box>
-  );
-}
-
-function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
-  return (
-    <Tooltip title={hint}>
-      <Box className="flex flex-col">
-        <Typography variant="h5" component="span" className="text-text-primary">
-          {value}
-        </Typography>
-        <Typography variant="body2" className="text-text-secondary">
-          {label}
-        </Typography>
-      </Box>
-    </Tooltip>
   );
 }

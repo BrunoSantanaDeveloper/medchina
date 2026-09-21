@@ -151,29 +151,6 @@
     }
   }
 
-  /* MUI picks a contained button's text colour with `getContrastText`, which
-     needs to READ the background. This palette is written as `hsl(var(--x))`,
-     `getContrastRatio` returns NaN for that, and the comparison falls through
-     to the light branch — so EVERY contained button, whatever its colour, is
-     handed `rgba(0,0,0,0.87)`. On six of the ten palette colours black is the
-     better choice anyway and MUI is left alone. On these four it is not, and
-     the brand's own primary CTA is among them:
-
-       primary   black 3.95:1  white 4.89:1
-       accent-2  black 4.14:1  white 4.65:1
-       accent-4  black 3.71:1  white 5.22:1
-       error     black 3.68:1  white 5.31:1
-
-     Same vocabulary the dark block at the end of this file already uses. The
-     dark block sits outside @layer utilities, so it still wins where it
-     applies; these only cover the light theme, where nothing did. */
-  .MuiButton-contained.MuiButton-colorPrimary,
-  .MuiButton-contained.MuiButton-colorAccent-2,
-  .MuiButton-contained.MuiButton-colorAccent-4,
-  .MuiButton-contained.MuiButton-colorError {
-    @apply text-text-contrast;
-  }
-
   .MuiButton-containedPrimary {
     &:hover {
       @apply bg-primary-light;

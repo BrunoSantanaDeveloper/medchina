@@ -2,6 +2,7 @@
   "_readme": "Machine-readable catalog of the PRODUCT component library (mirror of components/marketing/catalog.json for the authenticated app). The PreToolUse product-screen-guard injects a digest of this file into every write/edit under app/(dashboard)/** or components/product/**, so the full expressive range of the template is in context on every generation — not just the primitives the model happens to remember. Two kinds of entry: `components` are shared components that already exist in this repo (import them), and `template` are patterns the flyee template ships that have NOT been packaged yet (port them from the cited source instead of inventing a new shape). Keep entries in sync when props change; guard lines render as `Name(props) — use`.",
 
   "contract": [
+    "NEVER invent a component. The catalog below is the first stop for any container, tile, card, badge, meter or chart, and it is checked BEFORE markup is written, not after. If nothing here fits, the next stop is the flyee template itself — its dashboard sections are recoverable with `git show \"bd92373^:apps/web/src/app/(dashboard)/dashboards/...\"` — and the new component is PORTED from that source, keeping its shape (radius, tint, band height, type scale), then added to this file in the same commit. Improvising a `<Box>` with a border and a radius is a defect even when it looks acceptable: it type-checks, it passes review, and it quietly grows a second design language beside the template's. `product-lint` blocks the interactive form of this.",
     "Before rendering a value, ask which catalog entry is the right shape for it. A counter set, a ratio, a share and a series each have a component — a run-on sentence of numbers is a defect, not a style.",
     "Never invent a chart to fill space. A visual earns its place only when it answers a question the user actually asks, and only on data the payload already carries. Vanity metrics and decorative charts are forbidden (.claude/rules/app-ux.md).",
     "Never hand-roll a shape that exists here. If the nearest entry does not fit, port the `template` pattern from the cited source (recoverable with `git show \"bd92373^:<path>\"`) rather than writing a one-off.",
@@ -41,8 +42,8 @@
     {
       "name": "StatTile",
       "from": "@/components/product/home-tiles",
-      "props": "href, icon, tone, label, value",
-      "use": "A counter as a tile: tinted icon band (h-[4.5rem]) + label + value in h5. Use for a row of counts, including clickable filters. Port of dashboard-analytics-stats."
+      "props": "href | onClick+pressed, icon, tone, label, value, hint?",
+      "use": "A counter as a tile: tinted icon band (h-[4.5rem]) + label + value in h5, four across. `href` makes it a link; `onClick`+`pressed` make it a real filter button with aria-pressed. Port of dashboard-analytics-stats. A filter row is THIS, never a hand-written Box."
     },
     {
       "name": "QuickActionTile",

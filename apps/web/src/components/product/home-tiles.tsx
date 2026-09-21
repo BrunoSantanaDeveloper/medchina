@@ -55,28 +55,55 @@ export function QuickActionTile({
  */
 export function StatTile({
   href,
+  onClick,
+  pressed,
+  hint,
   icon,
   tone,
   label,
   value,
 }: {
-  href: string;
+  /** A tile that navigates. Give this OR `onClick`, never both. */
+  href?: string;
+  /** A tile that filters the screen it sits on. Renders as a real button and
+   *  carries `aria-pressed`, so a keyboard and a screen reader get the same
+   *  toggle the eye gets. */
+  onClick?: () => void;
+  pressed?: boolean;
+  /** One line explaining what the count counts, on hover and to assistive tech. */
+  hint?: string;
   /** Pass the icon at `size="large"`. */
   icon: React.ReactNode;
   tone: TileTone;
   label: string;
-  value: number;
+  value: number | string;
 }) {
   const style = TILE_TONE[tone];
+  // The template's shape is the same either way; only what the card IS changes.
+  // A filter is a button, a shortcut is a link — never a div with a click.
+  const shell = onClick
+    ? { component: "button" as const, type: "button" as const, onClick, "aria-pressed": pressed }
+    : { component: Link, href: href ?? "#" };
   return (
-    <Card component={Link} href={href} className="flex h-full flex-col p-1 transition-transform hover:scale-[1.02]">
+    <Card
+      {...shell}
+      title={hint}
+      className={cn(
+        "flex h-full w-full flex-col p-1 text-left transition-transform hover:scale-[1.02]",
+        onClick && "cursor-pointer",
+        // The pressed tile keeps the template's card and gains the ring the
+        // rest of the app uses for selection. Measured: a tinted fill alone
+        // sits at 1.06:1 against paper, which nobody can see.
+        pressed && "outline-primary outline-2 -outline-offset-2",
+      )}
+    >
       <Box
         aria-hidden
         className={cn("flex h-[4.5rem] w-full flex-none items-center justify-center rounded-2xl", style.bg, style.text)}
       >
         {icon}
       </Box>
-      <CardContent className="text-center">
+      <CardContent className="w-full text-center">
         <Typography variant="body1" className="text-text-secondary leading-5">
           {label}
         </Typography>

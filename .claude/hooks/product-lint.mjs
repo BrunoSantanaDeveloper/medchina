@@ -36,6 +36,9 @@ const CATCH_BLOCK_EMPTY = /\bcatch\s*(?:\([^)]*\)\s*)?\{[^{}]{0,200}?set[A-Z]\w*
 /** Swallowed failures: empty catch block / no-op .catch. */
 const CATCH_SWALLOWED = /\bcatch\s*(?:\([^)]*\)\s*)?\{\s*\}|\.catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
 const NATIVE_CONFIRM = /\bwindow\.(?:confirm|alert)\s*\(|(?<![.\w])confirm\s*\(/;
+/** Card-ish chrome hand-written onto a generic container. */
+const TILE_CHROME = /\brounded-(?:lg|xl|2xl|3xl)\b/;
+const TILE_SURFACE = /\bborder\b|\bbg-background-paper\b|\bshadow-/;
 
 /**
  * Find every `<TagName ...>` opening tag, tolerant of multi-line attributes,
@@ -139,6 +142,41 @@ function lint(filePath, content) {
         advisories.push(
           `[a11y-switch?] line ${lineOf(content, index)}: <${tagName}> with no accessible name — wrap it in FormControlLabel or give it an aria-label.`,
         );
+    }
+  }
+
+  // A component invented where the catalog already has one. The audit that
+  // produced this rule found a filter row built from eleven `<Box
+  // component="button">` with a border and a radius, next to a packaged
+  // StatTile that exists for exactly that and is named in the catalog. Nothing
+  // caught it: hand-rolled markup type-checks perfectly.
+  //
+  // The catalog is the first stop, always. When nothing there fits, the new
+  // component is PORTED from the template's own section (recoverable with
+  // `git show "bd92373^:apps/web/src/app/(dashboard)/dashboards/..."`) and
+  // added to catalog.json in the same commit — never improvised.
+  if (!/\/components\/product\//.test(p)) {
+    for (const tagName of ["Box", "div"]) {
+      for (const { index, tag } of scanOpeningTags(content, tagName)) {
+        if (!TILE_CHROME.test(tag) || !TILE_SURFACE.test(tag)) continue;
+        const interactive = /component=["']button["']|onClick=/.test(tag);
+        const line = lineOf(content, index);
+        if (interactive) {
+          violations.push(
+            `[invented-component] line ${line}: a clickable <${tagName}> with a radius and a border is a CARD written by hand. ` +
+              `Use the packaged shape — StatTile (a counter, including a filter), QuickActionTile (a shortcut), or MUI's Card — ` +
+              `and check components/product/catalog.json before writing container markup.`,
+          );
+          continue;
+        }
+        // Not interactive: only flag it when it is presenting a headline
+        // number, which is what StatTile exists for.
+        if (/variant=["']h[45]["']/.test(content.slice(index, index + 600)))
+          advisories.push(
+            `[invented-component?] line ${line}: a bordered, rounded <${tagName}> wrapping an h4/h5 value — that is the StatTile shape. ` +
+              `Check components/product/catalog.json; if nothing fits, port the template section instead of improvising.`,
+          );
+      }
     }
   }
 
