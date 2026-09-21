@@ -2,6 +2,42 @@
 /* Button */
 /* --------------------------- */
 @layer utilities {
+  /* ----------------------------------------------------------------------
+     Keyboard focus. WCAG 2.4.7, and until this rule existed the app failed it
+     on every button, because three separate decisions cancelled each other:
+
+       1. ButtonBase.js:56 sets `outline: 0` on EVERY MUI button.
+       2. MUI's replacement is `&.Mui-focusVisible { boxShadow: shadows[6] }`.
+       3. `disableElevation: true`, which the theme turns on globally for
+          Button and ButtonGroup (theme-provider.tsx), carries a variant that
+          sets `&.Mui-focusVisible { boxShadow: 'none' }` — it cancels the
+          replacement BY NAME (Button.js:252-262).
+       4. The template's own replacement is 84 of the 140 `:focus` rules in
+          this file, written against `.MuiButton-containedPrimary` and its
+          siblings — classes MUI 9 does not emit.
+
+     So nothing drew a focus ring: not the browser, not MUI, not the template.
+     `:focus-visible` is also what the template's `form ... :focus` /
+     `.focusable:focus` convention was approximating before browsers computed
+     it; the browser does it better, and without an opt-in class that only one
+     file outside the showcase ever used.
+
+     The ring is the template's shape — ring-2 with an offset — at FULL token
+     opacity rather than the template's /40. Measured against this palette,
+     `ring-primary/40` lands at 1.76:1 against paper and 1.76:1 against the
+     dark surface, well under the 3:1 a focus indicator owes (WCAG 2.4.11).
+     Full opacity gives 4.89:1 light and 4.23:1 dark. A focus ring nobody can
+     see is not a focus ring.
+
+     ButtonBase, not Button: IconButton, Tab, MenuItem, ListItemButton,
+     ToggleButton, Checkbox, Radio and Switch all build on it and were all in
+     the same state. `:focus-visible` never fires on a mouse click, so nothing
+     changes for pointer users.
+     ---------------------------------------------------------------------- */
+  .MuiButtonBase-root:focus-visible {
+    @apply ring-primary dark:ring-primary-light rounded-lg ring-2 ring-offset-2 outline-hidden;
+  }
+
   /* Root */
   .MuiButtonBase-root {
     @apply font-body font-medium tracking-normal normal-case transition-all;

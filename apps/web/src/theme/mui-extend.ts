@@ -168,77 +168,12 @@ declare module "@mui/material/Button" {
     sizeTiny: string;
     pastel: string;
     surface: string;
-    containedPrimary: string;
-    containedSecondary: string;
-    "containedAccent-1": string;
-    "containedAccent-2": string;
-    "containedAccent-3": string;
-    "containedAccent-4": string;
-    "containedText-primary": string;
-    "containedText-secondary": string;
-    "containedText-disabled": string;
-    containedSuccess: string;
-    containedError: string;
-    containedWarning: string;
-    containedInfo: string;
-    containedGrey: string;
-    outlinedPrimary: string;
-    outlinedSecondary: string;
-    "outlinedGrey-500": string;
-    "outlinedAccent-1": string;
-    "outlinedAccent-2": string;
-    "outlinedAccent-3": string;
-    "outlinedAccent-4": string;
-    "outlinedText-primary": string;
-    "outlinedText-secondary": string;
-    "outlinedText-disabled": string;
-    outlinedSuccess: string;
-    outlinedError: string;
-    outlinedWarning: string;
-    outlinedInfo: string;
-    outlinedGrey: string;
-    textPrimary: string;
-    textSecondary: string;
-    "textAccent-1": string;
-    "textAccent-2": string;
-    "textAccent-3": string;
-    "textAccent-4": string;
-    "textText-primary": string;
-    "textText-secondary": string;
-    "textText-disabled": string;
-    textSuccess: string;
-    textError: string;
-    textWarning: string;
-    textInfo: string;
-    textGrey: string;
-    pastelPrimary: string;
-    pastelSecondary: string;
-    "pastelAccent-1": string;
-    "pastelAccent-2": string;
-    "pastelAccent-3": string;
-    "pastelAccent-4": string;
-    "pastelText-primary": string;
-    "pastelText-secondary": string;
-    "pastelText-disabled": string;
-    pastelSuccess: string;
-    pastelError: string;
-    pastelWarning: string;
-    pastelInfo: string;
-    pastelGrey: string;
-    surfacePrimary: string;
-    surfaceSecondary: string;
-    "surfaceAccent-1": string;
-    "surfaceAccent-2": string;
-    "surfaceAccent-3": string;
-    "surfaceAccent-4": string;
-    "surfaceText-primary": string;
-    "surfaceText-secondary": string;
-    "surfaceText-disabled": string;
-    surfaceSuccess: string;
-    surfaceError: string;
-    surfaceWarning: string;
-    surfaceInfo: string;
-    surfaceGrey: string;
+    // MUI 9 builds a class list as Mui{Comp}-{variant} + Mui{Comp}-color{Color}.
+    // The composed `contained{Color}` / `text{Color}` / `outlined{Color}` /
+    // `pastel{Color}` / `surface{Color}` of MUI 5 are gone. They used to be
+    // declared here, and because TypeScript accepted `buttonClasses.outlinedPrimary`
+    // without complaint, the stylesheet rules written against them stayed dead and
+    // invisible. `variant` and `size` names that the theme really adds stay.
   }
 }
 
@@ -267,77 +202,12 @@ declare module "@mui/material/ButtonGroup" {
     sizeTiny: string;
     pastel: string;
     surface: string;
-    containedPrimary: string;
-    containedSecondary: string;
-    "containedAccent-1": string;
-    "containedAccent-2": string;
-    "containedAccent-3": string;
-    "containedAccent-4": string;
-    "containedText-primary": string;
-    "containedText-secondary": string;
-    "containedText-disabled": string;
-    containedSuccess: string;
-    containedError: string;
-    containedWarning: string;
-    containedInfo: string;
-    containedGrey: string;
-    outlinedPrimary: string;
-    outlinedSecondary: string;
-    "outlinedGrey-500": string;
-    "outlinedAccent-1": string;
-    "outlinedAccent-2": string;
-    "outlinedAccent-3": string;
-    "outlinedAccent-4": string;
-    "outlinedText-primary": string;
-    "outlinedText-secondary": string;
-    "outlinedText-disabled": string;
-    outlinedSuccess: string;
-    outlinedError: string;
-    outlinedWarning: string;
-    outlinedInfo: string;
-    outlinedGrey: string;
-    textPrimary: string;
-    textSecondary: string;
-    "textAccent-1": string;
-    "textAccent-2": string;
-    "textAccent-3": string;
-    "textAccent-4": string;
-    "textText-primary": string;
-    "textText-secondary": string;
-    "textText-disabled": string;
-    textSuccess: string;
-    textError: string;
-    textWarning: string;
-    textInfo: string;
-    textGrey: string;
-    pastelPrimary: string;
-    pastelSecondary: string;
-    "pastelAccent-1": string;
-    "pastelAccent-2": string;
-    "pastelAccent-3": string;
-    "pastelAccent-4": string;
-    "pastelText-primary": string;
-    "pastelText-secondary": string;
-    "pastelText-disabled": string;
-    pastelSuccess: string;
-    pastelError: string;
-    pastelWarning: string;
-    pastelInfo: string;
-    pastelGrey: string;
-    surfacePrimary: string;
-    surfaceSecondary: string;
-    "surfaceAccent-1": string;
-    "surfaceAccent-2": string;
-    "surfaceAccent-3": string;
-    "surfaceAccent-4": string;
-    "surfaceText-primary": string;
-    "surfaceText-secondary": string;
-    "surfaceText-disabled": string;
-    surfaceSuccess: string;
-    surfaceError: string;
-    surfaceWarning: string;
-    surfaceInfo: string;
-    surfaceGrey: string;
+    // MUI 9 builds a class list as Mui{Comp}-{variant} + Mui{Comp}-color{Color}.
+    // The composed `contained{Color}` / `text{Color}` / `outlined{Color}` /
+    // `pastel{Color}` / `surface{Color}` of MUI 5 are gone. They used to be
+    // declared here, and because TypeScript accepted `buttonClasses.outlinedPrimary`
+    // without complaint, the stylesheet rules written against them stayed dead and
+    // invisible. `variant` and `size` names that the theme really adds stay.
   }
 }
 

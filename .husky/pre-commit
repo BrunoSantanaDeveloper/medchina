@@ -2,6 +2,11 @@
 # (eslint.config.ts lives in apps/web, not at the repo root).
 npm run harness:check
 npm run harness:test
+# Stylesheet rules written against MUI class names that the DOM never receives.
+# Nothing else catches these: CSS has no types, and the theme's own class
+# augmentation used to DECLARE the dead names, so TypeScript blessed them too.
+# Three stylesheets had accumulated them before anyone looked (2026-09-21).
+npm run check:mui-classes
 # --concurrent 1: parallel eslint instances OOM-crash (SIGKILL) on large
 # commits (hundreds of staged files); sequential chunks stay within memory
 # and cost nothing on normal-sized commits.

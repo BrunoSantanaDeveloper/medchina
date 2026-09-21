@@ -3150,7 +3150,12 @@
     "practice-area-fertility-hint": "对于您在档案中标记的患者，问诊将增加月经、生育与围绝经期板块——AI 也会根据录音填写该板块。",
     "patient-fertility-care": "月经周期与生育随访",
     "patient-fertility-care-hint": "在该患者的就诊中显示“月经周期与生育”板块。",
-    "patient-fertility-care-on": "已开启"
+    "patient-fertility-care-on": "已开启",
+    "billing-checkout-focus-title": "完成订阅",
+    "billing-checkout-step-profile": "第 2 步，共 3 步 · 开票信息",
+    "billing-checkout-step-pay": "第 3 步，共 3 步 · 付款",
+    "billing-checkout-all-settings": "查看全部账单设置",
+    "billing-profile-save-continue": "保存并前往付款"
   },
   "auth": {
     "invite-workspace-conflict": "此账号已有一间诊所。目前每位医师只能使用一个工作空间。",
@@ -3243,6 +3248,11 @@
     "get-verification-resend": "重新发送确认邮件",
     "get-verification-resend-wait": "{seconds} 秒后可重发",
     "get-verification-resend-sent": "好了。如果有等待确认的注册使用该地址，链接已经发出。也请查看垃圾邮件箱。",
-    "get-verification-resend-error": "暂时无法重发。请稍后再试。"
+    "get-verification-resend-error": "暂时无法重发。请稍后再试。",
+    "signup-offer-title": "创建您的账号",
+    "signup-offer-subtitle": "第 1 步，共 3 步。接下来：开票信息与付款。",
+    "signup-offer-continue": "创建账号并继续",
+    "signup-offer-practice-note": "您的工作区以您的姓名开始。随时可在“设置”中重命名。",
+    "get-verification-offer-note": "确认后将直接返回付款页面。您填写的内容不会丢失。"
   }
 }

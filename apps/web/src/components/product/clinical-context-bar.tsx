@@ -297,13 +297,35 @@ export default function ClinicalContextBar({
             confused with "could not read them". */}
         <Box className="flex flex-row flex-wrap items-center gap-1 md:pl-12">
           {contextUnavailable ? (
-            <Typography variant="caption" className="text-warning-dark font-semibold">
+            <Typography variant="body2" className="text-warning-dark font-semibold">
               {t("context-alerts-unavailable")}
             </Typography>
           ) : alerts.length ? (
-            alerts.map((alert) => <Chip key={alert.label} size="small" color="warning" label={alert.label} />)
+            // This line tells the professional about an allergy or a
+            // pregnancy, so the word has to be readable. Measured on the light
+            // theme, against the 4.5:1 floor:
+            //
+            //   filled (white on amber)                2.51:1
+            //   outlined (MUI paints the label amber)  2.51:1
+            //   the pastel badge (warning-dark on 10%) 2.95:1
+            //   outlined + text-primary                9.79:1
+            //
+            // Amber is simply too light in this palette to carry text at any
+            // of its three stops. So the colour moves entirely to the ring,
+            // where it reinforces a word that is already spelled out, and the
+            // label takes the body colour.
+            alerts.map((alert) => (
+              <Chip
+                key={alert.label}
+                size="small"
+                color="warning"
+                variant="outlined"
+                className="text-text-primary!"
+                label={alert.label}
+              />
+            ))
           ) : (
-            <Typography variant="caption" className="text-text-secondary">
+            <Typography variant="body2" className="text-text-secondary">
               {t("context-no-alerts")}
             </Typography>
           )}
