@@ -473,6 +473,14 @@ export async function startCheckout(input: {
     // subscribe" into an archaeology exercise over billing_operations.
     logBillingFailure("provider_call_threw", { orgId: input.orgId, planId: input.planId }, error);
     await failBillingClaim(activeClaim, providerFailureCode(error));
+    // Pix was offered because the account has an active Pix key, but the
+    // provider may still refuse the METHOD on this endpoint. That refusal is
+    // the one failure the customer can route around in a single tap — so it is
+    // named, and the form moves her to the card instead of showing a dead end
+    // on the last step of the funnel.
+    if (input.paymentMethod === "pix" && (error as { code?: string } | null)?.code === "invalid_billingType") {
+      return { error: "pix_unavailable" };
+    }
     return { error: "unavailable" };
   }
 }

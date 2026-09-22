@@ -208,9 +208,25 @@ a reaplica: uma requisição forjada pedindo 12x num plano mensal sai como 1x à
 Verificado contra a API: assinatura `CREDIT_CARD` gera primeira cobrança `CREDIT_CARD`
 (boleto? não); anual em 5x gera 5 parcelas somando exatamente o total.
 
-**Pix está atrás de `BILLING_PIX_ENABLED`.** A opção só aparece quando a variável for `true`.
-Oferecer um método que a conta não consegue cobrar falha no último passo do funil, que é o
-pior lugar possível — então ele fica desligado até o teste de `billingType: PIX` confirmar.
+**Pix aparece quando a conta consegue cobrar Pix — não por um interruptor.** A primeira versão
+usava `BILLING_PIX_ENABLED` com padrão desligado, o que escondia o Pix de uma conta de produção
+que tinha chave ativa: ninguém conseguia entender pela tela por que só havia cartão.
+
+Agora `isPixAvailable()` pergunta ao próprio Asaas (`GET /pix/addressKeys`) se existe chave
+`ACTIVE`, com cache de 5 minutos e fallback no último valor conhecido se a consulta falhar.
+Produção respondeu `EVP/ACTIVE` → `true`. `BILLING_PIX_ENABLED=false` ficou só como botão de
+desligar em emergência.
+
+Duas coisas diferentes que se confundem com facilidade:
+
+| | Pix na assinatura | Pix Automático |
+|---|---|---|
+| O que é | uma cobrança Pix por mês, paga pela cliente | débito automático após uma autorização |
+| Depende de | chave Pix ativa na conta — **já existe** | liberação do Asaas via gerente de contas — **pendente** |
+
+**Se o Asaas recusar o método mesmo assim** (`invalid_billingType`), a action devolve
+`pix_unavailable` e o formulário **já seleciona o cartão** e avisa. A recuperação é um toque no
+mesmo botão, em vez de um beco sem saída no último passo.
 
 ---
 

@@ -273,6 +273,39 @@ async function ensureCustomer(input: {
   return created.id;
 }
 
+/**
+ * Whether this Asaas account can charge Pix right now.
+ *
+ * Asaas refuses a Pix charge until the account has an ACTIVE Pix key — and the
+ * refusal comes back as `invalid_billingType`, indistinguishable from "Pix is
+ * not allowed on this endpoint". That ambiguity already cost one wrong
+ * conclusion here: the sandbox (zero keys, not approved for Pix) rejected a
+ * Pix subscription, and it read as a structural limit when it was only an
+ * account without Pix. So the question is asked of the account itself.
+ *
+ * Cached for a few minutes: the checkout page is server-rendered per request,
+ * and a key being registered or revoked is not a per-second event. On a
+ * failed lookup the last known answer stands — a transient network error must
+ * not make Pix blink out of the checkout for everyone.
+ */
+let pixCache: { value: boolean; at: number } | null = null;
+const PIX_CACHE_MS = 5 * 60_000;
+
+export async function asaasPixAvailable(): Promise<boolean> {
+  if (pixCache && Date.now() - pixCache.at < PIX_CACHE_MS) return pixCache.value;
+  try {
+    const keys = await asaasFetch<{ data?: { status?: string }[] }>("/pix/addressKeys?limit=20");
+    const value = (keys.data ?? []).some((key) => key.status === "ACTIVE");
+    pixCache = { value, at: Date.now() };
+    return value;
+  } catch (error) {
+    console.warn("asaas_pix_availability_check_failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return pixCache?.value ?? false;
+  }
+}
+
 export class AsaasProvider implements PaymentProvider {
   readonly name = "asaas" as const;
 

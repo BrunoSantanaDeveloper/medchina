@@ -9,7 +9,7 @@ import Logo from "@/components/logo/logo";
 import { getCampaignOffer } from "@/lib/campaign-offer";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { createClient } from "@flyee/auth/server";
-import { isPixEnabled } from "@flyee/billing";
+import { isPixAvailable } from "@flyee/billing";
 
 export const metadata: Metadata = {
   title: { absolute: "Concluir assinatura · MedChina" },
@@ -64,7 +64,11 @@ export default async function AssinaturaPage({
   // braces, and it keeps the plan in the destination.
   if (!user) redirect(`/auth/sign-in?next=${encodeURIComponent(`/assinatura?plan=${slug}`)}`);
 
-  const [offer, guaranteeDays] = await Promise.all([getCampaignOffer(), getGuaranteeDays()]);
+  const [offer, guaranteeDays, pixAvailable] = await Promise.all([
+    getCampaignOffer(),
+    getGuaranteeDays(),
+    isPixAvailable(),
+  ]);
 
   // One workspace per professional in the MVP, so the first membership is THE
   // membership. `user_id` is stated rather than left to RLS: the policy would
@@ -195,7 +199,7 @@ export default async function AssinaturaPage({
         guaranteeDays={guaranteeDays}
         priceCents={Number(planRow.price_cents)}
         planPeriod={(planRow.period as string | null) ?? null}
-        pixAvailable={isPixEnabled()}
+        pixAvailable={pixAvailable}
         // Only the owner or an admin may start a checkout; saying so up front
         // beats letting her fill a form the server will refuse.
         canManage={membership?.role === "owner" || membership?.role === "admin"}

@@ -1,4 +1,4 @@
-import { AsaasProvider } from "./providers/asaas";
+import { AsaasProvider, asaasPixAvailable } from "./providers/asaas";
 import { StripeProvider } from "./providers/stripe";
 import type { BillingProviderName, PaymentProvider } from "./types";
 
@@ -16,17 +16,22 @@ export function configuredProviders(): BillingProviderName[] {
 }
 
 /**
- * Whether the deployment may charge Pix.
+ * Whether the checkout should offer Pix.
  *
- * Not a preference: Asaas refuses a Pix charge until the account has a Pix key
- * and is approved for it, and the refusal arrives as a generic checkout
- * failure at the LAST step of the funnel. Offering a method that cannot be
- * charged is worse than not offering it, so Pix stays off until the deployment
- * says otherwise — and the deployment says so only after confirming the
- * account really can (see docs/ASAAS-GO-LIVE.md).
+ * Decided by what the ACCOUNT can do, not by a switch someone has to remember
+ * to flip. The first version of this was an env var defaulting to off, which
+ * meant a production account with an active Pix key — verified — still only
+ * offered card, and nobody could tell why from the screen.
+ *
+ * Offering a method the account cannot charge fails at the last step of the
+ * funnel, so the account is asked. `BILLING_PIX_ENABLED=false` remains as a
+ * kill switch for the day Pix has to come off in a hurry.
  */
-export function isPixEnabled(): boolean {
-  return (process.env.BILLING_PIX_ENABLED ?? "").trim().toLowerCase() === "true";
+export async function isPixAvailable(): Promise<boolean> {
+  if ((process.env.BILLING_PIX_ENABLED ?? "").trim().toLowerCase() === "false") return false;
+  // Pix is modelled for Asaas only; Stripe's Brazilian Pix is not wired here.
+  if (defaultProvider() !== "asaas") return false;
+  return asaasPixAvailable();
 }
 
 /** Deployment-owned provider choice; provider brands never leak into product UX. */

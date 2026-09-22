@@ -118,6 +118,9 @@ export default function CheckoutForm({
       // A fresh key for the next attempt: the failed one may have a provider
       // session attached to a state she has just changed.
       setOperationKey(crypto.randomUUID());
+      // Pix refused: put her on the card, already selected, so the recovery
+      // is one tap on the same button instead of a decision to make again.
+      if (result.error === "pix_unavailable") setPayment({ method: "credit_card", installments: 1 });
       setError(result.error ?? "unavailable");
       return;
     }
@@ -254,6 +257,11 @@ export default function CheckoutForm({
         <Alert severity="warning">O cupom do seu link não vale mais. Recarregue a página para seguir sem ele.</Alert>
       )}
       {error === "suspended" && <Alert severity="error">Esta conta está suspensa. Fale com a gente.</Alert>}
+      {error === "pix_unavailable" && (
+        <Alert severity="info" className="neutral bg-background-paper/60!">
+          O PIX não está disponível para esta assinatura agora. Selecionamos o cartão para você — é só continuar.
+        </Alert>
+      )}
       {error &&
         ![
           "document_invalid",
@@ -262,6 +270,7 @@ export default function CheckoutForm({
           "offer_closed",
           "coupon_invalid",
           "suspended",
+          "pix_unavailable",
         ].includes(error) && (
           <Alert severity="error">Não conseguimos abrir o pagamento agora. Tente de novo em instantes.</Alert>
         )}
