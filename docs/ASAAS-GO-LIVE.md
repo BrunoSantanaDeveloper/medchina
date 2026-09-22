@@ -188,6 +188,30 @@ soluções. Duas vezes seguidas, diagnosticar uma venda perdida exigiu reproduzi
 a falha se nomeia sozinha: `provider_400_invalid_object`, `provider_401_invalid_environment`,
 `provider_403_account_disabled`. Sem dado de cliente, legível numa query.
 
+### 2.7 Boleto removido: a forma de pagamento passou a ser escolhida por nós
+
+O pedido era "só Pix e crédito". Não dá para fazer isso na fatura do Asaas: uma assinatura
+aceita **um** `billingType` ou `UNDEFINED` (todos, boleto incluído) — não existe subconjunto.
+Medido contra a API. Então a escolha saiu da página do Asaas e veio para a nossa.
+
+`/assinatura` ganhou um seletor antes de gerar a fatura. O método escolhido vira o
+`billingType` da cobrança, e boleto simplesmente nunca é uma das opções.
+
+**Parcelamento (até 5x, só cartão, só em plano não-mensal).** Assinaturas do Asaas não têm
+parcelamento de espécie alguma — nem `installmentCount`, nem `maxInstallmentCount`. Um plano
+parcelado é uma **cobrança única** que o emissor divide, e portanto **não renova sozinho**.
+A UI diz isso na tela, porque é a consequência que a cliente não consegue ver.
+
+A regra vive em `apps/web/src/lib/payment-choice.ts`, pura e testada (7 testes), e o servidor
+a reaplica: uma requisição forjada pedindo 12x num plano mensal sai como 1x à vista.
+
+Verificado contra a API: assinatura `CREDIT_CARD` gera primeira cobrança `CREDIT_CARD`
+(boleto? não); anual em 5x gera 5 parcelas somando exatamente o total.
+
+**Pix está atrás de `BILLING_PIX_ENABLED`.** A opção só aparece quando a variável for `true`.
+Oferecer um método que a conta não consegue cobrar falha no último passo do funil, que é o
+pior lugar possível — então ele fica desligado até o teste de `billingType: PIX` confirmar.
+
 ---
 
 ## 3. Verificado e correto (não mexer)

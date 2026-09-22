@@ -9,6 +9,7 @@ import Logo from "@/components/logo/logo";
 import { getCampaignOffer } from "@/lib/campaign-offer";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { createClient } from "@flyee/auth/server";
+import { isPixEnabled } from "@flyee/billing";
 
 export const metadata: Metadata = {
   title: { absolute: "Concluir assinatura · MedChina" },
@@ -192,6 +193,9 @@ export default async function AssinaturaPage({
         priceLabel={`${BRL.format(Number(planRow.price_cents) / 100)} ${periodSuffix}`}
         minutesLabel={minutes > 0 ? `${NUMBER.format(minutes)} minutos de áudio ${periodSuffix}` : null}
         guaranteeDays={guaranteeDays}
+        priceCents={Number(planRow.price_cents)}
+        planPeriod={(planRow.period as string | null) ?? null}
+        pixAvailable={isPixEnabled()}
         // Only the owner or an admin may start a checkout; saying so up front
         // beats letting her fill a form the server will refuse.
         canManage={membership?.role === "owner" || membership?.role === "admin"}

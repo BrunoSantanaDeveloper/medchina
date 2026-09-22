@@ -6,6 +6,7 @@ import type {
   CheckoutResult,
   PaymentProvider,
 } from "../types";
+import type { PaymentMethod } from "../types";
 import { applyDiscount, packCheckoutReference, parseCheckoutReference } from "../types";
 
 const PERIOD_TO_CYCLE: Record<BillingPeriod, string> = {
@@ -13,6 +14,23 @@ const PERIOD_TO_CYCLE: Record<BillingPeriod, string> = {
   monthly: "MONTHLY",
   yearly: "YEARLY",
 };
+
+/**
+ * The method the customer chose, in Asaas's vocabulary.
+ *
+ * `UNDEFINED` — the fallback when nothing was chosen — is what makes the
+ * hosted invoice offer every enabled method, boleto included. Naming the
+ * method is the entire mechanism by which boleto disappears: there is no way
+ * to pass a SUBSET (measured against the API), so the choice has to be made
+ * before the charge exists.
+ */
+const METHOD_TO_BILLING_TYPE: Record<PaymentMethod, string> = {
+  credit_card: "CREDIT_CARD",
+  pix: "PIX",
+};
+
+const billingTypeFor = (method: PaymentMethod | undefined) =>
+  method ? METHOD_TO_BILLING_TYPE[method] : "UNDEFINED";
 
 /**
  * Sandbox by default; set ASAAS_BASE_URL=https://api.asaas.com/v3 in production.
@@ -290,7 +308,9 @@ export class AsaasProvider implements PaymentProvider {
       plan.priceCents + modules.filter((m) => m.kind === "recurring").reduce((sum, m) => sum + m.priceCents, 0);
     const oneTimeCents = modules.filter((m) => m.kind === "one_time").reduce((sum, m) => sum + m.priceCents, 0);
 
-    if (plan.period !== null) {
+    const installments = Math.floor(input.installments ?? 1);
+
+    if (plan.period !== null && installments <= 1) {
       // Recurring plan → Asaas subscription. Trial is expressed by pushing
       // the first due date forward. One-time order bumps become a separate
       // immediate payment (Asaas cannot mix them into the subscription).
@@ -301,7 +321,7 @@ export class AsaasProvider implements PaymentProvider {
         "/subscriptions",
         {
           customer: customerId,
-          billingType: "UNDEFINED",
+          billingType: billingTypeFor(input.paymentMethod),
           value: applyDiscount(recurringCents, coupon) / 100,
           nextDueDate: isoDate(firstDue),
           cycle: PERIOD_TO_CYCLE[plan.period],
@@ -317,7 +337,7 @@ export class AsaasProvider implements PaymentProvider {
           method: "POST",
           body: JSON.stringify({
             customer: customerId,
-            billingType: "UNDEFINED",
+            billingType: billingTypeFor(input.paymentMethod),
             value: oneTimeCents / 100,
             dueDate: isoDate(new Date()),
             description: `Add-ons: ${modules
@@ -334,14 +354,28 @@ export class AsaasProvider implements PaymentProvider {
       return { url, providerCustomerId: customerId, providerSubscriptionId: subscription.id };
     }
 
-    // One-time purchase (credits with no period + any one-time bumps).
+    // A one-off charge. Two things arrive here:
+    //  - a plan with no period (an à-la-carte minute pack), and
+    //  - a RECURRING plan the customer chose to split.
+    //
+    // The second is not a compromise, it is the only shape Asaas has:
+    // subscriptions carry no installment concept whatsoever (no
+    // `installmentCount`, no `maxInstallmentCount` — measured), so an annual
+    // plan paid in parts is one purchase split by the card issuer, and it does
+    // NOT renew by itself. The caller decides whether to offer that; here we
+    // only execute it faithfully.
     const totalCents = applyDiscount(plan.priceCents + oneTimeCents, coupon);
     const payment = await createWithReturnCallback<{ id: string; invoiceUrl: string }>(
       "/payments",
       {
         customer: customerId,
-        billingType: "UNDEFINED",
-        value: totalCents / 100,
+        billingType: billingTypeFor(input.paymentMethod),
+        // `totalValue` and not `value`: with installments Asaas divides the
+        // total and puts any rounding remainder on the last one. Sending
+        // `value` would multiply the price by the number of installments.
+        ...(installments > 1
+          ? { totalValue: totalCents / 100, installmentCount: installments }
+          : { value: totalCents / 100 }),
         dueDate: isoDate(new Date()),
         description: plan.name,
         externalReference,

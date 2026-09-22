@@ -10,6 +10,27 @@ export type BillingPeriod = "weekly" | "monthly" | "yearly";
 export type ModuleKind = "recurring" | "one_time";
 export type DiscountType = "percent" | "fixed";
 
+/**
+ * How the customer chose to pay, decided in OUR checkout instead of the
+ * provider's invoice page.
+ *
+ * Asaas's hosted invoice offers every method the account has enabled, and
+ * `billingType: UNDEFINED` is what put boleto in front of every buyer. Boleto
+ * is the one method that cannot confirm immediately, cannot be redirected back
+ * to the app, and leaves the sale hanging for days — so the choice moves to a
+ * page we control, and the provider is told exactly one method.
+ */
+export type PaymentMethod = "credit_card" | "pix";
+
+/**
+ * The most installments a card purchase may be split into.
+ *
+ * Shared so the form and the server cannot disagree about what is on offer —
+ * a grid showing 6x against a server that caps at 5 is a refused checkout at
+ * the last step of the funnel.
+ */
+export const MAX_INSTALLMENTS = 5;
+
 export interface CheckoutPlan {
   id: string;
   slug: string;
@@ -72,6 +93,20 @@ export interface CheckoutInput {
   cancelUrl: string;
   /** Fiscal identity of the workspace; required by Asaas, ignored by Stripe. */
   payer?: CheckoutPayer;
+  /**
+   * The method the customer picked. Omitted means "let the provider offer
+   * everything", which is the template's old behaviour and the one that shows
+   * boleto.
+   */
+  paymentMethod?: PaymentMethod;
+  /**
+   * Card installments, 1 means a single charge.
+   *
+   * Only meaningful for a one-off purchase: Asaas subscriptions have no
+   * installment concept at all, so a recurring plan ignores this. The caller
+   * is responsible for only offering it where it applies.
+   */
+  installments?: number;
 }
 
 export interface CheckoutResult {

@@ -8,9 +8,10 @@ import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { normalizeCouponCode } from "@/lib/offer-link";
+import { resolvePaymentChoice } from "@/lib/payment-choice";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
-import { type CheckoutPlan, defaultProvider, getProvider } from "@flyee/billing";
+import { type CheckoutPlan, defaultProvider, getProvider, type PaymentMethod } from "@flyee/billing";
 
 async function requireOrgManager(orgId: string) {
   const supabase = await createClient();
@@ -267,6 +268,10 @@ export async function startCheckout(input: {
   idempotencyKey: string;
   /** Campaign code, if she typed one or arrived with `?cupom=`. */
   couponCode?: string | null;
+  /** Chosen in our checkout, so the provider never offers boleto. */
+  paymentMethod?: PaymentMethod | null;
+  /** Card installments; clamped and re-checked server-side. */
+  installments?: number | null;
 }): Promise<StartCheckoutResult> {
   let activeClaim: ActiveBillingClaim | null = null;
   try {
@@ -366,6 +371,11 @@ export async function startCheckout(input: {
 
     const origin = await appOrigin();
     const providerClient = getProvider(provider);
+    const choice = resolvePaymentChoice({
+      method: input.paymentMethod,
+      installments: input.installments,
+      planPeriod: planRow.period,
+    });
     const result = await providerClient.createCheckout({
       idempotencyKey: input.idempotencyKey,
       orgId: input.orgId,
@@ -373,6 +383,8 @@ export async function startCheckout(input: {
       customerEmail: user.email ?? "",
       plan,
       modules: [],
+      paymentMethod: choice.method,
+      installments: choice.installments,
       // Both providers mirror it natively (Stripe coupon `duration: forever`,
       // Asaas a discounted subscription value), so the discount rides every
       // cycle — and the webhook stamps `coupon_id` on the subscription, which

@@ -1,6 +1,7 @@
 "use client";
 
 import { startCheckout } from "../(dashboard)/settings/billing/actions";
+import PaymentChoice, { type PaymentChoiceValue } from "./payment-choice";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -43,6 +44,9 @@ export default function CheckoutForm({
   canManage,
   switchingFrom,
   profile,
+  priceCents,
+  planPeriod,
+  pixAvailable,
 }: {
   orgId: string;
   planId: string;
@@ -53,6 +57,11 @@ export default function CheckoutForm({
   canManage: boolean;
   switchingFrom: string | null;
   profile: Profile;
+  /** Drives the instalment labels; the server re-derives the real amount. */
+  priceCents: number;
+  planPeriod: string | null;
+  /** False while the account cannot charge Pix, so it is never offered. */
+  pixAvailable: boolean;
 }) {
   const [document, setDocument] = useState(() => (profile.document ? formatCpfCnpj(profile.document) : ""));
   const [postalCode, setPostalCode] = useState(() => (profile.postalCode ? formatCep(profile.postalCode) : ""));
@@ -60,6 +69,9 @@ export default function CheckoutForm({
   const [phone, setPhone] = useState(() => (profile.phone ? formatPhoneBr(profile.phone) : ""));
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
+  // Pre-selected: an unselected choice is one more decision standing between
+  // her and the purchase, and the card is the method that renews by itself.
+  const [payment, setPayment] = useState<PaymentChoiceValue>({ method: "credit_card", installments: 1 });
   // Stable across retries so a second click cannot open a second invoice for
   // the same intent; regenerated only when the attempt is abandoned.
   const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
@@ -93,7 +105,14 @@ export default function CheckoutForm({
     // The campaign code the middleware captured on the click, before sign-up
     // and e-mail confirmation stripped the query string.
     const coupon = readCouponCookie(COOKIE_KEYS.offerCoupon);
-    const result = await startCheckout({ orgId, planId, idempotencyKey: operationKey, couponCode: coupon || null });
+    const result = await startCheckout({
+      orgId,
+      planId,
+      idempotencyKey: operationKey,
+      couponCode: coupon || null,
+      paymentMethod: payment.method,
+      installments: payment.installments,
+    });
     if (!result.url) {
       setWorking(false);
       // A fresh key for the next attempt: the failed one may have a provider
@@ -121,7 +140,7 @@ export default function CheckoutForm({
           Concluir assinatura
         </Typography>
         <Typography variant="body2" className="text-text-secondary">
-          Falta só o dado fiscal. Depois você escolhe PIX, boleto ou cartão na própria fatura.
+          Falta só confirmar seus dados e escolher como pagar.
         </Typography>
       </Box>
 
@@ -185,6 +204,19 @@ export default function CheckoutForm({
         <Typography variant="subtitle2" className="text-text-secondary">
           Passo 2 de 2 · pagamento
         </Typography>
+
+        <PaymentChoice
+          value={payment}
+          onChange={setPayment}
+          pixAvailable={pixAvailable}
+          // Splitting a monthly plan would sell a year of cycles as one
+          // purchase; the server refuses it regardless, this only keeps the
+          // form from offering what would be refused.
+          installmentsAvailable={planPeriod !== null && planPeriod !== "monthly"}
+          priceCents={priceCents}
+          disabled={working}
+        />
+
         <Box className="border-grey-200 flex flex-col gap-2 rounded-2xl border p-5">
           <Typography variant="h6" component="p" className="mb-0">
             {planName}
@@ -235,7 +267,7 @@ export default function CheckoutForm({
         )}
 
       <Button variant="contained" size="large" onClick={() => void submit()} disabled={working}>
-        {working ? "Abrindo o pagamento..." : "Ir para o pagamento"}
+        {working ? "Abrindo o pagamento..." : payment.method === "pix" ? "Pagar com PIX" : "Pagar com cartão"}
       </Button>
 
       <Typography variant="body2" className="text-text-secondary text-center">
