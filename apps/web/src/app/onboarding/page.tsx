@@ -4,9 +4,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
-import { Box, Button, Card, CardContent, Chip, Typography } from "@mui/material";
+import { Box, Card, CardContent, Chip, Typography } from "@mui/material";
 
-import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiMicrophone from "@/icons/nexture/ni-microphone";
@@ -77,74 +76,72 @@ export default function Onboarding() {
     const supabase = createClient();
     await selectTrack(supabase, flowKey, track);
     await completeStep(supabase, flowKey, "welcome");
-    router.push(`/primeiros-passos?trilha=${track}`);
+    router.push(`/onboarding/guia?trilha=${track}`);
     router.refresh();
   };
 
   if (!ready) return null;
 
+  // The page background, the logo and the way out now belong to the shell
+  // (`components/onboarding-shell.tsx`), so every step of the trail is framed
+  // identically instead of each one re-inventing the frame.
   return (
-    <Box className="bg-waves flex min-h-screen w-full items-center justify-center bg-cover bg-center p-4">
-      <Box className="flex w-full max-w-4xl flex-col items-center gap-8 py-10">
-        {/* 2× the 27px default — this is a full-page welcome, not header chrome. */}
-        <Logo classNameFull="h-[54px] w-auto" classNameMobile="hidden" />
-        <Box className="flex max-w-2xl flex-col items-center gap-2 text-center">
-          <Typography variant="h1" component="h1">
-            {t("start-title")}
-          </Typography>
-          <Typography variant="body1" className="text-text-secondary leading-6">
-            {t("start-subtitle")}
-          </Typography>
-        </Box>
+    <Box className="flex w-full max-w-4xl flex-col items-center gap-8 py-6">
+      <Box className="flex max-w-2xl flex-col items-center gap-2 text-center">
+        <Typography variant="h1" component="h1">
+          {t("start-title")}
+        </Typography>
+        <Typography variant="body1" className="text-text-secondary leading-6">
+          {t("start-subtitle")}
+        </Typography>
+      </Box>
 
-        {/* Two columns for the two tracks. It was grid-cols-3 from when a third
+      {/* Two columns for the two tracks. It was grid-cols-3 from when a third
             "demo" track existed (removed — see CHOICES): the cards kept filling
             columns 1 and 2 and read as left-shifted against an empty third. */}
-        <Box className="grid w-full max-w-2xl gap-4 md:grid-cols-2">
-          {CHOICES.map((choice) => {
-            const active = selected === choice.key;
-            return (
-              <Card
-                key={choice.key}
-                component="button"
-                onClick={() => choose(choice.key)}
-                disabled={busy}
-                className={cn(
-                  "hover:shadow-darker-sm cursor-pointer text-left transition-shadow disabled:opacity-60",
-                  active && "outline-primary outline-2",
-                )}
-              >
-                <CardContent className="flex h-full flex-col gap-3">
-                  <Box className="flex items-start justify-between gap-2">
-                    <span className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-2xl">
-                      {choice.icon}
-                    </span>
-                    {active && <Chip size="small" color="primary" label={t("start-selected")} />}
-                  </Box>
-                  <Typography variant="h6" component="h2">
-                    {t(`start-${choice.key}-title`)}
-                  </Typography>
-                  <Typography variant="body2" className="text-text-secondary flex-1 leading-5">
-                    {t(`start-${choice.key}-body`)}
-                  </Typography>
-                  <Box className="text-primary dark:text-primary-light flex items-center gap-1 text-sm font-semibold">
-                    {t(`start-${choice.key}-cta`)} <NiChevronRightSmall size="small" />
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Box>
-
-        <Box className="flex flex-col items-center gap-1">
-          <Button variant="text" color="grey" onClick={() => router.push(DEFAULTS.appRoot)} disabled={busy}>
-            {t("start-skip")}
-          </Button>
-          <Typography variant="body2" className="text-text-secondary text-center">
-            {t("start-trial-note")}
-          </Typography>
-        </Box>
+      <Box className="grid w-full max-w-2xl gap-4 md:grid-cols-2">
+        {CHOICES.map((choice) => {
+          const active = selected === choice.key;
+          return (
+            <Card
+              key={choice.key}
+              component="button"
+              onClick={() => choose(choice.key)}
+              disabled={busy}
+              className={cn(
+                "hover:shadow-darker-sm cursor-pointer text-left transition-shadow disabled:opacity-60",
+                active && "outline-primary outline-2",
+              )}
+            >
+              <CardContent className="flex h-full flex-col gap-3">
+                <Box className="flex items-start justify-between gap-2">
+                  <span className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-2xl">
+                    {choice.icon}
+                  </span>
+                  {active && <Chip size="small" color="primary" label={t("start-selected")} />}
+                </Box>
+                <Typography variant="h6" component="h2">
+                  {t(`start-${choice.key}-title`)}
+                </Typography>
+                <Typography variant="body2" className="text-text-secondary flex-1 leading-5">
+                  {t(`start-${choice.key}-body`)}
+                </Typography>
+                <Box className="text-primary dark:text-primary-light flex items-center gap-1 text-sm font-semibold">
+                  {t(`start-${choice.key}-cta`)} <NiChevronRightSmall size="small" />
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        })}
       </Box>
+
+      {/* The way out moved to the shell header, where it stays reachable on
+            every step instead of only on this one. What stays here is the part
+            that is information rather than navigation: choosing a track does
+            not start the trial or charge anything. */}
+      <Typography variant="body2" className="text-text-secondary text-center">
+        {t("start-trial-note")}
+      </Typography>
     </Box>
   );
 }

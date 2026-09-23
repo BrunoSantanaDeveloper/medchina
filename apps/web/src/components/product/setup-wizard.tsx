@@ -30,15 +30,49 @@ export default function SetupWizard({
   onComplete,
   completeLabel,
   className,
+  initialIndex = 0,
+  index: controlledIndex,
+  onIndexChange,
 }: {
   steps: WizardStep[];
   onComplete: () => void;
   /** Defaults to the translated "Finish". */
   completeLabel?: string;
   className?: string;
+  /**
+   * Which step to OPEN on — so a flow that can be left and resumed reopens
+   * where the person stopped instead of making her walk past everything she
+   * already did.
+   *
+   * Read once, as the name says. The caller derives it from what is already
+   * done, and that derivation keeps changing as she works; re-seeding the
+   * index from it would yank her out of the step she is reading the moment a
+   * background refresh lands. A caller that really must re-seed remounts with
+   * a `key`.
+   */
+  initialIndex?: number;
+  /**
+   * Controlled mode. Pass BOTH to own the index from outside — the standard
+   * React pair, so passing neither keeps the uncontrolled default every current
+   * caller relies on.
+   *
+   * It exists because something can legitimately need to sit BETWEEN two steps:
+   * the guided onboarding acknowledges what was just accomplished before it
+   * loads the next step, and that acknowledgement is what advances. A wizard
+   * that owns its index privately cannot be paused that way.
+   */
+  index?: number;
+  onIndexChange?: (next: number) => void;
 }) {
   const t = useTranslations("product");
-  const [index, setIndex] = useState(0);
+  const [ownIndex, setOwnIndex] = useState(() => Math.max(0, Math.min(steps.length - 1, initialIndex)));
+  const controlled = controlledIndex !== undefined && onIndexChange !== undefined;
+  const index = Math.max(0, Math.min(steps.length - 1, controlled ? controlledIndex : ownIndex));
+  const setIndex = (next: number) => {
+    const clamped = Math.max(0, Math.min(steps.length - 1, next));
+    if (controlled) onIndexChange(clamped);
+    else setOwnIndex(clamped);
+  };
   const step = steps[index];
   const isLast = index === steps.length - 1;
   const canAdvance = step.canAdvance ?? true;
@@ -76,12 +110,7 @@ export default function SetupWizard({
         <Box>{step.content}</Box>
 
         <Box className="flex flex-row items-center justify-between">
-          <Button
-            variant="text"
-            color="grey"
-            disabled={index === 0}
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
-          >
+          <Button variant="text" color="grey" disabled={index === 0} onClick={() => setIndex(index - 1)}>
             {t("back")}
           </Button>
           {isLast ? (
@@ -100,7 +129,7 @@ export default function SetupWizard({
               color="primary"
               disabled={!canAdvance}
               endIcon={<NiArrowRight size="medium" />}
-              onClick={() => setIndex((i) => Math.min(steps.length - 1, i + 1))}
+              onClick={() => setIndex(index + 1)}
             >
               {t("continue")}
             </Button>

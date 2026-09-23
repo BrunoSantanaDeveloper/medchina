@@ -81,6 +81,7 @@ export default function ScheduleDialog({
   seed,
   onClose,
   onSaved,
+  origin = "agenda",
 }: {
   open: boolean;
   orgId: string;
@@ -88,6 +89,20 @@ export default function ScheduleDialog({
   seed?: ScheduleSeed;
   onClose: () => void;
   onSaved: (outcome: ScheduleSaveOutcome) => void | Promise<void>;
+  /**
+   * WHERE this scheduling started, for the funnel.
+   *
+   * It used to be the literal "agenda" at all six telemetry calls, which was
+   * true while the agenda page was the only caller. Mounted anywhere else --
+   * the guided onboarding, a patient record -- that literal reports someone
+   * else's work as the agenda's, and the number that would say whether the
+   * guided trail works is exactly the one it corrupts.
+   *
+   * Only values on the `track_product_event` allowlist survive the RPC; an
+   * unknown one is dropped in SILENCE, leaving the event with no origin at all
+   * rather than raising. "onboarding" has been on that list since 0034.
+   */
+  origin?: "agenda" | "onboarding" | "patient" | "consultation";
 }) {
   const t = useTranslations("product");
   const locale = useLocale();
@@ -137,7 +152,7 @@ export default function ScheduleDialog({
   useEffect(() => {
     if (!open) return;
     if (!trackedOpen.current) {
-      trackProductEvent("appointment.started", { origin: "agenda" });
+      trackProductEvent("appointment.started", { origin });
       trackedOpen.current = true;
       saved.current = false;
     }
@@ -176,7 +191,18 @@ export default function ScheduleDialog({
       setPatients(result.data);
       const selected = seed?.patientId ? (result.data.find((option) => option.id === seed.patientId) ?? null) : null;
       setPatient(selected);
-      await formik.setFieldValue("patientId", selected?.id ?? "", false);
+      // Validate ONLY when a patient was actually seeded.
+      //
+      // The save button is gated on `formik.isValid`, and a value written with
+      // validation off leaves `isValid` describing the form as it was BEFORE
+      // the seed. Measured: opened from the guided onboarding with the patient
+      // and the date already filled and no field in error, the button stayed
+      // disabled until something — anything — was typed.
+      //
+      // The unseeded path keeps `false` on purpose: passing `true` there would
+      // validate an empty required patient the moment the dialog opens and
+      // greet someone who has typed nothing with a form already in error.
+      await formik.setFieldValue("patientId", selected?.id ?? "", Boolean(selected));
     };
     load();
     return () => {
@@ -234,7 +260,7 @@ export default function ScheduleDialog({
   const handleClose = () => {
     if (busy) return;
     if (!saved.current && (formik.dirty || view === "patient")) {
-      trackProductEvent("appointment.abandoned", { origin: "agenda" });
+      trackProductEvent("appointment.abandoned", { origin });
     }
     trackedOpen.current = false;
     onClose();
@@ -278,7 +304,7 @@ export default function ScheduleDialog({
 
       if (!seriesResult.ok) {
         if (seriesResult.code === "series_all_conflict") {
-          trackProductEvent("appointment.conflict", { origin: "agenda" });
+          trackProductEvent("appointment.conflict", { origin });
           setSeriesConflicts(seriesResult.conflicts);
           return;
         }
@@ -287,7 +313,7 @@ export default function ScheduleDialog({
       }
 
       saved.current = true;
-      trackProductEvent("appointment.completed", { origin: "agenda" });
+      trackProductEvent("appointment.completed", { origin });
       await onSaved({
         kind: "series",
         createdCount: seriesResult.createdCount,
@@ -312,7 +338,7 @@ export default function ScheduleDialog({
 
     if (!result.ok) {
       if (result.code === "schedule_conflict" && result.conflict) {
-        trackProductEvent("appointment.conflict", { origin: "agenda" });
+        trackProductEvent("appointment.conflict", { origin });
         setConflict(result.conflict);
         return;
       }
@@ -321,7 +347,7 @@ export default function ScheduleDialog({
     }
 
     saved.current = true;
-    trackProductEvent("appointment.completed", { origin: "agenda" });
+    trackProductEvent("appointment.completed", { origin });
     await onSaved({ kind: result.code === "updated" ? "updated" : "created", result });
     trackedOpen.current = false;
     onClose();

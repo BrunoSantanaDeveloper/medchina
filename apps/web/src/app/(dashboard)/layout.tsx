@@ -30,7 +30,7 @@ export default function DashboardLayout({
     <RecordingSessionProvider exitMessage={t("recorder-leave-warning")}>
       <a
         href="#main-content"
-        className="bg-primary text-primary-contrast fixed top-3 left-3 z-[2000] -translate-y-20 rounded-lg px-4 py-3 transition-transform focus:translate-y-0"
+        className="bg-primary text-text-contrast fixed top-3 left-3 z-[2000] -translate-y-20 rounded-lg px-4 py-3 transition-transform focus:translate-y-0"
       >
         {t("skip-to-content")}
       </a>

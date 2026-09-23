@@ -7,7 +7,7 @@ import type {
   PaymentProvider,
 } from "../types";
 import type { PaymentMethod } from "../types";
-import { applyDiscount, packCheckoutReference, parseCheckoutReference } from "../types";
+import { applyDiscount, invoiceDescription, packCheckoutReference, parseCheckoutReference } from "../types";
 
 const PERIOD_TO_CYCLE: Record<BillingPeriod, string> = {
   weekly: "WEEKLY",
@@ -358,7 +358,10 @@ export class AsaasProvider implements PaymentProvider {
           value: applyDiscount(recurringCents, coupon) / 100,
           nextDueDate: isoDate(firstDue),
           cycle: PERIOD_TO_CYCLE[plan.period],
-          description: `${plan.name}${modules.length ? ` + ${modules.map((m) => m.name).join(", ")}` : ""}`,
+          description: invoiceDescription(
+            plan,
+            modules.map((m) => m.name),
+          ),
           externalReference,
         },
         input.successUrl,
@@ -410,7 +413,7 @@ export class AsaasProvider implements PaymentProvider {
           ? { totalValue: totalCents / 100, installmentCount: installments }
           : { value: totalCents / 100 }),
         dueDate: isoDate(new Date()),
-        description: plan.name,
+        description: invoiceDescription(plan),
         externalReference,
       },
       input.successUrl,

@@ -112,6 +112,12 @@ export default function CheckoutForm({
       couponCode: coupon || null,
       paymentMethod: payment.method,
       installments: payment.installments,
+      // This is someone's FIRST purchase: there is no billing screen worth
+      // returning to, and a paid account that lands on a settings page has to
+      // work out what to do next on its own. She returns to the guided trail,
+      // whichever payment method she picked — including PIX, where the plan is
+      // still being confirmed and the trail's badge says so.
+      returnTo: "onboarding",
     });
     if (!result.url) {
       setWorking(false);

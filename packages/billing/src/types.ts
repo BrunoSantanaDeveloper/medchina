@@ -43,6 +43,12 @@ export interface CheckoutPlan {
   trialDays: number;
   creditAmount: number | null;
   creditsExpire: boolean;
+  /**
+   * What the plan includes, in customer-facing words — `plans.description`,
+   * superadmin-editable in /admin/billing and possibly empty. Printed on the
+   * invoice; see `invoiceDescription`.
+   */
+  description?: string | null;
 }
 
 export interface CheckoutModule {
@@ -282,6 +288,43 @@ export function parseCheckoutReference(reference: string | null | undefined): Pa
     // Someone else's reference — not ours to interpret.
   }
   return {};
+}
+
+/**
+ * The longest description Asaas accepts on a charge.
+ *
+ * Measured, not documented: a subscription with 501 characters is refused
+ * with "A descrição da assinatura não deve ultrapassar 500 caracteres". The
+ * limit matters because the text comes from `plans.description`, which a
+ * superadmin edits freely — one generous paragraph in the admin would
+ * otherwise refuse EVERY checkout of that plan, at the last step of the
+ * funnel, with a generic "unavailable".
+ */
+export const INVOICE_DESCRIPTION_LIMIT = 500;
+
+/**
+ * The text shown under "Descrição" on the provider's invoice.
+ *
+ * It used to be the plan's name alone ("Pro anual"), which answers "what did
+ * I buy?" only for someone who already knows the catalogue. The plan's own
+ * description says what the money pays for; the name stays in front of it,
+ * because the description by itself ("Tudo do Assistente, mais…") would leave
+ * the invoice without saying WHICH plan it is — and that is the first thing
+ * support is asked when a charge is questioned.
+ *
+ * Whitespace is collapsed (an admin textarea happily produces line breaks) and
+ * the result is clamped to the provider's limit so no edit in the admin can
+ * break the checkout.
+ */
+export function invoiceDescription(
+  plan: { name: string; description?: string | null },
+  extras: string[] = [],
+): string {
+  const title = extras.length > 0 ? `${plan.name} + ${extras.join(", ")}` : plan.name;
+  const detail = (plan.description ?? "").replace(/\s+/gu, " ").trim();
+  const full = detail ? `${title} — ${detail}` : title;
+  if (full.length <= INVOICE_DESCRIPTION_LIMIT) return full;
+  return `${full.slice(0, INVOICE_DESCRIPTION_LIMIT - 1).trimEnd()}…`;
 }
 
 /** Discounted total in cents for a one-off charge (plan + one-time modules). */

@@ -33,6 +33,15 @@ function remainingParts(expiresAt: string, now: number) {
  * urgency and the fake timer this whole mechanism was designed to avoid
  * (docs/FUNIL.md).
  *
+ * WHY IT REFUSES TO RENDER WITHOUT A COUPON. `platform_settings.conversion_offers`
+ * ships with `coupon_code: ''`, and `open_conversion_offer` will happily stamp a
+ * window with no coupon on it. A countdown over an offer that changes no price
+ * is exactly the fake timer above, wearing this mechanism's clothes: nothing
+ * would actually expire, and "it goes back to the normal price" would be false.
+ * So an offer with no coupon renders NOTHING, and turning the campaign on
+ * without configuring a discount simply shows no card — instead of showing a
+ * deadline that means nothing.
+ *
  * Renders nothing when there is no live offer, when she has already dismissed
  * it, or once it expires while the tab is open.
  */
@@ -79,6 +88,9 @@ export default function ConversionOfferCard({ orgId }: { orgId: string | null })
   }, [orgId]);
 
   if (!offer) return null;
+  // See the note above: no coupon means nothing expires, so there is nothing
+  // honest to count down to.
+  if (!offer.couponCode) return null;
   const remaining = remainingParts(offer.expiresAt, now);
   // Expired while she had the tab open: it goes away rather than sitting there
   // with a dead countdown inviting a click that would not honour it.
@@ -87,18 +99,23 @@ export default function ConversionOfferCard({ orgId }: { orgId: string | null })
   const deadline = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(
     new Date(offer.expiresAt),
   );
-  const href = offer.couponCode
-    ? `/settings/billing?cupom=${encodeURIComponent(offer.couponCode)}`
-    : "/settings/billing";
+  // `/assinar` is the offer page, and the middleware turns `?cupom=` on ANY
+  // route into the 30-day cookie the checkout reads — so the discount survives
+  // the trip through the page and into `/assinatura`.
+  const href = `/assinar?cupom=${encodeURIComponent(offer.couponCode)}`;
 
   return (
-    <Card component="section" variant="outlined" className="border-primary">
-      <CardContent className="flex flex-col gap-3">
-        <Box className="flex flex-row items-center gap-2">
-          <span className="bg-primary/10 text-primary flex h-9 w-9 flex-none items-center justify-center rounded-xl">
-            <NiTag size="medium" />
-          </span>
-          <Typography variant="h6" component="h2" className="mb-0">
+    <Card component="section" className="border-primary overflow-hidden border">
+      {/* The one deliberately loud surface in the app: a filled band. Everything
+          clinical stays quiet, so a commercial moment can be visually distinct
+          without competing with a patient's record for attention — and without
+          borrowing red, which belongs to risk. */}
+      <Box className="bg-primary text-text-contrast flex flex-row items-center gap-3 px-5 py-4">
+        <span className="bg-text-contrast/15 flex h-10 w-10 flex-none items-center justify-center rounded-xl">
+          <NiTag size="medium" />
+        </span>
+        <Box className="min-w-0 flex-1">
+          <Typography variant="h5" component="h2" className="mb-0 leading-tight">
             {t(
               offer.trigger === "first_consultation"
                 ? "conversion-offer-title-first-consultation"
@@ -106,7 +123,15 @@ export default function ConversionOfferCard({ orgId }: { orgId: string | null })
             )}
           </Typography>
         </Box>
+        {/* The number she is deciding against, at the size of the decision. */}
+        <Box className="flex-none text-right">
+          <Typography variant="h4" component="p" className="mb-0 leading-none">
+            {t("conversion-offer-countdown", { hours: remaining.hours, minutes: remaining.minutes })}
+          </Typography>
+        </Box>
+      </Box>
 
+      <CardContent className="flex flex-col gap-3">
         <Typography variant="body2" className="text-text-secondary leading-6">
           {t(
             offer.trigger === "first_consultation"
@@ -122,7 +147,7 @@ export default function ConversionOfferCard({ orgId }: { orgId: string | null })
         </Typography>
 
         <Box className="flex flex-row flex-wrap items-center gap-2">
-          <Button variant="contained" href={href} LinkComponent={Link}>
+          <Button variant="contained" size="large" href={href} LinkComponent={Link}>
             {t("conversion-offer-cta")}
           </Button>
           <Button variant="text" color="grey" onClick={() => void dismiss()}>

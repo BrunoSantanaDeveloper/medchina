@@ -92,6 +92,12 @@
       "from": "@/components/product/*",
       "props": "see each file",
       "use": "Steps to first value, completion drive, and progressive disclosure for long setups. Never points, badges, leaderboards or streaks."
+    },
+    {
+      "name": "StepCelebrationDialog",
+      "from": "@/components/product/step-celebration-dialog",
+      "props": "open, title, accomplished, nextTitle, nextHint?, ctaLabel, onNext, onClose",
+      "use": "The beat BETWEEN two steps of a guided flow: names what now exists in her records and loads the next step. Competence feedback, never a token — it awards, counts and ranks nothing, so it stays on the right side of the no-points/badges/leaderboards/streaks rule. Its primary action is what advances the wizard (drive SetupWizard in controlled mode)."
     }
   ],
 

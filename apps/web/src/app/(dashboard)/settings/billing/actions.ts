@@ -12,6 +12,7 @@ import { resolvePaymentChoice } from "@/lib/payment-choice";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
 import { type CheckoutPlan, defaultProvider, getProvider, type PaymentMethod } from "@flyee/billing";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function requireOrgManager(orgId: string) {
   const supabase = await createClient();
@@ -86,6 +87,43 @@ export async function validateCouponCode(
 }
 
 type AppliedCouponRow = { id: string; code: string; discount_type: "percent" | "fixed"; discount_value: number };
+
+/**
+ * Is this workspace still inside the personal window that was offered to it?
+ *
+ * Only the conversion offer's own coupon is subject to this: any other code is
+ * a campaign code whose validity lives entirely in the `coupons` row, and this
+ * guard must not have an opinion about it. Both reads are cheap and happen once
+ * per checkout.
+ */
+async function conversionOfferWindowOpen(
+  supabase: SupabaseClient,
+  orgId: string,
+  code: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    const { data: setting } = await supabase
+      .from("platform_settings")
+      .select("value")
+      .eq("key", "conversion_offers")
+      .maybeSingle();
+    const configured = normalizeCouponCode((setting?.value as { coupon_code?: string } | null)?.coupon_code ?? "");
+    if (!configured || configured !== normalizeCouponCode(code)) return { ok: true };
+
+    const { data } = await supabase.rpc("current_conversion_offer", { target_org: orgId });
+    const row = data as { active?: boolean; coupon_code?: string } | null;
+    if (row?.active === true && normalizeCouponCode(row.coupon_code ?? "") === configured) return { ok: true };
+    return { ok: false, reason: "conversion_offer_closed" };
+  } catch {
+    // Fails OPEN, like `offerBlock` below and for the same reason: when the
+    // read fails this guard cannot tell whether the code is even the one it
+    // owns, so blocking would break every partner-campaign checkout over a
+    // transient database hiccup. The asymmetry decides it — honouring a
+    // discount slightly past its window during an outage costs one discount;
+    // refusing a code that was promised costs the sale AND the promise.
+    return { ok: true, reason: "conversion_offer_check_failed" };
+  }
+}
 
 /**
  * Refuses a purchase the workspace must not be able to make.
@@ -262,6 +300,13 @@ export async function checkoutAvailability(): Promise<boolean> {
   return defaultProvider() !== null;
 }
 
+/**
+ * The complete set of places a checkout may return to. Adding a destination
+ * means adding it here, which is the point: the provider only ever receives a
+ * path this file wrote.
+ */
+const CHECKOUT_RETURN = { onboarding: "/onboarding", billing: "/settings/billing" } as const;
+
 export async function startCheckout(input: {
   orgId: string;
   planId: string;
@@ -272,6 +317,19 @@ export async function startCheckout(input: {
   paymentMethod?: PaymentMethod | null;
   /** Card installments; clamped and re-checked server-side. */
   installments?: number | null;
+  /**
+   * Where the provider sends her back.
+   *
+   * A KEY, never a URL. This value crosses from the browser into the string we
+   * hand the payment provider, so accepting a path would be an open redirect
+   * sitting in the checkout — the one flow where a convincing off-site landing
+   * is worth the most to an attacker.
+   *
+   * Someone buying her first plan has no account to return to yet, so she goes
+   * to the guided trail; someone upgrading from the billing screen goes back to
+   * the screen she left. Defaults to billing, the pre-existing behaviour.
+   */
+  returnTo?: "onboarding" | "billing";
 }): Promise<StartCheckoutResult> {
   let activeClaim: ActiveBillingClaim | null = null;
   try {
@@ -324,6 +382,22 @@ export async function startCheckout(input: {
         return { error: validated.error ?? "coupon_invalid" };
       }
       coupon = validated.coupon;
+
+      // The conversion offer promises a PERSONAL window ("this condition is
+      // yours for the next N hours", migration 0088), but `coupons` only has a
+      // shared `valid_until` — nothing in the table can expire for one
+      // workspace and not another. Without this check the countdown on the
+      // home card would be pure decoration: the same code would still be
+      // honoured days later, and "afterwards it goes back to the normal price"
+      // would simply be false.
+      //
+      // This is the repo's own rule applied to a per-org offer: what the screen
+      // announces has to be what the checkout refuses.
+      const window = await conversionOfferWindowOpen(supabase, input.orgId, coupon.code);
+      if (!window.ok) {
+        logBillingFailure("coupon_rejected", { orgId: input.orgId, reason: window.reason });
+        return { error: "coupon_invalid" };
+      }
     }
 
     const plan: CheckoutPlan = {
@@ -339,6 +413,7 @@ export async function startCheckout(input: {
       trialDays: 0,
       creditAmount: planRow.credit_amount,
       creditsExpire: planRow.credits_expire,
+      description: planRow.description ?? null,
     };
     const provider = defaultProvider();
     if (!provider) {
@@ -391,8 +466,10 @@ export async function startCheckout(input: {
       // is what makes partner attribution and revenue share possible at all.
       coupon,
       payer,
-      successUrl: `${origin}/settings/billing?checkout=success`,
-      cancelUrl: `${origin}/settings/billing?checkout=canceled`,
+      // Resolved from a fixed map, so the only paths that can ever reach the
+      // provider are these two.
+      successUrl: `${origin}${CHECKOUT_RETURN[input.returnTo ?? "billing"]}?checkout=success`,
+      cancelUrl: `${origin}${CHECKOUT_RETURN[input.returnTo ?? "billing"]}?checkout=canceled`,
     });
 
     const { data: completedData, error: pendingError } = await service.rpc("complete_checkout_billing_operation", {
@@ -545,6 +622,7 @@ export async function startPackCheckout(input: {
       trialDays: 0,
       creditAmount: planRow.credit_amount,
       creditsExpire: planRow.credits_expire,
+      description: planRow.description ?? null,
     };
     const provider = defaultProvider();
     if (!provider) {

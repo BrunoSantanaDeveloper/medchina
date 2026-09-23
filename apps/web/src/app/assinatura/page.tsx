@@ -16,7 +16,22 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+/**
+ * Never rounds, still reads clean.
+ *
+ * This was `maximumFractionDigits: 0`, which renders a R$ 59,90 plan as
+ * "R$ 60" — a price this screen states wrong, on the screen where it is about
+ * to be charged. Three plans in the catalog already carry cents. Keeping the
+ * minimum at 0 preserves the headline the current whole-real plans were
+ * designed around ("R$ 299", not "R$ 299,00") while making a cents price
+ * impossible to misstate.
+ */
+const BRL = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
 const NUMBER = new Intl.NumberFormat("pt-BR");
 const PERIOD_SUFFIX: Record<string, string> = { yearly: "por ano", monthly: "por mês", weekly: "por semana" };
 
@@ -154,17 +169,52 @@ export default async function AssinaturaPage({
 
   // Already paying for this exact plan: the checkout would open a second
   // subscription and retire the first, charging her twice for what she has.
-  const { data: currentSub } = await supabase
+  //
+  // `incomplete` is read HERE too, and it is not a detail: it is the state a
+  // PIX charge sits in until the provider's webhook confirms it. Without it,
+  // reloading this page while waiting for that confirmation showed the checkout
+  // again and opened a SECOND charge for a plan she had already paid for.
+  //
+  // Several rows are fetched and ranked in code rather than narrowed to one in
+  // SQL: `maybeSingle()` errors when more than one row matches, and an errored
+  // read here returns null — which would silently switch the double-charge
+  // guard off for exactly the accounts that have more than one subscription row.
+  const { data: subscriptionRows } = await supabase
     .from("subscriptions")
     .select("plan_id, status, plans(name, is_free)")
     .eq("org_id", orgId)
-    .in("status", ["trialing", "active", "past_due"])
-    .maybeSingle();
+    .in("status", ["trialing", "active", "past_due", "incomplete"])
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const rows = subscriptionRows ?? [];
+  // A live subscription is what she HAS; an incomplete one is what she is
+  // waiting on. They answer different questions, so they stay separate.
+  const currentSub = rows.find((row) => ["trialing", "active", "past_due"].includes(row.status)) ?? null;
+  const pendingSub = rows.find((row) => row.status === "incomplete") ?? null;
   const subPlanRel = currentSub?.plans as
     | { name?: string; is_free?: boolean }
     | { name?: string; is_free?: boolean }[]
     | null;
   const subPlan = (Array.isArray(subPlanRel) ? subPlanRel[0] : subPlanRel) ?? null;
+
+  if (!currentSub && pendingSub && pendingSub.plan_id === planRow.id) {
+    return (
+      <Shell>
+        <Typography variant="h1" component="h1" className="mb-0">
+          Pagamento em confirmação
+        </Typography>
+        <Alert severity="info" className="neutral bg-background-paper/60!">
+          Já registramos sua contratação do {planRow.name} e estamos aguardando a confirmação do pagamento. Isso costuma
+          levar poucos minutos no Pix. Assim que o pagamento for confirmado, o plano é liberado automaticamente — você
+          não precisa pagar de novo.
+        </Alert>
+        <Button variant="contained" component={Link} href="/onboarding">
+          Continuar a configuração
+        </Button>
+      </Shell>
+    );
+  }
+
   if (currentSub && currentSub.plan_id === planRow.id) {
     return (
       <Shell>
