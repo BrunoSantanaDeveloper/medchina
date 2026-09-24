@@ -9,9 +9,10 @@ import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { normalizeCouponCode } from "@/lib/offer-link";
 import { resolvePaymentChoice } from "@/lib/payment-choice";
+import { pendingPixCharge } from "@/lib/pending-pix";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
-import { type CheckoutPlan, defaultProvider, getProvider, type PaymentMethod } from "@flyee/billing";
+import { type CheckoutPlan, defaultProvider, getProvider, type PaymentMethod, type PixCharge } from "@flyee/billing";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function requireOrgManager(orgId: string) {
@@ -39,7 +40,16 @@ async function appOrigin() {
   return `${proto}://${host}`;
 }
 
-export type StartCheckoutResult = { url?: string; error?: string };
+export type StartCheckoutResult = {
+  url?: string;
+  error?: string;
+  /**
+   * PIX rendered on our page. Absent when the method is not PIX, when the
+   * provider has no PIX, or when the QR could not be read — in every case the
+   * caller falls back to `url`, the hosted invoice, which shows the same QR.
+   */
+  pix?: PixCharge;
+};
 
 export type AppliedCoupon = { id: string; code: string; discountType: "percent" | "fixed"; discountValue: number };
 
@@ -415,6 +425,20 @@ export async function startCheckout(input: {
       creditsExpire: planRow.credits_expire,
       description: planRow.description ?? null,
     };
+
+    // A PIX already waiting for THIS plan is returned, never duplicated.
+    //
+    // With the QR on our own page, "reload and click again" and "open a second
+    // tab" stopped being rare: each one used to mint a fresh idempotency key
+    // and therefore a SECOND recurring subscription at the provider — the exact
+    // defect `PendingCheckoutCard` was built to close for the hosted invoice.
+    // The key cannot protect this (it lives in component state); the database
+    // can, because the pending subscription row is written at checkout time.
+    if (input.paymentMethod === "pix") {
+      const waiting = await pendingPixCharge(supabase, input.orgId, input.planId);
+      if (waiting?.invoiceUrl) return { url: waiting.invoiceUrl, pix: waiting };
+    }
+
     const provider = defaultProvider();
     if (!provider) {
       logBillingFailure("no_provider_configured", { orgId: input.orgId });
@@ -437,7 +461,16 @@ export async function startCheckout(input: {
       claimToken?: string;
       result?: { url?: string };
     } | null;
-    if (claim?.code === "completed" && claim.result?.url) return { url: claim.result.url };
+    if (claim?.code === "completed" && claim.result?.url) {
+      // A double click, or a retry with the same key, replays the stored
+      // result — which holds only the url. Without this the person who just saw
+      // a QR would see "go to the payment page" on the second submit: the
+      // screen getting worse with nothing having failed. The QR is not our
+      // state, it is a read of the charge, so it is read again.
+      const replayPix =
+        input.paymentMethod === "pix" ? await pendingPixCharge(supabase, input.orgId, input.planId) : null;
+      return { url: claim.result.url, ...(replayPix ? { pix: replayPix } : {}) };
+    }
     if (claimError || !claim?.ok || !claim.operationId || !claim.claimToken) {
       logBillingFailure("claim_rejected", { orgId: input.orgId, provider, code: claim?.code }, claimError);
       return { error: "unavailable" };
@@ -542,7 +575,7 @@ export async function startCheckout(input: {
       // Best-effort — the checkout URL returned below is what matters.
     }
 
-    return { url: completed.result?.url ?? result.url };
+    return { url: completed.result?.url ?? result.url, ...(result.pix ? { pix: result.pix } : {}) };
   } catch (error) {
     // The provider call is the likeliest thing to land here, and its message
     // is the only place the real cause exists — a bad key, a rejected payload,

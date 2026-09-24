@@ -2,6 +2,7 @@
 
 import { startCheckout } from "../(dashboard)/settings/billing/actions";
 import PaymentChoice, { type PaymentChoiceValue } from "./payment-choice";
+import PixPaymentPanel from "./pix-payment-panel";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -12,6 +13,7 @@ import { COOKIE_KEYS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
 import { readCouponCookie } from "@/lib/offer-link";
 import { createClient } from "@flyee/auth/client";
+import type { PixCharge } from "@flyee/billing/types";
 import { formatCep, formatCpfCnpj, formatPhoneBr, isValidCpfCnpj, onlyDigits } from "@flyee/fields";
 
 type Profile = {
@@ -75,6 +77,9 @@ export default function CheckoutForm({
   // Stable across retries so a second click cannot open a second invoice for
   // the same intent; regenerated only when the attempt is abandoned.
   const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
+  // The PIX charge, once the server returns one. From then on the form is
+  // gone: the purchase exists, and what is left is paying it.
+  const [pix, setPix] = useState<PixCharge | null>(null);
 
   const submit = async () => {
     setError(null);
@@ -130,8 +135,21 @@ export default function CheckoutForm({
       setError(result.error ?? "unavailable");
       return;
     }
+    // PIX with a readable QR stays HERE. Everything else — card, or a QR the
+    // provider did not return in time — goes to the hosted invoice, which is
+    // the contract and always works.
+    if (result.pix) {
+      setWorking(false);
+      setPix(result.pix);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     window.location.assign(result.url);
   };
+
+  if (pix) {
+    return <PixPaymentPanel pix={pix} orgId={orgId} planId={planId} planName={planName} priceLabel={priceLabel} />;
+  }
 
   if (!canManage) {
     return (

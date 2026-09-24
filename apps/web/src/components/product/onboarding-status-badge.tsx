@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@mui/material";
 
@@ -34,45 +34,78 @@ const TONE: Record<string, "primary" | "accent-1" | "accent-3" | "grey"> = {
 
 export default function OnboardingStatusBadge({ orgId, className }: { orgId: string | null; className?: string }) {
   const t = useTranslations("product");
-  const { allowance, loading } = useAudioAllowance(orgId);
+  const { allowance, loading, reload: reloadAllowance } = useAudioAllowance(orgId);
   const [pending, setPending] = useState<PendingSubscription | null>(null);
   const [pendingLoaded, setPendingLoaded] = useState(false);
 
+  /** Reads whether a charge is still waiting on the provider. Null = none. */
+  const readPending = useCallback(async (): Promise<PendingSubscription | null | undefined> => {
+    if (!orgId || !isSupabaseConfigured) return null;
+    // `incomplete` is the provider's "charged, not confirmed" (migration 0001's
+    // default). A failed read returns `undefined` — "unknown" — so it can never
+    // invent a pending payment, nor clear one that is really there.
+    const { data, error } = await createClient()
+      .from("subscriptions")
+      .select("plans(name)")
+      .eq("org_id", orgId)
+      .eq("status", "incomplete")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return undefined;
+    const plan = data?.plans as { name?: string | null } | { name?: string | null }[] | null | undefined;
+    const planName = Array.isArray(plan) ? (plan[0]?.name ?? null) : (plan?.name ?? null);
+    return data ? { planName } : null;
+  }, [orgId]);
+
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      if (!orgId || !isSupabaseConfigured) {
-        if (active) setPendingLoaded(true);
-        return;
-      }
-      // `incomplete` is the provider's "charged, not confirmed" (migration
-      // 0001's default). A failed read must not invent a pending payment, so
-      // the error path leaves `pending` null and the badge falls back to what
-      // the allowance already proves.
-      const { data } = await createClient()
-        .from("subscriptions")
-        .select("plans(name)")
-        .eq("org_id", orgId)
-        .eq("status", "incomplete")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    void readPending().then((result) => {
       if (!active) return;
-      const plan = data?.plans as { name?: string | null } | { name?: string | null }[] | null | undefined;
-      const planName = Array.isArray(plan) ? (plan[0]?.name ?? null) : (plan?.name ?? null);
-      setPending(data ? { planName } : null);
+      setPending(result ?? null);
       setPendingLoaded(true);
-    };
-    load();
+    });
     return () => {
       active = false;
     };
-  }, [orgId]);
+  }, [readPending]);
+
+  /**
+   * While a payment is being confirmed, keep asking.
+   *
+   * This is the other half of "já paguei": she leaves the PIX screen before the
+   * bank confirms, and the promise is that the plan is released by itself. The
+   * WEBHOOK releases it; this only notices, so the badge stops saying
+   * "confirmando pagamento" and names the plan without her reloading anything.
+   * It stops by itself once nothing is pending, and skips hidden tabs.
+   */
+  useEffect(() => {
+    if (!pending) return;
+    let active = true;
+    const timer = window.setInterval(async () => {
+      if (!active || document.visibilityState === "hidden") return;
+      const result = await readPending();
+      if (!active || result === undefined) return;
+      if (result === null) {
+        // Confirmed: the row left `incomplete`. The allowance is what knows the
+        // plan's name, so it is re-read before the badge changes its word.
+        await reloadAllowance();
+        if (active) setPending(null);
+      }
+    }, 6_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [pending, readPending, reloadAllowance]);
 
   // Rendering a "Gratuito" badge for a second and then replacing it with
   // "Confirmando pagamento" is worse than rendering nothing: the first version
   // is the one she reads.
-  if (loading || !pendingLoaded) return null;
+  // Hidden only on the FIRST read. A re-read (the moment a payment confirms)
+  // keeps showing the previous state instead of blinking out at exactly the
+  // instant she is watching for the change.
+  if (!pendingLoaded || (loading && !allowance)) return null;
 
   const status = deriveOnboardingStatus({ allowance, pending });
   const label =

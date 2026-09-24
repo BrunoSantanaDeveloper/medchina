@@ -115,11 +115,39 @@ export interface CheckoutInput {
   installments?: number;
 }
 
+/**
+ * A PIX charge, rendered on OUR page instead of the provider's.
+ *
+ * Optional everywhere it appears, deliberately. `url` below stays the contract:
+ * Stripe has no PIX here, an Asaas account with no active key has no PIX, and
+ * reading the QR can fail on its own after the charge already exists. All three
+ * arrive as the same shape — absent — which every caller reads as "no QR, use
+ * the url". That is what lets this be added without touching Stripe at all.
+ */
+export interface PixCharge {
+  /** The charge at the provider; re-reading the QR later depends on it. */
+  providerPaymentId: string;
+  /** PNG in base64, WITHOUT the `data:` prefix — the page builds the src. */
+  qrCodeBase64: string;
+  /** Copy-and-paste (EMV payload) — the string that actually gets pasted. */
+  copyPaste: string;
+  /** ISO 8601, from the provider. Never a deadline we invented. */
+  expiresAt: string | null;
+  /**
+   * The provider's hosted page for THIS charge — the fallback that always works
+   * (it shows the same QR). Carried with the charge so a resumed checkout has
+   * somewhere to send her without a second lookup. Null when not known.
+   */
+  invoiceUrl?: string | null;
+}
+
 export interface CheckoutResult {
   /** Where to redirect the customer to pay. */
   url: string;
   providerCustomerId?: string;
   providerSubscriptionId?: string;
+  /** Present only when the charge is PIX and its QR could be read. */
+  pix?: PixCharge;
 }
 
 /** Metadata round-tripped through the provider so webhooks can act. */
@@ -217,6 +245,18 @@ export interface PaymentProvider {
     providerSubscriptionId?: string;
     returnUrl: string;
   }): Promise<string | null>;
+  /**
+   * The PIX QR of a charge that ALREADY exists — the same shape `createCheckout`
+   * returns inline, read again later (a reload, a second tab, a replayed
+   * submit). Null when the provider has no PIX, when the charge is not PIX, or
+   * when it has already been paid; callers handle null and fall back to the
+   * hosted invoice.
+   *
+   * It is a READ. Calling it again never creates a charge and never bills —
+   * which is the whole point: re-running `createCheckout` to get the QR back
+   * would open a SECOND recurring subscription.
+   */
+  pixCharge?(input: { providerPaymentId?: string; providerSubscriptionId?: string }): Promise<PixCharge | null>;
   /**
    * Verifies and parses a webhook request into normalized events.
    * Throws on signature/token mismatch.

@@ -61,7 +61,10 @@ export default function PaymentChoice({
           {
             id: "pix" as const,
             title: "PIX",
-            hint: "Acesso na hora, sem cartão.",
+            // Beside a card that "renova sozinho", silence here would sell by
+            // association a recurrence PIX does not have: each cycle is a new
+            // code she pays by hand.
+            hint: "Acesso na hora, sem cartão. Cada renovação é um PIX novo.",
             icon: <NiMoney size="medium" />,
           },
         ]

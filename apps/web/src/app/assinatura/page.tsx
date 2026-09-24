@@ -1,4 +1,5 @@
 import CheckoutForm from "./checkout-form";
+import PixPaymentPanel from "./pix-payment-panel";
 import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -8,6 +9,7 @@ import { Alert, Box, Button, Paper, Typography } from "@mui/material";
 import Logo from "@/components/logo/logo";
 import { getCampaignOffer } from "@/lib/campaign-offer";
 import { getGuaranteeDays } from "@/lib/guarantee";
+import { pendingPixCharge } from "@/lib/pending-pix";
 import { createClient } from "@flyee/auth/server";
 import { isPixAvailable } from "@flyee/billing";
 
@@ -197,7 +199,39 @@ export default async function AssinaturaPage({
     | null;
   const subPlan = (Array.isArray(subPlanRel) ? subPlanRel[0] : subPlanRel) ?? null;
 
-  if (!currentSub && pendingSub && pendingSub.plan_id === planRow.id) {
+  // A charge is waiting for THIS plan and she does not already hold it.
+  //
+  // This used to require `!currentSub` — "no live subscription at all" — and
+  // was therefore dead for exactly the people it exists for: every new account
+  // starts on the free plan, which IS a live subscription row. Measured: with
+  // Gratuito active and a PIX pending, a reload skipped this branch, showed the
+  // checkout form again, and never re-read the QR. What matters is not whether
+  // she has ANY plan, but whether she already has THIS one.
+  const alreadyHoldsThisPlan = Boolean(currentSub && currentSub.plan_id === planRow.id);
+  if (pendingSub && pendingSub.plan_id === planRow.id && !alreadyHoldsThisPlan) {
+    // The charge already exists. If it is a PIX whose code can still be read,
+    // show THAT code again — the same charge, never a new one. This is what a
+    // reload, a second tab or coming back from the bank app lands on.
+    const waitingPix = orgId ? await pendingPixCharge(supabase, orgId, planRow.id as string) : null;
+    if (waitingPix && orgId) {
+      const suffix = planRow.period ? (PERIOD_SUFFIX[planRow.period] ?? "por ciclo") : "por ciclo";
+      return (
+        <Shell wide>
+          <Box className="flex justify-center">
+            <Logo classNameFull="h-11 w-auto" classNameMobile="hidden" />
+          </Box>
+          <PixPaymentPanel
+            pix={waitingPix}
+            orgId={orgId}
+            planId={planRow.id as string}
+            planName={planRow.name as string}
+            priceLabel={`${BRL.format(Number(planRow.price_cents) / 100)} ${suffix}`}
+          />
+        </Shell>
+      );
+    }
+    // A card charge in flight, or a PIX whose code the provider no longer
+    // returns (paid, or expired): nothing to show but the wait itself.
     return (
       <Shell>
         <Typography variant="h1" component="h1" className="mb-0">

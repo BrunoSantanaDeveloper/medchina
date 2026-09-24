@@ -5,6 +5,7 @@ import type {
   CheckoutMetadata,
   CheckoutResult,
   PaymentProvider,
+  PixCharge,
 } from "../types";
 import type { PaymentMethod } from "../types";
 import { applyDiscount, invoiceDescription, packCheckoutReference, parseCheckoutReference } from "../types";
@@ -198,17 +199,74 @@ async function createWithReturnCallback<T>(
  * subscription exists. A few short retries cost nothing on the happy path and
  * turn a rare race into a non-event.
  */
-async function firstInvoiceUrl(subscriptionId: string): Promise<string> {
+async function firstCharge(subscriptionId: string): Promise<{ id: string; invoiceUrl: string }> {
   const attempts = 6;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const payments = await asaasFetch<{ data: { invoiceUrl?: string }[] }>(
+    // The charge id was always in this response; the old signature typed it
+    // away and returned only the url. The QR endpoint needs exactly that id.
+    const payments = await asaasFetch<{ data: { id?: string; invoiceUrl?: string }[] }>(
       `/subscriptions/${subscriptionId}/payments?limit=1`,
     );
-    const url = payments.data[0]?.invoiceUrl;
-    if (url) return url;
+    const charge = payments.data[0];
+    // Same condition as before: a charge without an invoiceUrl is a charge that
+    // is not ready, and returning it would hand over a checkout with nowhere
+    // to pay.
+    if (charge?.id && charge.invoiceUrl) return { id: charge.id, invoiceUrl: charge.invoiceUrl };
     if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
   }
   throw new Error(`Asaas did not return an invoice URL for subscription ${subscriptionId}`);
+}
+
+/**
+ * Asaas writes date-times as "YYYY-MM-DD HH:mm:ss" with NO offset, in Brasília
+ * time. Parsed as-is on a server running in UTC (Vercel), that lands three
+ * hours off — a PIX "valid until 23:59" would read as expiring at 20:59. An
+ * explicit offset is only added when the string carries none. Brazil has had no
+ * daylight saving since 2019, so -03:00 is the whole rule.
+ */
+function parseAsaasDateTime(value: string): Date | null {
+  const trimmed = value.trim().replace(" ", "T");
+  const hasOffset = /(?:Z|[+-]\d{2}:?\d{2})$/.test(trimmed);
+  const withTime = /T\d{2}:\d{2}/.test(trimmed) ? trimmed : `${trimmed}T23:59:59`;
+  const parsed = new Date(hasOffset ? withTime : `${withTime}-03:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * The PIX QR of a charge, or nothing.
+ *
+ * Swallows every failure on purpose. When this runs the charge ALREADY exists
+ * and she can already pay it: `invoiceUrl` shows this very QR on Asaas's page.
+ * Letting a QR read throw would turn a cosmetic loss into a checkout reported
+ * as failed AFTER a recurring charge was created — the worst outcome on offer:
+ * she is told it did not work while the charge stands.
+ *
+ * One attempt, its own timeout, no retry: `firstCharge` may already have spent
+ * several seconds of the request, and a QR that is not ready on the first read
+ * is better replaced by the hosted invoice than by more waiting on a spinning
+ * button.
+ */
+async function pixQrCode(paymentId: string, invoiceUrl?: string | null): Promise<PixCharge | null> {
+  try {
+    const qr = await asaasFetch<{ encodedImage?: string; payload?: string; expirationDate?: string }>(
+      `/payments/${paymentId}/pixQrCode`,
+      // asaasFetch spreads `init` into fetch, so the timeout needs no change there.
+      { signal: AbortSignal.timeout(8_000) },
+    );
+    // Both or nothing: an image without the copy-and-paste is useless on a
+    // phone, the copy-and-paste without the image is useless on a desktop.
+    if (!qr.encodedImage || !qr.payload) return null;
+    const expires = qr.expirationDate ? parseAsaasDateTime(qr.expirationDate) : null;
+    return {
+      providerPaymentId: paymentId,
+      qrCodeBase64: qr.encodedImage,
+      copyPaste: qr.payload,
+      expiresAt: expires ? expires.toISOString() : null,
+      invoiceUrl: invoiceUrl ?? null,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -385,9 +443,16 @@ export class AsaasProvider implements PaymentProvider {
         }, `${input.idempotencyKey}:addons`);
       }
 
-      // Redirect the customer to the first payment's hosted invoice.
-      const url = await firstInvoiceUrl(subscription.id);
-      return { url, providerCustomerId: customerId, providerSubscriptionId: subscription.id };
+      // The first payment's hosted invoice stays the contract; for PIX the QR
+      // rides along so the page can show it instead of sending her away.
+      const charge = await firstCharge(subscription.id);
+      const pix = input.paymentMethod === "pix" ? await pixQrCode(charge.id, charge.invoiceUrl) : null;
+      return {
+        url: charge.invoiceUrl,
+        providerCustomerId: customerId,
+        providerSubscriptionId: subscription.id,
+        ...(pix ? { pix } : {}),
+      };
     }
 
     // A one-off charge. Two things arrive here:
@@ -420,6 +485,35 @@ export class AsaasProvider implements PaymentProvider {
       `${input.idempotencyKey}:payment`,
     );
     return { url: payment.invoiceUrl, providerCustomerId: customerId };
+  }
+
+  /**
+   * Re-reads the QR of a charge that already exists. A READ: it never creates
+   * a charge, which is why a reload uses this instead of `createCheckout`.
+   *
+   * Resolves the charge from the subscription we already store in
+   * `subscriptions.provider_subscription_id`, so it needs no new column.
+   * Returns null once the charge is paid — there is nothing left to show.
+   */
+  async pixCharge(input: { providerPaymentId?: string; providerSubscriptionId?: string }): Promise<PixCharge | null> {
+    if (input.providerPaymentId) return pixQrCode(input.providerPaymentId);
+    if (!input.providerSubscriptionId) return null;
+    try {
+      // Same read as `firstCharge`, WITHOUT the retries: this charge is old; if
+      // it is not there now, waiting will not produce it.
+      const payments = await asaasFetch<{
+        data: { id?: string; status?: string; billingType?: string; invoiceUrl?: string }[];
+      }>(
+        `/subscriptions/${input.providerSubscriptionId}/payments?limit=1`,
+        { signal: AbortSignal.timeout(8_000) },
+      );
+      const charge = payments.data[0];
+      if (!charge?.id || charge.billingType !== "PIX") return null;
+      if (charge.status && charge.status !== "PENDING" && charge.status !== "OVERDUE") return null;
+      return pixQrCode(charge.id, charge.invoiceUrl ?? null);
+    } catch {
+      return null;
+    }
   }
 
   async cancelSubscription(providerSubscriptionId: string): Promise<void> {
