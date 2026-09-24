@@ -3243,7 +3243,15 @@
     "guide-schedule-again": "Agendar outro horário",
     "guide-schedule-done": "Retorno agendado.",
     "guide-trail-finish": "Concluir",
-    "conversion-offer-countdown": "{hours}h{minutes}"
+    "conversion-offer-countdown": "{hours}h{minutes}",
+    "guide-ai-plan-title": "O assistente já está no seu plano",
+    "guide-ai-plan-hint": "Seu plano libera a gravação e o preenchimento da anamnese — não há teste para ativar.",
+    "guide-ai-pending-title": "Seu plano está sendo confirmado",
+    "guide-ai-pending-hint": "O banco ainda não confirmou o PIX. Isso costuma levar poucos minutos.",
+    "guide-ai-pending-note": "Pode seguir o guia enquanto isso: o plano é liberado sozinho assim que o pagamento for confirmado. Se, na hora de gravar, a confirmação ainda não tiver chegado, o gravador avisa e oferece o teste Pro para esta primeira consulta não esperar.",
+    "guide-record-preparing": "Preparando o atendimento para a gravação…",
+    "guide-record-open-error": "Não conseguimos abrir o atendimento para gravar.",
+    "recorder-trial-note-pending": "Sem cartão e sem cobrança extra. Seu pagamento ainda está em confirmação: o teste só cobre as gravações até lá, e depois passa a valer o plano que você contratou."
   },
   "auth": {
     "invite-workspace-conflict": "Esta conta já possui um consultório. No modelo atual, cada profissional usa apenas um espaço de trabalho.",

@@ -3243,7 +3243,15 @@
     "guide-schedule-again": "Weiteren Termin buchen",
     "guide-schedule-done": "Folgetermin gebucht.",
     "guide-trail-finish": "Abschließen",
-    "conversion-offer-countdown": "{hours}h{minutes}"
+    "conversion-offer-countdown": "{hours}h{minutes}",
+    "guide-ai-plan-title": "Der Assistent ist bereits in Ihrem Tarif",
+    "guide-ai-plan-hint": "Ihr Tarif schaltet Aufnahme und vorausgefüllte Anamnese frei — es gibt keinen Test zu aktivieren.",
+    "guide-ai-pending-title": "Ihr Tarif wird bestätigt",
+    "guide-ai-pending-hint": "Die Bank hat den PIX noch nicht bestätigt. Das dauert meist nur wenige Minuten.",
+    "guide-ai-pending-note": "Sie können die Anleitung inzwischen fortsetzen: Der Tarif wird automatisch freigeschaltet, sobald die Zahlung bestätigt ist. Ist sie beim Aufnehmen noch nicht da, sagt der Rekorder es und bietet den Pro-Test an, damit diese erste Konsultation nicht warten muss.",
+    "guide-record-preparing": "Konsultation wird für die Aufnahme vorbereitet…",
+    "guide-record-open-error": "Die Konsultation konnte für die Aufnahme nicht geöffnet werden.",
+    "recorder-trial-note-pending": "Ohne Karte und ohne Zusatzkosten. Ihre Zahlung wird noch bestätigt: Der Test deckt die Aufnahmen nur bis dahin ab, danach gilt der gebuchte Tarif."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

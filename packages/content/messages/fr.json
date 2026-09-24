@@ -3243,7 +3243,15 @@
     "guide-schedule-again": "Planifier un autre horaire",
     "guide-schedule-done": "Retour planifié.",
     "guide-trail-finish": "Terminer",
-    "conversion-offer-countdown": "{hours}h{minutes}"
+    "conversion-offer-countdown": "{hours}h{minutes}",
+    "guide-ai-plan-title": "L'assistant est déjà dans votre forfait",
+    "guide-ai-plan-hint": "Votre forfait active l'enregistrement et l'anamnèse pré-remplie — aucun essai à activer.",
+    "guide-ai-pending-title": "Votre forfait est en cours de confirmation",
+    "guide-ai-pending-hint": "La banque n'a pas encore confirmé le PIX. Cela prend généralement quelques minutes.",
+    "guide-ai-pending-note": "Vous pouvez poursuivre le guide en attendant : le forfait est activé automatiquement dès la confirmation du paiement. Si elle n'est pas arrivée au moment d'enregistrer, l'enregistreur le signale et propose l'essai Pro pour que cette première consultation n'attende pas.",
+    "guide-record-preparing": "Préparation de la consultation pour l'enregistrement…",
+    "guide-record-open-error": "Impossible d'ouvrir la consultation pour l'enregistrement.",
+    "recorder-trial-note-pending": "Sans carte et sans frais supplémentaires. Votre paiement est encore en confirmation : l'essai ne couvre les enregistrements que jusque-là, puis c'est le forfait souscrit qui s'applique."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

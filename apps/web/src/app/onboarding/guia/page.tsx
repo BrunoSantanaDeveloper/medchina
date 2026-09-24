@@ -9,6 +9,7 @@ import { Alert, Box, Button, CircularProgress, TextField, Typography } from "@mu
 
 import ConsentSheet from "@/components/product/consent-sheet";
 import ConsultationRecorder from "@/components/product/consultation-recorder";
+import { useOnboardingStatus } from "@/components/product/onboarding-status-provider";
 import PatientQuickCreate from "@/components/product/patient-quick-create";
 import PracticeContextForm from "@/components/product/practice-context-form";
 import ScheduleDialog from "@/components/product/schedule-dialog";
@@ -99,6 +100,9 @@ export default function GuidedTrailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { orgId, timezone } = useCurrentOrg();
+  // The same reading the header badge shows (one provider in the shell), so the
+  // trial step cannot offer a free trial while the badge says she just paid.
+  const { status: commercial } = useOnboardingStatus();
 
   const requested = searchParams.get("trilha");
   const track: Track = isTrack(requested) ? requested : "manual";
@@ -133,6 +137,13 @@ export default function GuidedTrailPage() {
 
   // --- consent (AI track) ---
   const [consents, setConsents] = useState<{ audio: boolean; ai: boolean }>({ audio: false, ai: false });
+  /**
+   * Opening the consultation for the recorder. The manual track opens it in the
+   * complaint step; the AI track has no complaint step, and nothing opened it —
+   * the record step waited for an id that never came, behind a spinner with no
+   * way out. Measured in production: stuck on step 5 of 8.
+   */
+  const [opening, setOpening] = useState<"idle" | "opening" | "error">("idle");
   const [openConsent, setOpenConsent] = useState<OpenConsent | null>(null);
   const [consentBusy, setConsentBusy] = useState(false);
 
@@ -511,6 +522,40 @@ export default function GuidedTrailPage() {
     if (ready) await refreshClinical(id);
   }, [consultationId, refreshClinical]);
 
+  /**
+   * Consent comes from the DATABASE, never from what this page happened to see.
+   *
+   * It used to be local state that started false, so resuming the trail asked
+   * her to register the patient's consent again — writing a SECOND acceptance
+   * into a table that is auditable and never deleted. It is the same read the
+   * recorder makes (`has_active_consent`), so the two cannot disagree.
+   */
+  useEffect(() => {
+    if (!orgId || !patient) return;
+    let active = true;
+    const supabase = createClient();
+    void Promise.all([
+      supabase.rpc("has_active_consent", {
+        target_org: orgId,
+        target_patient: patient.id,
+        term_slug: "audio-recording",
+      }),
+      supabase.rpc("has_active_consent", { target_org: orgId, target_patient: patient.id, term_slug: "ai-processing" }),
+    ]).then(([audio, ai]) => {
+      if (!active || audio.error || ai.error) return;
+      setConsents({ audio: Boolean(audio.data), ai: Boolean(ai.data) });
+    });
+    return () => {
+      active = false;
+    };
+  }, [orgId, patient]);
+
+  const openForRecording = useCallback(async () => {
+    setOpening("opening");
+    const id = await ensureConsultation();
+    setOpening(id ? "idle" : "error");
+  }, [ensureConsultation]);
+
   // ---------- finalize ----------
 
   const finalize = useCallback(
@@ -645,20 +690,31 @@ export default function GuidedTrailPage() {
     });
 
     if (track === "ai") {
+      // What this step says depends on what she already has. It used to offer
+      // "ative o teste Pro" to everyone — including someone who had just paid
+      // by PIX, with the header badge reading "confirmando pagamento" right
+      // above it.
+      const paid = commercial?.kind === "plan";
+      const paying = commercial?.kind === "pending_payment";
+      const onTrial = trialStarted || commercial?.kind === "trial";
       entries.push({
         key: "trial",
         step: {
-          title: t("guide-ai-title"),
-          hint: t("guide-ai-hint"),
+          title: paid ? t("guide-ai-plan-title") : paying ? t("guide-ai-pending-title") : t("guide-ai-title"),
+          hint: paid ? t("guide-ai-plan-hint") : paying ? t("guide-ai-pending-hint") : t("guide-ai-hint"),
           // Never a gate: she chose the AI track, but the trail must not hold
-          // the first record hostage to starting a trial.
+          // the first record hostage to starting a trial or to a bank.
           canAdvance: true,
           content: (
             <Box className="flex flex-col gap-3">
               <Typography variant="body2" className="text-text-secondary">
                 {t("guide-ai-body")}
               </Typography>
-              {trialStarted ? (
+              {paid ? null : paying ? (
+                <Alert severity="info" className="neutral bg-background-paper/60!">
+                  {t("guide-ai-pending-note")}
+                </Alert>
+              ) : onTrial ? (
                 <Alert severity="success" icon={<NiCheck size="small" />}>
                   {t("guide-ai-trial-started")}
                 </Alert>
@@ -725,10 +781,29 @@ export default function GuidedTrailPage() {
                   aiConsent={consents.ai}
                   onRequestConsent={() => void collectConsents()}
                   onChanged={() => void onRecordingChanged()}
+                  paymentPending={commercial?.kind === "pending_payment"}
                 />
               </Box>
+            ) : opening === "error" ? (
+              // A failure is said as a failure, with the way out — never left
+              // looking like something that is still loading.
+              <Alert
+                severity="error"
+                action={
+                  <Button color="inherit" size="small" onClick={() => void openForRecording()}>
+                    {t("retry")}
+                  </Button>
+                }
+              >
+                {t("guide-record-open-error")}
+              </Alert>
             ) : (
-              <CircularProgress aria-label={t("loading")} />
+              <Box className="flex items-center gap-3" role="status" aria-live="polite">
+                <CircularProgress size={20} aria-hidden />
+                <Typography variant="body2" className="text-text-secondary">
+                  {t("guide-record-preparing")}
+                </Typography>
+              </Box>
             ),
         },
       });
@@ -750,7 +825,7 @@ export default function GuidedTrailPage() {
                 </Alert>
               ) : (
                 attention.map((item) => (
-                  <Box key={`${item.blockKey}.${item.fieldKey}`} className="border-divider rounded-2xl border p-3">
+                  <Box key={`${item.blockKey}.${item.fieldKey}`} className="border-grey-100 rounded-2xl border p-3">
                     <Typography variant="subtitle2" className="mb-1">
                       {t(item.label)}
                     </Typography>
@@ -902,6 +977,7 @@ export default function GuidedTrailPage() {
     attention,
     busy,
     collectConsents,
+    commercial,
     complaint,
     consentBusy,
     consents.ai,
@@ -912,6 +988,8 @@ export default function GuidedTrailPage() {
     hasContext,
     keepAnswer,
     onRecordingChanged,
+    openForRecording,
+    opening,
     orgId,
     patient,
     patients,
@@ -936,6 +1014,15 @@ export default function GuidedTrailPage() {
     seeded.current = true;
     if (at > 0) setStepIndex(at);
   }, [firstOpenKey, stepList]);
+
+  // Entering the record step opens the consultation the recorder needs. It
+  // runs when she ARRIVES, not earlier: creating the record at the consent step
+  // would leave an empty open consultation behind for anyone who stops there.
+  const currentKey = stepList[stepIndex]?.key;
+  useEffect(() => {
+    if (currentKey !== "record" || !patient || consultationId || opening !== "idle") return;
+    void openForRecording();
+  }, [consultationId, currentKey, openForRecording, opening, patient]);
 
   /** What each milestone says once it is behind her. Silence = no celebration. */
   const CELEBRATION: Partial<Record<StepKey, { title: string; accomplished: string }>> = useMemo(

@@ -127,6 +127,7 @@ export default function ConsultationRecorder({
   onRequestConsent,
   onChanged,
   secondaryCapture,
+  paymentPending = false,
 }: {
   orgId: string;
   patientId: string;
@@ -138,8 +139,17 @@ export default function ConsultationRecorder({
   /** An alternate capture method (e.g. phone-via-QR), rendered inside this
    * same card so the two never compete as separate "step 1" cards. */
   secondaryCapture?: ReactNode;
+  /**
+   * A paid plan is charged and waiting on the provider (a PIX not yet
+   * confirmed). The trial offer's note says "when it ends, your account goes
+   * back to Gratuito" — false for someone who has just paid, and shown to her
+   * right after checkout by the guided onboarding. Optional and false by
+   * default, so every other caller reads exactly what it read before.
+   */
+  paymentPending?: boolean;
 }) {
   const t = useTranslations("product");
+  const trialNote = paymentPending ? t("recorder-trial-note-pending") : t("recorder-trial-note");
   const {
     setActive: setSessionActive,
     persist: persistSession,
@@ -1152,7 +1162,7 @@ export default function ConsultationRecorder({
                 {t("recorder-trial-start")}
               </Button>
               <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-                {t("recorder-trial-note")}
+                {trialNote}
               </Typography>
             </>
           ) : exhausted ? (
@@ -1502,7 +1512,7 @@ export default function ConsultationRecorder({
               {trialParams ? t("recorder-trial-explain", trialParams) : t("recorder-trial-explain-generic")}
             </Typography>
             <Typography variant="body2" className="text-text-secondary leading-6">
-              {t("recorder-trial-note")}
+              {trialNote}
             </Typography>
           </DialogContent>
           <DialogActions>

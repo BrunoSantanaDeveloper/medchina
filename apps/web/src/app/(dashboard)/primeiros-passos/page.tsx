@@ -53,7 +53,7 @@ function StepList({ steps, actionLabel }: { steps: LiveStep[]; actionLabel: stri
         <Box
           key={step.key}
           className={cn(
-            "border-divider flex items-start gap-3 rounded-2xl border p-3",
+            "border-grey-100 flex items-start gap-3 rounded-2xl border p-3",
             step.key === nextKey && "border-primary/40 bg-primary/5",
           )}
         >

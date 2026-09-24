@@ -78,7 +78,7 @@ export default function AudioPreferences({ org, onUpdated }: { org: OrgSummary; 
                 key={value}
                 value={value}
                 control={<Radio />}
-                className="border-divider m-0! items-start rounded-2xl border px-3 py-2"
+                className="border-grey-100 m-0! items-start rounded-2xl border px-3 py-2"
                 label={
                   <Box className="py-1">
                     <Typography variant="subtitle2">{t(`settings-audio-${value}`)}</Typography>

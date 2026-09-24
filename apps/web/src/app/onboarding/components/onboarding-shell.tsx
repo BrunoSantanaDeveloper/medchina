@@ -7,6 +7,7 @@ import { Box, Button } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
 import OnboardingStatusBadge from "@/components/product/onboarding-status-badge";
+import { OnboardingStatusProvider } from "@/components/product/onboarding-status-provider";
 import RecordingSessionProvider from "@/components/product/recording-session-provider";
 import { DEFAULTS } from "@/config";
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -46,30 +47,34 @@ export default function OnboardingShell({ children }: { children: React.ReactNod
     // capture is running. That is the correct behaviour, not a side effect:
     // leaving mid-recording is how audio is lost.
     <RecordingSessionProvider>
-      <Box className="bg-waves flex min-h-screen w-full flex-col bg-cover bg-center">
-        <Box
-          component="header"
-          className="mx-auto flex w-full max-w-4xl flex-none items-center justify-between gap-3 px-4 pt-5 pb-2"
-        >
-          <Box className="flex min-w-0 items-center gap-3">
-            <Logo classNameFull="h-[27px] w-auto" classNameMobile="hidden" />
-            <OnboardingStatusBadge orgId={orgId} />
-          </Box>
-          <Button
-            LinkComponent={Link}
-            href={DEFAULTS.appRoot}
-            variant="text"
-            color="grey"
-            size="small"
-            className="flex-none"
+      {/* One reader of the commercial state for the badge AND the steps, so
+          the header and the card cannot contradict each other. */}
+      <OnboardingStatusProvider orgId={orgId}>
+        <Box className="bg-waves flex min-h-screen w-full flex-col bg-cover bg-center">
+          <Box
+            component="header"
+            className="mx-auto flex w-full max-w-4xl flex-none items-center justify-between gap-3 px-4 pt-5 pb-2"
           >
-            {t("onboarding-skip-guide")}
-          </Button>
+            <Box className="flex min-w-0 items-center gap-3">
+              <Logo classNameFull="h-[27px] w-auto" classNameMobile="hidden" />
+              <OnboardingStatusBadge />
+            </Box>
+            <Button
+              LinkComponent={Link}
+              href={DEFAULTS.appRoot}
+              variant="text"
+              color="grey"
+              size="small"
+              className="flex-none"
+            >
+              {t("onboarding-skip-guide")}
+            </Button>
+          </Box>
+          <Box component="main" className="flex w-full flex-1 items-start justify-center px-4 pt-2 pb-10">
+            {children}
+          </Box>
         </Box>
-        <Box component="main" className="flex w-full flex-1 items-start justify-center px-4 pt-2 pb-10">
-          {children}
-        </Box>
-      </Box>
+      </OnboardingStatusProvider>
     </RecordingSessionProvider>
   );
 }

@@ -3243,7 +3243,15 @@
     "guide-schedule-again": "Book another time",
     "guide-schedule-done": "Return booked.",
     "guide-trail-finish": "Finish",
-    "conversion-offer-countdown": "{hours}h{minutes}"
+    "conversion-offer-countdown": "{hours}h{minutes}",
+    "guide-ai-plan-title": "The assistant is already in your plan",
+    "guide-ai-plan-hint": "Your plan unlocks recording and the pre-filled anamnesis — there is no trial to start.",
+    "guide-ai-pending-title": "Your plan is being confirmed",
+    "guide-ai-pending-hint": "The bank has not confirmed the PIX yet. This usually takes a few minutes.",
+    "guide-ai-pending-note": "You can continue the guide meanwhile: the plan is released by itself as soon as the payment is confirmed. If it has not arrived when you start recording, the recorder says so and offers the Pro trial so this first consultation does not wait.",
+    "guide-record-preparing": "Preparing the consultation for recording…",
+    "guide-record-open-error": "We could not open the consultation for recording.",
+    "recorder-trial-note-pending": "No card and no extra charge. Your payment is still being confirmed: the trial only covers recordings until then, and after that the plan you bought applies."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

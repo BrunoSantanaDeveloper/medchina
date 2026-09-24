@@ -3243,7 +3243,15 @@
     "guide-schedule-again": "预约其他时间",
     "guide-schedule-done": "复诊已预约。",
     "guide-trail-finish": "完成",
-    "conversion-offer-countdown": "{hours}时{minutes}分"
+    "conversion-offer-countdown": "{hours}时{minutes}分",
+    "guide-ai-plan-title": "助手已包含在您的方案中",
+    "guide-ai-plan-hint": "您的方案已开通录音与预填问诊——无需启用试用。",
+    "guide-ai-pending-title": "您的方案正在确认中",
+    "guide-ai-pending-hint": "银行尚未确认 PIX 付款，通常只需几分钟。",
+    "guide-ai-pending-note": "您可以先继续引导：付款确认后方案会自动开通。若开始录音时确认仍未到达，录音器会提示并提供 Pro 试用，让这第一次问诊不必等待。",
+    "guide-record-preparing": "正在为录音准备问诊…",
+    "guide-record-open-error": "无法打开问诊进行录音。",
+    "recorder-trial-note-pending": "无需银行卡，也不会额外收费。您的付款仍在确认中：试用仅覆盖在此之前的录音，确认后即按您购买的方案执行。"
   },
   "auth": {
     "invite-workspace-conflict": "此账号已有一间诊所。目前每位医师只能使用一个工作空间。",

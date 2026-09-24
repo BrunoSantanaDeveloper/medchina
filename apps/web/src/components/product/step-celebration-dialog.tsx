@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-import { Box, Button, Dialog, DialogContent, Typography, useMediaQuery } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, Typography, useMediaQuery } from "@mui/material";
 
 import DialogHeader from "@/components/product/dialog-header";
 import NiCheck from "@/icons/nexture/ni-check";
@@ -81,7 +81,10 @@ export default function StepCelebrationDialog({
           </Typography>
         </Box>
 
-        <Box className="border-divider flex flex-col gap-1 rounded-2xl border p-3">
+        {/* `border-grey-100`, not `border-divider`: there is no `divider` colour
+            in the Tailwind theme, so that class set nothing and the border fell
+            back to currentColor — a near-black outline around a quiet note. */}
+        <Box className="border-grey-100 flex flex-col gap-1 rounded-2xl border p-3">
           <Typography variant="body2" className="text-text-secondary">
             {t("celebration-next-label")}
           </Typography>
@@ -94,17 +97,20 @@ export default function StepCelebrationDialog({
             </Typography>
           )}
         </Box>
-
-        <Box className="flex flex-row flex-wrap items-center gap-2">
-          {/* Focused on open, so continuing is Enter and never a hunt. */}
-          <Button variant="contained" color="primary" onClick={onNext} autoFocus>
-            {ctaLabel}
-          </Button>
-          <Button variant="text" color="grey" onClick={onClose}>
-            {t("celebration-later")}
-          </Button>
-        </Box>
       </DialogContent>
+      {/* In `DialogActions`, not inside the content: the theme zeroes the
+          content's vertical padding (dialog.css, `py-0`) and gives the bottom
+          breathing room to the actions row. Inside the content the buttons sat
+          flush against the dialog's bottom edge. */}
+      <DialogActions className="justify-start">
+        {/* Focused on open, so continuing is Enter and never a hunt. */}
+        <Button variant="contained" color="primary" onClick={onNext} autoFocus>
+          {ctaLabel}
+        </Button>
+        <Button variant="text" color="grey" onClick={onClose}>
+          {t("celebration-later")}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }

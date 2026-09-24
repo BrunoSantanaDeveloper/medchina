@@ -374,7 +374,7 @@ export default function TranscriptViewer({
               // because every "ouvir este trecho" seeks THIS element — scrolling
               // it out of view left the playback controls unreachable mid-review.
               <Box className="bg-background-paper sticky top-0 z-10 -mt-1 pt-1 pb-2">
-                <Box className="bg-grey-50 border-divider rounded-2xl border p-2">
+                <Box className="bg-grey-50 border-grey-100 rounded-2xl border p-2">
                   <audio
                     ref={audioRef}
                     src={data.audioUrl}
@@ -489,7 +489,7 @@ export default function TranscriptViewer({
             {!data.validatedAt && (
               <Typography
                 variant="body2"
-                className="text-text-secondary border-divider border-t pt-4 text-xs leading-5"
+                className="text-text-secondary border-grey-100 border-t pt-4 text-xs leading-5"
               >
                 {t("transcript-validation-help")}
               </Typography>
@@ -497,7 +497,7 @@ export default function TranscriptViewer({
             {data.validatedAt && data.audioUrl && (
               <Typography
                 variant="body2"
-                className="text-text-secondary border-divider border-t pt-4 text-xs leading-5"
+                className="text-text-secondary border-grey-100 border-t pt-4 text-xs leading-5"
               >
                 {t("transcript-delete-audio-help")}
               </Typography>
