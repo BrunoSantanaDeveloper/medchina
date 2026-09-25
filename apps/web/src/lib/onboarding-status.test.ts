@@ -42,6 +42,7 @@ describe("deriveOnboardingStatus", () => {
     expect(deriveOnboardingStatus({ allowance: allowance({}), pending: { planName: "Assistente" } })).toEqual({
       kind: "pending_payment",
       planName: "Assistente",
+      provisionalUntil: null,
     });
   });
 
@@ -74,6 +75,28 @@ describe("deriveOnboardingStatus", () => {
         pending: null,
       }),
     ).toEqual({ kind: "trial", daysLeft: 3 });
+  });
+
+  it("keeps saying the payment is being confirmed while the plan is honoured provisionally", () => {
+    // Migration 0111: the allowance reports the plan as its source during the
+    // window. Reading that as "plan" would tell her she has what she has not
+    // paid for yet.
+    const until = new Date(Date.now() + 86_400_000).toISOString();
+    expect(
+      deriveOnboardingStatus({
+        allowance: allowance({ source: "plan", planName: "Pro anual", provisional: true, provisionalUntil: until }),
+        pending: { planName: "Pro anual" },
+      }),
+    ).toEqual({ kind: "pending_payment", planName: "Pro anual", provisionalUntil: until });
+  });
+
+  it("names an unconfirmed payment once the window has closed — never offers a trial", () => {
+    expect(
+      deriveOnboardingStatus({
+        allowance: allowance({ reason: "payment_unconfirmed", pendingPlanSlug: "pro-anual" }),
+        pending: { planName: "Pro anual" },
+      }),
+    ).toEqual({ kind: "payment_unconfirmed", planName: "Pro anual", planSlug: "pro-anual" });
   });
 
   it("falls back to free rather than inventing a state when nothing is known", () => {

@@ -25,6 +25,11 @@ export type AllowanceReason =
   | "trial_not_started"
   | "trial_over"
   | "cycle_exhausted"
+  /**
+   * A PIX was started and never confirmed, and its provisional window has
+   * closed (migration 0111). Resolved by finishing the payment — never a trial.
+   */
+  | "payment_unconfirmed"
   | "no_plan";
 
 const REASONS: readonly AllowanceReason[] = [
@@ -36,6 +41,7 @@ const REASONS: readonly AllowanceReason[] = [
   "trial_not_started",
   "trial_over",
   "cycle_exhausted",
+  "payment_unconfirmed",
   "no_plan",
 ];
 
@@ -83,6 +89,19 @@ export type AudioAllowance = {
   graceEndsAt: string | null;
   /** May this workspace buy a minute pack right now? (Paid plans only.) */
   packPurchasable: boolean;
+  /**
+   * The plan is being honoured PROVISIONALLY: a PIX she started is waiting on
+   * the bank, and for a window the plan she is paying for stands in for it
+   * (migration 0111). The UI must keep saying "confirmando pagamento" — this
+   * is not a plan she has, yet.
+   */
+  provisional: boolean;
+  /** When the provisional window closes, if one is open. */
+  provisionalUntil: string | null;
+  /** A PIX charge exists that the provider has not confirmed. */
+  paymentPending: boolean;
+  /** The plan that PIX is for — where "finish the payment" should send her. */
+  pendingPlanSlug: string | null;
 };
 
 export type AllowanceRow = {
@@ -109,6 +128,11 @@ export type AllowanceRow = {
   dunning?: boolean | null;
   grace_ends_at: string | null;
   pack_purchasable: boolean | null;
+  // A database predating migration 0111 sends none of these.
+  provisional?: boolean | null;
+  provisional_until?: string | null;
+  payment_pending?: boolean | null;
+  pending_plan_slug?: string | null;
 };
 
 export const toAllowance = (row: AllowanceRow): AudioAllowance => ({
@@ -145,6 +169,10 @@ export const toAllowance = (row: AllowanceRow): AudioAllowance => ({
   dunning: row.dunning === undefined || row.dunning === null ? Boolean(row.past_due) : Boolean(row.dunning),
   graceEndsAt: row.grace_ends_at,
   packPurchasable: Boolean(row.pack_purchasable),
+  provisional: Boolean(row.provisional),
+  provisionalUntil: row.provisional_until ?? null,
+  paymentPending: Boolean(row.payment_pending),
+  pendingPlanSlug: row.pending_plan_slug ?? null,
 });
 
 /** Days left in the dunning window, floored at 0. Null when not past due. */

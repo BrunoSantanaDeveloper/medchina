@@ -458,7 +458,9 @@
     "impersonation-remaining": "Ends in {time}",
     "impersonation-exit": "Leave account",
     "announcement-learn-more": "Learn more",
-    "announcement-dismiss": "Dismiss announcement"
+    "announcement-dismiss": "Dismiss announcement",
+    "menu-plan-pending": "{plan} · confirming payment",
+    "menu-plan-unconfirmed": "Payment not confirmed"
   },
   "marketing": {
     "nav-home": "Home",
@@ -3251,7 +3253,18 @@
     "guide-ai-pending-note": "You can continue the guide meanwhile: the plan is released by itself as soon as the payment is confirmed. If it has not arrived when you start recording, the recorder says so and offers the Pro trial so this first consultation does not wait.",
     "guide-record-preparing": "Preparing the consultation for recording…",
     "guide-record-open-error": "We could not open the consultation for recording.",
-    "recorder-trial-note-pending": "No card and no extra charge. Your payment is still being confirmed: the trial only covers recordings until then, and after that the plan you bought applies."
+    "recorder-trial-note-pending": "No card and no extra charge. Your payment is still being confirmed: the trial only covers recordings until then, and after that the plan you bought applies.",
+    "onboarding-badge-unconfirmed": "Payment not confirmed",
+    "onboarding-badge-unconfirmed-hint": "The bank did not confirm the PIX and Pro was paused. Finish the payment to use it again.",
+    "onboarding-badge-provisional-hint": "Waiting for the PIX to be confirmed. Meanwhile, Pro is unlocked until {until}.",
+    "guide-ai-provisional-note": "You can carry on with the guide: Pro is already unlocked for you until {until} while the bank confirms the PIX. If the payment is not confirmed by then, AI recording is paused until it is.",
+    "guide-ai-unconfirmed-title": "Your payment was not confirmed",
+    "guide-ai-unconfirmed-hint": "The bank did not confirm the PIX in time, and Pro was paused.",
+    "guide-ai-unconfirmed-note": "Your records are kept. Finish your plan's payment to record with AI again.",
+    "guide-ai-unconfirmed-cta": "Finish payment",
+    "recorder-payment-unconfirmed-body": "Your plan's PIX was not confirmed by the bank, and AI recording is paused. Your records stay accessible — finish the payment to record again.",
+    "recorder-payment-unconfirmed-cta": "Finish payment",
+    "guide-record-minutes-plan": "This recording is real and uses minutes from your plan."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

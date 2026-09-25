@@ -24,6 +24,8 @@ import { useOnboardingStatus } from "@/components/product/onboarding-status-prov
 const TONE: Record<string, "primary" | "accent-1" | "accent-3" | "grey"> = {
   plan: "accent-1",
   pending_payment: "accent-3",
+  // Still amber, never red: an unconfirmed PIX is a billing matter, not risk.
+  payment_unconfirmed: "accent-3",
   trial: "primary",
   free: "grey",
 };
@@ -38,18 +40,28 @@ export default function OnboardingStatusBadge({ className }: { className?: strin
       ? t("onboarding-badge-plan", { plan: status.planName ?? t("onboarding-badge-plan-unnamed") })
       : status.kind === "pending_payment"
         ? t("onboarding-badge-pending")
-        : status.kind === "trial"
-          ? status.daysLeft === null
-            ? t("onboarding-badge-trial")
-            : t("onboarding-badge-trial-days", { days: status.daysLeft })
-          : t("onboarding-badge-free");
+        : status.kind === "payment_unconfirmed"
+          ? t("onboarding-badge-unconfirmed")
+          : status.kind === "trial"
+            ? status.daysLeft === null
+              ? t("onboarding-badge-trial")
+              : t("onboarding-badge-trial-days", { days: status.daysLeft })
+            : t("onboarding-badge-free");
   // The badge is short by design; the full sentence reaches anyone who needs it.
   const title =
     status.kind === "pending_payment"
-      ? t("onboarding-badge-pending-hint")
-      : status.kind === "trial"
-        ? t("onboarding-badge-trial-hint")
-        : label;
+      ? status.provisionalUntil
+        ? t("onboarding-badge-provisional-hint", {
+            until: new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(
+              new Date(status.provisionalUntil),
+            ),
+          })
+        : t("onboarding-badge-pending-hint")
+      : status.kind === "payment_unconfirmed"
+        ? t("onboarding-badge-unconfirmed-hint")
+        : status.kind === "trial"
+          ? t("onboarding-badge-trial-hint")
+          : label;
 
   return (
     <Button

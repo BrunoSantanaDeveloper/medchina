@@ -458,7 +458,9 @@
     "impersonation-remaining": "{time} 后结束",
     "impersonation-exit": "退出该账号",
     "announcement-learn-more": "了解更多",
-    "announcement-dismiss": "关闭提示"
+    "announcement-dismiss": "关闭提示",
+    "menu-plan-pending": "{plan} · 付款确认中",
+    "menu-plan-unconfirmed": "付款未确认"
   },
   "marketing": {
     "nav-home": "首页",
@@ -3251,7 +3253,18 @@
     "guide-ai-pending-note": "您可以先继续引导：付款确认后方案会自动开通。若开始录音时确认仍未到达，录音器会提示并提供 Pro 试用，让这第一次问诊不必等待。",
     "guide-record-preparing": "正在为录音准备问诊…",
     "guide-record-open-error": "无法打开问诊进行录音。",
-    "recorder-trial-note-pending": "无需银行卡，也不会额外收费。您的付款仍在确认中：试用仅覆盖在此之前的录音，确认后即按您购买的方案执行。"
+    "recorder-trial-note-pending": "无需银行卡，也不会额外收费。您的付款仍在确认中：试用仅覆盖在此之前的录音，确认后即按您购买的方案执行。",
+    "onboarding-badge-unconfirmed": "付款未确认",
+    "onboarding-badge-unconfirmed-hint": "银行未确认 PIX 付款，Pro 已暂停。完成付款即可恢复使用。",
+    "onboarding-badge-provisional-hint": "正在等待 PIX 确认。在此期间，Pro 已开通至 {until}。",
+    "guide-ai-provisional-note": "您可以正常继续引导：在银行确认 PIX 期间，Pro 已为您开通至 {until}。若届时付款仍未确认，AI 录音将暂停，直至确认。",
+    "guide-ai-unconfirmed-title": "您的付款未被确认",
+    "guide-ai-unconfirmed-hint": "银行未能及时确认 PIX，Pro 已暂停。",
+    "guide-ai-unconfirmed-note": "您的记录均已保留。完成方案付款即可恢复 AI 录音。",
+    "guide-ai-unconfirmed-cta": "完成付款",
+    "recorder-payment-unconfirmed-body": "您方案的 PIX 未获银行确认，AI 录音已暂停。您的记录仍可访问——完成付款即可恢复录音。",
+    "recorder-payment-unconfirmed-cta": "完成付款",
+    "guide-record-minutes-plan": "此次录音为真实录音，会消耗您方案中的分钟数。"
   },
   "auth": {
     "invite-workspace-conflict": "此账号已有一间诊所。目前每位医师只能使用一个工作空间。",

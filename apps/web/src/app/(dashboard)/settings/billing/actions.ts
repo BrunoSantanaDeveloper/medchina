@@ -525,6 +525,19 @@ export async function startCheckout(input: {
       return { error: "unavailable" };
     }
     activeClaim = null;
+
+    // A PIX opens the provisional window (migration 0111): she can use the plan
+    // while the bank confirms, once per workspace, for the configured hours.
+    // Best-effort by design — failing to mark it costs her the window, not the
+    // purchase; the charge is created and the webhook still confirms it.
+    if (choice.method === "pix" && result.providerSubscriptionId) {
+      const { error: markError } = await service.rpc("mark_pix_checkout", {
+        target_org: input.orgId,
+        target_provider_subscription: result.providerSubscriptionId,
+      });
+      if (markError) logBillingFailure("pix_mark_failed", { orgId: input.orgId }, markError);
+    }
+
     await recordAudit(supabase, "subscription.checkout_started", {
       orgId: input.orgId,
       entityType: "plan",

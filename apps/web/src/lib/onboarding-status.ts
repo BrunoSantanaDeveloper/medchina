@@ -26,8 +26,17 @@ import { type AudioAllowance, trialDaysLeft } from "@/lib/audio-allowance";
 export type OnboardingStatus =
   /** Paid and confirmed. `planName` is null only if the plan lost its name. */
   | { kind: "plan"; planName: string | null }
-  /** Charged, waiting on the provider's webhook. Never "active". */
-  | { kind: "pending_payment"; planName: string | null }
+  /**
+   * Charged, waiting on the provider's webhook. Never "active" — even while the
+   * plan is honoured provisionally (migration 0111), in which case
+   * `provisionalUntil` says until when she can use it.
+   */
+  | { kind: "pending_payment"; planName: string | null; provisionalUntil: string | null }
+  /**
+   * The PIX was never confirmed and the provisional window closed. Pro is off;
+   * what resolves it is finishing the payment, never a trial.
+   */
+  | { kind: "payment_unconfirmed"; planName: string | null; planSlug: string | null }
   /** The card-less Pro trial is running (PRD §5.7). */
   | { kind: "trial"; daysLeft: number | null }
   /** Gratuito: unlimited manual records, no AI minutes. Not a failure state. */
@@ -43,8 +52,18 @@ export function deriveOnboardingStatus({
   allowance: AudioAllowance | null;
   pending: PendingSubscription | null;
 }): OnboardingStatus {
+  // Provisional FIRST: during the window the allowance reports the plan as its
+  // source, and reading that as "plan" would tell someone who has not paid yet
+  // that she has.
+  if (allowance?.provisional) {
+    return { kind: "pending_payment", planName: allowance.planName, provisionalUntil: allowance.provisionalUntil };
+  }
   if (allowance?.source === "plan") return { kind: "plan", planName: allowance.planName };
-  if (pending) return { kind: "pending_payment", planName: pending.planName };
+  if (allowance?.reason === "payment_unconfirmed") {
+    return { kind: "payment_unconfirmed", planName: pending?.planName ?? null, planSlug: allowance.pendingPlanSlug };
+  }
+  // A charge with no provisional window (card, or a PIX created before 0111).
+  if (pending) return { kind: "pending_payment", planName: pending.planName, provisionalUntil: null };
   if (allowance?.trialActive) return { kind: "trial", daysLeft: trialDaysLeft(allowance) };
   return { kind: "free" };
 }

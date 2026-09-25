@@ -52,12 +52,18 @@ export default function PlanIndicator({ menuType }: { menuType: MenuType }) {
 
   if (loading || !allowance) return null;
 
-  const planLabel =
-    allowance.source === "plan"
-      ? (allowance.planName ?? t("menu-plan-active"))
-      : allowance.source === "trial"
-        ? t("menu-plan-trial")
-        : t("menu-plan-free");
+  // A PIX being confirmed is honoured provisionally (migration 0111), which the
+  // allowance reports as source "plan". Naming the plan outright would tell her
+  // she has what the bank has not confirmed yet.
+  const planLabel = allowance.provisional
+    ? t("menu-plan-pending", { plan: allowance.planName ?? t("menu-plan-active") })
+    : allowance.reason === "payment_unconfirmed"
+      ? t("menu-plan-unconfirmed")
+      : allowance.source === "plan"
+        ? (allowance.planName ?? t("menu-plan-active"))
+        : allowance.source === "trial"
+          ? t("menu-plan-trial")
+          : t("menu-plan-free");
   const title = t("menu-plan-current", { plan: planLabel });
   const minimal = menuType === MenuType.Minimal;
 

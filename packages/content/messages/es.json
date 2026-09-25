@@ -458,7 +458,9 @@
     "impersonation-remaining": "Termina en {time}",
     "impersonation-exit": "Salir de la cuenta",
     "announcement-learn-more": "Saber más",
-    "announcement-dismiss": "Descartar aviso"
+    "announcement-dismiss": "Descartar aviso",
+    "menu-plan-pending": "{plan} · confirmando pago",
+    "menu-plan-unconfirmed": "Pago no confirmado"
   },
   "marketing": {
     "nav-home": "Inicio",
@@ -3251,7 +3253,18 @@
     "guide-ai-pending-note": "Puedes seguir la guía mientras tanto: el plan se habilita solo en cuanto se confirme el pago. Si al grabar la confirmación todavía no llegó, el grabador lo avisa y ofrece la prueba Pro para que esta primera consulta no espere.",
     "guide-record-preparing": "Preparando la consulta para la grabación…",
     "guide-record-open-error": "No pudimos abrir la consulta para grabar.",
-    "recorder-trial-note-pending": "Sin tarjeta y sin cargo extra. Tu pago aún se está confirmando: la prueba solo cubre las grabaciones hasta entonces, y después rige el plan que contrataste."
+    "recorder-trial-note-pending": "Sin tarjeta y sin cargo extra. Tu pago aún se está confirmando: la prueba solo cubre las grabaciones hasta entonces, y después rige el plan que contrataste.",
+    "onboarding-badge-unconfirmed": "Pago no confirmado",
+    "onboarding-badge-unconfirmed-hint": "El banco no confirmó el PIX y el Pro quedó en pausa. Completa el pago para volver a usarlo.",
+    "onboarding-badge-provisional-hint": "Esperando la confirmación del PIX. Mientras tanto, el Pro está habilitado hasta {until}.",
+    "guide-ai-provisional-note": "Puedes seguir la guía con normalidad: el Pro ya está habilitado para ti hasta {until}, mientras el banco confirma el PIX. Si el pago no se confirma para entonces, la grabación con IA queda en pausa hasta la confirmación.",
+    "guide-ai-unconfirmed-title": "Tu pago no fue confirmado",
+    "guide-ai-unconfirmed-hint": "El banco no confirmó el PIX a tiempo, y el Pro quedó en pausa.",
+    "guide-ai-unconfirmed-note": "Tus registros siguen guardados. Completa el pago de tu plan para volver a grabar con IA.",
+    "guide-ai-unconfirmed-cta": "Completar pago",
+    "recorder-payment-unconfirmed-body": "El banco no confirmó el PIX de tu plan, y la grabación con IA quedó en pausa. Tus registros siguen accesibles — completa el pago para volver a grabar.",
+    "recorder-payment-unconfirmed-cta": "Completar pago",
+    "guide-record-minutes-plan": "Esta grabación es real y consume minutos de tu plan."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

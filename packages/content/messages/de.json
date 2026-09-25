@@ -458,7 +458,9 @@
     "impersonation-remaining": "Endet in {time}",
     "impersonation-exit": "Konto verlassen",
     "announcement-learn-more": "Mehr erfahren",
-    "announcement-dismiss": "Hinweis schließen"
+    "announcement-dismiss": "Hinweis schließen",
+    "menu-plan-pending": "{plan} · Zahlung wird bestätigt",
+    "menu-plan-unconfirmed": "Zahlung nicht bestätigt"
   },
   "marketing": {
     "nav-home": "Startseite",
@@ -3251,7 +3253,18 @@
     "guide-ai-pending-note": "Sie können die Anleitung inzwischen fortsetzen: Der Tarif wird automatisch freigeschaltet, sobald die Zahlung bestätigt ist. Ist sie beim Aufnehmen noch nicht da, sagt der Rekorder es und bietet den Pro-Test an, damit diese erste Konsultation nicht warten muss.",
     "guide-record-preparing": "Konsultation wird für die Aufnahme vorbereitet…",
     "guide-record-open-error": "Die Konsultation konnte für die Aufnahme nicht geöffnet werden.",
-    "recorder-trial-note-pending": "Ohne Karte und ohne Zusatzkosten. Ihre Zahlung wird noch bestätigt: Der Test deckt die Aufnahmen nur bis dahin ab, danach gilt der gebuchte Tarif."
+    "recorder-trial-note-pending": "Ohne Karte und ohne Zusatzkosten. Ihre Zahlung wird noch bestätigt: Der Test deckt die Aufnahmen nur bis dahin ab, danach gilt der gebuchte Tarif.",
+    "onboarding-badge-unconfirmed": "Zahlung nicht bestätigt",
+    "onboarding-badge-unconfirmed-hint": "Die Bank hat den PIX nicht bestätigt, und Pro wurde pausiert. Schließen Sie die Zahlung ab, um es wieder zu nutzen.",
+    "onboarding-badge-provisional-hint": "Warten auf die Bestätigung des PIX. Bis dahin ist Pro bis {until} freigeschaltet.",
+    "guide-ai-provisional-note": "Sie können die Anleitung normal fortsetzen: Pro ist für Sie bereits bis {until} freigeschaltet, während die Bank den PIX bestätigt. Wird die Zahlung bis dahin nicht bestätigt, pausiert die KI-Aufnahme bis zur Bestätigung.",
+    "guide-ai-unconfirmed-title": "Ihre Zahlung wurde nicht bestätigt",
+    "guide-ai-unconfirmed-hint": "Die Bank hat den PIX nicht rechtzeitig bestätigt, und Pro wurde pausiert.",
+    "guide-ai-unconfirmed-note": "Ihre Akten bleiben erhalten. Schließen Sie die Zahlung Ihres Tarifs ab, um wieder mit KI aufzunehmen.",
+    "guide-ai-unconfirmed-cta": "Zahlung abschließen",
+    "recorder-payment-unconfirmed-body": "Der PIX Ihres Tarifs wurde von der Bank nicht bestätigt, und die KI-Aufnahme ist pausiert. Ihre Akten bleiben zugänglich — schließen Sie die Zahlung ab, um wieder aufzunehmen.",
+    "recorder-payment-unconfirmed-cta": "Zahlung abschließen",
+    "guide-record-minutes-plan": "Diese Aufnahme ist echt und verbraucht Minuten aus Ihrem Tarif."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

@@ -696,12 +696,31 @@ export default function GuidedTrailPage() {
       // above it.
       const paid = commercial?.kind === "plan";
       const paying = commercial?.kind === "pending_payment";
+      const unconfirmed = commercial?.kind === "payment_unconfirmed";
+      // The Pro she is paying for, honoured while the bank confirms (0111).
+      const provisionalUntil = commercial?.kind === "pending_payment" ? commercial.provisionalUntil : null;
+      const finishPaymentHref =
+        commercial?.kind === "payment_unconfirmed" && commercial.planSlug
+          ? `/assinatura?plan=${encodeURIComponent(commercial.planSlug)}`
+          : "/settings/billing";
       const onTrial = trialStarted || commercial?.kind === "trial";
       entries.push({
         key: "trial",
         step: {
-          title: paid ? t("guide-ai-plan-title") : paying ? t("guide-ai-pending-title") : t("guide-ai-title"),
-          hint: paid ? t("guide-ai-plan-hint") : paying ? t("guide-ai-pending-hint") : t("guide-ai-hint"),
+          title: paid
+            ? t("guide-ai-plan-title")
+            : paying
+              ? t("guide-ai-pending-title")
+              : unconfirmed
+                ? t("guide-ai-unconfirmed-title")
+                : t("guide-ai-title"),
+          hint: paid
+            ? t("guide-ai-plan-hint")
+            : paying
+              ? t("guide-ai-pending-hint")
+              : unconfirmed
+                ? t("guide-ai-unconfirmed-hint")
+                : t("guide-ai-hint"),
           // Never a gate: she chose the AI track, but the trail must not hold
           // the first record hostage to starting a trial or to a bank.
           canAdvance: true,
@@ -712,8 +731,25 @@ export default function GuidedTrailPage() {
               </Typography>
               {paid ? null : paying ? (
                 <Alert severity="info" className="neutral bg-background-paper/60!">
-                  {t("guide-ai-pending-note")}
+                  {provisionalUntil
+                    ? t("guide-ai-provisional-note", {
+                        until: new Intl.DateTimeFormat(undefined, { dateStyle: "short", timeStyle: "short" }).format(
+                          new Date(provisionalUntil),
+                        ),
+                      })
+                    : t("guide-ai-pending-note")}
                 </Alert>
+              ) : unconfirmed ? (
+                // Amber, never red: an unconfirmed PIX is a billing matter. The
+                // way out is finishing THAT payment — never a trial.
+                <Box className="flex flex-col gap-2">
+                  <Alert severity="warning" className="neutral bg-background-paper/60!">
+                    {t("guide-ai-unconfirmed-note")}
+                  </Alert>
+                  <Button LinkComponent={Link} href={finishPaymentHref} variant="contained" className="self-start">
+                    {t("guide-ai-unconfirmed-cta")}
+                  </Button>
+                </Box>
               ) : onTrial ? (
                 <Alert severity="success" icon={<NiCheck size="small" />}>
                   {t("guide-ai-trial-started")}
@@ -772,7 +808,13 @@ export default function GuidedTrailPage() {
           content:
             patient && consultationId && orgId ? (
               <Box className="flex flex-col gap-3">
-                <Alert severity="info">{t("guide-record-minutes")}</Alert>
+                {/* Someone who came through a payment path is never told about a
+                    trial — not even in passing. */}
+                <Alert severity="info">
+                  {commercial && commercial.kind !== "free" && commercial.kind !== "trial"
+                    ? t("guide-record-minutes-plan")
+                    : t("guide-record-minutes")}
+                </Alert>
                 <ConsultationRecorder
                   orgId={orgId}
                   patientId={patient.id}

@@ -458,7 +458,9 @@
     "impersonation-remaining": "Se termine dans {time}",
     "impersonation-exit": "Quitter le compte",
     "announcement-learn-more": "En savoir plus",
-    "announcement-dismiss": "Masquer l’annonce"
+    "announcement-dismiss": "Masquer l’annonce",
+    "menu-plan-pending": "{plan} · paiement en confirmation",
+    "menu-plan-unconfirmed": "Paiement non confirmé"
   },
   "marketing": {
     "nav-home": "Accueil",
@@ -3251,7 +3253,18 @@
     "guide-ai-pending-note": "Vous pouvez poursuivre le guide en attendant : le forfait est activé automatiquement dès la confirmation du paiement. Si elle n'est pas arrivée au moment d'enregistrer, l'enregistreur le signale et propose l'essai Pro pour que cette première consultation n'attende pas.",
     "guide-record-preparing": "Préparation de la consultation pour l'enregistrement…",
     "guide-record-open-error": "Impossible d'ouvrir la consultation pour l'enregistrement.",
-    "recorder-trial-note-pending": "Sans carte et sans frais supplémentaires. Votre paiement est encore en confirmation : l'essai ne couvre les enregistrements que jusque-là, puis c'est le forfait souscrit qui s'applique."
+    "recorder-trial-note-pending": "Sans carte et sans frais supplémentaires. Votre paiement est encore en confirmation : l'essai ne couvre les enregistrements que jusque-là, puis c'est le forfait souscrit qui s'applique.",
+    "onboarding-badge-unconfirmed": "Paiement non confirmé",
+    "onboarding-badge-unconfirmed-hint": "La banque n'a pas confirmé le PIX et le Pro est suspendu. Terminez le paiement pour l'utiliser à nouveau.",
+    "onboarding-badge-provisional-hint": "En attente de la confirmation du PIX. En attendant, le Pro est débloqué jusqu'au {until}.",
+    "guide-ai-provisional-note": "Vous pouvez poursuivre le guide normalement : le Pro est déjà débloqué pour vous jusqu'au {until}, pendant que la banque confirme le PIX. Si le paiement n'est pas confirmé d'ici là, l'enregistrement avec IA est suspendu jusqu'à la confirmation.",
+    "guide-ai-unconfirmed-title": "Votre paiement n'a pas été confirmé",
+    "guide-ai-unconfirmed-hint": "La banque n'a pas confirmé le PIX à temps, et le Pro est suspendu.",
+    "guide-ai-unconfirmed-note": "Vos dossiers sont conservés. Terminez le paiement de votre forfait pour enregistrer à nouveau avec l'IA.",
+    "guide-ai-unconfirmed-cta": "Terminer le paiement",
+    "recorder-payment-unconfirmed-body": "Le PIX de votre forfait n'a pas été confirmé par la banque, et l'enregistrement avec IA est suspendu. Vos dossiers restent accessibles — terminez le paiement pour enregistrer à nouveau.",
+    "recorder-payment-unconfirmed-cta": "Terminer le paiement",
+    "guide-record-minutes-plan": "Cet enregistrement est réel et consomme des minutes de votre forfait."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

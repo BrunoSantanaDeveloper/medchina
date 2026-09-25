@@ -1009,6 +1009,13 @@ export default function ConsultationRecorder({
   // a grid of plans is a dead end dressed as a next step, so the blocked state
   // reads its cause from the allowance instead of guessing (migration 0054).
   const paymentBlocked = exhausted && allowance?.reason === "past_due_blocked";
+  // A PIX she started was never confirmed and its provisional window closed
+  // (migration 0111). Finishing THAT payment is the answer — not the plans grid,
+  // and never a trial.
+  const paymentUnconfirmed = exhausted && allowance?.reason === "payment_unconfirmed";
+  const finishPaymentHref = allowance?.pendingPlanSlug
+    ? `/assinatura?plan=${encodeURIComponent(allowance.pendingPlanSlug)}`
+    : BILLING_HREF;
   const inGracePeriod = mode === "ai" && allowance?.reason === "past_due_grace";
   const graceLeft = allowance ? graceDaysLeft(allowance) : null;
   const overrunning =
@@ -1174,11 +1181,13 @@ export default function ConsultationRecorder({
                     much on the same account. Each cause states itself. */}
                 {allowance?.suspended
                   ? t("recorder-suspended-body")
-                  : paymentBlocked
-                    ? t("recorder-past-due-body")
-                    : allowance?.reason === "trial_over"
-                      ? t("recorder-trial-over-body")
-                      : t("recorder-limit-body")}
+                  : paymentUnconfirmed
+                    ? t("recorder-payment-unconfirmed-body")
+                    : paymentBlocked
+                      ? t("recorder-past-due-body")
+                      : allowance?.reason === "trial_over"
+                        ? t("recorder-trial-over-body")
+                        : t("recorder-limit-body")}
               </Typography>
               {/* A suspension is not hers to resolve, so it gets no action —
                   every other cause gets the one that actually resolves it. */}
@@ -1187,16 +1196,20 @@ export default function ConsultationRecorder({
                   <Button
                     variant="contained"
                     color="primary"
-                    href={paymentBlocked ? PAYMENT_HREF : BILLING_HREF}
+                    href={paymentUnconfirmed ? finishPaymentHref : paymentBlocked ? PAYMENT_HREF : BILLING_HREF}
                     onClick={() =>
                       trackCommercialEvent(
                         "upgrade.prompt_clicked",
                         "consultation",
-                        paymentBlocked ? "payment" : "audio",
+                        paymentBlocked || paymentUnconfirmed ? "payment" : "audio",
                       )
                     }
                   >
-                    {paymentBlocked ? t("recorder-past-due-cta") : t("recorder-limit-cta")}
+                    {paymentUnconfirmed
+                      ? t("recorder-payment-unconfirmed-cta")
+                      : paymentBlocked
+                        ? t("recorder-past-due-cta")
+                        : t("recorder-limit-cta")}
                   </Button>
                   {/* Only for someone already on a paid plan whose cycle ran
                       out: for her, waiting for the renewal and jumping a tier
