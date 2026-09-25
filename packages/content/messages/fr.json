@@ -3264,7 +3264,12 @@
     "guide-ai-unconfirmed-cta": "Terminer le paiement",
     "recorder-payment-unconfirmed-body": "Le PIX de votre forfait n'a pas été confirmé par la banque, et l'enregistrement avec IA est suspendu. Vos dossiers restent accessibles — terminez le paiement pour enregistrer à nouveau.",
     "recorder-payment-unconfirmed-cta": "Terminer le paiement",
-    "guide-record-minutes-plan": "Cet enregistrement est réel et consomme des minutes de votre forfait."
+    "guide-record-minutes-plan": "Cet enregistrement est réel et consomme des minutes de votre forfait.",
+    "guide-patient-cta": "Enregistrer et continuer",
+    "guide-patient-change": "Changer de patient",
+    "guide-schedule-skip": "Terminer sans planifier",
+    "recorder-keep-open": "Ne fermez pas et ne rechargez pas cet écran avant la fin du traitement — le fermer maintenant interrompt l'envoi de l'audio.",
+    "recorder-cancelled-body": "Cet enregistrement a été supprimé et ne sera pas traité. Enregistrez à nouveau pour générer l'anamnèse."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

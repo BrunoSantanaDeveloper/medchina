@@ -289,6 +289,13 @@ export default function ConsultationRecorder({
           onChanged?.();
           return;
         }
+        if (data?.status === "cancelled") {
+          // Discarded while this page waited on it. Polling on would spin for
+          // five minutes on a recording that will never be processed.
+          failProcessing("recording_cancelled");
+          onChanged?.();
+          return;
+        }
         if (data?.status === "failed") {
           // A job that failed in the background reports its cause on the row —
           // the request itself succeeded, so this is the only place it exists.
@@ -343,8 +350,28 @@ export default function ConsultationRecorder({
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [pollTimedOut, phase, pollUntilSettled]);
 
+  /**
+   * The functions recovery needs, kept in a ref so recovery does NOT re-run
+   * when their identity changes.
+   *
+   * Recovery answers one question — "what did a previous page leave behind for
+   * this consultation?" — and it is only true when the recorder appears. It
+   * used to list these callbacks as effect dependencies, and they are rebuilt
+   * whenever the caller passes a new `onChanged` (an inline arrow re-renders
+   * into a new function). Measured in the guided onboarding: starting a capture
+   * calls `onChanged`, the page re-rendered, recovery ran AGAIN mid-capture,
+   * found no local audio yet and flagged the recording in progress as an
+   * abandoned one — offering "Descartar e liberar", which cancels the capture
+   * she is making.
+   */
+  const recoveryFns = useRef({ recoverSession, removeSession, requestProcessing, failProcessing, t });
+  useEffect(() => {
+    recoveryFns.current = { recoverSession, removeSession, requestProcessing, failProcessing, t };
+  });
+
   useEffect(() => {
     let current = true;
+    const { recoverSession, removeSession, requestProcessing, failProcessing, t } = recoveryFns.current;
     void recoverSession(consultationId).then(async (recovered) => {
       if (!current) return;
 
@@ -362,7 +389,9 @@ export default function ConsultationRecorder({
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (!current || !open) return;
+        // Never the capture THIS recorder is running: that one is not orphaned,
+        // and "discard" on it would cancel the consultation being recorded.
+        if (!current || !open || open.id === recordingId.current) return;
         setOrphan({ id: open.id as string, status: open.status as string, createdAt: open.created_at as string });
         return;
       }
@@ -410,7 +439,8 @@ export default function ConsultationRecorder({
     return () => {
       current = false;
     };
-  }, [consultationId, failProcessing, recoverSession, removeSession, requestProcessing, t]);
+    // Once per consultation, deliberately — see `recoveryFns` above.
+  }, [consultationId]);
 
   useEffect(() => {
     if (audioConsent !== undefined && aiConsent !== undefined) {
@@ -1035,23 +1065,25 @@ export default function ConsultationRecorder({
   const processingFailureText =
     processingFailure === null
       ? null
-      : processingFailure === "provider_rejected"
-        ? t("recordings-error-provider-rejected")
-        : isConsentFailure(processingFailure)
-          ? t("recordings-error-consent")
-          : processingFailure === "provider_unavailable"
-            ? t("recordings-error-provider-unavailable")
-            : processingFailure === "clinical_revision_conflict"
-              ? t("recordings-error-revision")
-              : processingFailure === "allowance_unavailable" || processingFailure === "audio_allowance_exhausted"
-                ? t("recordings-error-allowance")
-                : // `recorder-ai-failed` is the only copy that promises a new
-                  // attempt, so it belongs ONLY to causes a new attempt can fix.
-                  // A structural refusal gets the neutral wording the recordings
-                  // panel already uses for the same bucket.
-                  isRetryableFailure(processingFailure)
-                  ? t("recorder-ai-failed")
-                  : t("recordings-process-error");
+      : processingFailure === "recording_cancelled"
+        ? t("recorder-cancelled-body")
+        : processingFailure === "provider_rejected"
+          ? t("recordings-error-provider-rejected")
+          : isConsentFailure(processingFailure)
+            ? t("recordings-error-consent")
+            : processingFailure === "provider_unavailable"
+              ? t("recordings-error-provider-unavailable")
+              : processingFailure === "clinical_revision_conflict"
+                ? t("recordings-error-revision")
+                : processingFailure === "allowance_unavailable" || processingFailure === "audio_allowance_exhausted"
+                  ? t("recordings-error-allowance")
+                  : // `recorder-ai-failed` is the only copy that promises a new
+                    // attempt, so it belongs ONLY to causes a new attempt can fix.
+                    // A structural refusal gets the neutral wording the recordings
+                    // panel already uses for the same bucket.
+                    isRetryableFailure(processingFailure)
+                    ? t("recorder-ai-failed")
+                    : t("recordings-process-error");
   // Capture always feeds the AI, so both consents are required.
   const hasRequiredConsent = consents?.audio === true && consents.ai;
 
@@ -1292,6 +1324,16 @@ export default function ConsultationRecorder({
                   {captureLimit === "duration"
                     ? t("recorder-capture-limit-duration")
                     : t("recorder-capture-limit-size")}
+                </Alert>
+              )}
+              {/* Said while it matters and gone the moment it stops mattering.
+                  The leave guard is released at "Encerrar e enviar", so from
+                  here on nothing else would tell her that closing the tab
+                  interrupts the upload — or that this page is where the
+                  result appears. Amber, not red: nothing is wrong yet. */}
+              {(phase === "uploading" || (phase === "processing" && !pollTimedOut)) && (
+                <Alert severity="warning" className="neutral bg-background-paper/60!">
+                  {t("recorder-keep-open")}
                 </Alert>
               )}
               {phase === "uploading" && (

@@ -3264,7 +3264,12 @@
     "guide-ai-unconfirmed-cta": "Completar pago",
     "recorder-payment-unconfirmed-body": "El banco no confirmó el PIX de tu plan, y la grabación con IA quedó en pausa. Tus registros siguen accesibles — completa el pago para volver a grabar.",
     "recorder-payment-unconfirmed-cta": "Completar pago",
-    "guide-record-minutes-plan": "Esta grabación es real y consume minutos de tu plan."
+    "guide-record-minutes-plan": "Esta grabación es real y consume minutos de tu plan.",
+    "guide-patient-cta": "Registrar y continuar",
+    "guide-patient-change": "Cambiar paciente",
+    "guide-schedule-skip": "Concluir sin agendar",
+    "recorder-keep-open": "No cierres ni recargues esta pantalla hasta que termine el procesamiento — cerrarla ahora interrumpe el envío del audio.",
+    "recorder-cancelled-body": "Esta grabación fue descartada y no se procesará. Graba de nuevo para generar la anamnesis."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

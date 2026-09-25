@@ -81,6 +81,10 @@ const GUIDED_FIELDS: AnamnesisField[] = GUIDED_FIELD_KEYS.map((key) =>
   COMPLAINT_BLOCK?.fields.find((field) => field.key === key),
 ).filter((field): field is AnamnesisField => Boolean(field));
 
+/** The embedded forms the wizard's primary button submits (`form={id}`). */
+const CONTEXT_FORM_ID = "guide-context-form";
+const PATIENT_FORM_ID = "guide-patient-form";
+
 /** Audio first: without it there is no capture at all. Then the AI processing. */
 const CONSENT_SLUGS = ["audio-recording", "ai-processing"] as const;
 type ConsentSlug = (typeof CONSENT_SLUGS)[number];
@@ -124,7 +128,6 @@ export default function GuidedTrailPage() {
   const [loadError, setLoadError] = useState(false);
   const [patients, setPatients] = useState<PatientOption[]>([]);
 
-  const [hasContext, setHasContext] = useState(false);
   const [patient, setPatient] = useState<PatientOption | null>(null);
   const [consultationId, setConsultationId] = useState<string | null>(null);
   const [complaint, setComplaint] = useState("");
@@ -134,6 +137,16 @@ export default function GuidedTrailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [finalized, setFinalized] = useState(false);
   const [trailDone, setTrailDone] = useState(false);
+  const [contextSaving, setContextSaving] = useState(false);
+  const [patientSaving, setPatientSaving] = useState(false);
+  /**
+   * A step whose work finished asynchronously (a form saved, both consents on
+   * record, a recording processed) asks to move on here; the effect below does
+   * it with the CURRENT step list — never with the one a stale callback saw —
+   * and only if she is still on that step.
+   */
+  const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
+  const [advanceRequest, setAdvanceRequest] = useState<{ from: StepKey; celebrate: boolean } | null>(null);
 
   // --- consent (AI track) ---
   const [consents, setConsents] = useState<{ audio: boolean; ai: boolean }>({ audio: false, ai: false });
@@ -209,7 +222,6 @@ export default function GuidedTrailPage() {
         // its first patient has none, so a failed read degrades to "no warning"
         // instead of blocking the trail on something that cannot matter yet.
         setPatients(options.ok ? options.data : []);
-        setHasContext(facts.hasPracticeContext);
 
         // RESUMING: pick up the consultation the trail already opened.
         //
@@ -426,8 +438,8 @@ export default function GuidedTrailPage() {
     [busy, consultationId, t],
   );
 
-  const startTrial = useCallback(async () => {
-    if (!orgId || busy) return;
+  const startTrial = useCallback(async (): Promise<boolean> => {
+    if (!orgId || busy) return false;
     setBusy(true);
     setActionError(null);
     try {
@@ -442,8 +454,10 @@ export default function GuidedTrailPage() {
       if (!response.ok) throw new Error("trial_failed");
       setTrialStarted(true);
       trackProductEvent("journey.track_selected", { intent: "ai", origin: "onboarding" });
+      return true;
     } catch {
       setActionError(t("guide-trial-error"));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -484,20 +498,23 @@ export default function GuidedTrailPage() {
           return;
         }
         // A refusal is a decision too — record it and move to the next purpose.
-        setConsents((current) => ({
-          ...current,
+        const nextConsents = {
+          ...consents,
           [openConsent.slug === "audio-recording" ? "audio" : "ai"]: input.granted,
-        }));
+        };
+        setConsents(nextConsents);
         const { slugs, index } = openConsent;
         setOpenConsent(null);
         if (index + 1 < slugs.length) await openTerm(slugs, index + 1);
+        // Both on record: the step is done, so the trail moves on by itself.
+        else if (nextConsents.audio && nextConsents.ai) setAdvanceRequest({ from: "consent", celebrate: false });
       } catch {
         setActionError(t("guide-consent-error"));
       } finally {
         setConsentBusy(false);
       }
     },
-    [consentBusy, openConsent, openTerm, patient, t],
+    [consentBusy, consents, openConsent, openTerm, patient, t],
   );
 
   // ---------- recording ----------
@@ -506,6 +523,7 @@ export default function GuidedTrailPage() {
    * Called by the recorder whenever its recordings change. It reports "something
    * moved", not a phase, so the trail asks the database where things stand.
    */
+  const wasReady = useRef(false);
   const onRecordingChanged = useCallback(async () => {
     const id = consultationId;
     if (!id) return;
@@ -517,6 +535,10 @@ export default function GuidedTrailPage() {
     setRecordingBlocking(blocking);
     const ready = rows.some((row) => String(row.status) === "ready");
     setRecordingReady(ready);
+    // Only on the transition to ready: coming back to this step with a
+    // recording that was already processed must not push her forward again.
+    if (ready && !wasReady.current) setAdvanceRequest({ from: "record", celebrate: true });
+    wasReady.current = ready;
     // The pipeline wrote under us: re-read the revision and the answers, or the
     // next save and the finalize both come back as conflicts.
     if (ready) await refreshClinical(id);
@@ -559,13 +581,13 @@ export default function GuidedTrailPage() {
   // ---------- finalize ----------
 
   const finalize = useCallback(
-    async (acknowledged: string[] = []) => {
-      if (!consultationId || busy) return;
+    async (acknowledged: string[] = []): Promise<boolean> => {
+      if (!consultationId || busy) return false;
       setBusy(true);
       setActionError(null);
       try {
         const saved = await saveAnswers();
-        if (!saved) return;
+        if (!saved) return false;
         const response = await fetch(`/api/consultations/${consultationId}/finalize`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -573,7 +595,8 @@ export default function GuidedTrailPage() {
         });
         if (response.ok) {
           setFinalized(true);
-          return;
+          setPendingWarnings([]);
+          return true;
         }
         // The RPC answers with a NAMED cause; collapsing them into one message
         // is how "a recording is still processing" became "something failed".
@@ -591,7 +614,7 @@ export default function GuidedTrailPage() {
             }),
           );
           setPendingWarnings(warnings);
-          return;
+          return false;
         }
         setActionError(
           body.code === "recording_pending"
@@ -601,8 +624,10 @@ export default function GuidedTrailPage() {
               : t("guide-finalize-error"),
         );
         if (body.code === "clinical_revision_conflict") await refreshClinical(consultationId);
+        return false;
       } catch {
         setActionError(t("guide-finalize-error"));
+        return false;
       } finally {
         setBusy(false);
       }
@@ -610,9 +635,14 @@ export default function GuidedTrailPage() {
     [busy, consultationId, refreshClinical, saveAnswers, t],
   );
 
-  const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
-
   // ---------- steps ----------
+  //
+  // One rule for every step: the step's own action IS the wizard's primary
+  // button. It used to be two controls for one decision — "Cadastrar e
+  // selecionar" inside the step and a disabled "Continuar" beside it (plus a
+  // second "Voltar"), then a green "done" panel that read as an extra step and
+  // needed yet another click. Now the action runs, and the only confirmation is
+  // the celebration dialog that leads into the next step.
 
   const stepList = useMemo<{ key: StepKey; step: WizardStep }[]>(() => {
     const entries: { key: StepKey; step: WizardStep }[] = [];
@@ -622,27 +652,48 @@ export default function GuidedTrailPage() {
       step: {
         title: t("guide-context-title"),
         hint: t("guide-context-hint"),
-        canAdvance: hasContext,
-        content: hasContext ? (
-          <Alert severity="success" icon={<NiCheck size="small" />}>
-            {t("guide-context-done")}
-          </Alert>
-        ) : (
-          <PracticeContextForm onCompleted={() => setHasContext(true)} />
+        primaryFormId: CONTEXT_FORM_ID,
+        primaryLabel: t("practice-context-save"),
+        busy: contextSaving,
+        content: (
+          <PracticeContextForm
+            embedded
+            formId={CONTEXT_FORM_ID}
+            onSubmittingChange={setContextSaving}
+            onCompleted={() => {
+              setAdvanceRequest({ from: "context", celebrate: false });
+            }}
+          />
         ),
       },
     });
 
+    // Changing the patient is only offered while no consultation was opened for
+    // the current one: after that, the record belongs to that patient.
+    const canChangePatient = Boolean(patient) && !consultationId;
     entries.push({
       key: "patient",
       step: {
         title: t("guide-patient-title"),
         hint: t("guide-patient-hint"),
-        canAdvance: Boolean(patient),
+        ...(patient
+          ? {}
+          : {
+              primaryFormId: PATIENT_FORM_ID,
+              primaryLabel: t("guide-patient-cta"),
+              busy: patientSaving,
+            }),
         content: patient ? (
-          <Alert severity="success" icon={<NiCheck size="small" />}>
-            {t("guide-patient-ready", { name: patient.fullName })}
-          </Alert>
+          // Only seen when she comes BACK to this step: after creating or
+          // choosing, the trail has already moved on.
+          <Box className="flex flex-row flex-wrap items-center justify-between gap-2">
+            <Typography variant="body1">{t("guide-patient-ready", { name: patient.fullName })}</Typography>
+            {canChangePatient && (
+              <Button variant="text" size="small" onClick={() => setPatient(null)}>
+                {t("guide-patient-change")}
+              </Button>
+            )}
+          </Box>
         ) : (
           <Box className="flex flex-col gap-4">
             {/* The example is the point of this step: a professional who has
@@ -652,9 +703,9 @@ export default function GuidedTrailPage() {
               <Typography variant="subtitle2">{t("guide-patient-example-title")}</Typography>
               <Typography variant="body2">{t("guide-patient-example-body")}</Typography>
             </Alert>
-            {/* Someone who already registered a patient must be able to continue
-                with that patient — and the trail must never PICK one for her:
-                opening a consultation is a real clinical write. */}
+            {/* Choosing someone already registered is a whole decision: it moves
+                on at once. The trail never PICKS a patient for her — opening a
+                consultation is a real clinical write. */}
             {patients.length > 0 && (
               <TextField
                 select
@@ -662,7 +713,12 @@ export default function GuidedTrailPage() {
                 value=""
                 onChange={(event) => {
                   const chosen = patients.find((option) => option.id === event.target.value);
-                  if (chosen) setPatient(chosen);
+                  if (!chosen) return;
+                  // "Primeiro paciente cadastrado" would be false for someone
+                  // she already had, so this crossing does not celebrate.
+                  celebrated.current.add("patient");
+                  setPatient(chosen);
+                  setAdvanceRequest({ from: "patient", celebrate: false });
                 }}
                 slotProps={{ select: { native: true } }}
                 fullWidth
@@ -676,11 +732,15 @@ export default function GuidedTrailPage() {
               </TextField>
             )}
             <PatientQuickCreate
+              embedded
+              formId={PATIENT_FORM_ID}
+              onSubmittingChange={setPatientSaving}
               orgId={orgId ?? ""}
               existingPatients={patients}
               onCreated={(created) => {
                 setPatient(created);
                 setPatients((current) => [...current, created]);
+                setAdvanceRequest({ from: "patient", celebrate: true });
               }}
               onCancel={() => undefined}
             />
@@ -692,8 +752,7 @@ export default function GuidedTrailPage() {
     if (track === "ai") {
       // What this step says depends on what she already has. It used to offer
       // "ative o teste Pro" to everyone — including someone who had just paid
-      // by PIX, with the header badge reading "confirmando pagamento" right
-      // above it.
+      // by PIX, with the header badge reading "confirmando pagamento" above it.
       const paid = commercial?.kind === "plan";
       const paying = commercial?.kind === "pending_payment";
       const unconfirmed = commercial?.kind === "payment_unconfirmed";
@@ -704,6 +763,7 @@ export default function GuidedTrailPage() {
           ? `/assinatura?plan=${encodeURIComponent(commercial.planSlug)}`
           : "/settings/billing";
       const onTrial = trialStarted || commercial?.kind === "trial";
+      const offerTrial = !paid && !paying && !unconfirmed && !onTrial;
       entries.push({
         key: "trial",
         step: {
@@ -721,15 +781,36 @@ export default function GuidedTrailPage() {
               : unconfirmed
                 ? t("guide-ai-unconfirmed-hint")
                 : t("guide-ai-hint"),
-          // Never a gate: she chose the AI track, but the trail must not hold
-          // the first record hostage to starting a trial or to a bank.
-          canAdvance: true,
+          ...(unconfirmed
+            ? {
+                primaryLabel: t("guide-ai-unconfirmed-cta"),
+                onPrimary: () => {
+                  router.push(finishPaymentHref);
+                  return false;
+                },
+                secondary: {
+                  label: t("continue"),
+                  onClick: () => setAdvanceRequest({ from: "trial", celebrate: false }),
+                },
+              }
+            : offerTrial
+              ? {
+                  // Never a gate: starting the trial is optional, and "Agora
+                  // não" carries on without it.
+                  primaryLabel: t("guide-ai-start-trial"),
+                  onPrimary: startTrial,
+                  secondary: {
+                    label: t("celebration-later"),
+                    onClick: () => setAdvanceRequest({ from: "trial", celebrate: false }),
+                  },
+                }
+              : {}),
           content: (
             <Box className="flex flex-col gap-3">
               <Typography variant="body2" className="text-text-secondary">
                 {t("guide-ai-body")}
               </Typography>
-              {paid ? null : paying ? (
+              {paying ? (
                 <Alert severity="info" className="neutral bg-background-paper/60!">
                   {provisionalUntil
                     ? t("guide-ai-provisional-note", {
@@ -740,38 +821,38 @@ export default function GuidedTrailPage() {
                     : t("guide-ai-pending-note")}
                 </Alert>
               ) : unconfirmed ? (
-                // Amber, never red: an unconfirmed PIX is a billing matter. The
-                // way out is finishing THAT payment — never a trial.
-                <Box className="flex flex-col gap-2">
-                  <Alert severity="warning" className="neutral bg-background-paper/60!">
-                    {t("guide-ai-unconfirmed-note")}
-                  </Alert>
-                  <Button LinkComponent={Link} href={finishPaymentHref} variant="contained" className="self-start">
-                    {t("guide-ai-unconfirmed-cta")}
-                  </Button>
-                </Box>
+                // Amber, never red: an unconfirmed PIX is a billing matter.
+                <Alert severity="warning" className="neutral bg-background-paper/60!">
+                  {t("guide-ai-unconfirmed-note")}
+                </Alert>
               ) : onTrial ? (
                 <Alert severity="success" icon={<NiCheck size="small" />}>
                   {t("guide-ai-trial-started")}
                 </Alert>
-              ) : (
-                <Button variant="contained" color="primary" onClick={startTrial} disabled={busy} className="self-start">
-                  {t("guide-ai-start-trial")}
-                </Button>
-              )}
+              ) : null}
             </Box>
           ),
         },
       });
 
+      const consentsDone = consents.audio && consents.ai;
       entries.push({
         key: "consent",
         step: {
           title: t("guide-consent-title"),
           hint: t("guide-consent-hint"),
-          // The database refuses the capture without both, so gating here only
-          // tells her earlier than the error would.
-          canAdvance: consents.audio && consents.ai,
+          // Registering IS the step: the button opens the terms, and the trail
+          // moves on by itself once both are on record.
+          ...(consentsDone
+            ? {}
+            : {
+                primaryLabel: t("guide-consent-cta"),
+                onPrimary: async () => {
+                  await collectConsents();
+                  return false;
+                },
+                busy: consentBusy,
+              }),
           content: (
             <Box className="flex flex-col gap-3">
               <Alert severity="info">{t("guide-consent-body")}</Alert>
@@ -783,15 +864,6 @@ export default function GuidedTrailPage() {
                   {t("guide-consent-ai", { state: t(consents.ai ? "guide-consent-on" : "guide-consent-off") })}
                 </Alert>
               </Box>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => void collectConsents()}
-                disabled={consentBusy}
-                className="self-start"
-              >
-                {t("guide-consent-cta")}
-              </Button>
             </Box>
           ),
         },
@@ -802,14 +874,16 @@ export default function GuidedTrailPage() {
         step: {
           title: t("guide-record-title"),
           hint: t("guide-record-hint"),
-          // Advancing with a capture still in flight would hand the review step
-          // an anamnesis the pipeline has not written yet.
+          // The recorder's own buttons are this step's action, and the step
+          // moves on by itself when processing is ready — a "Continuar" here
+          // would only sit disabled beside them.
           canAdvance: recordingReady && !recordingBlocking,
+          hidePrimary: !recordingReady,
           content:
             patient && consultationId && orgId ? (
               <Box className="flex flex-col gap-3">
-                {/* Someone who came through a payment path is never told about a
-                    trial — not even in passing. */}
+                {/* Someone who came through a payment path is never told about
+                    a trial — not even in passing. */}
                 <Alert severity="info">
                   {commercial && commercial.kind !== "free" && commercial.kind !== "trial"
                     ? t("guide-record-minutes-plan")
@@ -821,8 +895,12 @@ export default function GuidedTrailPage() {
                   consultationId={consultationId}
                   audioConsent={consents.audio}
                   aiConsent={consents.ai}
-                  onRequestConsent={() => void collectConsents()}
-                  onChanged={() => void onRecordingChanged()}
+                  // STABLE references, both: an inline arrow here re-created
+                  // the recorder's callbacks on every render of this page, which
+                  // re-ran its recovery mid-capture and flagged the recording in
+                  // progress as abandoned.
+                  onRequestConsent={collectConsents}
+                  onChanged={onRecordingChanged}
                   paymentPending={commercial?.kind === "pending_payment"}
                 />
               </Box>
@@ -856,8 +934,7 @@ export default function GuidedTrailPage() {
           title: t("guide-review-title"),
           hint: t("guide-review-hint"),
           // Leaving fields flagged is allowed: finalizing them is a separate,
-          // named decision on the last step.
-          canAdvance: true,
+          // named decision on the next step.
           content: (
             <Box className="flex flex-col gap-3">
               <Alert severity="info">{t("guide-review-body")}</Alert>
@@ -891,6 +968,8 @@ export default function GuidedTrailPage() {
           title: t("guide-complaint-title"),
           hint: t("guide-complaint-hint"),
           canAdvance: complaint.trim().length > 2,
+          // Saved when she moves on — once, not on every blur.
+          onPrimary: saveComplaint,
           content: (
             <Box className="flex flex-col gap-3">
               <Alert severity="info">{t("guide-complaint-example")}</Alert>
@@ -898,9 +977,6 @@ export default function GuidedTrailPage() {
                 label={t("consultation-chief-complaint")}
                 value={complaint}
                 onChange={(event) => setComplaint(event.target.value)}
-                onBlur={() => {
-                  if (complaint.trim().length > 2) void saveComplaint();
-                }}
                 multiline
                 minRows={2}
                 fullWidth
@@ -918,7 +994,7 @@ export default function GuidedTrailPage() {
           // Everything here is optional by design: the product's own rule is
           // that a blank field means "não informado", so requiring answers to
           // advance would teach the opposite.
-          canAdvance: true,
+          onPrimary: saveAnswers,
           content: (
             <Box className="flex flex-col gap-4">
               <Alert severity="info">{t("guide-anamnesis-optional")}</Alert>
@@ -944,35 +1020,27 @@ export default function GuidedTrailPage() {
       step: {
         title: t("guide-finalize-title"),
         hint: t("guide-finalize-hint"),
-        // The freeze happens HERE, in the step, so the trail can continue to
-        // the return appointment afterwards instead of ending on it.
-        canAdvance: finalized,
-        content: (
+        // The freeze IS the button. Success leads straight into the "Prontuário
+        // fechado" celebration and on to the return appointment.
+        ...(finalized
+          ? {}
+          : {
+              primaryLabel: pendingWarnings.length > 0 ? t("guide-finalize-cta-confirm") : t("guide-finalize-cta"),
+              onPrimary: () => finalize(pendingWarnings),
+              busy,
+            }),
+        canAdvance: finalized || Boolean(consultationId),
+        content: finalized ? (
+          <Typography variant="body1">{t("guide-finalize-done")}</Typography>
+        ) : (
           <Box className="flex flex-col gap-3">
-            {finalized ? (
-              <Alert severity="success" icon={<NiCheck size="small" />}>
-                {t("guide-finalize-done")}
-              </Alert>
-            ) : (
-              <>
-                {/* Finalizing is the one irreversible act in the trail; saying
-                    so before the button is the difference between a guided flow
-                    and a trap. Corrections after this are addenda. */}
-                <Alert severity="warning">{t("guide-finalize-warning")}</Alert>
-                <Typography variant="body2" className="text-text-secondary">
-                  {t("guide-finalize-summary", { name: patient?.fullName ?? "", complaint: complaint.trim() })}
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => void finalize(pendingWarnings)}
-                  disabled={busy || !consultationId}
-                  className="self-start"
-                >
-                  {pendingWarnings.length > 0 ? t("guide-finalize-cta-confirm") : t("guide-finalize-cta")}
-                </Button>
-              </>
-            )}
+            {/* Finalizing is the one irreversible act in the trail; saying so
+                before the button is the difference between a guided flow and
+                a trap. Corrections after this are addenda. */}
+            <Alert severity="warning">{t("guide-finalize-warning")}</Alert>
+            <Typography variant="body2" className="text-text-secondary">
+              {t("guide-finalize-summary", { name: patient?.fullName ?? "", complaint: complaint.trim() })}
+            </Typography>
           </Box>
         ),
       },
@@ -983,33 +1051,19 @@ export default function GuidedTrailPage() {
       step: {
         title: t("guide-schedule-title"),
         hint: t("guide-schedule-hint"),
-        // Booking a return is genuinely optional — a first consultation does
-        // not always have one, and blocking the exit on it would be a trap.
-        canAdvance: true,
-        content: (
-          <Box className="flex flex-col gap-3">
-            <Alert severity="info">{t("guide-schedule-body")}</Alert>
-            {scheduled && (
-              <Alert severity="success" icon={<NiCheck size="small" />}>
-                {t("guide-schedule-done")}
-              </Alert>
-            )}
-            {trialFromAgenda && <Alert severity="info">{t("trial-auto-started")}</Alert>}
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                if (!patient) return;
-                setScheduleSeed({ patientId: patient.id, startAt: suggestedReturn().toISOString() });
-                setScheduleOpen(true);
-              }}
-              disabled={!orgId || !patient}
-              className="self-start"
-            >
-              {scheduled ? t("guide-schedule-again") : t("guide-schedule-cta")}
-            </Button>
-          </Box>
-        ),
+        // Booking IS the step; saving the appointment completes the trail.
+        // Finishing without one is the second way through — a first
+        // consultation does not always have a return.
+        primaryLabel: t("guide-schedule-cta"),
+        canAdvance: Boolean(orgId && patient),
+        onPrimary: () => {
+          if (!patient) return false;
+          setScheduleSeed({ patientId: patient.id, startAt: suggestedReturn().toISOString() });
+          setScheduleOpen(true);
+          return false;
+        },
+        secondary: { label: t("guide-schedule-skip"), onClick: () => setTrailDone(true) },
+        content: <Alert severity="info">{t("guide-schedule-body")}</Alert>,
       },
     });
 
@@ -1025,26 +1079,27 @@ export default function GuidedTrailPage() {
     consents.ai,
     consents.audio,
     consultationId,
+    contextSaving,
     finalize,
     finalized,
-    hasContext,
     keepAnswer,
     onRecordingChanged,
     openForRecording,
     opening,
     orgId,
     patient,
+    patientSaving,
     patients,
     pendingWarnings,
     recordingBlocking,
     recordingReady,
+    router,
+    saveAnswers,
     saveComplaint,
-    scheduled,
     startTrial,
     suggestedReturn,
     t,
     track,
-    trialFromAgenda,
     trialStarted,
   ]);
 
@@ -1076,16 +1131,34 @@ export default function GuidedTrailPage() {
     [t],
   );
 
-  const requestIndex = (next: number) => {
-    const current = stepList[stepIndex]?.key;
-    // Only forward moves celebrate, and only the first time across.
-    if (next > stepIndex && current && CELEBRATION[current] && !celebrated.current.has(current)) {
-      celebrated.current.add(current);
-      setCelebrating({ from: current, to: next });
-      return;
-    }
-    setStepIndex(next);
-  };
+  const requestIndex = useCallback(
+    (next: number, options: { celebrate?: boolean } = {}) => {
+      const current = stepList[stepIndex]?.key;
+      // Only forward moves celebrate, only the first time across, and never
+      // when the crossing is not the milestone the dialog would name.
+      if (
+        options.celebrate !== false &&
+        next > stepIndex &&
+        current &&
+        CELEBRATION[current] &&
+        !celebrated.current.has(current)
+      ) {
+        celebrated.current.add(current);
+        setCelebrating({ from: current, to: next });
+        return;
+      }
+      setStepIndex(next);
+    },
+    [CELEBRATION, stepIndex, stepList],
+  );
+
+  useEffect(() => {
+    if (!advanceRequest) return;
+    const at = stepList.findIndex((entry) => entry.key === advanceRequest.from);
+    setAdvanceRequest(null);
+    // A late completion must not move her if she has already gone elsewhere.
+    if (at >= 0 && at === stepIndex) requestIndex(at + 1, { celebrate: advanceRequest.celebrate });
+  }, [advanceRequest, requestIndex, stepIndex, stepList]);
 
   if (loading)
     return (
@@ -1113,6 +1186,14 @@ export default function GuidedTrailPage() {
         <Typography variant="body1" className="text-text-secondary max-w-lg leading-6">
           {t("guide-done-body")}
         </Typography>
+        {scheduled && <Typography variant="body2">{t("guide-schedule-done")}</Typography>}
+        {/* Saving the appointment can START the Pro trial (migration 0084); a
+            trial that begins in silence is a clock she never saw. */}
+        {trialFromAgenda && (
+          <Alert severity="info" className="text-left">
+            {t("trial-auto-started")}
+          </Alert>
+        )}
         <Box className="flex flex-wrap items-center justify-center gap-2">
           <Button LinkComponent={Link} href={DEFAULTS.appRoot} variant="contained" color="primary">
             {t("guide-done-cta")}
@@ -1201,6 +1282,8 @@ export default function GuidedTrailPage() {
             // clock she never saw, so the step says so when it happens.
             const { started } = await ensureProTrial(orgId, "agenda");
             if (started) setTrialFromAgenda(true);
+            // Booking was the step's action: the trail is complete.
+            setTrailDone(true);
           }}
         />
       )}

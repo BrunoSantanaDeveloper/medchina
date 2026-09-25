@@ -3264,7 +3264,12 @@
     "guide-ai-unconfirmed-cta": "Finish payment",
     "recorder-payment-unconfirmed-body": "Your plan's PIX was not confirmed by the bank, and AI recording is paused. Your records stay accessible — finish the payment to record again.",
     "recorder-payment-unconfirmed-cta": "Finish payment",
-    "guide-record-minutes-plan": "This recording is real and uses minutes from your plan."
+    "guide-record-minutes-plan": "This recording is real and uses minutes from your plan.",
+    "guide-patient-cta": "Register and continue",
+    "guide-patient-change": "Change patient",
+    "guide-schedule-skip": "Finish without booking",
+    "recorder-keep-open": "Do not close or reload this screen until processing finishes — closing now interrupts the audio upload.",
+    "recorder-cancelled-body": "This recording was discarded and will not be processed. Record again to generate the anamnesis."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

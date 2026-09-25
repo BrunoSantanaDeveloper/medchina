@@ -14,7 +14,7 @@ import NiCheck from "@/icons/nexture/ni-check";
 import { readCouponCookie } from "@/lib/offer-link";
 import { createClient } from "@flyee/auth/client";
 import type { PixCharge } from "@flyee/billing/types";
-import { formatCep, formatCpfCnpj, formatPhoneBr, isValidCpfCnpj, onlyDigits } from "@flyee/fields";
+import { formatCep, formatCpfCnpj, formatPhoneBr, isValidCpfCnpj, isValidPhoneBr, onlyDigits } from "@flyee/fields";
 
 type Profile = {
   document: string | null;
@@ -85,6 +85,12 @@ export default function CheckoutForm({
     setError(null);
     if (!isValidCpfCnpj(document)) {
       setError("document_invalid");
+      return;
+    }
+    // Required: it is how she is reached about this payment and her access —
+    // on WhatsApp, which is where this audience actually answers.
+    if (!isValidPhoneBr(phone)) {
+      setError("phone_invalid");
       return;
     }
     setWorking(true);
@@ -195,10 +201,11 @@ export default function CheckoutForm({
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <PhoneField
-              label="Telefone (opcional)"
+              label="WhatsApp"
+              required
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
-              invalidMessage="Confira o telefone."
+              invalidMessage="Confira o número de WhatsApp, com DDD."
               fullWidth
               size="small"
             />
@@ -268,6 +275,9 @@ export default function CheckoutForm({
       </Box>
 
       {error === "document_invalid" && <Alert severity="error">Confira o CPF ou CNPJ antes de continuar.</Alert>}
+      {error === "phone_invalid" && (
+        <Alert severity="error">Informe um número de WhatsApp com DDD para continuar.</Alert>
+      )}
       {error === "profile_save_failed" && (
         <Alert severity="error">Não conseguimos salvar seus dados agora. Tente de novo em instantes.</Alert>
       )}
@@ -289,6 +299,7 @@ export default function CheckoutForm({
       {error &&
         ![
           "document_invalid",
+          "phone_invalid",
           "profile_save_failed",
           "billing_profile_required",
           "offer_closed",

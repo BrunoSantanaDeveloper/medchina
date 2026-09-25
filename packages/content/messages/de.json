@@ -3264,7 +3264,12 @@
     "guide-ai-unconfirmed-cta": "Zahlung abschließen",
     "recorder-payment-unconfirmed-body": "Der PIX Ihres Tarifs wurde von der Bank nicht bestätigt, und die KI-Aufnahme ist pausiert. Ihre Akten bleiben zugänglich — schließen Sie die Zahlung ab, um wieder aufzunehmen.",
     "recorder-payment-unconfirmed-cta": "Zahlung abschließen",
-    "guide-record-minutes-plan": "Diese Aufnahme ist echt und verbraucht Minuten aus Ihrem Tarif."
+    "guide-record-minutes-plan": "Diese Aufnahme ist echt und verbraucht Minuten aus Ihrem Tarif.",
+    "guide-patient-cta": "Anlegen und weiter",
+    "guide-patient-change": "Patientin wechseln",
+    "guide-schedule-skip": "Ohne Termin abschließen",
+    "recorder-keep-open": "Schließen oder laden Sie diesen Bildschirm nicht neu, bis die Verarbeitung fertig ist — jetzt zu schließen unterbricht den Audio-Upload.",
+    "recorder-cancelled-body": "Diese Aufnahme wurde verworfen und wird nicht verarbeitet. Nehmen Sie erneut auf, um die Anamnese zu erstellen."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

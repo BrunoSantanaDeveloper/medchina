@@ -19,7 +19,24 @@ type PracticeContextResult = {
   timezone_confirmed_at?: string;
 };
 
-export default function PracticeContextForm({ onCompleted }: { onCompleted: () => void }) {
+export default function PracticeContextForm({
+  onCompleted,
+  formId,
+  embedded = false,
+  onSubmittingChange,
+}: {
+  onCompleted: () => void;
+  /**
+   * EMBEDDED in a flow that owns the primary action: no card chrome, no
+   * heading, no button — the flow's primary button submits it via
+   * `form={formId}`. Inside the onboarding wizard the standalone version read
+   * as a card inside a card with the title said twice, and a second
+   * "Confirmar e continuar" beside the wizard's own (disabled) "Continuar".
+   */
+  formId?: string;
+  embedded?: boolean;
+  onSubmittingChange?: (submitting: boolean) => void;
+}) {
   const t = useTranslations("product");
   const { orgId, timezone, loading: orgLoading } = useCurrentOrg();
   const [loading, setLoading] = useState(true);
@@ -93,6 +110,10 @@ export default function PracticeContextForm({ onCompleted }: { onCompleted: () =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgLoading, timezone]);
 
+  useEffect(() => {
+    onSubmittingChange?.(formik.isSubmitting);
+  }, [formik.isSubmitting, onSubmittingChange]);
+
   if (loading || orgLoading) {
     return (
       <Box className="flex min-h-32 items-center justify-center" aria-live="polite">
@@ -104,17 +125,22 @@ export default function PracticeContextForm({ onCompleted }: { onCompleted: () =
   return (
     <Box
       component="form"
+      id={formId}
       onSubmit={formik.handleSubmit}
-      className="border-primary/30 bg-primary/5 flex flex-col gap-4 rounded-3xl border p-5"
+      className={
+        embedded ? "flex flex-col gap-4" : "border-primary/30 bg-primary/5 flex flex-col gap-4 rounded-3xl border p-5"
+      }
     >
-      <Box>
-        <Typography variant="h6" component="h3">
-          {t("practice-context-title")}
-        </Typography>
-        <Typography variant="body2" className="text-text-secondary">
-          {t("practice-context-body")}
-        </Typography>
-      </Box>
+      {!embedded && (
+        <Box>
+          <Typography variant="h6" component="h3">
+            {t("practice-context-title")}
+          </Typography>
+          <Typography variant="body2" className="text-text-secondary">
+            {t("practice-context-body")}
+          </Typography>
+        </Box>
+      )}
 
       <Autocomplete
         freeSolo
@@ -152,9 +178,11 @@ export default function PracticeContextForm({ onCompleted }: { onCompleted: () =
 
       {serverError && <Alert severity="error">{serverError}</Alert>}
 
-      <Button type="submit" variant="contained" className="self-start" disabled={formik.isSubmitting || !orgId}>
-        {formik.isSubmitting ? <CircularProgress size={18} aria-label={t("saving")} /> : t("practice-context-save")}
-      </Button>
+      {!embedded && (
+        <Button type="submit" variant="contained" className="self-start" disabled={formik.isSubmitting || !orgId}>
+          {formik.isSubmitting ? <CircularProgress size={18} aria-label={t("saving")} /> : t("practice-context-save")}
+        </Button>
+      )}
     </Box>
   );
 }

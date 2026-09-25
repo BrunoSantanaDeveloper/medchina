@@ -2,7 +2,7 @@
 
 import { useFormik } from "formik";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as yup from "yup";
 
 import { Alert, Box, Button, TextField, Typography } from "@mui/material";
@@ -18,11 +18,26 @@ export default function PatientQuickCreate({
   existingPatients,
   onCreated,
   onCancel,
+  formId,
+  embedded = false,
+  onSubmittingChange,
 }: {
   orgId: string;
   existingPatients: PatientOption[];
   onCreated: (patient: PatientOption) => void;
   onCancel: () => void;
+  /**
+   * EMBEDDED in a flow that owns the primary action (the guided onboarding's
+   * wizard). The form keeps its fields, validation and duplicate check, and
+   * drops its own heading and buttons: the wizard's primary button submits it
+   * through `form={formId}`. Without this the step showed two "Voltar" buttons
+   * and a disabled "Continuar" beside "Cadastrar e selecionar" — and the
+   * heading said "você volta ao agendamento", written for the scheduling dialog.
+   */
+  formId?: string;
+  embedded?: boolean;
+  /** Lets the embedding flow show "saving" on ITS button. */
+  onSubmittingChange?: (submitting: boolean) => void;
 }) {
   const t = useTranslations("product");
   const [serverError, setServerError] = useState<string | null>(null);
@@ -61,17 +76,30 @@ export default function PatientQuickCreate({
     [existingPatients, formik.values.fullName],
   );
 
+  useEffect(() => {
+    onSubmittingChange?.(formik.isSubmitting);
+  }, [formik.isSubmitting, onSubmittingChange]);
+
   return (
     // Patient data, not the professional's own — keep browser autofill out.
-    <Box component="form" onSubmit={formik.handleSubmit} autoComplete="off" className="flex flex-col gap-4" noValidate>
-      <Box className="flex flex-col gap-1">
-        <Typography variant="h6" component="h3">
-          {t("patient-quick-title")}
-        </Typography>
-        <Typography variant="body2" className="text-text-secondary">
-          {t("patient-quick-body")}
-        </Typography>
-      </Box>
+    <Box
+      component="form"
+      id={formId}
+      onSubmit={formik.handleSubmit}
+      autoComplete="off"
+      className="flex flex-col gap-4"
+      noValidate
+    >
+      {!embedded && (
+        <Box className="flex flex-col gap-1">
+          <Typography variant="h6" component="h3">
+            {t("patient-quick-title")}
+          </Typography>
+          <Typography variant="body2" className="text-text-secondary">
+            {t("patient-quick-body")}
+          </Typography>
+        </Box>
+      )}
 
       <TextField
         autoFocus
@@ -80,7 +108,13 @@ export default function PatientQuickCreate({
         label={t("patient-name")}
         value={formik.values.fullName}
         onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
+        // Leaving the (auto-focused) field EMPTY is not an error yet — submit
+        // still says "obrigatório". Flagging it on blur also pushed the buttons
+        // below down mid-click: pressing "Voltar" blurred the field, the error
+        // line appeared, and the release landed off the button.
+        onBlur={(event) => {
+          if (formik.values.fullName.trim()) formik.handleBlur(event);
+        }}
         error={formik.touched.fullName && Boolean(formik.errors.fullName)}
         helperText={formik.touched.fullName && formik.errors.fullName}
       />
@@ -132,14 +166,16 @@ export default function PatientQuickCreate({
         </Alert>
       )}
 
-      <Box className="flex flex-row justify-end gap-2">
-        <Button type="button" color="grey" onClick={onCancel} disabled={formik.isSubmitting}>
-          {t("back")}
-        </Button>
-        <Button type="submit" variant="contained" disabled={formik.isSubmitting || !formik.isValid}>
-          {formik.isSubmitting ? t("saving") : t("patient-quick-save")}
-        </Button>
-      </Box>
+      {!embedded && (
+        <Box className="flex flex-row justify-end gap-2">
+          <Button type="button" color="grey" onClick={onCancel} disabled={formik.isSubmitting}>
+            {t("back")}
+          </Button>
+          <Button type="submit" variant="contained" disabled={formik.isSubmitting || !formik.isValid}>
+            {formik.isSubmitting ? t("saving") : t("patient-quick-save")}
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }

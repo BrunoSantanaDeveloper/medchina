@@ -3264,7 +3264,12 @@
     "guide-ai-unconfirmed-cta": "完成付款",
     "recorder-payment-unconfirmed-body": "您方案的 PIX 未获银行确认，AI 录音已暂停。您的记录仍可访问——完成付款即可恢复录音。",
     "recorder-payment-unconfirmed-cta": "完成付款",
-    "guide-record-minutes-plan": "此次录音为真实录音，会消耗您方案中的分钟数。"
+    "guide-record-minutes-plan": "此次录音为真实录音，会消耗您方案中的分钟数。",
+    "guide-patient-cta": "登记并继续",
+    "guide-patient-change": "更换患者",
+    "guide-schedule-skip": "不预约直接完成",
+    "recorder-keep-open": "处理完成前请勿关闭或刷新此页面——现在关闭会中断音频上传。",
+    "recorder-cancelled-body": "此录音已被丢弃，不会被处理。请重新录音以生成问诊记录。"
   },
   "auth": {
     "invite-workspace-conflict": "此账号已有一间诊所。目前每位医师只能使用一个工作空间。",

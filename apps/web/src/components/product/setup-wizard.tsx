@@ -16,6 +16,30 @@ export type WizardStep = {
   content: React.ReactNode;
   /** Block "next" until the step is valid. Default: true. */
   canAdvance?: boolean;
+  /**
+   * The step's OWN action, run by the primary button — so a step never shows
+   * its action AND a separate "Continuar" (two buttons for one decision, one of
+   * them disabled until the other is pressed). Resolve true to move on, false
+   * to stay; the step says why. Absent: the button just advances.
+   */
+  onPrimary?: () => Promise<boolean> | boolean;
+  /**
+   * Submit this <form> instead. The primary button becomes its submit button
+   * (`form={id}`), so validation, Enter-to-submit and field errors stay the
+   * form's own; the form's success handler is what moves the flow on.
+   */
+  primaryFormId?: string;
+  /** Label for the primary button here. Defaults to "Continuar"/"Concluir". */
+  primaryLabel?: string;
+  /**
+   * The step moves on by itself when its work completes (e.g. a recording
+   * finishing processing), so a primary button would only duplicate that.
+   */
+  hidePrimary?: boolean;
+  /** A second way through beside the primary, e.g. "Agora não". */
+  secondary?: { label: string; onClick: () => void };
+  /** The step's action is running: the primary shows it and cannot be pressed twice. */
+  busy?: boolean;
 };
 
 /**
@@ -76,6 +100,24 @@ export default function SetupWizard({
   const step = steps[index];
   const isLast = index === steps.length - 1;
   const canAdvance = step.canAdvance ?? true;
+  const [acting, setActing] = useState(false);
+  const running = acting || Boolean(step.busy);
+
+  const primary = async () => {
+    if (running) return;
+    if (step.onPrimary) {
+      setActing(true);
+      let proceed = false;
+      try {
+        proceed = await step.onPrimary();
+      } finally {
+        setActing(false);
+      }
+      if (!proceed) return;
+    }
+    if (isLast) onComplete();
+    else setIndex(index + 1);
+  };
 
   return (
     <Card className={cn("mx-auto w-full max-w-2xl", className)}>
@@ -109,31 +151,44 @@ export default function SetupWizard({
 
         <Box>{step.content}</Box>
 
-        <Box className="flex flex-row items-center justify-between">
-          <Button variant="text" color="grey" disabled={index === 0} onClick={() => setIndex(index - 1)}>
+        <Box className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <Button variant="text" color="grey" disabled={index === 0 || running} onClick={() => setIndex(index - 1)}>
             {t("back")}
           </Button>
-          {isLast ? (
-            <Button
-              variant="contained"
-              color="primary"
-              disabled={!canAdvance}
-              endIcon={<NiCheck size="medium" />}
-              onClick={onComplete}
-            >
-              {completeLabel ?? t("finish")}
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              color="primary"
-              disabled={!canAdvance}
-              endIcon={<NiArrowRight size="medium" />}
-              onClick={() => setIndex(index + 1)}
-            >
-              {t("continue")}
-            </Button>
-          )}
+          <Box className="flex flex-row flex-wrap items-center justify-end gap-2">
+            {step.secondary && (
+              <Button variant="text" color="grey" onClick={step.secondary.onClick} disabled={running}>
+                {step.secondary.label}
+              </Button>
+            )}
+            {!step.hidePrimary &&
+              (step.primaryFormId ? (
+                <Button
+                  type="submit"
+                  form={step.primaryFormId}
+                  variant="contained"
+                  color="primary"
+                  disabled={!canAdvance || running}
+                  endIcon={isLast ? <NiCheck size="medium" /> : <NiArrowRight size="medium" />}
+                >
+                  {running
+                    ? t("saving")
+                    : (step.primaryLabel ?? (isLast ? (completeLabel ?? t("finish")) : t("continue")))}
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={!canAdvance || running}
+                  endIcon={isLast ? <NiCheck size="medium" /> : <NiArrowRight size="medium" />}
+                  onClick={() => void primary()}
+                >
+                  {running
+                    ? t("saving")
+                    : (step.primaryLabel ?? (isLast ? (completeLabel ?? t("finish")) : t("continue")))}
+                </Button>
+              ))}
+          </Box>
         </Box>
       </CardContent>
     </Card>
