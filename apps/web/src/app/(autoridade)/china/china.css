@@ -1,0 +1,245 @@
+/* ==========================================================================
+   /china — only what this page needs beyond the Landing DS
+   --------------------------------------------------------------------------
+   Everything else is the DS vocabulary (app/(marketing)/clinical-source-home.css)
+   and the shared blocks (app/landing-shared.css). Scoped to `.china-page`, never
+   to `.clinical-source-home`, which the home also carries. DS custom properties
+   only — no new colour.
+   ========================================================================== */
+
+/* ---------- Hero: the stage photo variant ----------
+   The DS stage is tuned for the PORTRAIT product composite: `.hero-composite img`
+   sits absolutely at 85% width (87% ≤1180px, 73% ≤900px, a translated full
+   height ≤640px). A landscape stage photo placed there would leave a third of
+   the stage as bare gradient. This variant fills the stage instead. Its
+   selector outranks every breakpoint override of `.hero-composite img` by
+   specificity, so one rule covers all widths. Inert until
+   `CHINA.stagePhoto` exists — until then the page shows the composite. */
+
+.china-page .hero-composite--photo img {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  transform: none;
+}
+
+/* ---------- Section 2: the law, on the dark band ---------- */
+
+.china-page .china-law {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+  gap: clamp(40px, 6vw, 96px);
+  align-items: start;
+}
+
+.china-page .china-law-body p {
+  margin: 0 0 20px;
+  color: var(--jade-soft);
+  font-size: 18px;
+  line-height: 1.75;
+}
+
+.china-page .china-law-body p:last-child {
+  margin-bottom: 0;
+}
+
+.china-page .china-law-sources {
+  padding: 26px 26px 24px;
+  border: 1px solid color-mix(in srgb, var(--white) 18%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--white) 5%, transparent);
+}
+
+.china-page .china-law-sources h3 {
+  margin: 0 0 14px;
+  color: var(--mint);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.china-page .china-law-sources a {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid color-mix(in srgb, var(--white) 14%, transparent);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.china-page .china-law-sources a:hover,
+.china-page .china-law-sources a:focus-visible {
+  color: var(--mint);
+}
+
+.china-page .china-law-sources a svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.china-page .china-law-note {
+  margin: 16px 0 0;
+  color: var(--jade-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* ---------- Section 3: what was presented ---------- */
+
+.china-page .china-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+
+.china-page .china-deck-copy p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.china-page .china-deck-context {
+  padding: 18px 20px;
+  border-left: 3px solid var(--jade);
+  border-radius: 0 14px 14px 0;
+  background: var(--paper);
+  color: var(--ink) !important;
+  font-size: 15px !important;
+}
+
+.china-page .china-deck-card {
+  display: grid;
+  gap: 16px;
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.china-page .china-deck-card-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: var(--jade-soft);
+  color: var(--jade);
+}
+
+.china-page .china-deck-card strong {
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.china-page .china-deck-card small {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.china-page .china-slides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 40px;
+}
+
+.china-page .china-slides img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+/* ---------- Section 4: the endorsement (rendered only with material) ---------- */
+
+.china-page .china-quote {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+
+.china-page .china-quote blockquote {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.china-page .china-quote cite {
+  display: block;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 15px;
+  font-style: normal;
+}
+
+.china-page .china-quote video {
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
+  background: var(--jade-dark);
+}
+
+/* ---------- Section 5: the bridge to the product ---------- */
+
+.china-page .china-bridge-copy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 56px);
+  max-width: 1100px;
+  margin: -34px 0 56px;
+}
+
+.china-page .china-bridge-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+.china-page .china-midcta {
+  display: flex;
+  justify-content: center;
+  margin-top: 56px;
+}
+
+/* ---------- Section 8: press (rendered only with material) ---------- */
+
+.china-page .china-press {
+  padding-top: 72px;
+  padding-bottom: 72px;
+  border-top: 1px solid var(--line);
+}
+
+.china-page .china-press p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .china-page .china-law,
+  .china-page .china-deck,
+  .china-page .china-quote,
+  .china-page .china-bridge-copy {
+    grid-template-columns: 1fr;
+  }
+}

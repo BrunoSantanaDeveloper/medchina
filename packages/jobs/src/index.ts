@@ -32,6 +32,14 @@ export type JobEvents = {
   "medchina/account.export": {
     data: { exportId: string; scopeNote: string; readmeTitle: string; readyTitle: string; readyBody: string };
   };
+  /**
+   * Send one kind of live-event e-mail to every eligible registration of an
+   * event (docs/PAGINA-EVENTO.md §8). Fired by the /admin/leads buttons;
+   * idempotent — each kind has its own `email_<kind>_sent_at` column.
+   */
+  "medchina/live-event.email": {
+    data: { eventId: string; kind: "day_before" | "hour_before" | "live" | "recording" };
+  };
 };
 
 export const isInngestConfigured = Boolean(process.env.INNGEST_EVENT_KEY && process.env.INNGEST_SIGNING_KEY);

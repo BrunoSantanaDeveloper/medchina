@@ -3,6 +3,9 @@
 // body typography and the class system (.section, .eyebrow, .button, …) — so an
 // offer page looks like the home instead of like a different company.
 import "../(marketing)/clinical-source-home.css";
+// Blocks shared with other landing groups (the founder card, the tinted band) —
+// right after the DS, where they sat inside funil.css before the move.
+import "../landing-shared.css";
 import "./funil.css";
 
 import { BRAND } from "@/brand";

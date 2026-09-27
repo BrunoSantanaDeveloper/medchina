@@ -15,6 +15,7 @@ import { agendaFunctions } from "@/lib/agenda-jobs";
 import { billingFunctions } from "@/lib/billing-jobs";
 import { clinicalFunctions } from "@/lib/clinical-jobs";
 import { importFunctions } from "@/lib/import-jobs";
+import { liveEventFunctions } from "@/lib/live-event-jobs";
 import { trialFunctions } from "@/lib/trial-jobs";
 import { backupFunctions } from "@flyee/backup/jobs";
 import { connectorFunctions } from "@flyee/connectors/jobs";
@@ -34,6 +35,7 @@ export const { GET, POST, PUT } = serve({
     ...accountExportFunctions,
     ...clinicalFunctions,
     ...importFunctions,
+    ...liveEventFunctions,
     ...trialFunctions,
     ...knowledgeFunctions,
     ...connectorFunctions,

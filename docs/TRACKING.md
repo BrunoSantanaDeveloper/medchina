@@ -66,7 +66,17 @@ Split by where the event physically happens:
 | Event | Where it fires |
 |---|---|
 | `PageView` | every marketing route (SSR Pixel/GA4 + `MarketingAnalytics`) |
-| `ViewContent` | `/planos` (`TrackEvent`) |
+| `ViewContent` | `/planos`, the funnel pages (`/assinar`, `/fundadores`), `/china` (`content_name: "china"`, `content_category: "authority"`) and `/lei-15345` (`content_name: "lei-15345"`, `content_category: "event"`) — all through `TrackEvent` |
+| `CtaClick` (custom — `trackCustom`) | `/china`, each of its three subscribe buttons, through `TrackClick` (`components/consent/track-click.tsx`): `content_name`, `placement` (`hero`/`ponte`/`final`), `destination` (`assinar` while the campaign is sellable, else `planos`). Reusable by any page — `CtaClick` ÷ `ViewContent` on the same `content_name` is what judges a page by itself |
+| `Lead` → GA4 `generate_lead` | `/lei-15345`, only when a number registers for the FIRST time (a repeat fires nothing), with `eventID` = the registration id. `track(event, props, { eventId, ga4Name })` passes the id to the Pixel as `{ eventID }` |
+
+**Why `Lead` is browser-only (2026-09-26).** The legitimate-interest posture
+below covers the transactions of *account holders*; someone who registers for
+the live event is not one. Sending `Lead` server-side too means extending that
+posture in the three texts (cookie notice, `privacy-7`, `cookies-4`) with a new
+`CONSENT_VERSION` in the same commit, and adding the phone key (`ph`) to
+`meta-capi.ts`. The `eventID` is already the registration id, so the server
+event can be added later and will deduplicate against the browser one.
 
 **Server (Meta Conversions API — no browser tracker in the app)**
 | Event | Where it fires | event_id | Match keys |
@@ -122,6 +132,18 @@ GA4 `purchase` — so they match even for PIX/boleto that settle hours later and
 renewals. It only writes when a signal exists (the consent + ad-attribution
 moment), so a plain checkout never wipes a stored row. With this, you may also
 tick Email/`_fbp`/`_fbc`/IP on the Purchase event in the CAPI setup wizard.
+
+### Last-touch campaign on the Purchase (implemented — migration 0112)
+First touch lives in `signup_attribution` (0086) and never changes. The campaign
+that brought an EXISTING account back to buy — the `/china` CTA, the room or the
+recording of `/lei-15345` — travels in the link (`origem` + `utm_*`, allowlisted
+by `lib/campaign-params.ts`): `/assinar` forwards it to `/assinatura`, the
+checkout form hands it to `startCheckout`, which writes it to
+`meta_attribution.campaign_*` (+ `campaign_captured_at`). The webhook reads it
+back and adds `last_origem`, `last_utm_source`, `last_utm_medium`,
+`last_utm_campaign`, `last_utm_content` to the `Purchase` `custom_data`. A
+purchase is attributed to the event by these keys — never by a coupon, never by
+account creation.
 
 ### Fast-follow (optional)
 - Add a predicted value to `StartTrial` (the Pro plan price) for value-based ad

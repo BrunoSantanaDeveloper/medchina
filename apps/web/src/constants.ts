@@ -60,6 +60,10 @@ export const COOKIE_KEYS = {
   // middleware and persisted to the workspace at signup. httpOnly: nothing in
   // the browser reads it, unlike the coupon.
   attribution: `${storagePrefix}-atrib`,
+  // Registered for a live event: an opaque random token whose sha256 lives in
+  // `live_event_tokens` (migration 0112). httpOnly, like the attribution cookie
+  // — never the coupon's client-readable flags: it identifies a registration.
+  liveEvent: `${storagePrefix}-evento`,
 };
 
 export const SESSION_STORAGE_KEYS = {

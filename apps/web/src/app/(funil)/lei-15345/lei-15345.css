@@ -1,0 +1,538 @@
+/* ==========================================================================
+   /lei-15345 — only what the live-event page needs beyond the Landing DS
+   --------------------------------------------------------------------------
+   The DS vocabulary (clinical-source-home.css), the offer blocks (funil.css)
+   and the shared blocks (landing-shared.css) do the rest. Scoped to
+   `.event-page`; DS custom properties only. Red is reserved for errors
+   (docs/DESIGN.md) — a field error uses the DS coral, never a new red.
+   ========================================================================== */
+
+/* ---------- Hero: copy beside the sign-up card ---------- */
+
+.event-page .event-hero {
+  min-height: 0;
+  padding: 64px max(32px, calc((100vw - 1320px) / 2)) 88px;
+}
+
+.event-page .event-hero-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  grid-template-areas:
+    "copy card"
+    "details card";
+  /* The card is taller than the copy: its extra height goes to the flexible
+     second row, so the lead stays right under the title instead of drifting. */
+  grid-template-rows: auto 1fr;
+  column-gap: clamp(40px, 5vw, 80px);
+  row-gap: 8px;
+  align-items: start;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.event-page .event-hero-copy {
+  grid-area: copy;
+  padding-top: 24px;
+}
+
+.event-page .event-hero-details {
+  grid-area: details;
+}
+
+.event-page .event-hero h1 {
+  max-width: 640px;
+  font-size: clamp(34px, 3.6vw, 54px);
+  line-height: 1.04;
+}
+
+.event-page .event-signature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 24px;
+  color: var(--jade-deep);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.event-page .event-when {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  color: var(--jade);
+  max-width: 460px;
+}
+
+.event-page .event-when strong,
+.event-page .event-when small {
+  display: block;
+}
+
+.event-page .event-when strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+/* "Quinta-feira, 8 de outubro": only the first letter — `capitalize` would
+   also raise "Feira", "De" and "Outubro", which Portuguese never does. */
+.event-page .event-when strong::first-letter {
+  text-transform: uppercase;
+}
+
+.event-page .event-when small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------- The sign-up card ---------- */
+
+.event-page .event-card {
+  grid-area: card;
+  padding: 30px 30px 26px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--white);
+  box-shadow: var(--shadow-md);
+}
+
+.event-page .event-card--center {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.event-page .event-card-title {
+  margin: 0 0 18px;
+  color: var(--ink);
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.event-page .event-form {
+  display: grid;
+  gap: 14px;
+}
+
+.event-page .event-field {
+  display: grid;
+  gap: 6px;
+}
+
+.event-page .event-field label {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.event-page .event-field input {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--ivory);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* 16px keeps iOS from zooming into the field */
+}
+
+.event-page .event-field input:focus-visible {
+  outline: 3px solid var(--jade-soft);
+  border-color: var(--jade);
+}
+
+.event-page .event-field--error input {
+  border-color: var(--coral);
+}
+
+.event-page .event-field-error,
+.event-page .event-error {
+  margin: 0;
+  color: var(--coral);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.event-page .event-field-hint,
+.event-page .event-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Off-screen, never display:none — some bots skip hidden fields. */
+.event-page .event-honeypot {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.event-page .event-optin {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.event-page .event-optin input {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  accent-color: var(--jade);
+}
+
+.event-page .event-term summary {
+  color: var(--jade);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.event-page .event-term p {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.event-page .event-submit {
+  width: 100%;
+  justify-content: center;
+}
+
+.event-page .event-submit:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.event-page .event-consent {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* ---------- The confirmation ---------- */
+
+.event-page .event-confirm {
+  display: grid;
+  gap: 14px;
+}
+
+.event-page .event-confirm-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink);
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.event-page .event-confirm-title svg {
+  flex: none;
+  color: var(--jade);
+}
+
+.event-page .event-confirm-date {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--jade-soft);
+  color: var(--jade-deep);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.event-page .event-confirm-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.event-page .event-confirm-primary,
+.event-page .event-confirm-secondary {
+  width: 100%;
+  justify-content: center;
+}
+
+.event-page .event-confirm-group .event-note {
+  margin-top: 8px;
+}
+
+.event-page .event-confirm-qr {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+}
+
+.event-page .event-confirm-qr img {
+  width: 120px;
+  height: 120px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.event-page .event-confirm-qr figcaption {
+  max-width: 130px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.event-page .event-confirm-day {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.event-page .event-confirm-link {
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.event-page .event-confirm-link p {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.event-page .event-confirm-link a {
+  color: var(--jade);
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+/* ---------- The room (live) and the recording ---------- */
+
+.event-page .event-room {
+  padding: 48px max(32px, calc((100vw - 1320px) / 2)) 88px;
+  background: var(--paper);
+}
+
+.event-page .event-room-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.event-page .event-room .eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.event-page .event-room h1 {
+  max-width: 980px;
+  margin-bottom: 12px;
+  font-size: clamp(30px, 3vw, 46px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.event-page .event-room-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 28px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.event-page .event-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--jade-dark);
+}
+
+.event-page .event-player--placeholder img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The Plyr layout paints the poster as a background: fill the 16:9 box (the
+   template's player rule letterboxes it on paper white). */
+.event-page .event-player .plyr__poster {
+  background-color: var(--jade-dark);
+  background-size: cover;
+}
+
+/* The one control that matters before play: bigger, and a solid glyph — the
+   template's outlined triangle reads as a speech bubble at hero size. */
+.event-page .event-player .plyr__control--overlaid {
+  padding: 18px 34px;
+  box-shadow: var(--shadow-md);
+}
+
+.event-page .event-player .plyr__control--overlaid svg {
+  width: 30px;
+  height: 30px;
+}
+
+.event-page .event-player .plyr__control--overlaid svg path {
+  fill: currentColor;
+}
+
+.event-page .event-room-side {
+  display: grid;
+  gap: 14px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.event-page .event-room-side p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.event-page .event-room-side .event-room-side-title,
+.event-page .event-room-capture .event-room-side-title {
+  color: var(--ink);
+  font-family: "TT Chocolates", var(--cjk), sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.event-page .event-room-capture {
+  max-width: 560px;
+  margin-top: 36px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--white);
+}
+
+.event-page .event-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--jade-deep) !important;
+  font-weight: 700;
+}
+
+.event-page .event-member svg {
+  flex: none;
+  color: var(--jade);
+}
+
+/* ---------- The room opened while the page was already open ---------- */
+
+.event-page .event-live-banner {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 12px 18px;
+  border-radius: 999px;
+  background: var(--jade-deep);
+  color: var(--white);
+  font-weight: 800;
+  box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
+}
+
+/* ---------- Superadmin preview of a draft ---------- */
+
+.event-page .event-preview {
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--jade-soft);
+  color: var(--jade-deep);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.event-page .event-closing .section-heading {
+  margin-bottom: 36px;
+}
+
+@media (max-width: 900px) {
+  .event-page .event-hero {
+    padding-top: 28px;
+    padding-bottom: 56px;
+  }
+
+  .event-page .event-hero-inner {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "copy"
+      "card"
+      "details";
+    grid-template-rows: none;
+    row-gap: 22px;
+  }
+
+  .event-page .event-hero-copy {
+    padding-top: 0;
+  }
+
+  .event-page .event-hero-copy .eyebrow {
+    margin-bottom: 12px;
+  }
+
+  .event-page .event-hero h1 {
+    margin-bottom: 12px;
+    font-size: clamp(27px, 7vw, 40px);
+  }
+
+  .event-page .event-signature {
+    margin-bottom: 0;
+    font-size: 14px;
+  }
+
+  .event-page .event-card {
+    padding: 22px 18px 20px;
+  }
+
+  .event-page .event-room-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-page .event-confirm-qr {
+    display: none; /* The phone IS the device the QR would reach. */
+  }
+
+  .event-page .event-confirm-group {
+    grid-template-columns: 1fr;
+  }
+}

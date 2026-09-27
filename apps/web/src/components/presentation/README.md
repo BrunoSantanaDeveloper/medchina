@@ -10,18 +10,20 @@ sentence that is not there will not be said on stage.
 
 ## Files
 
-| File                              | What it holds                                                                                              |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `types.ts`                        | `Bi` (a pt/zh pair), `DeckLang`, `SlideData`                                                               |
-| `slides-data.ts`                  | All content: the 23 talk steps + the 4-slide annex plus the per-slide payloads (timeline, stats, columns…) |
-| `slide-views.tsx`                 | One view per step, composed from the deck's class vocabulary                                               |
-| `slide-deck.tsx`                  | The shell: canvas scaling, keyboard, timer, presenter window, overlays                                     |
-| `deck-sync.ts`                    | Cross-device sync: transport choice, room code, connect/publish                                            |
-| `deck-connect.tsx`                | The QR panel that pairs the phone                                                                          |
-| `deck-export.tsx`                 | `/palestra/exportar`: the deck as a PDF, in the language chosen                                            |
-| `deck-fit.ts`                     | The fit rule, shared by the stage and the exporter                                                         |
-| `deck-mode.ts`                    | Tells a view whether it renders on stage or on a PDF page                                                  |
-| `../../app/palestra/palestra.css` | The deck's design system                                                                                   |
+| File                              | What it holds                                                                                                                                                                                                                                                  |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `types.ts`                        | `Bi` (a pt/zh pair), `DeckLang`, `SlideData`                                                                                                                                                                                                                   |
+| `slides-deck.ts`                  | The 23 talk steps + the 4-slide annex (`SLIDES_DATA`), with the speaker-only text (`script`, `scriptZh`, `stageNote`, media notes). Imported by the stage, the exporter and the SERVER page of `/palestra/publica` — never by a client module the public loads |
+| `slides-data.ts`                  | The projected payloads only (timeline, stats, columns, contact…) — nothing a speaker reads                                                                                                                                                                     |
+| `slide-views.tsx`                 | One view per step, composed from the deck's class vocabulary                                                                                                                                                                                                   |
+| `slide-deck.tsx`                  | The shell: canvas scaling, keyboard, timer, presenter window, overlays                                                                                                                                                                                         |
+| `deck-sync.ts`                    | Cross-device sync: transport choice, room code, connect/publish                                                                                                                                                                                                |
+| `deck-connect.tsx`                | The QR panel that pairs the phone                                                                                                                                                                                                                              |
+| `deck-export.tsx`                 | `/palestra/exportar`: the deck as a PDF, in the language chosen                                                                                                                                                                                                |
+| `public-deck.tsx`                 | `/palestra/publica`: the slides for the public (from `/china`) — no presenter, teleprompter, export or sync; receives already-stripped slides as props                                                                                                         |
+| `deck-fit.ts`                     | The fit rule, shared by the stage and the exporter                                                                                                                                                                                                             |
+| `deck-mode.ts`                    | Tells a view whether it renders on stage or on a PDF page                                                                                                                                                                                                      |
+| `../../app/palestra/palestra.css` | The deck's design system                                                                                                                                                                                                                                       |
 
 ## Which design system this is
 
@@ -149,7 +151,7 @@ because PowerPoint hides them behind the notes pane and a file handed to someone
 else has to show what it carries.
 
 **The script follows the language switch**, through `scriptZh` / `optionalCutZh`
-in `slides-data.ts`. Portuguese is what Debora reads — the phone teleprompter
+in `slides-deck.ts`. Portuguese is what Debora reads — the phone teleprompter
 always shows `script`, whatever the slides are set to; the Chinese version
 exists for the copy the organisation gets, so it carries only what will be SAID.
 The stage directions and media notes stay out of it: they are production text,

@@ -20,7 +20,7 @@
  * the AI never diagnoses or decides, absence is never negation, no fabricated
  * number, feminine voice.
  */
-export type AngleSlug = "presenca" | "memoria" | "confianca" | "mtc" | "plano";
+export type AngleSlug = "presenca" | "memoria" | "confianca" | "mtc" | "plano" | "china";
 
 export type OfferAngle = {
   eyebrow: string;
@@ -76,6 +76,16 @@ export const OFFER_ANGLES: Record<AngleSlug, OfferAngle> = {
     title: "Do relato ao plano terapêutico,",
     accent: "sem recomeçar do zero.",
     lead: "A plataforma organiza o que foi relatado e prepara sugestões de pontos e protocolos para a sua revisão. Você edita, valida e assina — e a próxima consulta já começa sabendo o que mudou.",
+  },
+  // Message match for everything that comes from the congress: /china, the live
+  // event and their retargeting ads (`china-<format>-<hook>-v1`). The wording of
+  // the congress is the only one with a source (docs/PAGINA-CHINA.md §8): never
+  // "oficial", never "internacional".
+  china: {
+    eyebrow: "Apresentado no Congresso de MTC em Xinjiang, China",
+    title: "A medicina é milenar.",
+    accent: "O registro dela não precisa ser.",
+    lead: "Grave a consulta com a autorização da paciente e receba a anamnese preenchida, na estrutura da MTC, pronta para a sua revisão. Você conduz a consulta; a plataforma prepara o registro.",
   },
 };
 

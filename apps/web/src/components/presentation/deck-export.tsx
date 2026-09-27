@@ -3,7 +3,7 @@
 import { fitSlide } from "./deck-fit";
 import { DeckModeContext } from "./deck-mode";
 import { SlideRenderer } from "./slide-views";
-import { SLIDES_DATA } from "./slides-data";
+import { SLIDES_DATA } from "./slides-deck";
 import { DeckLang, SlideData } from "./types";
 import { useSearchParams } from "next/navigation";
 import { CSSProperties, Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";

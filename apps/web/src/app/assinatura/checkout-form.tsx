@@ -11,6 +11,7 @@ import { Alert, Box, Button, Divider, Grid, TextField, Typography } from "@mui/m
 import { CepField, CpfCnpjField, PhoneField } from "@/components/product/fields";
 import { COOKIE_KEYS } from "@/constants";
 import NiCheck from "@/icons/nexture/ni-check";
+import type { CampaignParams } from "@/lib/campaign-params";
 import { readCouponCookie } from "@/lib/offer-link";
 import { createClient } from "@flyee/auth/client";
 import type { PixCharge } from "@flyee/billing/types";
@@ -49,6 +50,7 @@ export default function CheckoutForm({
   priceCents,
   planPeriod,
   pixAvailable,
+  campaign,
 }: {
   orgId: string;
   planId: string;
@@ -64,6 +66,8 @@ export default function CheckoutForm({
   planPeriod: string | null;
   /** False while the account cannot charge Pix, so it is never offered. */
   pixAvailable: boolean;
+  /** The campaign of this purchase (last touch), forwarded from the landing link. */
+  campaign?: CampaignParams;
 }) {
   const [document, setDocument] = useState(() => (profile.document ? formatCpfCnpj(profile.document) : ""));
   const [postalCode, setPostalCode] = useState(() => (profile.postalCode ? formatCep(profile.postalCode) : ""));
@@ -123,6 +127,7 @@ export default function CheckoutForm({
       couponCode: coupon || null,
       paymentMethod: payment.method,
       installments: payment.installments,
+      campaign: campaign ?? null,
       // This is someone's FIRST purchase: there is no billing screen worth
       // returning to, and a paid account that lands on a settings page has to
       // work out what to do next on its own. She returns to the guided trail,

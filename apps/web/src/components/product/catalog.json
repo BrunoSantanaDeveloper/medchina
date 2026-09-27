@@ -84,7 +84,7 @@
     {
       "name": "DataTable",
       "from": "@/components/data-grid/data-table",
-      "props": "rows, columns, loading, header?, actions?, filters?, noRowsOverlay, noResultsOverlay, onQuickFilterChange?, initialColumnVisibility?",
+      "props": "rows, columns, loading, header?, actions?, filters?, noRowsOverlay, noResultsOverlay, onQuickFilterChange?, initialColumnVisibility?, enableExport?",
       "use": "The app's ONE table, and only when the job really is scan/compare/manage many rows. Put the page title in `header` and the primary action in `actions` — those slots render empty otherwise. Imports the community DataGrid: pinnedColumns needs the wrapper switched to @mui/x-data-grid-premium (installed and licensed)."
     },
     {

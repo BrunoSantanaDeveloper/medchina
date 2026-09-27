@@ -5,9 +5,9 @@ import { BRAND } from "@/brand";
 import CookieConsent from "@/components/consent/cookie-consent";
 import MarketingAnalytics from "@/components/consent/marketing-analytics";
 import MarketingTrackers from "@/components/consent/marketing-trackers";
-import JsonLd from "@/components/marketing/json-ld";
 import MarketingFooter from "@/components/marketing/marketing-footer";
 import MarketingHeader from "@/components/marketing/marketing-header";
+import SiteJsonLd from "@/components/marketing/site-json-ld";
 import SupportWidget from "@/components/support/support-widget";
 import { getSupportChannels } from "@/lib/platform-settings";
 
@@ -31,29 +31,9 @@ export default async function MarketingLayout({ children }: { children: React.Re
   const support = await getSupportChannels();
   return (
     <div className="bg-background flex min-h-[100dvh] flex-col">
-      {/* Site-wide identity for search + AI engines; rebrands with @flyee/content. */}
-      <JsonLd
-        data={{
-          "@context": "https://schema.org",
-          "@graph": [
-            {
-              "@type": "Organization",
-              "@id": `${BRAND.siteUrl}/#organization`,
-              name: BRAND.name,
-              url: BRAND.siteUrl,
-              logo: `${BRAND.siteUrl}${BRAND.favicon.light}`,
-              description: BRAND.description,
-            },
-            {
-              "@type": "WebSite",
-              "@id": `${BRAND.siteUrl}/#website`,
-              name: BRAND.name,
-              url: BRAND.siteUrl,
-              publisher: { "@id": `${BRAND.siteUrl}/#organization` },
-            },
-          ],
-        }}
-      />
+      {/* Site-wide identity for search + AI engines; rebrands with @flyee/content.
+          Shared with the (autoridade) layout, which is why it is a component. */}
+      <SiteJsonLd />
       <MarketingHeader />
       <main className="flex flex-1 flex-col">{children}</main>
       <MarketingFooter />

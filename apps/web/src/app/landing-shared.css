@@ -1,0 +1,83 @@
+/* ==========================================================================
+   Landing DS — blocks shared by more than one route group
+   --------------------------------------------------------------------------
+   Moved out of `(funil)/funil.css` when `/china` — which lives in its own group,
+   `(autoridade)`, and therefore never loads funil.css — needed the same founder
+   card and tinted band. MOVED, not copied: two copies of one visual block drift,
+   the same way two sources of a price do.
+
+   Imported right after `(marketing)/clinical-source-home.css` by every layout
+   that uses them — `(funil)/layout.tsx` and `(autoridade)/layout.tsx` — so the
+   cascade order against the DS is what it was when these rules sat in funil.css.
+   Only DS custom properties here (--paper, --line, --white, --shadow-sm, --ink,
+   --jade-deep, --muted), never a new colour.
+   ========================================================================== */
+
+/* ---------- Section rhythm ----------
+   The DS paints one ivory ground from top to bottom, which left five sections
+   in a row with the same background. Alternating tinted bands is the depth
+   treatment docs/DESIGN.md asks for, done with a DS colour, not a new one. */
+
+.offer-section--tinted {
+  background: var(--paper);
+}
+
+/* ---------- Who is on the other side ---------- */
+
+.offer-founder {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 26px;
+  align-items: start;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 34px 36px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.offer-founder h3 {
+  margin: 0 0 4px;
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.offer-founder-role {
+  margin: 0 0 14px !important;
+  color: var(--jade-deep) !important;
+  font-size: 0.95rem !important;
+  font-weight: 700;
+}
+
+.offer-founder p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.offer-founder p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Founder portrait ----------
+   Replaces the monogram now that a real photograph exists in the repository. */
+
+.offer-founder-photo {
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 720px) {
+  .offer-founder {
+    grid-template-columns: 1fr;
+    padding: 28px 22px;
+  }
+}

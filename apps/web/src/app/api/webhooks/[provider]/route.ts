@@ -575,9 +575,21 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
         try {
           const { data: attribution } = await supabase
             .from("meta_attribution")
-            .select("fbp, fbc, email, client_ip, client_user_agent, ga_client_id")
+            .select(
+              "fbp, fbc, email, client_ip, client_user_agent, ga_client_id, campaign_origem, campaign_utm_source, campaign_utm_medium, campaign_utm_campaign, campaign_utm_content",
+            )
             .eq("org_id", orgId)
             .maybeSingle();
+          // The LAST touch — the campaign of the checkout that produced this
+          // sale (lib/campaign-params.ts, migration 0112). Kept apart from the
+          // first-touch keys below: the base that already had an account is
+          // only ever credited to a later campaign through these.
+          const lastTouch: Record<string, string> = {};
+          if (attribution?.campaign_origem) lastTouch.last_origem = attribution.campaign_origem;
+          if (attribution?.campaign_utm_source) lastTouch.last_utm_source = attribution.campaign_utm_source;
+          if (attribution?.campaign_utm_medium) lastTouch.last_utm_medium = attribution.campaign_utm_medium;
+          if (attribution?.campaign_utm_campaign) lastTouch.last_utm_campaign = attribution.campaign_utm_campaign;
+          if (attribution?.campaign_utm_content) lastTouch.last_utm_content = attribution.campaign_utm_content;
           // Which wave/channel produced this sale, and what was actually
           // bought. Without it a Purchase is an amount with no way back to the
           // campaign that earned it — and comparing waves is the reason they
@@ -610,7 +622,7 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
             clientUserAgent: attribution?.client_user_agent ?? null,
             value: event.amountCents / 100,
             currency: event.currency,
-            customData: { ...campaign, ...planFacts },
+            customData: { ...campaign, ...lastTouch, ...planFacts },
             // Honest source: the webhook fired this, no browser present. The
             // match keys above still attribute it to the ad click.
             actionSource: "system_generated",

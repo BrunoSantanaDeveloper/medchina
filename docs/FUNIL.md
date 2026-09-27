@@ -57,6 +57,7 @@
 5. **Masterclass com Hellen agendada para a semana 3–4** (dá tempo do funil da Fase 1/2 ficar pronto). **Não anunciar "cupom HELLEN" até o cupom funcionar no checkout** — até lá, a parceria opera por link/página dedicada.
 6. **LGPD da base antiga**: documentar a base legal (legítimo interesse com LIA, ou consentimento da relação anterior), com opt-out em todo contato — ANTES do primeiro disparo em massa. Os 500 estão fora deste banco: o outreach é 100% externo (WhatsApp manual + ESP externo; o produto não tem broadcast).
 7. **Garantia de 7 dias operada manualmente por enquanto**: publicar os termos (página em `/legal`, T1.5) pode esperar a Fase 1; até lá a garantia vale por escrito na conversa e o reembolso é feito no painel do Asaas (o webhook já reconcilia o estorno).
+8. **Decisão (2026-09-26) — a onda da China e do ao vivo vende em autosserviço.** A `/china` e o `/lei-15345` levam direto a `/assinar` (e daí ao checkout encurtado de 2026-09-20), sem call e sem `/agendar`: um evento de um-para-muitos com o botão ao lado da sala escala onde a agenda de calls não escala, e o caminho de compra sozinho já existe. A venda assistida (calls, EPIC 2) continua sendo o caminho dos ex-pagantes e das escolas. A compra que vem do evento é medida pela última campanha gravada no checkout (`meta_attribution.campaign_*` → chaves `last_*` do `Purchase`), nunca por cupom.
 
 ## A.4 Fase 1 — dev mínimo que destrava venda escalável (~1 semana)
 
@@ -145,6 +146,12 @@
   Também explicitado: não descontamos minutos de IA já usados (descontar seria multa por ter testado, não garantia), o estorno depende do meio de pagamento (honesto sobre prazos fora do nosso controle), e a garantia **soma-se** ao direito legal, nunca o reduz.
   ⬜ **Falta a outra metade de T1.5**: campo `refund_eligible_until`, solicitação no painel e ação de reembolso no admin chamando a API do provider. Depende de T1.7 (C1–C4 do BILLING-AUDIT — estorno Asaas está fora do domínio hoje).
 
+- ✅ **Página de autoridade `/china`, evento ao vivo `/lei-15345` e console `/admin/leads` — ENTREGUE no código (2026-09-26; deploy pendente)**. Specs canônicas: `docs/PAGINA-CHINA.md` e `docs/PAGINA-EVENTO.md` (referenciar, não redescrever). O congresso foi em 19/09; os termos de consentimento e a política de privacidade saíram do provisório e estão definitivos nos seis idiomas.
+  **`/china`** — indexada, no grupo novo `(autoridade)` com o cabeçalho e o rodapé da home (extraídos para `home-header`/`home-footer`/`home-brand`), `Article` em JSON-LD, fontes oficiais da Lei 15.345, o deck público em `/palestra/publica` (mesmos slides do palco, sem roteiro nem notas — removidos no servidor) e três CTAs por `getSellableCampaign()` medidos por `CtaClick`.
+  **`/lei-15345`** — `noindex`, em `(funil)`; os quatro estados na mesma URL; inscrição com nome + WhatsApp (celular normalizado, fixo recusado) + e-mail opcional, dois termos versionados, link pessoal com QR, grupo e conversa por redirecionamento que nunca expõe o convite nem o número, sala que se abre sozinha na página aberta antes da hora, presença medida pela própria página (só durante o ao vivo), gravação com captura curta e e-mails em lote com descadastro de um clique.
+  **Verificado de ponta a ponta contra o banco local** (2026-09-26): cada estado fotografado em 375/1440, validações e mensagens, repetição de número, honeypot, redirecionamentos (`no-store`, `no-referrer`), virada automática para a sala, captura pós-evento, e o console gravando e auditando cada ação. **Defeitos encontrados e corrigidos na verificação:** presença gravada fora do ao vivo (e durante a gravação) — agora recusada no banco; a confirmação da captura pós-evento sumia com o `refresh`; os textos do pós-evento prometiam "seu lugar está garantido" para um evento que já tinha passado; QR e link pessoal perdidos ao recarregar; o pôster do vídeo em faixas brancas e o player com divergência de hidratação; data em Title Case ("Quinta-Feira, 8 De Outubro"); o deck público invisível no celular (o canvas ia para fora da tela abaixo de 1280 px); o telefone do público de anúncio exportado como `'+55…` (inutilizável na Meta); as ações por linha do console fora da tela num notebook; `updated_by` nunca preenchido.
+  **Antes de ir ao ar:** aplicar a `0112` em produção; `CHINA.publishedAt` com a data real; abrir o evento em `/admin/leads` (data, número dono, convite); SPF/DKIM do Resend; opcional `LEAD_HASH_SALT`.
+
 ## A.4.1 Ofertas de conversão no trial — ENTREGUE (2026-08-11)
 
 ⚠️ **Defeito encontrado ao avaliar a ideia**: o drip do trial (`lib/trial-jobs.ts`) é 100% ancorado no **calendário** — welcome, T+2d, `ends_at−3d`, `ends_at`. O próprio comentário do código admite a lacuna ("the minutes dimension is handled in-app by the allowance"). Consequência: quem adota de verdade queima os 300 minutos (~6 consultas) em 2-3 dias, é bloqueada no dia 3, ouve silêncio até o dia 11 — e então recebe um e-mail dizendo que o trial "está expirando", **oito dias depois de ter acabado**. O texto é falso para ela. A melhor prospect era a pior servida.
@@ -205,7 +212,7 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 | D4 | ✅ **30 dias** a partir da abertura da oferta; encerra no que vier primeiro (vagas ou data) | decidido | `platform_settings` key `founders` |
 | D5 | Percentual/valor do cupom da parceira | ex.: `HELLEN` = mesmo benefício + atribuição. **Nota**: com D2 = plano oculto, a oferta da Hellen pode ser um **segundo plano oculto** (`pro-fundador-hellen`, mesmo preço) — o cupom fica para desconto/atribuição em campanhas futuras | `coupons` (entidade já existe; T1.2) |
 | D6 | Capacidade semanal de calls | inteiro (base: 20; pico: 30) | `platform_settings` OU limites do Cal.com — decidir em T2.1 |
-| D7 | Tema, data e hora da masterclass | texto + datetime | `platform_settings` key `masterclass` (alimenta countdown T3.3 e prazo do replay) |
+| D7 | ✅ **Substituída (2026-09-26) por `live_events`**: tema, data, hora, convite da Comunidade, número dono, transmissão e gravação de cada evento vivem na **linha do evento** (migração `0112_leads.sql`), editada em `/admin/leads` — um evento é uma entidade com estado (`rascunho → inscricoes → ao_vivo → encerrado`), não uma chave de configuração. A chave `masterclass` não será criada; a masterclass (T3.3) é outra linha dessa tabela | decidido | `live_events` |
 | D8 | Política do plano Gratuito | ver EPIC 7 — ⚠️ reformulado: **não há divergência jurídica**; a decisão é manter o ilimitado real ou introduzir limites (exige construir grandfathering) | `plans.limits` |
 | D9 | WhatsApp automático nas confirmações/lembretes | **ativar Meta Cloud API** (código pronto em `packages/whatsapp`; exige verificação de negócio + templates aprovados + custo/msg — prazo de semanas) OU **handoff `wa.me`** (padrão atual da agenda clínica, envio manual) | env vars + decisão operacional (T2.2) |
 | D10 | Indexação das landings de funil | /fundadores, /voltar, /masterclass: entrar no sitemap ou `noindex`? (recomendação: noindex + fora do sitemap; registrar a exceção para o lint de marketing não "corrigir") | metadata das páginas |
@@ -289,10 +296,14 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 ## EPIC 2 — Agendamento (`/agendar`)
 **Bloqueia:** Ondas 1, 2 e 3. É o mecanismo central de todo o plano.
 
+> **Fora deste EPIC (decisão de 2026-09-26, A.3 item 8):** a onda da China e do ao vivo sobre a Lei 15.345 vende em autosserviço — `/china` e `/lei-15345` → `/assinar` → checkout —, sem call nem `/agendar`. Este EPIC continua valendo para a venda assistida (ex-pagantes, escolas).
+
 ⚠️ **Colisão de nomes a registrar**: já existe `/agenda` — a agenda **clínica** autenticada da profissional (consultas de pacientes; uma consulta agendada é uma linha de `consultations` com status `scheduled` — 0027_agenda.sql, com conflito de horário, séries e briefing). `/agendar` (comercial, público) é outra coisa: copy, menus e eventos de analytics devem mantê-las separadas.
 
 ### T2.0 — Entidade de lead/agendamento (NOVA — pré-requisito comum)
-**Estado: ⬜** — não existe nenhuma tabela de lead, contato comercial ou lista de espera no schema (o formulário `/contato` é fire-and-forget por e-mail, nada vai ao banco). Esta entidade é o ponto único de persistência de T2.1 + T2.3 + T2.4 + T1.4-waitlist e a base de T6.4.
+**Estado: 🟡 em andamento (2026-09-26)** — a entidade existe: `leads` (migração `0112_leads.sql`), platform-level e sem `org_id`, um registro por WhatsApp (11 dígitos), com nome, e-mail, `segmento` (hoje `live`), `onda`, `cupom`, o primeiro toque completo (`origem`, `utm_*`, referrer, página de entrada) e o termo opcional de novidades fixado na linha (id + versão + texto — T2.4 opção b). É o primeiro formulário público do repo escrevendo em banco: escrita só pela RPC `submit_live_event_registration` (service role) atrás de honeypot e janela por rede (`sha256(sal + IP)`), com um lead por telefone e repetição que nunca reescreve os dados. RLS superadmin, versionamento, retenção (`purge_expired_leads`) e exclusão LGPD (`purge_lead`), fixados em `packages/db/tests/0042_leads.test.sql`. A inscrição por evento vive em `live_event_registrations`. **Falta para fechar T2.0**: os campos da call (já usou a versão anterior, faixa de pacientes/semana), `status` e histórico de contato — entram com T2.1/T6.4, na mesma tabela.
+
+Antes (registro do ponto de partida): não existia nenhuma tabela de lead, contato comercial ou lista de espera no schema (o formulário `/contato` é fire-and-forget por e-mail, nada vai ao banco). Esta entidade é o ponto único de persistência de T2.1 + T2.3 + T2.4 + T1.4-waitlist e a base de T6.4.
 - Tabela **platform-level, sem `org_id`** (lead pré-conta): nome, WhatsApp, e-mail, flag "já usou a versão anterior", faixa de pacientes/semana, `origem`, `onda`, `cupom`, `segmento`, `status`, histórico de contato, consentimentos (ver T2.4).
 - Leitura superadmin-only (RLS); escrita via service role em server action pública **com anti-abuso** (rate limit + honeypot — não há precedente no repo de formulário público escrevendo em banco).
 - RLS + row versioning + pgtap (convenções §0.5).
@@ -357,7 +368,7 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 - **Aceite:** as duas variantes renderizam textos distintos e o redirect preserva parâmetros de URL.
 
 ### T3.3 — `/masterclass` e `/masterclass/replay` — Onda 2
-**Estado: ⬜** — nem página, nem countdown (nada regressivo existe em marketing; `CountUp` só anima para cima), nem captura de inscrição.
+**Estado: ⬜ — com o modelo pronto (2026-09-26)**: `/lei-15345` (`docs/PAGINA-EVENTO.md`) já é a página de evento completa — convite, inscrição com `Lead`, sala ao vivo, gravação e captura pós-evento na MESMA URL, dirigidas por `live_events.state`. A masterclass é outra linha de `live_events` (D7) e uma cópia da página com o texto dela; o "replay" é o estado `encerrado`, não uma segunda rota. O que segue é o registro do ponto de partida: nem página, nem countdown (nada regressivo existe em marketing; `CountUp` só anima para cima), nem captura de inscrição.
 - Página de **evento**, não de produto: tema clínico, data/hora (D7, de `platform_settings` — não hardcoded), fotos e credenciais das duas especialistas, o que a participante sai sabendo, CTA único = entrar no grupo de WhatsApp.
 - **Nenhuma menção a preço ou plano antes da live.**
 - Contador de tempo até o evento: componente client novo, reduced-motion-safe, timezone explícito.
@@ -439,7 +450,7 @@ Estes valores são entradas de configuração. A IA de desenvolvimento **não de
 ### T5.1 — Eventos de produto (delta sobre o que existe)
 | Evento | Estado | Ação |
 |---|---|---|
-| `Lead` | ⬜ tipo declarado (`analytics.ts:35`, `meta-capi.ts:45`), nunca disparado | criar call site na inscrição da masterclass/grupo (T3.3): par browser+server com `event_id` compartilhado |
+| `Lead` | 🟡 disparado pelo navegador na primeira inscrição de um número em `/lei-15345` (2026-09-26), `eventID` = id da inscrição, GA4 `generate_lead` | o par de servidor fica para depois: exige estender a postura de interesse legítimo aos inscritos (três textos + `CONSENT_VERSION`) e a chave `ph` no CAPI — `docs/TRACKING.md` |
 | `Schedule` | ⬜ nem consta nos vocabulários | adicionar aos TRÊS unions (`meta-capi.ts:40-52`, `analytics.ts:32-43`, `ga4-mp.ts:36-43`) + disparo na criação do agendamento (T2.3), payload origem/onda/cupom |
 | `CompleteRegistration` | ✅ existe (dedup por user.id) | adicionar `origem` ao payload (T5.0). Atenção: depende da confirmação de e-mail ligada no Supabase — se desligarem, o callback não roda |
 | `primeira_anamnese_completa` | ✅ como **`Activated`** (1ª consulta FINALIZADA da org) | **mapear, não renomear** (renomear quebra histórico no Events Manager). Completar payload "dias desde cadastro" e **documentar no código que é o evento de otimização de campanha** |
@@ -491,7 +502,9 @@ Referência: os 12 consoles existentes (`/admin`, `/admin/organizations`, `/admi
 - **Aceite:** relatório de objeções agrupadas disponível.
 
 ### T6.4 — Gestão de contatos por onda
-**Estado: ⬜** — não existe CRM/contato de funil (as únicas entidades de pessoa são `profiles`, `patients` — dado clínico tenant-scoped, **jamais** reutilizável como lista de marketing — e `meta_attribution`).
+**Estado: 🟡 em andamento (2026-09-26)** — `/admin/leads` lista as inscrições com filtros prontos (todas · elegíveis para anúncio · sem clique no grupo), abre conversa no WhatsApp **uma por vez**, descadastra com motivo, exclui por LGPD e exporta **só** o recorte com o termo de novidades ativo e sem descadastro, no formato de lista de clientes da Meta. Falta: `status` e histórico de contato, filtro por segmento/onda na tela, e a carga dos ~500 contatos da versão anterior (base legal em rascunho: `docs/LGPD-BASE-LEGADA.md`).
+
+Antes (registro do ponto de partida): não existia CRM/contato de funil (as únicas entidades de pessoa são `profiles`, `patients` — dado clínico tenant-scoped, **jamais** reutilizável como lista de marketing — e `meta_attribution`).
 - Evolução da entidade T2.0: `onda`, `segmento` (ex_pagante | cadastro_v1 | live | escola | indicacao | gratuito_parado | waitlist), `status`, `historico_de_contato`. Platform-level, superadmin-only.
 - A carga dos ~500 contatos da versão anterior precisa de caminho próprio (o pipeline de import escreve pacientes de um workspace, não contatos de funil). Base legal LGPD: ver Riscos, item 1.
 - **Aceite:** possível filtrar e exportar por segmento.

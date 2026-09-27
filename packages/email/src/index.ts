@@ -3,6 +3,11 @@ import { Resend } from "resend";
 
 import AdminAccountsDigestEmail, { type AdminAccountsDigestEmailProps } from "./templates/admin-accounts-digest";
 import ContactFormEmail, { ContactFormEmailProps } from "./templates/contact-form";
+import LiveEventEmail, {
+  LIVE_EVENT_SUBJECTS,
+  type LiveEventEmailKind,
+  type LiveEventEmailProps,
+} from "./templates/live-event";
 import OrgInviteEmail, { OrgInviteEmailProps } from "./templates/org-invite";
 import PatientDocumentEmail, { type PatientDocumentEmailProps } from "./templates/patient-document";
 import SubscriptionActiveEmail, { type SubscriptionActiveEmailProps } from "./templates/subscription-active";
@@ -10,6 +15,8 @@ import TrialLifecycleEmail, { type TrialEmailKind, type TrialLifecycleEmailProps
 
 export type {
   AdminAccountsDigestEmailProps,
+  LiveEventEmailKind,
+  LiveEventEmailProps,
   PatientDocumentEmailProps,
   SubscriptionActiveEmailProps,
   TrialEmailKind,
@@ -190,4 +197,58 @@ export async function sendContactFormEmail(props: ContactFormEmailProps): Promis
     return { sent: false, error: error.message };
   }
   return { sent: true };
+}
+
+/** Resend accepts up to 100 e-mails per batch call. */
+const BATCH_SIZE = 100;
+/** Resend's default rate limit is 2 requests per second; one batch is one request. */
+const BATCH_PAUSE_MS = 700;
+
+export type LiveEventEmailItem = { to: string; props: LiveEventEmailProps };
+
+/**
+ * Sends the live event's e-mails (docs/PAGINA-EVENTO.md §8) in batches of up to
+ * 100 — one API request per batch — pausing between batches to stay under the
+ * provider's rate limit. Hundreds of reminders are a handful of requests, which
+ * fits inside one function run.
+ *
+ * Every message carries `List-Unsubscribe` (+ one-click POST) pointing at the
+ * lead-scoped unsubscribe route, so the mail client's own button works too.
+ *
+ * Returns `sent[i]` for `items[i]`, so the caller marks exactly those as sent
+ * (idempotency lives in the caller's columns). A batch the provider refuses is
+ * reported as not sent for all of its items — never thrown. Nothing is sent,
+ * without failing, when RESEND_API_KEY is absent.
+ */
+export async function sendLiveEventEmailBatch(
+  items: LiveEventEmailItem[],
+): Promise<{ sent: boolean[]; error?: string }> {
+  const sent = items.map(() => false);
+  if (!isEmailConfigured || items.length === 0) return { sent };
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  let lastError: string | undefined;
+
+  for (let start = 0; start < items.length; start += BATCH_SIZE) {
+    const chunk = items.slice(start, start + BATCH_SIZE);
+    if (start > 0) await new Promise((resolve) => setTimeout(resolve, BATCH_PAUSE_MS));
+    try {
+      const { error } = await resend.batch.send(
+        chunk.map((item) => ({
+          from: DEFAULT_FROM,
+          to: item.to,
+          subject: LIVE_EVENT_SUBJECTS[item.props.kind as LiveEventEmailKind],
+          react: createElement(LiveEventEmail, item.props),
+          headers: {
+            "List-Unsubscribe": `<${item.props.unsubscribeUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          },
+        })),
+      );
+      if (error) lastError = error.message;
+      else chunk.forEach((_, offset) => (sent[start + offset] = true));
+    } catch (caught) {
+      lastError = caught instanceof Error ? caught.message : String(caught);
+    }
+  }
+  return { sent, ...(lastError ? { error: lastError } : {}) };
 }

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import Logo from "@/components/logo/logo";
 import type { HomeCopy } from "@/components/marketing/home-copy";
 import { rich } from "@/components/marketing/home-copy/rich";
+import HomeEvidence from "@/components/marketing/home-evidence";
+import HomeFooter from "@/components/marketing/home-footer";
+import HomeHeader from "@/components/marketing/home-header";
 import HomeLanguageNotice from "@/components/marketing/home-language-notice";
-import HomeLanguageSwitch from "@/components/marketing/home-language-switch";
 import type { PublicPlanDisplay } from "@/components/marketing/pricing-section";
 import type { LocaleOption } from "@/constants";
 import type { Icon as PhosphorIcon } from "@phosphor-icons/react";
@@ -18,7 +19,6 @@ import {
   BatteryFull,
   CaretDown,
   CellSignalFull,
-  ChatCircleText,
   Check,
   CheckCircle,
   ClockCounterClockwise,
@@ -29,10 +29,7 @@ import {
   FileText,
   Fingerprint,
   Headphones,
-  List,
   LockKey,
-  MinusCircle,
-  MoonStars,
   Notebook,
   Pause,
   Play,
@@ -44,10 +41,8 @@ import {
   Stethoscope,
   Tag,
   TrendUp,
-  WarningCircle,
   Waveform,
   WifiHigh,
-  X,
 } from "@phosphor-icons/react";
 
 const signUpUrl = "/auth/sign-up";
@@ -108,13 +103,6 @@ const MOBILE_HIGHLIGHT_ICONS: Record<string, PhosphorIcon> = {
 
 const HERO_INSIGHT_ICONS: PhosphorIcon[] = [FileText, Sparkle, Stethoscope];
 
-/** Review state of each prepared field — a tone is a clinical meaning, not copy. */
-const EVIDENCE_FIELDS = [
-  { id: "sleep", icon: MoonStars, tone: "clear" as const, source: "14:32" },
-  { id: "evolution", icon: TrendUp, tone: "attention" as const, source: "14:32" },
-  { id: "observation", icon: Stethoscope, tone: "missing" as const, source: undefined },
-];
-
 const TRACEABILITY_ICONS: Record<string, PhosphorIcon> = {
   origin: Eye,
   authorship: Fingerprint,
@@ -142,17 +130,6 @@ const PLAN_ICONS: Record<string, PhosphorIcon> = {
   assistente: Waveform,
   pro: Sparkle,
 };
-
-function Brand({ inverse = false, label }: { inverse?: boolean; label: string }) {
-  return (
-    <a className={`brand ${inverse ? "brand--inverse" : ""}`} href="#inicio" aria-label={label}>
-      {/* The one true logo (@/components/logo/logo.tsx) — same asset as the
-          logged-in header. tone="contrast" swaps the teal shapes to white for
-          the dark footer band; the camel wordmark gradient already reads on dark. */}
-      <Logo classNameFull="h-9 w-auto" classNameMobile="hidden" tone={inverse ? "contrast" : "default"} />
-    </a>
-  );
-}
 
 function PhoneRecorder({
   focus,
@@ -337,145 +314,6 @@ function MobileShowcase({ copy }: { copy: HomeCopy["mobile"] }) {
   );
 }
 
-function EvidenceRow({
-  icon: Icon,
-  label,
-  value,
-  state,
-  tone,
-  source,
-  listenLabel,
-  emptyLabel,
-  onPlay,
-}: {
-  icon: PhosphorIcon;
-  label: string;
-  value: string;
-  state: string;
-  tone: "clear" | "attention" | "missing";
-  source?: string;
-  listenLabel: string;
-  emptyLabel: string;
-  onPlay: () => void;
-}) {
-  const StatusIcon = tone === "clear" ? CheckCircle : tone === "attention" ? WarningCircle : MinusCircle;
-
-  return (
-    <article className={`evidence-field evidence-field--${tone}`}>
-      <span className="evidence-field-icon">
-        <Icon size={22} weight="duotone" aria-hidden="true" />
-      </span>
-      <div className="evidence-field-content">
-        <div className="evidence-field-heading">
-          <strong>{label}</strong>
-          <span className="evidence-status">
-            <StatusIcon size={14} weight="fill" aria-hidden="true" /> {state}
-          </span>
-        </div>
-        <p>{value}</p>
-        {source ? (
-          <button className="evidence-source" type="button" onClick={onPlay}>
-            <Play size={12} weight="fill" aria-hidden="true" /> {listenLabel} · {source}
-          </button>
-        ) : (
-          <span className="evidence-source evidence-source--empty">{emptyLabel}</span>
-        )}
-      </div>
-    </article>
-  );
-}
-
-function SupervisedEvidence({ copy }: { copy: HomeCopy["supervised"] }) {
-  const [playing, setPlaying] = useState(false);
-  const playSource = () => setPlaying(true);
-
-  return (
-    <div className="evidence-layout">
-      <article className="conversation-card">
-        <div className="conversation-header">
-          <span className="conversation-icon">
-            <ChatCircleText size={22} weight="duotone" aria-hidden="true" />
-          </span>
-          <span>
-            <small>{copy.conversation.sourceLabel}</small>
-            <strong>{copy.conversation.title}</strong>
-          </span>
-          <span className="conversation-time">{copy.conversation.time}</span>
-        </div>
-        {/* The extracted terms are marked in the copy itself (==term==), so each
-            language highlights the words IT actually uses. */}
-        <blockquote>{rich(copy.conversation.quote)}</blockquote>
-        <div className={`evidence-player ${playing ? "is-playing" : ""}`}>
-          <button
-            type="button"
-            onClick={() => setPlaying(!playing)}
-            aria-label={playing ? copy.conversation.pauseAria : copy.conversation.playAria}
-          >
-            {playing ? <Pause size={16} weight="fill" /> : <Play size={16} weight="fill" />}
-          </button>
-          <span>
-            <strong>{playing ? copy.conversation.playingLabel : copy.conversation.originalLabel}</strong>
-            <small>{copy.conversation.speaker}</small>
-          </span>
-          <Waveform size={78} weight="duotone" aria-hidden="true" />
-          <time>{copy.conversation.duration}</time>
-        </div>
-      </article>
-
-      <div className="evidence-bridge" aria-hidden="true">
-        <span>
-          <Sparkle size={18} weight="fill" />
-          <ArrowRight size={18} weight="bold" />
-        </span>
-        <small>{copy.bridgeLabel}</small>
-      </div>
-
-      <article className="prepared-card">
-        <div className="prepared-header">
-          <div>
-            <span>
-              <Sparkle size={18} weight="duotone" aria-hidden="true" /> {copy.prepared.badge}
-            </span>
-            <h3>{copy.prepared.title}</h3>
-            <p>{copy.prepared.summary}</p>
-          </div>
-          <span className="review-chip">
-            <SealCheck size={15} weight="fill" aria-hidden="true" /> {copy.prepared.reviewChip}
-          </span>
-        </div>
-        <div className="evidence-fields">
-          {EVIDENCE_FIELDS.map(({ id, icon, tone, source }) => {
-            const field = copy.prepared.fields.find((item) => item.id === id);
-            if (!field) return null;
-
-            return (
-              <EvidenceRow
-                key={id}
-                icon={icon}
-                label={field.label}
-                value={field.value}
-                state={field.state}
-                tone={tone}
-                source={source}
-                listenLabel={copy.prepared.listen}
-                emptyLabel={copy.prepared.noEvidence}
-                onPlay={playSource}
-              />
-            );
-          })}
-        </div>
-        <div className="prepared-footer">
-          <SealCheck size={24} weight="duotone" aria-hidden="true" />
-          <span>
-            <strong>{copy.prepared.footerTitle}</strong>
-            <small>{copy.prepared.footerDetail}</small>
-          </span>
-        </div>
-      </article>
-    </div>
-  );
-}
-
 function FlowTimeline({ copy }: { copy: HomeCopy["flow"] }) {
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -644,70 +482,6 @@ function PresenceExperience({ copy }: { copy: HomeCopy["presence"] }) {
   );
 }
 
-function Header({
-  copy,
-  language,
-  locale,
-}: {
-  copy: HomeCopy["nav"];
-  language: HomeCopy["language"];
-  locale: LocaleOption;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <header className="site-header">
-      <div className="header-inner">
-        <Brand label={copy.brandAria} />
-        <nav className="desktop-nav" aria-label={copy.desktopAria}>
-          <a href="#como-funciona">{copy.howItWorks}</a>
-          <a href="#recursos">{copy.features}</a>
-          <a href="#seguranca">{copy.security}</a>
-          <a href="#planos">{copy.plans}</a>
-        </nav>
-        <div className="header-actions">
-          <HomeLanguageSwitch current={locale} copy={language} />
-          <a className="login-link" href={signInUrl}>
-            {copy.signIn}
-          </a>
-          <a className="button button--sm" href={signUpUrl}>
-            {copy.signUp}
-          </a>
-        </div>
-        <button
-          className="menu-button"
-          type="button"
-          onClick={() => setOpen(!open)}
-          aria-expanded={open}
-          aria-label={open ? copy.closeMenu : copy.openMenu}
-        >
-          {open ? <X size={24} /> : <List size={24} />}
-        </button>
-      </div>
-      {open && (
-        <nav className="mobile-nav" aria-label={copy.mobileAria}>
-          <a onClick={() => setOpen(false)} href="#como-funciona">
-            {copy.howItWorks}
-          </a>
-          <a onClick={() => setOpen(false)} href="#recursos">
-            {copy.features}
-          </a>
-          <a onClick={() => setOpen(false)} href="#seguranca">
-            {copy.security}
-          </a>
-          <a onClick={() => setOpen(false)} href="#planos">
-            {copy.plans}
-          </a>
-          <a href={signInUrl}>{copy.signIn}</a>
-          <a className="button" href={signUpUrl}>
-            {copy.signUp}
-          </a>
-          <HomeLanguageSwitch current={locale} copy={language} variant="mobile" />
-        </nav>
-      )}
-    </header>
-  );
-}
-
 export default function ClinicalSourceHome({
   plans,
   couponNotice,
@@ -728,7 +502,18 @@ export default function ClinicalSourceHome({
   return (
     <main id="inicio" className="clinical-source-home">
       {autoSwitched && <HomeLanguageNotice copy={copy.language} defaultLocaleName={copy.language.names["pt-BR"]} />}
-      <Header copy={copy.nav} language={copy.language} locale={locale} />
+      <HomeHeader
+        copy={copy.nav}
+        links={[
+          { href: "#como-funciona", label: copy.nav.howItWorks },
+          { href: "#recursos", label: copy.nav.features },
+          { href: "#seguranca", label: copy.nav.security },
+          { href: "#planos", label: copy.nav.plans },
+        ]}
+        signInHref={signInUrl}
+        cta={{ href: signUpUrl, label: copy.nav.signUp }}
+        language={{ copy: copy.language, locale }}
+      />
 
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-inner">
@@ -874,7 +659,7 @@ export default function ClinicalSourceHome({
           <h2>{rich(copy.supervised.title)}</h2>
           <p>{copy.supervised.lead}</p>
         </div>
-        <SupervisedEvidence copy={copy.supervised} />
+        <HomeEvidence copy={copy.supervised} />
         <div className="traceability-row">
           {copy.supervised.traceability.map(({ id, title, detail }) => {
             const Icon = TRACEABILITY_ICONS[id] ?? Eye;
@@ -1057,37 +842,39 @@ export default function ClinicalSourceHome({
         </div>
       </section>
 
-      <footer className="site-footer">
-        <div className="footer-top">
-          <div className="footer-brand">
-            <Brand inverse label={copy.nav.brandAria} />
-            <p>{copy.footer.tagline}</p>
-          </div>
-          <div>
-            <strong>{copy.footer.productTitle}</strong>
-            <a href="#como-funciona">{copy.nav.howItWorks}</a>
-            <a href="#recursos">{copy.nav.features}</a>
-            <a href="#planos">{copy.nav.plans}</a>
-            <a href="#seguranca">{copy.nav.security}</a>
-          </div>
-          <div>
-            <strong>{copy.footer.accountTitle}</strong>
-            <a href={signUpUrl}>{copy.footer.signUp}</a>
-            <a href={signInUrl}>{copy.nav.signIn}</a>
-            <a href="#duvidas">{copy.footer.helpCenter}</a>
-          </div>
-          <div>
-            <strong>{copy.footer.companyTitle}</strong>
-            <a href="#inicio">{copy.footer.about}</a>
-            <a href="mailto:contato@medchinaprontuarios.com.br">{copy.footer.contact}</a>
-            <a href="#seguranca">{copy.footer.privacy}</a>
-          </div>
-        </div>
-        <div className="footer-bottom">
-          <span>{copy.footer.rights}</span>
-          <p>{copy.footer.disclaimer}</p>
-        </div>
-      </footer>
+      <HomeFooter
+        brandLabel={copy.nav.brandAria}
+        tagline={copy.footer.tagline}
+        columns={[
+          {
+            title: copy.footer.productTitle,
+            links: [
+              { href: "#como-funciona", label: copy.nav.howItWorks },
+              { href: "#recursos", label: copy.nav.features },
+              { href: "#planos", label: copy.nav.plans },
+              { href: "#seguranca", label: copy.nav.security },
+            ],
+          },
+          {
+            title: copy.footer.accountTitle,
+            links: [
+              { href: signUpUrl, label: copy.footer.signUp },
+              { href: signInUrl, label: copy.nav.signIn },
+              { href: "#duvidas", label: copy.footer.helpCenter },
+            ],
+          },
+          {
+            title: copy.footer.companyTitle,
+            links: [
+              { href: "#inicio", label: copy.footer.about },
+              { href: "mailto:contato@medchinaprontuarios.com.br", label: copy.footer.contact },
+              { href: "#seguranca", label: copy.footer.privacy },
+            ],
+          },
+        ]}
+        rights={copy.footer.rights}
+        disclaimer={copy.footer.disclaimer}
+      />
     </main>
   );
 }

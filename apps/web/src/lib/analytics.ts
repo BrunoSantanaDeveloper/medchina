@@ -75,14 +75,29 @@ export function optOutOfAnalytics(): void {
   // auto-fires its initial PageView, never again on its own).
 }
 
+export interface TrackOptions {
+  /**
+   * Meta deduplicates a browser event against a server one ONLY when both carry
+   * the same eventID. Pass the id the server event uses (or will use), so the
+   * pair can never double-count.
+   */
+  eventId?: string;
+  /**
+   * GA4's name for the event when it differs from Meta's (e.g. `Lead` is
+   * `generate_lead` in GA4's recommended vocabulary). Defaults to `event`.
+   */
+  ga4Name?: string;
+}
+
 /** Fire a marketing event on the browser trackers. No-op if opted out. */
-export function track(event: string, props?: Record<string, unknown>): void {
+export function track(event: string, props?: Record<string, unknown>, options?: TrackOptions): void {
   if (typeof window === "undefined" || isOptedOut()) return;
   if (META_PIXEL_ID && window.fbq) {
-    if (META_STANDARD_EVENTS.has(event)) window.fbq("track", event, props);
-    else window.fbq("trackCustom", event, props);
+    const method = META_STANDARD_EVENTS.has(event) ? "track" : "trackCustom";
+    if (options?.eventId) window.fbq(method, event, props, { eventID: options.eventId });
+    else window.fbq(method, event, props);
   }
-  if (GA4_ID) window.gtag?.("event", event, props);
+  if (GA4_ID) window.gtag?.("event", options?.ga4Name ?? event, props);
 }
 
 /** Fire a PageView on SPA route changes. No-op if opted out. */
@@ -92,8 +107,12 @@ export function trackPageView(path: string): void {
   if (GA4_ID) window.gtag?.("event", "page_view", { page_path: path });
 }
 
-/** Bump when the privacy policy changes materially — the notice re-appears. */
-export const CONSENT_VERSION = 2;
+/**
+ * Bump when the privacy policy changes materially — the notice re-appears.
+ * 3 (2026-09-26): the policy now covers people who register for our events
+ * (privacy-1/3/4/6/7/8/10), including the optional ad-audience consent.
+ */
+export const CONSENT_VERSION = 3;
 
 export interface ConsentState {
   analytics: boolean;

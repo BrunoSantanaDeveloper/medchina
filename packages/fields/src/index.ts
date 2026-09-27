@@ -93,6 +93,51 @@ export function formatPhoneBr(value: string): string {
 export const PHONE_BR_MASKS = ["(00) 0000-0000", "(00) 00000-0000"];
 
 // ---------------------------------------------------------------------------
+// Mobile (BR) — a number that can receive WhatsApp
+// ---------------------------------------------------------------------------
+
+export type MobileBrResult =
+  | { ok: true; digits: string }
+  | { ok: false; reason: "empty" | "short" | "long" | "landline" | "invalid" };
+
+/**
+ * Strips what people actually paste: WhatsApp copies "+55 62 99999-9999", which
+ * is 13 digits and would fail `isValidPhoneBr`; a trunk zero ("062…") is common
+ * too. The country code and the zero go, the rest is judged as typed.
+ */
+function stripBrPrefixes(value: string): string {
+  let d = onlyDigits(value);
+  if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
+  if (d.length === 12 && d.startsWith("0")) d = d.slice(1);
+  return d;
+}
+
+/**
+ * Normalizes a Brazilian MOBILE number to 11 bare digits (DDD + 9 + 8 digits),
+ * or says in plain terms why it is not one. Unlike `isValidPhoneBr`, it refuses
+ * landlines: this is for channels that need WhatsApp.
+ *
+ * A 10-digit number whose first local digit is 6–9 is almost always a mobile
+ * written without the leading 9 (the pre-2016 format), so it reads as "short",
+ * not as a landline — "one digit is missing" is the message that helps.
+ */
+export function normalizeMobileBr(value: string): MobileBrResult {
+  const d = stripBrPrefixes(value);
+  if (!d) return { ok: false, reason: "empty" };
+  if (d[0] === "0") return { ok: false, reason: "invalid" };
+  if (d.length < 10) return { ok: false, reason: "short" };
+  if (d.length > 11) return { ok: false, reason: "long" };
+  if (d.length === 10) return { ok: false, reason: /[6-9]/.test(d[2]) ? "short" : "landline" };
+  if (d[2] !== "9") return { ok: false, reason: "invalid" };
+  return { ok: true, digits: d };
+}
+
+/** The input mask for a mobile field: tolerant of a pasted +55 before masking. */
+export function formatMobileBrInput(value: string): string {
+  return formatPhoneBr(stripBrPrefixes(value));
+}
+
+// ---------------------------------------------------------------------------
 // CEP / postal code + address lookup (provider interface, flyee pattern)
 // ---------------------------------------------------------------------------
 

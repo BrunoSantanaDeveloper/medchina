@@ -8,6 +8,7 @@ import { Alert, Box, Button, Paper, Typography } from "@mui/material";
 
 import Logo from "@/components/logo/logo";
 import { getCampaignOffer } from "@/lib/campaign-offer";
+import { campaignQuery, pickCampaignParams } from "@/lib/campaign-params";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { pendingPixCharge } from "@/lib/pending-pix";
 import { createClient } from "@flyee/auth/server";
@@ -72,14 +73,18 @@ export default async function AssinaturaPage({
   const params = await searchParams;
   const rawSlug = Array.isArray(params.plan) ? params.plan[0] : params.plan;
   const slug = typeof rawSlug === "string" ? rawSlug.trim() : "";
+  // The campaign of THIS purchase, forwarded by /assinar (lib/campaign-params.ts).
+  const campaign = pickCampaignParams(params);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   // The middleware already guarantees a session here; this is the belt to its
-  // braces, and it keeps the plan in the destination.
-  if (!user) redirect(`/auth/sign-in?next=${encodeURIComponent(`/assinatura?plan=${slug}`)}`);
+  // braces, and it keeps the plan (and the campaign) in the destination.
+  if (!user) {
+    redirect(`/auth/sign-in?next=${encodeURIComponent(`/assinatura?plan=${slug}${campaignQuery(campaign)}`)}`);
+  }
 
   const [offer, guaranteeDays, pixAvailable] = await Promise.all([
     getCampaignOffer(),
@@ -284,6 +289,7 @@ export default async function AssinaturaPage({
         priceCents={Number(planRow.price_cents)}
         planPeriod={(planRow.period as string | null) ?? null}
         pixAvailable={pixAvailable}
+        campaign={campaign}
         // Only the owner or an admin may start a checkout; saying so up front
         // beats letting her fill a form the server will refuse.
         canManage={membership?.role === "owner" || membership?.role === "admin"}

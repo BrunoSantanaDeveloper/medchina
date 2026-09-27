@@ -4,7 +4,7 @@ import DeckConnect from "./deck-connect";
 import { fitSlide } from "./deck-fit";
 import { resolveRoom, type SyncStatus, type SyncTransport, useRemoteSync } from "./deck-sync";
 import { SlideRenderer } from "./slide-views";
-import { SLIDES_DATA } from "./slides-data";
+import { SLIDES_DATA } from "./slides-deck";
 import { DeckLang, SlideData } from "./types";
 import { useSearchParams } from "next/navigation";
 import { CSSProperties, TouchEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";

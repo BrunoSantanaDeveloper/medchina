@@ -139,6 +139,15 @@ export const leftMenuItems: MenuItem[] = [
         href: "/admin/support",
         description: "menu-admin-support-description",
       },
+      {
+        // Contacts without an account and the live events that bring them in
+        // (migration 0112, docs/PAGINA-EVENTO.md §7).
+        id: "admin-leads",
+        icon: "NiUsers",
+        label: "menu-admin-leads",
+        href: "/admin/leads",
+        description: "menu-admin-leads-description",
+      },
     ],
   },
 ];

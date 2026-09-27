@@ -48,6 +48,14 @@ const PUBLIC_PREFIXES = [
   // (docs/FUNIL.md D10), but they must still open without a session.
   "/fundadores",
   "/assinar",
+  // The live event (docs/PAGINA-EVENTO.md): same (funil) contract — noindex,
+  // out of the sitemap — plus its public API (sign-up marks, presence, state,
+  // e-mail unsubscribe), each route authenticated by its own token.
+  "/lei-15345",
+  "/api/public/evento",
+  // The congress authority page (docs/PAGINA-CHINA.md): its own route group,
+  // `(autoridade)`, and — unlike the offer pages — INDEXED and in the sitemap.
+  "/china",
   "/planos",
   "/como-funciona",
   "/recursos",

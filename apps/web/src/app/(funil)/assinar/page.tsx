@@ -4,6 +4,8 @@ import { Metadata } from "next";
 
 import TrackEvent from "@/components/consent/track-event";
 import { getCampaignOffer } from "@/lib/campaign-offer";
+import { resolveSellableCampaign } from "@/lib/campaign-offer-server";
+import { campaignQuery, pickCampaignParams } from "@/lib/campaign-params";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { HERO_IMAGE, OFFER_ANGLES, resolveAngle } from "@/lib/offer-angles";
 import { getPlanBySlug } from "@flyee/billing/public";
@@ -98,7 +100,10 @@ export default async function AssinarPage({
   // Anunciar os termos de uma campanha que não começou é o mesmo tipo de
   // desonestidade que a regra da escassez real proíbe — e ficou visível no
   // instante em que o cadastro passou a existir antes da abertura (0107).
-  const plan = offer && !offer.closed && offer.planSlug ? await getPlanBySlug(offer.planSlug) : null;
+  //
+  // The rule lives in `resolveSellableCampaign` so that /china and the live
+  // event page, which send traffic here, ask the SAME question this page does.
+  const plan = (await resolveSellableCampaign(offer))?.plan ?? null;
   // The second cycle, only ever beside a first one: an annual slug configured
   // without a default plan opens nothing, by the same rule `resolveCampaignOffer`
   // applies.
@@ -123,7 +128,11 @@ export default async function AssinarPage({
    * bounces an ALREADY signed-in visitor from it directly to `next` — so the
    * one link serves both without asking who she is.
    */
-  const checkoutPath = (slug: string) => `/assinatura?plan=${slug}`;
+  // The campaign that brought her HERE travels into the checkout link, so the
+  // purchase is credited to it even when she already had an account (first
+  // touch never changes — lib/campaign-params.ts).
+  const campaign = pickCampaignParams(params);
+  const checkoutPath = (slug: string) => `/assinatura?plan=${slug}${campaignQuery(campaign)}`;
   const checkoutFor = (slug: string) => `/auth/sign-up?next=${encodeURIComponent(checkoutPath(slug))}`;
   const checkoutHref = plan ? checkoutFor(plan.slug) : "/contato";
   // Part of this audience already has an account from the card-less trial, and

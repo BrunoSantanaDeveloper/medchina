@@ -6,14 +6,17 @@ import SlideDeck from "@/components/presentation/slide-deck";
 /**
  * Public but NOT indexable, and deliberately absent from `sitemap.ts`.
  *
- * The route is public because the machine in the AV booth in Xinjiang will open
- * it without a session. It is `noindex` because the page carries the speaker's
- * complete teleprompter — including her account of her cancer treatment — plus
- * stage directions and production notes. That is presentation material, not
- * marketing copy, and it has no business ranking on the commercial domain.
+ * The route is public because the machine in the AV booth in Xinjiang opened it
+ * without a session. It is `noindex` because the page carries the speaker's
+ * complete teleprompter (slides-deck.ts: `script`, `scriptZh`), stage directions
+ * and production notes. That is presentation material, not marketing copy, and
+ * it has no business ranking on the commercial domain. (The personal health
+ * account in the printed roteiro is NOT in the deck data — it lives only in
+ * attachments/.)
  *
- * This is the one documented exception to the rule that every public route goes
- * into both `PUBLIC_PREFIXES` and the sitemap (.claude/rules/marketing.md).
+ * The public version is /palestra/publica: the same slides, stripped of every
+ * speaker-only field on the server, and the page /china links to. Like this one
+ * and /pitch, it is public, noindex and out of the sitemap.
  */
 export const metadata: Metadata = {
   title: "Palestra MedChina — Congresso de MTC, Xinjiang 2026",

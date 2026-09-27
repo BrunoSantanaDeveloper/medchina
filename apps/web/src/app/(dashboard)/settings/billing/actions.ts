@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 
 import { recordAudit } from "@/lib/audit";
 import { CAMPAIGN_OFFER_KEY, type CampaignOfferSetting, resolveCampaignOffer } from "@/lib/campaign-offer";
+import { type CampaignParams, hasCampaign, pickCampaignParams } from "@/lib/campaign-params";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
@@ -340,6 +341,12 @@ export async function startCheckout(input: {
    * the screen she left. Defaults to billing, the pre-existing behaviour.
    */
   returnTo?: "onboarding" | "billing";
+  /**
+   * The campaign of THIS purchase (last touch), forwarded by /assinar from the
+   * landing link. Re-validated here — it crossed the browser — and stored in
+   * meta_attribution for the Purchase (lib/campaign-params.ts).
+   */
+  campaign?: CampaignParams | null;
 }): Promise<StartCheckoutResult> {
   let activeClaim: ActiveBillingClaim | null = null;
   try {
@@ -565,6 +572,23 @@ export async function startCheckout(input: {
           client_ip: metaContext.clientIp ?? null,
           client_user_agent: metaContext.clientUserAgent ?? null,
           ga_client_id: gaClientId,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      // The campaign of THIS purchase, independently of the ad-click signals:
+      // a sale from the live event or /china must be creditable even when the
+      // visitor refused the tracking cookies. An upsert of these columns only,
+      // so it never wipes _fbp/_fbc/e-mail/IP/UA stored above or earlier.
+      const campaign = pickCampaignParams(input.campaign);
+      if (hasCampaign(campaign)) {
+        await service.from("meta_attribution").upsert({
+          org_id: input.orgId,
+          campaign_origem: campaign.origem ?? null,
+          campaign_utm_source: campaign.utm_source ?? null,
+          campaign_utm_medium: campaign.utm_medium ?? null,
+          campaign_utm_campaign: campaign.utm_campaign ?? null,
+          campaign_utm_content: campaign.utm_content ?? null,
+          campaign_captured_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
       }

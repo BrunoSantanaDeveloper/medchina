@@ -3785,6 +3785,54 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Public deck (/palestra/publica)                                     */
+/* ------------------------------------------------------------------ */
+/*
+  The stage deck always runs on a projector (≥ 1280 px wide). The public one
+  is opened from /china, mostly on a phone. Below 1280 px the stage's grid
+  track grows to the canvas' 1280 px and starts at the left edge, so the scaled
+  slide sat centered at x = 640 — off a phone's screen entirely. Here the
+  canvas is centered by position instead, whatever the width.
+*/
+
+.deck--public .deck-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(var(--deck-scale));
+}
+
+.deck--public .deck-langswitch button {
+  white-space: nowrap;
+}
+
+.deck-rotate-hint {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* Logo, "Voltar" and the language switch — the context line does not fit
+     (a phone held sideways included). */
+  .deck--public .deck-context {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) and (orientation: portrait) {
+  .deck--public .deck-rotate-hint {
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    left: 16px;
+    display: block;
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 13px;
+    text-align: center;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Reduced motion                                                      */
 /* ------------------------------------------------------------------ */
 

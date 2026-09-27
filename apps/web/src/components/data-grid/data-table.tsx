@@ -285,6 +285,7 @@ export default function DataTable<R extends GridValidRowModel>({
   checkboxSelection = false,
   mainClassName = "min-h-[480px]!",
   initialColumnVisibility,
+  enableExport = true,
 }: {
   rows: readonly R[];
   columns: GridColDef<R>[];
@@ -312,6 +313,11 @@ export default function DataTable<R extends GridValidRowModel>({
   /** Tailwind class controlling the grid body's minimum height. */
   mainClassName?: string;
   initialColumnVisibility?: Record<string, boolean>;
+  /**
+   * The toolbar's generic Print/CSV export. Off where exporting EVERY row would
+   * be wrong — e.g. the leads console, whose only export is the consented list.
+   */
+  enableExport?: boolean;
 }) {
   const locale = useLocale();
   const localeText = GRID_LOCALES[locale];
@@ -392,7 +398,7 @@ export default function DataTable<R extends GridValidRowModel>({
           actions,
           filters,
           labels: { ...DEFAULT_LABELS, ...localeLabels, ...labelOverrides },
-          enableExport: true,
+          enableExport,
         },
       }}
       slots={{
