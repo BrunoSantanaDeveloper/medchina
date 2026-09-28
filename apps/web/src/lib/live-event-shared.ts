@@ -10,9 +10,6 @@ import { BRAND } from "@/brand";
  * the e-mail job can mint a personal link without importing the page's reader.
  */
 
-/** The first edition. The route `/lei-15345` renders this row of `live_events`. */
-export const LIVE_EVENT_SLUG = "lei-15345";
-
 export type LiveEventState = "rascunho" | "inscricoes" | "ao_vivo" | "encerrado";
 
 export type LiveEventRow = {
@@ -28,6 +25,22 @@ export type LiveEventRow = {
   recording_url: string | null;
   ip_window_limit: number;
   updated_at: string;
+  // Page content (migration 0113) — rendered by the one event template.
+  topic: string | null;
+  headline: string | null;
+  byline: string;
+  lead: string | null;
+  lead_after: string | null;
+  topics: unknown;
+  audience_heading: string | null;
+  audience: string | null;
+  description: string | null;
+  ended_behavior: "recording" | "redirect";
+  ended_redirect_path: string | null;
+  archived_at: string | null;
+  page_title: string | null;
+  offer_angle: string | null;
+  published_at: string | null;
 };
 
 // ---------- Tokens (cookie + personal link) ----------
@@ -52,8 +65,10 @@ export function isEventTokenShape(value: unknown): value is string {
 
 /**
  * The cookie is a pointer, not the gate: `live_event_tokens.expires_at` decides
- * validity. 90 days like the attribution cookie, whose flags it copies —
- * httpOnly, never the coupon's client-readable ones.
+ * validity. It holds the tokens of every event this browser registered for
+ * (`addEventToken`, lib/live-event-common.ts). 90 days like the attribution
+ * cookie, whose flags it copies — httpOnly, never the coupon's client-readable
+ * ones.
  */
 export const EVENT_COOKIE_MAX_AGE = 60 * 60 * 24 * 90;
 

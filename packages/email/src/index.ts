@@ -4,9 +4,9 @@ import { Resend } from "resend";
 import AdminAccountsDigestEmail, { type AdminAccountsDigestEmailProps } from "./templates/admin-accounts-digest";
 import ContactFormEmail, { ContactFormEmailProps } from "./templates/contact-form";
 import LiveEventEmail, {
-  LIVE_EVENT_SUBJECTS,
   type LiveEventEmailKind,
   type LiveEventEmailProps,
+  liveEventSubject,
 } from "./templates/live-event";
 import OrgInviteEmail, { OrgInviteEmailProps } from "./templates/org-invite";
 import PatientDocumentEmail, { type PatientDocumentEmailProps } from "./templates/patient-document";
@@ -152,10 +152,7 @@ export async function sendAdminAccountsDigestEmail(
  * caller always holds a copyable link, so a missing provider degrades to "hand
  * it over another way" instead of losing the delivery entirely.
  */
-export async function sendPatientDocumentEmail(
-  to: string,
-  props: PatientDocumentEmailProps,
-): Promise<SendResult> {
+export async function sendPatientDocumentEmail(to: string, props: PatientDocumentEmailProps): Promise<SendResult> {
   if (!isEmailConfigured) {
     return { sent: false };
   }
@@ -236,7 +233,7 @@ export async function sendLiveEventEmailBatch(
         chunk.map((item) => ({
           from: DEFAULT_FROM,
           to: item.to,
-          subject: LIVE_EVENT_SUBJECTS[item.props.kind as LiveEventEmailKind],
+          subject: liveEventSubject(item.props.kind, item.props.about),
           react: createElement(LiveEventEmail, item.props),
           headers: {
             "List-Unsubscribe": `<${item.props.unsubscribeUrl}>`,

@@ -1,10 +1,12 @@
 /* ==========================================================================
-   /lei-15345 — only what the live-event page needs beyond the Landing DS
+   Live-event pages (/lei-15345, /ao-vivo/<slug>) — what the event template
+   needs beyond the Landing DS
    --------------------------------------------------------------------------
-   The DS vocabulary (clinical-source-home.css), the offer blocks (funil.css)
-   and the shared blocks (landing-shared.css) do the rest. Scoped to
-   `.event-page`; DS custom properties only. Red is reserved for errors
-   (docs/DESIGN.md) — a field error uses the DS coral, never a new red.
+   One template renders every event (components/live-event-view.tsx). The DS
+   vocabulary (clinical-source-home.css), the offer blocks (funil.css) and the
+   shared blocks (landing-shared.css) do the rest. Scoped to `.event-page`; DS
+   custom properties only. Red is reserved for errors (docs/DESIGN.md) — a
+   field error uses the DS coral, never a new red.
    ========================================================================== */
 
 /* ---------- Hero: copy beside the sign-up card ---------- */
@@ -470,7 +472,7 @@
   transform: translateX(-50%);
 }
 
-/* ---------- Superadmin preview of a draft ---------- */
+/* ---------- Superadmin previews (a draft; an ended event that redirects) ---------- */
 
 .event-page .event-preview {
   margin: 0;

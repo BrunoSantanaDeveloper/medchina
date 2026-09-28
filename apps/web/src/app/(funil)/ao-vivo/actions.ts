@@ -5,13 +5,13 @@ import { cookies, headers } from "next/headers";
 import { COOKIE_KEYS } from "@/constants";
 import { decodeAttribution } from "@/lib/attribution";
 import { getLiveEvent, liveEventService } from "@/lib/live-event";
+import { addEventToken, isEventSlug } from "@/lib/live-event-common";
 import { sendLiveEventEmails } from "@/lib/live-event-email";
 import {
   cleanText,
   eventCookieOptions,
   generateEventToken,
   hashClientIp,
-  LIVE_EVENT_SLUG,
   personalEventLink,
 } from "@/lib/live-event-shared";
 import { normalizeMobileBr } from "@flyee/fields";
@@ -58,7 +58,10 @@ function bounded(value: FormDataEntryValue | null, max: number): string {
 }
 
 /**
- * Registration for the live event (docs/PAGINA-EVENTO.md §5).
+ * Registration for a live event (docs/PAGINA-EVENTO.md §5) — every event's page
+ * posts here; the hidden `event` field names which. Trusting that field is
+ * safe: registering for any event whose registrations are open is exactly what
+ * the public form allows, and the RPC refuses a draft.
  *
  * A server action rather than a route handler: the form is a native `<form
  * action>`, so it works without JavaScript (the POST re-renders the page with
@@ -104,9 +107,15 @@ export async function registerForLiveEvent(previous: SignupState, formData: Form
     return fail("Confira o e-mail, ou deixe o campo em branco.", "email");
   }
 
+  const slug = bounded(formData.get("event"), 60);
   const service = liveEventService();
-  const event = await getLiveEvent(LIVE_EVENT_SLUG);
-  if (!service || !event) return fail("Não conseguimos registrar agora. Tente de novo em instantes.");
+  const event = isEventSlug(slug) ? await getLiveEvent(slug) : null;
+  // A draft answers exactly like an address that does not exist: the slug is
+  // posted by the client, and a different message would let anyone confirm an
+  // unannounced event (or partnership) by guessing its address.
+  if (!service || !event || event.state === "rascunho") {
+    return fail("Não conseguimos registrar agora. Tente de novo em instantes.");
+  }
 
   const touch: Record<string, string> = {};
   for (const key of TOUCH_KEYS) {
@@ -145,7 +154,8 @@ export async function registerForLiveEvent(previous: SignupState, formData: Form
         // a crowded mobile network (CGNAT); the honeypot already handles bots.
         return fail("Muita gente se inscrevendo pela mesma rede agora. Tente de novo em alguns minutos.");
       case "not_open":
-        return fail("As inscrições deste evento não estão abertas.");
+        // Same words as an unknown address (see above).
+        return fail("Não conseguimos registrar agora. Tente de novo em instantes.");
       case "invalid_phone":
         return fail(PHONE_MESSAGES.invalid, "phone");
       case "invalid_name":
@@ -157,7 +167,13 @@ export async function registerForLiveEvent(previous: SignupState, formData: Form
     }
   }
 
-  cookieStore.set(COOKIE_KEYS.liveEvent, token, eventCookieOptions);
+  // Joins the tokens already in the cookie: a registration for this event must
+  // not make the browser forget the others (lib/live-event-common.ts).
+  cookieStore.set(
+    COOKIE_KEYS.liveEvent,
+    addEventToken(cookieStore.get(COOKIE_KEYS.liveEvent)?.value, token, event.slug),
+    eventCookieOptions,
+  );
 
   const registrationId = result.registration_id ?? null;
   const created = result.code === "created";

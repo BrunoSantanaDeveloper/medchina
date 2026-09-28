@@ -18,6 +18,12 @@ export type ProductEventName =
   | "recording.failed"
   | "consultation.finalized"
   | "document.issued"
+  // The consultation screen (0104). It measured nothing about itself: the
+  // product could count library conversations and onboarding tracks and could
+  // not say how many consultations were opened, or where she goes inside one.
+  | "consultation.opened"
+  | "consultation.step_jump"
+  | "consultation.next_action"
   // Out-of-consultation layer (biblioteca, acervo, briefing, protocols).
   // These answer the business question the feature set was built on: does
   // studying between consultations become a habit, and does it drive upgrade?

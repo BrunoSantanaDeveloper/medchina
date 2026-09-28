@@ -33,8 +33,8 @@ select ok(
   'the server registers'
 );
 select ok(
-  not has_function_privilege('authenticated', 'public.touch_live_event_registration(text, text, integer)', 'EXECUTE')
-  and has_function_privilege('service_role', 'public.touch_live_event_registration(text, text, integer)', 'EXECUTE'),
+  not has_function_privilege('authenticated', 'public.touch_live_event_registration(text, text, integer, text)', 'EXECUTE')
+  and has_function_privilege('service_role', 'public.touch_live_event_registration(text, text, integer, text)', 'EXECUTE'),
   'only the server marks group clicks and presence'
 );
 select ok(

@@ -1,4 +1,16 @@
-import { Body, Button, Container, Head, Heading, Hr, Html, Link, Preview, Section, Text } from "@react-email/components";
+import {
+  Body,
+  Button,
+  Container,
+  Head,
+  Heading,
+  Hr,
+  Html,
+  Link,
+  Preview,
+  Section,
+  Text,
+} from "@react-email/components";
 
 export type LiveEventEmailKind = "confirmation" | "day_before" | "hour_before" | "live" | "recording";
 
@@ -6,6 +18,12 @@ export type LiveEventEmailProps = {
   kind: LiveEventEmailKind;
   /** The event's title, as the page shows it. */
   eventTitle: string;
+  /**
+   * How the event is named inside a sentence — "sobre a Lei 15.345", or the
+   * quoted title when the event has no topic (lib/live-event-common.ts
+   * `aboutEvent`). Used by the subject line.
+   */
+  about: string;
   /** "3 de outubro, às 20h (horário de Brasília)" — formatted by the caller (packages/email never formats dates). */
   startsLabel: string | null;
   /** "20h" — for the hour-before reminder. */
@@ -80,13 +98,21 @@ const CONTENT: Record<
   }),
 };
 
-export const LIVE_EVENT_SUBJECTS: Record<LiveEventEmailKind, string> = {
-  confirmation: "Sua inscrição no ao vivo está confirmada",
-  day_before: "É amanhã: o ao vivo sobre a Lei 15.345",
-  hour_before: "Começa em uma hora",
-  live: "Estamos ao vivo — a sala abriu",
-  recording: "A gravação do ao vivo está no ar",
-};
+/** Every event shares the template: the subject names THIS event through `about`. */
+export function liveEventSubject(kind: LiveEventEmailKind, about: string): string {
+  switch (kind) {
+    case "confirmation":
+      return `Inscrição confirmada: o ao vivo ${about}`;
+    case "day_before":
+      return `É amanhã: o ao vivo ${about}`;
+    case "hour_before":
+      return `Começa em uma hora: o ao vivo ${about}`;
+    case "live":
+      return "Estamos ao vivo — a sala abriu";
+    case "recording":
+      return `A gravação do ao vivo ${about} está no ar`;
+  }
+}
 
 export default function LiveEventEmail(props: LiveEventEmailProps) {
   const { preview, heading, paragraphs, cta } = CONTENT[props.kind](props);
@@ -95,8 +121,12 @@ export default function LiveEventEmail(props: LiveEventEmailProps) {
       <Head />
       <Preview>{preview}</Preview>
       <Body style={{ backgroundColor: "#f6f4ef", fontFamily: "Arial, Helvetica, sans-serif", margin: 0 }}>
-        <Container style={{ backgroundColor: "#ffffff", borderRadius: 16, margin: "40px auto", maxWidth: 480, padding: 32 }}>
-          <Text style={{ color: "#177c81", fontSize: 15, fontWeight: 700, letterSpacing: 0.3, margin: 0 }}>MedChina</Text>
+        <Container
+          style={{ backgroundColor: "#ffffff", borderRadius: 16, margin: "40px auto", maxWidth: 480, padding: 32 }}
+        >
+          <Text style={{ color: "#177c81", fontSize: 15, fontWeight: 700, letterSpacing: 0.3, margin: 0 }}>
+            MedChina
+          </Text>
           <Heading as="h1" style={{ color: "#2c3633", fontSize: 22, lineHeight: "30px", margin: "12px 0 4px" }}>
             {heading}
           </Heading>
@@ -131,7 +161,9 @@ export default function LiveEventEmail(props: LiveEventEmailProps) {
               , que não mostra o seu número aos outros participantes.
             </Text>
           ) : null}
-          <Text style={{ color: "#4d574f", fontSize: 15, lineHeight: "23px", margin: "18px 0 0" }}>Debora Giovanella</Text>
+          <Text style={{ color: "#4d574f", fontSize: 15, lineHeight: "23px", margin: "18px 0 0" }}>
+            Debora Giovanella
+          </Text>
           <Text style={{ color: "#9aa39d", fontSize: 13, lineHeight: "19px", margin: 0 }}>Fundadora do MedChina</Text>
           <Hr style={{ borderColor: "#eae6dd", margin: "28px 0 16px" }} />
           <Text style={{ color: "#9aa39d", fontSize: 12, lineHeight: "18px", margin: 0 }}>

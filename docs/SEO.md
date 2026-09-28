@@ -53,7 +53,7 @@ Source: `docs/PRODUCT.md` §26/§29 of `docs/HOME-SPEC.md`. Money pages first. T
 
 Structured data note (HOME-SPEC §29.5): the home may add `SoftwareApplication` via `<JsonLd>`; never mark up ratings, reviews or availability that are not actually published.
 
-**Landing pages and indexing (2026-09-26).** Indexing is a decision of each page's `metadata` + `sitemap.ts` + `PUBLIC_PREFIXES`, never of the route group. Two groups hold Landing DS pages: `(funil)` (offer/campaign/event pages — `/assinar`, `/fundadores`, `/lei-15345`: `noindex`, out of the sitemap, FUNIL D10) and `(autoridade)` (permanent, **indexed** landing pages with the home's own header and footer — `/china`, with `Article` JSON-LD whose `publisher` points at the site-wide `Organization` `@id`, and an image only when a real stage photo exists). `/palestra/publica` (the congress deck for the public) is `noindex` like `/palestra`: it is reached from `/china`, not from search.
+**Landing pages and indexing (2026-09-26).** Indexing is a decision of each page's `metadata` + `sitemap.ts` + `PUBLIC_PREFIXES`, never of the route group. Two groups hold Landing DS pages: `(funil)` (offer/campaign/event pages — `/assinar`, `/fundadores`, `/lei-15345` and every later live event at `/ao-vivo/<slug>`: `noindex`, out of the sitemap, FUNIL D10) and `(autoridade)` (permanent, **indexed** landing pages with the home's own header and footer — `/china`, with `Article` JSON-LD whose `publisher` points at the site-wide `Organization` `@id`, and an image only when a real stage photo exists). `/palestra/publica` (the congress deck for the public) is `noindex` like `/palestra`: it is reached from `/china`, not from search.
 
 ## Architecture constraints (decisions, not page edits)
 

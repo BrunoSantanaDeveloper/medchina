@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import { COOKIE_KEYS } from "@/constants";
+import { isEventSlug, parseEventCookie } from "@/lib/live-event-common";
 import { hashEventToken, isEventTokenShape, type LiveEventRow } from "@/lib/live-event-shared";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
@@ -18,7 +19,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 const EVENT_COLUMNS =
-  "id, slug, title, starts_at, duration_minutes, state, owner_phone, group_invite_url, stream_url, recording_url, ip_window_limit, updated_at";
+  "id, slug, title, starts_at, duration_minutes, state, owner_phone, group_invite_url, stream_url, recording_url, ip_window_limit, updated_at, " +
+  "topic, headline, byline, lead, lead_after, topics, audience_heading, audience, description, ended_behavior, ended_redirect_path, archived_at, " +
+  "page_title, offer_angle, published_at";
 
 /** The service client, or null on a fresh clone without Supabase (the page degrades). */
 export function liveEventService(): SupabaseClient | null {
@@ -30,54 +33,98 @@ export function liveEventService(): SupabaseClient | null {
 }
 
 export async function getLiveEvent(slug: string): Promise<LiveEventRow | null> {
+  if (!isEventSlug(slug)) return null;
   const service = liveEventService();
   if (!service) return null;
   const { data, error } = await service.from("live_events").select(EVENT_COLUMNS).eq("slug", slug).maybeSingle();
   if (error || !data) return null;
-  return data as LiveEventRow;
+  return data as unknown as LiveEventRow;
+}
+
+export async function getLiveEventById(id: string): Promise<LiveEventRow | null> {
+  const service = liveEventService();
+  if (!service) return null;
+  const { data, error } = await service.from("live_events").select(EVENT_COLUMNS).eq("id", id).maybeSingle();
+  if (error || !data) return null;
+  return data as unknown as LiveEventRow;
+}
+
+type TokenRow = {
+  token_hash: string;
+  registration_id: string;
+  live_event_registrations: { event_id: string; live_events: { slug: string } | { slug: string }[] | null } | null;
+};
+
+const one = <T>(value: T | T[] | null | undefined): T | null =>
+  Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+
+/**
+ * The valid, unexpired tokens among `tokens`, each with its registration and
+ * event. Shapes are checked before any lookup: a cookie or a query parameter is
+ * attacker-controlled.
+ */
+async function lookupTokens(
+  tokens: string[],
+): Promise<{ token: string; registrationId: string; eventId: string; eventSlug: string }[]> {
+  const valid = tokens.filter(isEventTokenShape);
+  if (!valid.length) return [];
+  const service = liveEventService();
+  if (!service) return [];
+  const byHash = new Map(valid.map((token) => [hashEventToken(token), token]));
+  const { data, error } = await service
+    .from("live_event_tokens")
+    .select("token_hash, registration_id, live_event_registrations!inner(event_id, live_events!inner(slug))")
+    .in("token_hash", [...byHash.keys()])
+    .gt("expires_at", new Date().toISOString());
+  if (error || !data) return [];
+  const found = new Map<string, { token: string; registrationId: string; eventId: string; eventSlug: string }>();
+  for (const raw of data as unknown as TokenRow[]) {
+    const registration = one(raw.live_event_registrations);
+    const event = one(registration?.live_events ?? null);
+    const token = byHash.get(raw.token_hash);
+    if (!registration || !event || !token) continue;
+    found.set(token, {
+      token,
+      registrationId: raw.registration_id,
+      eventId: registration.event_id,
+      eventSlug: event.slug,
+    });
+  }
+  // The caller's order is kept: the cookie lists its newest token first.
+  return valid.flatMap((token) => (found.has(token) ? [found.get(token)!] : []));
 }
 
 /**
- * Is this browser registered for this event? Reads the httpOnly cookie, checks
- * its shape before touching the database, and accepts only a token that exists,
- * has not expired and belongs to THIS event.
- *
- * Returns the registration id only — never the lead's name: the cookie may have
- * been minted by someone who typed another person's number (a repeat
- * registration is allowed), and showing the stored name would reveal it.
- */
-/**
- * The registration this browser's cookie holds for the event, with the token
- * itself: the page shows it back as her personal link and the QR, so a
+ * The registration, among `tokens`, that belongs to THIS event — with the
+ * token itself: the page shows it back as her personal link and the QR, so a
  * reload on the computer still offers the way into the group on the phone.
+ *
+ * Returns the registration id, never the lead's name: the cookie may have been
+ * minted by someone who typed another person's number (a repeat registration
+ * is allowed), and showing the stored name would reveal it.
  */
+export async function findRegistrationForEvent(
+  eventId: string,
+  tokens: string[],
+): Promise<{ registrationId: string; token: string } | null> {
+  const match = (await lookupTokens(tokens)).find((row) => row.eventId === eventId);
+  return match ? { registrationId: match.registrationId, token: match.token } : null;
+}
+
+/** Is this browser registered for this event? Reads every token of the httpOnly cookie. */
 export async function getRegistrationFromCookie(
   eventId: string,
 ): Promise<{ registrationId: string; token: string } | null> {
-  const token = (await cookies()).get(COOKIE_KEYS.liveEvent)?.value;
-  if (!isEventTokenShape(token)) return null;
-  const found = await getRegistrationFromToken(eventId, token);
-  return found ? { registrationId: found.registrationId, token } : null;
+  const tokens = parseEventCookie((await cookies()).get(COOKIE_KEYS.liveEvent)?.value);
+  return findRegistrationForEvent(eventId, tokens);
 }
 
-export async function getRegistrationFromToken(
-  eventId: string | null,
+/** One token (a personal link, a QR): its registration and the event it belongs to. */
+export async function resolveEventToken(
   token: string,
-): Promise<{ registrationId: string; eventId: string } | null> {
-  if (!isEventTokenShape(token)) return null;
-  const service = liveEventService();
-  if (!service) return null;
-  const { data, error } = await service
-    .from("live_event_tokens")
-    .select("registration_id, expires_at, live_event_registrations!inner(event_id)")
-    .eq("token_hash", hashEventToken(token))
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-  if (error || !data) return null;
-  const rel = data.live_event_registrations as { event_id: string } | { event_id: string }[] | null;
-  const registrationEvent = (Array.isArray(rel) ? rel[0] : rel)?.event_id;
-  if (!registrationEvent || (eventId && registrationEvent !== eventId)) return null;
-  return { registrationId: data.registration_id as string, eventId: registrationEvent };
+): Promise<{ registrationId: string; eventId: string; eventSlug: string } | null> {
+  const [row] = await lookupTokens([token]);
+  return row ? { registrationId: row.registrationId, eventId: row.eventId, eventSlug: row.eventSlug } : null;
 }
 
 export type ViewerPlan = "anonymous" | "free_or_trial" | "paying";

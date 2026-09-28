@@ -566,6 +566,69 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
         });
       }
 
+      // Purchases per campaign (migration 0113) — reconciliation, not
+      // measurement: it is what each live event's console counts as "compras",
+      // so it runs on every delivery (idempotent through invoice_key), checks
+      // its errors and throws so the provider retries, unlike the best-effort
+      // conversions below. Only the invoice that STARTS a subscription counts,
+      // and only with a checkout campaign at most 14 days old: long enough for
+      // a PIX or boleto that settles late, too short to credit an abandoned
+      // attempt. meta_attribution keeps only the latest checkout per workspace.
+      if (sub) {
+        const { count: paidCount, error: countError } = await supabase
+          .from("invoices")
+          .select("id", { count: "exact", head: true })
+          .eq("subscription_id", sub.id)
+          .eq("status", "paid");
+        if (countError) throw new Error("purchase_attribution_failed");
+        if (paidCount === 1) {
+          const { data: campaignRow, error: campaignError } = await supabase
+            .from("meta_attribution")
+            .select(
+              "campaign_origem, campaign_utm_source, campaign_utm_medium, campaign_utm_campaign, campaign_utm_content, campaign_captured_at",
+            )
+            .eq("org_id", orgId)
+            .maybeSingle();
+          if (campaignError) throw new Error("purchase_attribution_failed");
+          const capturedAt = campaignRow?.campaign_captured_at
+            ? new Date(campaignRow.campaign_captured_at as string)
+            : null;
+          const hasValue = Boolean(
+            campaignRow?.campaign_origem ||
+              campaignRow?.campaign_utm_source ||
+              campaignRow?.campaign_utm_medium ||
+              campaignRow?.campaign_utm_campaign ||
+              campaignRow?.campaign_utm_content,
+          );
+          if (capturedAt && hasValue && event.paidAt.getTime() - capturedAt.getTime() <= 14 * 86_400_000) {
+            let planSlug: string | null = null;
+            if (sub.plan_id) {
+              const { data: planRow } = await supabase.from("plans").select("slug").eq("id", sub.plan_id).maybeSingle();
+              planSlug = (planRow?.slug as string | undefined) ?? null;
+            }
+            const { error: attributionError } = await supabase.from("purchase_attributions").upsert(
+              {
+                org_id: orgId,
+                invoice_key: `${event.provider}:${event.providerInvoiceId}`,
+                subscription_id: sub.id,
+                plan_slug: planSlug,
+                amount_cents: event.amountCents,
+                currency: event.currency,
+                paid_at: event.paidAt.toISOString(),
+                origem: campaignRow?.campaign_origem ?? null,
+                utm_source: campaignRow?.campaign_utm_source ?? null,
+                utm_medium: campaignRow?.campaign_utm_medium ?? null,
+                utm_campaign: campaignRow?.campaign_utm_campaign ?? null,
+                utm_content: campaignRow?.campaign_utm_content ?? null,
+                campaign_captured_at: capturedAt.toISOString(),
+              },
+              { onConflict: "invoice_key", ignoreDuplicates: true },
+            );
+            if (attributionError) throw new Error("purchase_attribution_failed");
+          }
+        }
+      }
+
       // Meta CAPI + GA4 — Purchase, once per paid invoice (renewals are distinct
       // invoices, so they count as distinct purchases). The provider called us,
       // so there is no browser here: we enrich the match with the ad-click

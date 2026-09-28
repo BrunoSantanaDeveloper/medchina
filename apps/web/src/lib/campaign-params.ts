@@ -52,3 +52,21 @@ export function campaignQuery(params: CampaignParams): string {
 export function hasCampaign(params: CampaignParams): boolean {
   return CAMPAIGN_PARAM_KEYS.some((key) => Boolean(params[key]));
 }
+
+/** How long the last-touch campaign cookie lives: the webhook's attribution window. */
+export const LAST_CAMPAIGN_MAX_AGE = 60 * 60 * 24 * 14;
+
+/** The campaign as the last-touch cookie stores it (URL-encoded JSON of the allowlisted keys). */
+export function encodeCampaignCookie(params: CampaignParams): string {
+  return encodeURIComponent(JSON.stringify(pickCampaignParams(params)));
+}
+
+/** The cookie back into campaign parameters — re-validated: a cookie is client input too. */
+export function decodeCampaignCookie(value: string | null | undefined): CampaignParams {
+  if (!value) return {};
+  try {
+    return pickCampaignParams(JSON.parse(decodeURIComponent(value)));
+  } catch {
+    return {};
+  }
+}

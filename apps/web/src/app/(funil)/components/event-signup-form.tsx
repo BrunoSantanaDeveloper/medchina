@@ -1,6 +1,6 @@
 "use client";
 
-import { registerForLiveEvent, type SignupState } from "../lei-15345/actions";
+import { registerForLiveEvent, type SignupState } from "../ao-vivo/actions";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useActionState, useEffect, useRef, useState } from "react";
@@ -12,6 +12,8 @@ import { ArrowRight, CheckCircle, UsersThree, WhatsappLogo } from "@phosphor-ico
 export type EventTermText = { title: string; body: string };
 
 type Props = {
+  /** The event this form registers for — posted as the hidden `event` field. */
+  eventSlug: string;
   /** Distinguishes the two forms on the page (hero and closing) for label ids. */
   idPrefix: string;
   /** "3 de outubro, às 20h (horário de Brasília)" — or null while undated. */
@@ -55,14 +57,15 @@ export default function EventSignupForm(props: Props) {
     // deduplicate against it. A repeat of an existing number fires nothing.
     if (state.created && !leadSent.current) {
       leadSent.current = true;
-      track("Lead", { content_name: "lei-15345" }, { eventId: state.registrationId, ga4Name: "generate_lead" });
+      track("Lead", { content_name: props.eventSlug }, { eventId: state.registrationId, ga4Name: "generate_lead" });
     }
     router.refresh();
-  }, [state, router]);
+  }, [state, router, props.eventSlug]);
 
   if (state.status === "confirmed") {
     return (
       <Confirmation
+        eventSlug={props.eventSlug}
         firstName={state.firstName}
         startsLabel={props.startsLabel}
         personalLink={state.personalLink}
@@ -75,6 +78,7 @@ export default function EventSignupForm(props: Props) {
   if (props.registered) {
     return (
       <Confirmation
+        eventSlug={props.eventSlug}
         firstName={null}
         startsLabel={props.startsLabel}
         personalLink={props.registeredLink}
@@ -145,6 +149,7 @@ export default function EventSignupForm(props: Props) {
         <input id={`${props.idPrefix}-site`} name="site" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
+      <input type="hidden" name="event" value={props.eventSlug} />
       {Object.entries(props.touch).map(([key, value]) => (
         <input key={key} type="hidden" name={`t_${key}`} value={value} />
       ))}
@@ -246,6 +251,7 @@ function PhoneField({ id, defaultValue, error }: { id: string; defaultValue: str
  * is hers, and the team's reply is then a reply, not an unsolicited message).
  */
 function Confirmation({
+  eventSlug,
   firstName,
   startsLabel,
   personalLink,
@@ -253,6 +259,8 @@ function Confirmation({
   hasOwnerPhone,
   afterEvent,
 }: {
+  /** The cookie holds one token per event: the buttons say which one they are for. */
+  eventSlug: string;
   firstName: string | null;
   startsLabel: string | null;
   personalLink: string | null;
@@ -297,7 +305,7 @@ function Confirmation({
       {hasGroup ? (
         <div className="event-confirm-group">
           <div>
-            <a className="button event-confirm-primary" href="/api/public/evento/grupo">
+            <a className="button event-confirm-primary" href={`/api/public/evento/grupo?e=${eventSlug}`}>
               <UsersThree size={20} weight="fill" aria-hidden="true" /> Entrar no grupo de avisos
             </a>
             <p className="event-note">
@@ -316,7 +324,10 @@ function Confirmation({
       ) : null}
 
       {hasOwnerPhone ? (
-        <a className="button button--secondary event-confirm-secondary" href="/api/public/evento/whatsapp">
+        <a
+          className="button button--secondary event-confirm-secondary"
+          href={`/api/public/evento/whatsapp?e=${eventSlug}`}
+        >
           <WhatsappLogo size={19} weight="fill" aria-hidden="true" />{" "}
           {afterEvent ? "Receber a gravação no meu WhatsApp" : "Receber o link no meu WhatsApp"}
         </a>

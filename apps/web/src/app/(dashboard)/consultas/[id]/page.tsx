@@ -37,6 +37,7 @@ import ConsentSheet, { type ConsentTerm } from "@/components/product/consent-she
 import ConsultationAiSummary from "@/components/product/consultation-ai-summary";
 import ConsultationRecorder from "@/components/product/consultation-recorder";
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
+import ConsultationStepRail, { type RailEntry } from "@/components/product/consultation-step-rail";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
 import MobileCaptureHandoff from "@/components/product/mobile-capture-handoff";
 import PlanPanel from "@/components/product/plan-panel";
@@ -59,6 +60,7 @@ import { calendarDateInTimeZone, defaultAppointmentStart, startAppointment, week
 import { anamnesisBlocksFor, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
 import { CONSENT_KINDS } from "@/lib/consents";
+import { activeRailKey, RAIL_OBSERVED_ANCHORS, RAIL_TARGETS, railItems } from "@/lib/consultation-rail";
 import {
   ConsultationSaveCoordinator,
   type ConsultationSaveSnapshot,
@@ -71,6 +73,7 @@ import {
   type PreviousConsultation,
   summarizeChanges,
 } from "@/lib/previous-consultation";
+import { trackProductEvent } from "@/lib/product-events";
 import { activeTerms, TCM_VOCABULARY, toggleTerm, type VocabularyGroup } from "@/lib/tcm-vocabulary";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -87,6 +90,7 @@ import {
   type HypothesisFacts,
   hypothesisFactsFromRows,
   type JourneyFacts,
+  type JourneyStepKey,
   type PlanFacts,
   planFactsFromRow,
   type PrescriptionFacts,
@@ -1073,6 +1077,23 @@ export default function ConsultaPage() {
   // INSIDE collapsed accordions with nothing on their headers: the single
   // moment the product proves its worth happened invisibly, and finding the
   // fields that need her judgement meant opening every block and reading it.
+  /** Every field the extraction flagged, named — the review as a list. */
+  const attentionFields = useMemo(
+    () =>
+      blocks.flatMap((block) =>
+        block.fields
+          .filter((field) => fields[`${block.key}.${field.key}`]?.state === "attention")
+          .map((field) => ({
+            blockKey: block.key,
+            fieldKey: field.key,
+            blockTitle: block.title,
+            label: field.label,
+            value: fields[`${block.key}.${field.key}`]?.value ?? "",
+          })),
+      ),
+    [blocks, fields],
+  );
+
   const blockStats = useMemo(() => {
     const stats: Record<string, { filled: number; attention: number }> = {};
     for (const block of blocks) {
@@ -1145,14 +1166,30 @@ export default function ConsultaPage() {
    * chips were inert. The delay lets the panel's dialog finish closing: MUI
    * restores focus to the trigger on close and would take it straight back.
    */
-  const focusField = useCallback((blockKey: string, fieldKey: string) => {
-    setExpandedBlocks((current) => ({ ...current, [blockKey]: true }));
-    window.setTimeout(() => {
-      const element = document.getElementById(`consultation-field-${blockKey}-${fieldKey}`);
-      element?.scrollIntoView({ behavior: "smooth", block: "center" });
-      element?.focus({ preventScroll: true });
-    }, 300);
+  /**
+   * A jump used to land in silence: the field scrolled into view and took
+   * focus, with nothing saying WHICH field answered the click. A ring for a
+   * second and a half names the destination — no motion, so nothing to opt out of.
+   */
+  const markLanding = useCallback((element: HTMLElement | null | undefined) => {
+    if (!element) return;
+    const ring = ["ring-2", "ring-primary", "ring-offset-2"];
+    element.classList.add(...ring);
+    window.setTimeout(() => element.classList.remove(...ring), 1500);
   }, []);
+
+  const focusField = useCallback(
+    (blockKey: string, fieldKey: string) => {
+      setExpandedBlocks((current) => ({ ...current, [blockKey]: true }));
+      window.setTimeout(() => {
+        const element = document.getElementById(`consultation-field-${blockKey}-${fieldKey}`);
+        element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        element?.focus({ preventScroll: true });
+        markLanding(element);
+      }, 300);
+    },
+    [markLanding],
+  );
 
   /** Jump to the first field the extraction flagged — the review, in one click. */
   const focusFirstAttention = useCallback(() => {
@@ -1165,8 +1202,9 @@ export default function ConsultaPage() {
       const element = document.getElementById(`consultation-field-${target.block.key}-${target.field.key}`);
       element?.scrollIntoView({ behavior: "smooth", block: "center" });
       element?.focus({ preventScroll: true });
+      markLanding(element);
     }, 0);
-  }, [fields, blocks]);
+  }, [fields, blocks, markLanding]);
   /**
    * The journey: one derivation from the record's DATA (`@flyee/clinical`),
    * feeding the bar, the step headers and every disabled button — so the screen
@@ -1281,28 +1319,104 @@ export default function ConsultaPage() {
     };
   }, [contextState, context, allowance, allowanceLoading, allowanceError]);
 
-  const scrollToStep = useCallback((key: string) => {
-    document.getElementById(`etapa-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  /**
+   * The step rail: the journey's own steps, drawn. It scrolls this page and
+   * blocks nothing — see `lib/consultation-rail.ts` for why this is a map and
+   * not a wizard.
+   */
+  const [visibleAnchor, setVisibleAnchor] = useState<string | null>(null);
+  const railEntries = useMemo<RailEntry[]>(
+    () =>
+      railItems(journey.steps).map((item) => ({
+        ...item,
+        label: t(`consultation-rail-${item.key}`),
+        // The state keys use an underscore; the copy keys a hyphen.
+        stateLabel: t(`journey-step-${item.state.replace("_", "-")}`),
+      })),
+    [journey.steps, t],
+  );
+  const railActive = useMemo(
+    () => activeRailKey(railItems(journey.steps), visibleAnchor),
+    [journey.steps, visibleAnchor],
+  );
+
+  const jumpToStep = useCallback(
+    (key: JourneyStepKey, origin: "rail" | "next_action") => {
+      trackProductEvent(origin === "rail" ? "consultation.step_jump" : "consultation.next_action", {
+        step: key,
+        origin: "consultation",
+      });
+      const target = RAIL_TARGETS[key];
+      // The review is not a place: it is the first field still flagged.
+      if (target.kind === "attention") {
+        focusFirstAttention();
+        return;
+      }
+      document.getElementById(target.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+    [focusFirstAttention],
+  );
+
+  // Where she is, read from the page instead of stored: an index kept here
+  // would drift every time a background refresh changed the journey.
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const elements = RAIL_OBSERVED_ANCHORS.map((id) => document.getElementById(id)).filter(
+      (element): element is HTMLElement => Boolean(element),
+    );
+    if (elements.length === 0) return;
+    const observer = new IntersectionObserver(
+      (records) => {
+        const onScreen = records
+          .filter((record) => record.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (onScreen) setVisibleAnchor(onScreen.target.id);
+      },
+      // The top band of the viewport, under the sticky context bar.
+      { rootMargin: "-25% 0px -60% 0px", threshold: 0 },
+    );
+    for (const element of elements) observer.observe(element);
+    return () => observer.disconnect();
+  }, [railEntries.length, consultation?.status]);
+
+  // The screen where she spends the day recorded nothing about itself.
+  const openedTracked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!consultation || openedTracked.current === consultation.id) return;
+    openedTracked.current = consultation.id;
+    trackProductEvent("consultation.opened", { origin: "consultation" });
+  }, [consultation]);
 
   const nextAction = {
     label: t(`journey-next-${journey.next.key}`, { count: journey.next.count ?? 0 }),
     // One sentence, one control — and the control always exists on this screen.
     action:
       journey.next.key === "review-attention"
-        ? { label: t("consultation-review-attention-goto"), onClick: focusFirstAttention }
+        ? { label: t("consultation-review-attention-goto"), onClick: () => jumpToStep("review", "next_action") }
         : // No action for "consent-for-ai": the consent control sits in this
           // same bar, highlighted while pending — a second button would
           // compete with it.
           journey.next.key === "prepare-hypotheses" ||
             journey.next.key === "decide-hypotheses" ||
             journey.next.key === "hypotheses-stale"
-          ? { label: t("journey-next-action-hypotheses"), onClick: () => scrollToStep("hypotheses") }
+          ? { label: t("journey-next-action-hypotheses"), onClick: () => jumpToStep("hypotheses", "next_action") }
           : journey.next.key === "plan-stale" || journey.next.key === "validate-plan"
-            ? { label: t("journey-next-action-plan"), onClick: () => scrollToStep("plan") }
+            ? { label: t("journey-next-action-plan"), onClick: () => jumpToStep("plan", "next_action") }
             : journey.next.key === "record"
-              ? { label: t("journey-next-action-record"), onClick: () => scrollToStep("record") }
-              : undefined,
+              ? { label: t("journey-next-action-record"), onClick: () => jumpToStep("record", "next_action") }
+              : // These two used to name a place with nothing to click: "processe
+                // em Gravações" beside no control at all.
+                journey.next.key === "process-recording" || journey.next.key === "recover-recording"
+                ? {
+                    label: t("journey-next-action-recordings"),
+                    onClick: () => {
+                      trackProductEvent("consultation.next_action", { step: "record", origin: "consultation" });
+                      document
+                        .getElementById("etapa-recordings")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    },
+                  }
+                : undefined,
   };
 
   if (!consultation && loadFailed) {
@@ -1362,7 +1476,9 @@ export default function ConsultaPage() {
           permanent chrome before the keyboard opens, which turned filling the
           anamnesis into typing through a slot. It scrolls with the page there
           and stays pinned from `md` up, where it costs nothing. */}
-      <Grid size={12} className="z-20 md:sticky md:top-20">
+      {/* min-w-0: a grid item is as wide as its content by default, so the
+          rail scrolling inside it would still push the PAGE sideways on a phone. */}
+      <Grid size={12} id="etapa-context" className="z-20 min-w-0 scroll-mt-4 md:sticky md:top-20 md:scroll-mt-24">
         <ClinicalContextBar
           patientId={consultation.patientId}
           patientName={consultation.patientName}
@@ -1407,6 +1523,18 @@ export default function ConsultaPage() {
                 }
           }
         />
+        {/* The map of the consultation, under the bar that says what to do
+            next: what exists, what is done, what is missing — each one a jump
+            on this same page. It gates nothing; the reason a step is blocked
+            stays beside the control that resolves it. */}
+        <Box className="mt-2 min-w-0 overflow-hidden">
+          <ConsultationStepRail
+            entries={railEntries}
+            active={railActive}
+            label={t("consultation-rail-label")}
+            onJump={(key) => jumpToStep(key, "rail")}
+          />
+        </Box>
       </Grid>
 
       {/* An AI-drafted consultation says so, and points review at the exceptions. */}
@@ -1428,6 +1556,61 @@ export default function ConsultaPage() {
               ? t("consultation-review-attention", { count: attentionCount })
               : t("consultation-review-ready")}
           </Alert>
+
+          {/* Each flagged field, named. The jump alone answered "where do I
+              start" and never "what is left": she had to walk the whole chart
+              to find the rest. Keeping a value as written is a decision she can
+              take from here, without opening the block. */}
+          {attentionCount > 0 && canEdit && (
+            <Card component="section" className="mt-3">
+              <CardContent className="flex flex-col gap-3">
+                <Box className="flex flex-col gap-1">
+                  <Typography variant="h6" component="h2" className="mb-0">
+                    {t("consultation-review-list-title", { count: attentionCount })}
+                  </Typography>
+                  <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                    {t("consultation-review-list-hint")}
+                  </Typography>
+                </Box>
+                <Box component="ul" className="m-0 flex list-none flex-col gap-2 p-0">
+                  {attentionFields.map((entry) => (
+                    <Box
+                      component="li"
+                      key={`${entry.blockKey}.${entry.fieldKey}`}
+                      className="border-grey-100 flex flex-col gap-1.5 rounded-2xl border p-3"
+                    >
+                      <Typography variant="body2" className="text-text-secondary text-xs leading-5">
+                        {t(entry.blockTitle)} ·{" "}
+                        <span className="text-text-primary font-semibold">{t(entry.label)}</span>
+                      </Typography>
+                      <Typography variant="body2" className="text-text-primary line-clamp-2 text-sm leading-5">
+                        {entry.value}
+                      </Typography>
+                      <Box className="flex flex-row flex-wrap gap-2">
+                        <Button
+                          size="tiny"
+                          variant="outlined"
+                          color="grey"
+                          onClick={() => focusField(entry.blockKey, entry.fieldKey)}
+                        >
+                          {t("consultation-review-goto-field")}
+                        </Button>
+                        <Button
+                          size="tiny"
+                          variant="text"
+                          color="secondary"
+                          aria-label={t("field-confirm-keep-label", { field: t(entry.label) })}
+                          onClick={() => void confirmAnswer(entry.blockKey, entry.fieldKey)}
+                        >
+                          {t("field-confirm-keep")}
+                        </Button>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          )}
         </Grid>
       )}
 
@@ -1614,14 +1797,18 @@ export default function ConsultaPage() {
               {/* Read-only once the record is closed: the transcript and its
                   audio stay readable, while processing and discarding — which
                   would change a frozen record — do not. */}
+              {/* Reachable from the bar: "process it in Gravações" used to
+                  name a place with nothing to click. */}
               {(canEdit || isFinalized) && (
-                <RecordingsPanel
-                  consultationId={consultation.id}
-                  onProcessed={load}
-                  refreshSignal={recordingsRefresh}
-                  seekTo={transcriptSeek ?? undefined}
-                  readOnly={isFinalized}
-                />
+                <Box id="etapa-recordings" className="scroll-mt-4 md:scroll-mt-60">
+                  <RecordingsPanel
+                    consultationId={consultation.id}
+                    onProcessed={load}
+                    refreshSignal={recordingsRefresh}
+                    seekTo={transcriptSeek ?? undefined}
+                    readOnly={isFinalized}
+                  />
+                </Box>
               )}
 
               {/* Documents and photos attached to the record (exam PDFs, clinical
@@ -2092,12 +2279,14 @@ export default function ConsultaPage() {
             {/* Receituário (PRD §9.8) — the professional's own prescription
               (herbal formula / generic). Authored by her, never the AI; a draft
               until she validates and signs it. */}
-            <PrescriptionPanel
-              consultationId={consultation.id}
-              orgId={consultation.orgId}
-              isFinalized={isReadOnly}
-              onChanged={() => void refreshDecisions()}
-            />
+            <Box id="etapa-prescription" className="scroll-mt-4 md:scroll-mt-60">
+              <PrescriptionPanel
+                consultationId={consultation.id}
+                orgId={consultation.orgId}
+                isFinalized={isReadOnly}
+                onChanged={() => void refreshDecisions()}
+              />
+            </Box>
 
             <Card component="section">
               <CardContent className="flex flex-col gap-3">

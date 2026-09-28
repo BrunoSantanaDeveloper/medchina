@@ -42,7 +42,7 @@
     {
       "name": "StatTile",
       "from": "@/components/product/home-tiles",
-      "props": "href | onClick+pressed, icon, tone, label, value, hint?",
+      "props": "href | onClick+pressed | neither (plain readout), icon, tone, label, value, hint?",
       "use": "A counter as a tile: tinted icon band (h-[4.5rem]) + label + value in h5, four across. `href` makes it a link; `onClick`+`pressed` make it a real filter button with aria-pressed. Port of dashboard-analytics-stats. A filter row is THIS, never a hand-written Box."
     },
     {

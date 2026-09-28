@@ -27,7 +27,8 @@ const MARKETING_ROUTES = [
   // with /planos, and it is the link of the press release and the proposals.
   "/china",
   // NOT here on purpose, all public (PUBLIC_PREFIXES) and all robots noindex:
-  // - the live event `/lei-15345` — a dated campaign page (docs/PAGINA-EVENTO.md);
+  // - the live events `/lei-15345` and `/ao-vivo/<slug>` — dated campaign pages
+  //   (docs/PAGINA-EVENTO.md);
   // - the offer pages `/fundadores` and `/assinar` — decision D10 of
   //   docs/FUNIL.md: a limited price that ranks on Google stops being an offer
   //   and becomes the price;

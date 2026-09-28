@@ -23,7 +23,7 @@ async function requireSuperadmin() {
 }
 
 /** What the console must warn about before anyone presses a send button. */
-export async function getLeadsConsoleStatus(): Promise<{ emailConfigured: boolean; queueConfigured: boolean }> {
+export async function getEventsConsoleStatus(): Promise<{ emailConfigured: boolean; queueConfigured: boolean }> {
   const gate = await requireSuperadmin();
   if (!gate.ok) return { emailConfigured: false, queueConfigured: false };
   return { emailConfigured: isEmailConfigured, queueConfigured: isInngestConfigured };
@@ -44,6 +44,21 @@ export async function sendLiveEventReminder(
   if (!UUID.test(eventId) || !REMINDER_KINDS.includes(kind)) return { ok: false, message: "Pedido inválido." };
   if (!isEmailConfigured) {
     return { ok: false, message: "O envio de e-mail não está configurado (RESEND_API_KEY). Nada foi enviado." };
+  }
+  if (kind === "recording") {
+    // The same guard as the screen: an ended event that redirects shows no
+    // recording, so this e-mail would promise a page nobody can see.
+    const { data: event } = await gate.supabase
+      .from("live_events")
+      .select("ended_behavior")
+      .eq("id", eventId)
+      .maybeSingle();
+    if (event?.ended_behavior === "redirect") {
+      return {
+        ok: false,
+        message: "A página deste evento leva para outro endereço depois do fim: o e-mail da gravação não foi enviado.",
+      };
+    }
   }
 
   const queued = await sendEvent("medchina/live-event.email", { eventId, kind });

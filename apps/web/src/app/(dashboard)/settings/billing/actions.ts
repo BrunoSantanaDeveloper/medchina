@@ -1,10 +1,11 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 
+import { COOKIE_KEYS } from "@/constants";
 import { recordAudit } from "@/lib/audit";
 import { CAMPAIGN_OFFER_KEY, type CampaignOfferSetting, resolveCampaignOffer } from "@/lib/campaign-offer";
-import { type CampaignParams, hasCampaign, pickCampaignParams } from "@/lib/campaign-params";
+import { type CampaignParams, decodeCampaignCookie, hasCampaign, pickCampaignParams } from "@/lib/campaign-params";
 import { sendGa4Event } from "@/lib/ga4-mp";
 import { sendMetaConversion } from "@/lib/meta-capi";
 import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
@@ -579,7 +580,13 @@ export async function startCheckout(input: {
       // a sale from the live event or /china must be creditable even when the
       // visitor refused the tracking cookies. An upsert of these columns only,
       // so it never wipes _fbp/_fbc/e-mail/IP/UA stored above or earlier.
-      const campaign = pickCampaignParams(input.campaign);
+      // The link of THIS checkout first; without one, the last campaign link she
+      // followed (middleware cookie, 14 days) — an event's button that sent her
+      // to /planos lost its query string on the way through sign-up and billing.
+      const linkCampaign = pickCampaignParams(input.campaign);
+      const campaign = hasCampaign(linkCampaign)
+        ? linkCampaign
+        : decodeCampaignCookie((await cookies()).get(COOKIE_KEYS.lastCampaign)?.value);
       if (hasCampaign(campaign)) {
         await service.from("meta_attribution").upsert({
           org_id: input.orgId,
@@ -591,6 +598,24 @@ export async function startCheckout(input: {
           campaign_captured_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
+      } else {
+        // A checkout that came from no campaign IS the last touch: it clears
+        // the one before, or a sale weeks after an event would be credited to
+        // it (the webhook records purchases per campaign — migration 0113).
+        // An update, never an insert: no row is created for this.
+        await service
+          .from("meta_attribution")
+          .update({
+            campaign_origem: null,
+            campaign_utm_source: null,
+            campaign_utm_medium: null,
+            campaign_utm_campaign: null,
+            campaign_utm_content: null,
+            campaign_captured_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("org_id", input.orgId)
+          .not("campaign_captured_at", "is", null);
       }
       await sendMetaConversion({
         eventName: "InitiateCheckout",

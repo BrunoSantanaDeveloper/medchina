@@ -9,8 +9,8 @@ import { sendEvent } from "@flyee/jobs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Mirrors the allowlist in migration 0084; an unknown value degrades to "other". */
-const ORIGINS = new Set(["recorder", "agenda", "import", "library", "patient", "other"]);
+/** Mirrors the allowlist in migrations 0084 + 0114; an unknown value degrades to "other". */
+const ORIGINS = new Set(["recorder", "agenda", "import", "library", "patient", "onboarding", "other"]);
 
 /**
  * Starts the Pro trial (PRD §5.7, broadened by migration 0084) server-side so

@@ -66,9 +66,9 @@ Split by where the event physically happens:
 | Event | Where it fires |
 |---|---|
 | `PageView` | every marketing route (SSR Pixel/GA4 + `MarketingAnalytics`) |
-| `ViewContent` | `/planos`, the funnel pages (`/assinar`, `/fundadores`), `/china` (`content_name: "china"`, `content_category: "authority"`) and `/lei-15345` (`content_name: "lei-15345"`, `content_category: "event"`) — all through `TrackEvent` |
+| `ViewContent` | `/planos`, the funnel pages (`/assinar`, `/fundadores`), `/china` (`content_name: "china"`, `content_category: "authority"`) and every live-event page — `/lei-15345` and `/ao-vivo/<slug>` (`content_name: <event slug>`, `content_category: "event"`) — all through `TrackEvent` |
 | `CtaClick` (custom — `trackCustom`) | `/china`, each of its three subscribe buttons, through `TrackClick` (`components/consent/track-click.tsx`): `content_name`, `placement` (`hero`/`ponte`/`final`), `destination` (`assinar` while the campaign is sellable, else `planos`). Reusable by any page — `CtaClick` ÷ `ViewContent` on the same `content_name` is what judges a page by itself |
-| `Lead` → GA4 `generate_lead` | `/lei-15345`, only when a number registers for the FIRST time (a repeat fires nothing), with `eventID` = the registration id. `track(event, props, { eventId, ga4Name })` passes the id to the Pixel as `{ eventID }` |
+| `Lead` → GA4 `generate_lead` | every live-event page (`content_name: <event slug>`), only when a number registers for that event for the FIRST time (a repeat fires nothing), with `eventID` = the registration id. `track(event, props, { eventId, ga4Name })` passes the id to the Pixel as `{ eventID }` |
 
 **Why `Lead` is browser-only (2026-09-26).** The legitimate-interest posture
 below covers the transactions of *account holders*; someone who registers for
@@ -144,6 +144,27 @@ back and adds `last_origem`, `last_utm_source`, `last_utm_medium`,
 `last_utm_campaign`, `last_utm_content` to the `Purchase` `custom_data`. A
 purchase is attributed to the event by these keys — never by a coupon, never by
 account creation.
+
+**Kept in our own database too (migration 0113).** The Purchase sent to Meta
+does not come back, and `meta_attribution` holds only the latest checkout per
+workspace, so the webhook also writes `purchase_attributions` — one row per paid
+invoice that STARTED a subscription (the Subscribe moment), with the campaign of
+its checkout when that campaign was captured at most 14 days before the payment
+(a late PIX or boleto still counts; an abandoned attempt does not). Each live
+event's CTA carries `utm_campaign=<event slug>`, and that is what the event's
+console sums as "compras do evento" — only while the invoice stays paid
+(`purchase_attribution_is_paid`: a refund or chargeback drops it without anyone
+deleting a row). The write throws on error, so the provider retries the delivery
+(idempotent through `invoice_key`).
+
+**Last touch without the link (0113).** A CTA that falls back to `/planos` (no
+sellable offer) or a visitor who comes back days later arrives at the checkout
+without `utm_*` in the link. The middleware therefore keeps the campaign of ANY
+link that carries one in the `medchina-campanha` cookie (14 days — the webhook's
+window — httpOnly, allowlisted and re-validated on read), and `startCheckout`
+falls back to it when its own link has none. A checkout with NO campaign in the
+link or the cookie clears the stored one: it IS the last touch, and a purchase
+weeks after an event must not be credited to it.
 
 ### Fast-follow (optional)
 - Add a predicted value to `StartTrial` (the Pro plan price) for value-based ad

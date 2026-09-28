@@ -29,12 +29,15 @@ const HEARTBEAT_MS = 60_000;
  * beat whatever the client sends.
  */
 export default function LiveRoom({
+  eventSlug,
   videoId,
   live,
   title,
   poster,
   trackPresence,
 }: {
+  /** The heartbeat names its event: the cookie holds one token per event. */
+  eventSlug: string;
   videoId: string;
   live: boolean;
   title: string;
@@ -55,7 +58,7 @@ export default function LiveRoom({
       void fetch("/api/public/evento/presenca", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ seconds: HEARTBEAT_MS / 1000 }),
+        body: JSON.stringify({ seconds: HEARTBEAT_MS / 1000, event: eventSlug }),
         keepalive: true,
       }).catch(() => undefined);
     };
@@ -63,7 +66,7 @@ export default function LiveRoom({
     beat();
     const timer = window.setInterval(beat, HEARTBEAT_MS);
     return () => window.clearInterval(timer);
-  }, [playing, trackPresence]);
+  }, [playing, trackPresence, eventSlug]);
 
   if (!hydrated) {
     return (

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getLiveEvent } from "@/lib/live-event";
+import { isEventSlug } from "@/lib/live-event-common";
 
 /**
  * The event's state, for pages opened before the start (live-room.tsx:
@@ -11,7 +12,7 @@ import { getLiveEvent } from "@/lib/live-event";
  */
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("e") ?? "";
-  const event = /^[a-z0-9][a-z0-9-]{2,59}$/.test(slug) ? await getLiveEvent(slug) : null;
+  const event = isEventSlug(slug) ? await getLiveEvent(slug) : null;
   const state = event && event.state !== "rascunho" ? event.state : null;
   return NextResponse.json(
     { state },

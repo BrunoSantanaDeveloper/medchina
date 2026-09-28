@@ -1,7 +1,7 @@
 "use client";
 
-/** Mirrors the allowlist in migration 0084. */
-export type ProTrialOrigin = "recorder" | "agenda" | "import" | "library" | "patient" | "other";
+/** Mirrors the allowlist in migrations 0084 + 0114. */
+export type ProTrialOrigin = "recorder" | "agenda" | "import" | "library" | "patient" | "onboarding" | "other";
 
 /**
  * Once per page session per workspace. The server RPC is already idempotent, so

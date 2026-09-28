@@ -140,8 +140,17 @@ export const leftMenuItems: MenuItem[] = [
         description: "menu-admin-support-description",
       },
       {
-        // Contacts without an account and the live events that bring them in
-        // (migration 0112, docs/PAGINA-EVENTO.md §7).
+        // The live events: each with its own page, registrations and results
+        // (migrations 0112/0113, docs/PAGINA-EVENTO.md §7).
+        id: "admin-events",
+        icon: "NiPresentation",
+        label: "menu-admin-events",
+        href: "/admin/eventos",
+        description: "menu-admin-events-description",
+      },
+      {
+        // The people those events bring in — contacts without an account, one
+        // row per person across events (FUNIL T2.0/T6.4).
         id: "admin-leads",
         icon: "NiUsers",
         label: "menu-admin-leads",

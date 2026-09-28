@@ -12,9 +12,19 @@ type OnboardingStatusValue = {
   /** Null until the first read lands — never a guessed "free". */
   status: OnboardingStatus | null;
   allowance: AudioAllowance | null;
+  /**
+   * Re-read after the TRAIL changed the commercial state itself — starting the
+   * Pro trial. Without it the badge kept reading "Gratuito" beside a step that
+   * had just said the trial was on.
+   */
+  reload: () => Promise<void>;
 };
 
-const OnboardingStatusContext = createContext<OnboardingStatusValue>({ status: null, allowance: null });
+const OnboardingStatusContext = createContext<OnboardingStatusValue>({
+  status: null,
+  allowance: null,
+  reload: async () => undefined,
+});
 
 /**
  * ONE reader of the workspace's commercial state for the whole guided trail.
@@ -88,13 +98,17 @@ export function OnboardingStatusProvider({ orgId, children }: { orgId: string | 
     };
   }, [pending, readPending, reloadAllowance]);
 
+  const reload = useCallback(async () => {
+    await reloadAllowance();
+  }, [reloadAllowance]);
+
   const value = useMemo<OnboardingStatusValue>(() => {
     // Unknown only on the FIRST read. A re-read (the moment a payment
     // confirms) keeps the previous state instead of blinking out at exactly
     // the instant she is watching for the change.
-    if (!pendingLoaded || (loading && !allowance)) return { status: null, allowance };
-    return { status: deriveOnboardingStatus({ allowance, pending }), allowance };
-  }, [allowance, loading, pending, pendingLoaded]);
+    if (!pendingLoaded || (loading && !allowance)) return { status: null, allowance, reload };
+    return { status: deriveOnboardingStatus({ allowance, pending }), allowance, reload };
+  }, [allowance, loading, pending, pendingLoaded, reload]);
 
   return <OnboardingStatusContext.Provider value={value}>{children}</OnboardingStatusContext.Provider>;
 }

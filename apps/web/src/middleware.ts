@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { DEFAULTS } from "@/config";
 import { COOKIE_KEYS } from "@/constants";
 import { ATTRIBUTION_COOKIE_MAX_AGE, encodeAttribution, readAttributionFromUrl } from "@/lib/attribution";
+import { encodeCampaignCookie, hasCampaign, LAST_CAMPAIGN_MAX_AGE, pickCampaignParams } from "@/lib/campaign-params";
 import { detectLocale, LOCALE_COOKIE_MAX_AGE } from "@/lib/locale-detection";
 import { COUPON_COOKIE_MAX_AGE, COUPON_PARAM, normalizeCouponCode } from "@/lib/offer-link";
 import { IMPERSONATION_MARKER_COOKIE, parseImpersonationMarker } from "@flyee/auth";
@@ -48,10 +49,13 @@ const PUBLIC_PREFIXES = [
   // (docs/FUNIL.md D10), but they must still open without a session.
   "/fundadores",
   "/assinar",
-  // The live event (docs/PAGINA-EVENTO.md): same (funil) contract — noindex,
-  // out of the sitemap — plus its public API (sign-up marks, presence, state,
-  // e-mail unsubscribe), each route authenticated by its own token.
+  // The live events (docs/PAGINA-EVENTO.md, migration 0113): same (funil)
+  // contract — noindex, out of the sitemap. The first keeps its own address;
+  // every later one lives under /ao-vivo/<slug>. Plus their public API (sign-up
+  // marks, presence, state, e-mail unsubscribe), each route authenticated by
+  // its own token.
   "/lei-15345",
+  "/ao-vivo",
   "/api/public/evento",
   // The congress authority page (docs/PAGINA-CHINA.md): its own route group,
   // `(autoridade)`, and — unlike the offer pages — INDEXED and in the sitemap.
@@ -146,6 +150,15 @@ export async function middleware(request: NextRequest) {
     : readAttributionFromUrl(request.nextUrl, request.headers.get("referer"));
 
   /**
+   * The LAST-touch campaign, the opposite rule: rewritten by every link that
+   * carries one, because it credits the SALE, not the signup. The checkout
+   * reads it when its own link has no campaign — a live event's button that
+   * sends to /planos crosses a sign-up and the billing page, which drop the
+   * query string (lib/campaign-params.ts, migration 0113).
+   */
+  const linkCampaign = pickCampaignParams(Object.fromEntries(request.nextUrl.searchParams));
+
+  /**
    * First-visit language. The RENDER already resolves this from the request's
    * own headers (lib/locale-request.ts), so this is not what makes the page
    * appear in Chinese — it is what makes it STAY there: the cookie is the
@@ -183,6 +196,14 @@ export async function middleware(request: NextRequest) {
       res.cookies.set(COOKIE_KEYS.attribution, encodeAttribution(linkAttribution), {
         path: "/",
         maxAge: ATTRIBUTION_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        httpOnly: true,
+      });
+    }
+    if (hasCampaign(linkCampaign)) {
+      res.cookies.set(COOKIE_KEYS.lastCampaign, encodeCampaignCookie(linkCampaign), {
+        path: "/",
+        maxAge: LAST_CAMPAIGN_MAX_AGE,
         sameSite: "lax",
         httpOnly: true,
       });

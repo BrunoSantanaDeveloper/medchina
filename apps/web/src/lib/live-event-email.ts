@@ -2,6 +2,7 @@ import "server-only";
 
 import { BRAND } from "@/brand";
 import { liveEventService } from "@/lib/live-event";
+import { aboutEvent } from "@/lib/live-event-common";
 import { formatEventStart, generateEventToken, personalEventLink } from "@/lib/live-event-shared";
 import { isEmailConfigured, type LiveEventEmailItem, sendLiveEventEmailBatch } from "@flyee/email";
 
@@ -54,7 +55,7 @@ export async function sendLiveEventEmails(input: {
 
     const { data: event } = await service
       .from("live_events")
-      .select("id, title, starts_at, group_invite_url")
+      .select("id, title, topic, starts_at, group_invite_url")
       .eq("id", input.eventId)
       .maybeSingle();
     if (!event) return none;
@@ -102,6 +103,7 @@ export async function sendLiveEventEmails(input: {
       props: {
         kind: input.kind,
         eventTitle: event.title as string,
+        about: aboutEvent({ title: event.title as string, topic: (event.topic as string | null) ?? null }),
         startsLabel: starts?.label ?? null,
         timeLabel: starts?.time ?? null,
         personalLink: personalEventLink(token),

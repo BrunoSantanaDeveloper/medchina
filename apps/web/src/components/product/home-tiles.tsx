@@ -63,7 +63,7 @@ export function StatTile({
   label,
   value,
 }: {
-  /** A tile that navigates. Give this OR `onClick`, never both. */
+  /** A tile that navigates. Give this OR `onClick`, never both — or neither, for a plain readout. */
   href?: string;
   /** A tile that filters the screen it sits on. Renders as a real button and
    *  carries `aria-pressed`, so a keyboard and a screen reader get the same
@@ -80,16 +80,22 @@ export function StatTile({
 }) {
   const style = TILE_TONE[tone];
   // The template's shape is the same either way; only what the card IS changes.
-  // A filter is a button, a shortcut is a link — never a div with a click.
+  // A filter is a button, a shortcut is a link — never a div with a click. With
+  // neither, the tile is a plain readout: a link to "#" would be a control that
+  // goes nowhere.
   const shell = onClick
     ? { component: "button" as const, type: "button" as const, onClick, "aria-pressed": pressed }
-    : { component: Link, href: href ?? "#" };
+    : href
+      ? { component: Link, href }
+      : { component: "div" as const };
   return (
     <Card
       {...shell}
       title={hint}
       className={cn(
-        "flex h-full w-full flex-col p-1 text-left transition-transform hover:scale-[1.02]",
+        "flex h-full w-full flex-col p-1 text-left",
+        // Only a control grows under the pointer; a readout does not invite a click.
+        (onClick || href) && "transition-transform hover:scale-[1.02]",
         onClick && "cursor-pointer",
         // The pressed tile keeps the template's card and gains the ring the
         // rest of the app uses for selection. Measured: a tinted fill alone

@@ -330,7 +330,7 @@ A ausência de limite clínico não implica armazenamento infinito. O plano deve
 
 - Duração de 14 dias ou 300 minutos, o que ocorrer primeiro.
 
-- A contagem começa na PRIMEIRA AÇÃO OPERACIONAL de qualquer tipo — gravar uma consulta, salvar um agendamento, concluir uma importação de prontuários ou usar a biblioteca clínica. **Atualizado pela migração `0084_trial_any_operational_action.sql`**: a regra original (só na primeira consulta real com IA) deixava sem acesso ao Pro justamente quem começava importando a base ou montando a agenda — a ação de maior compromisso do produto não podia ser a única porta. A origem fica registrada em `pro_trials.started_via` (`recorder | agenda | import | library | patient | other`), que é o corte comercial de "o que converte".
+- A contagem começa na PRIMEIRA AÇÃO OPERACIONAL de qualquer tipo — gravar uma consulta, salvar um agendamento, concluir uma importação de prontuários ou usar a biblioteca clínica. **Atualizado pela migração `0084_trial_any_operational_action.sql`**: a regra original (só na primeira consulta real com IA) deixava sem acesso ao Pro justamente quem começava importando a base ou montando a agenda — a ação de maior compromisso do produto não podia ser a única porta. A origem fica registrada em `pro_trials.started_via` (`recorder | agenda | import | library | patient | onboarding | other` — `onboarding` é o início explícito pelo guia, migração `0114`), que é o corte comercial de "o que converte".
 
 - O início nunca é silencioso: a tela que disparou avisa que o trial começou, para ninguém entrar em um relógio de 14 dias sem ver.
 

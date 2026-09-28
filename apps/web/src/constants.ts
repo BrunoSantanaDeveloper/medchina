@@ -60,10 +60,16 @@ export const COOKIE_KEYS = {
   // middleware and persisted to the workspace at signup. httpOnly: nothing in
   // the browser reads it, unlike the coupon.
   attribution: `${storagePrefix}-atrib`,
-  // Registered for a live event: an opaque random token whose sha256 lives in
-  // `live_event_tokens` (migration 0112). httpOnly, like the attribution cookie
-  // — never the coupon's client-readable flags: it identifies a registration.
+  // Registered for live events: one opaque random token per event (whose sha256
+  // lives in `live_event_tokens`, migrations 0112/0113). httpOnly, like the
+  // attribution cookie — never the coupon's flags: it identifies registrations.
   liveEvent: `${storagePrefix}-evento`,
+  // LAST-touch campaign (origem/utm_*), rewritten by the middleware on every
+  // link that carries one. The checkout falls back to it when its own link has
+  // none (e.g. an event's button → /planos → sign-up → billing), so a sale is
+  // credited to the campaign that brought it. httpOnly; 14 days, the same
+  // window the billing webhook accepts (migration 0113).
+  lastCampaign: `${storagePrefix}-campanha`,
 };
 
 export const SESSION_STORAGE_KEYS = {

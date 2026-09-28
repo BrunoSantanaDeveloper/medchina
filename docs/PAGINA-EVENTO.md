@@ -775,3 +775,107 @@ ponta a ponta contra o banco local.
   entre servidor e cliente).
 - **`notFound()` responde 200 com a página de 404** em `rascunho`, porque o `src/app/loading.tsx` da raiz
   abre o streaming antes. Vale para todo `notFound()` do app; a página já é `noindex`.
+
+---
+
+## 18. Vários eventos, um depois do outro (2026-09-28, migração `0113`)
+
+A primeira versão modelava vários eventos no banco, mas o resto assumia um só: página com texto no
+código, rotas que carregavam o evento fixo `lei-15345`, um cookie de uma vaga, assunto de e-mail citando
+a Lei 15.345 e nenhum jeito de criar evento sem SQL. Agora cada evento tem página, inscrições e
+resultados próprios, e **um evento novo nunca mexe nos dados de outro**.
+
+**Decisões da dona do produto (2026-09-28):**
+
+- O **texto da página é dado do evento**, editado no console: título, assunto em poucas palavras,
+  manchete (com `**destaque**`), assinatura, texto de abertura (e a versão no passado), até três
+  assuntos com ícone de uma lista fixa, "para quem é" e a descrição do link. Um modelo só renderiza
+  todos os eventos. As regras de linguagem do §4 valem para quem escreve no console: as páginas de
+  `(funil)` nunca passam pelo lint.
+- **O que a página faz depois que o evento termina é um parâmetro de cada evento:** continuar com a
+  gravação e a captura curta, ou levar quem visitar para outro endereço **deste site** (um caminho
+  começando com `/` — o banco recusa `//host` e URL absoluta). A superadmin continua vendo a página,
+  com um aviso. O destino é conferido ao salvar e de novo a cada visita: não pode ser a própria página
+  (em qualquer grafia), nem um rascunho, nem outro evento encerrado que também redireciona. Se o destino
+  estragar depois (o outro evento voltou a rascunho), a visita vê a página normal e a superadmin vê um
+  aviso de que o redirecionamento está sendo ignorado. Com redirecionamento, o e-mail da gravação fica
+  desligado (na tela e na ação do servidor): ele prometeria uma gravação que ninguém vê.
+- **Parceria não tem cadastro próprio.** A convidada entra na assinatura e no texto do próprio evento
+  ("com Debora Giovanella e …"). O bloco "Quem apresenta" continua sendo o da Debora.
+
+**Endereços.** O primeiro evento continua em `/lei-15345` (já está em e-mails, anúncios e QR). Todo evento
+novo fica em `/ao-vivo/<endereço>`; `/ao-vivo/lei-15345` leva para `/lei-15345`. O endereço trava quando
+o evento é publicado pela primeira vez ou recebe a primeira inscrição (gatilho no banco). A publicação fica
+carimbada em `published_at`, uma vez, e não se apaga: voltar o evento para rascunho não destrava o
+endereço nem permite excluir (`was_published`).
+
+**Rotas públicas.** Descobrem o evento pelo token (`?i=`, no link pessoal e no QR) ou por `?e=<endereço>`
+junto com o cookie. O cookie guarda **uma entrada por evento** (`<endereço>~<token>`), até seis eventos,
+o mais novo primeiro: uma vaga só fazia a inscrição num segundo evento apagar o reconhecimento do
+primeiro, e uma vaga por token deixava os links de e-mail de um evento (cada um cunha um token)
+empurrarem os outros para fora. Um token novo do mesmo evento substitui o anterior. Pedido sem `?i=`
+nem `?e=` (um link antigo, uma aba aberta antes do deploy) cai no evento mais recente do cookie. O
+batimento de presença manda o endereço do evento no corpo.
+
+**Console.**
+- `/admin/eventos` lista os eventos por situação (próximos, ao vivo, encerrados, arquivados), com
+  visitas, inscrições, presentes e compras de cada um, e cria ou duplica eventos. A cópia leva texto e
+  configuração, nunca inscrições, data, transmissão ou gravação, e nasce em rascunho.
+- `/admin/eventos/<id>` tem cinco abas: **Resultados**, **Inscritas** (a lista do 1:1, só deste evento),
+  **Página**, **Configuração** (inclui o pós-evento, arquivar e excluir) e **E-mails**.
+- Excluir só existe para rascunho que nunca foi publicado e não tem inscrição (o banco recusa o resto);
+  todo o resto se arquiva, sem perder página, inscrições nem resultados.
+- A aba **Página** tem também o título da aba e da prévia do link (opcional; em branco, usa o título do
+  evento). A **Configuração** escolhe a abertura do `/assinar` que o botão da página usa (o ângulo
+  lidera o `utm_content`; a Lei 15.345 usa `china`, como no código antigo).
+- `/admin/leads` virou a visão por **pessoa**: uma linha por pessoa com os eventos dela, descadastro,
+  exclusão LGPD e a exportação do público de anúncio, agora sem repetir quem se inscreveu em dois
+  eventos. Um seletor de evento recorta contadores, tabela e exportação juntos: o arquivo sempre tem o
+  que o contador mostrou. A leitura pagina acima do teto de 1.000 linhas da API.
+
+**Resultados por evento (§14), com o que passou a ser medido:**
+- **Visitas por canal:** contadas no servidor por evento, dia (Brasília) e canal (`origem` ou
+  `utm_source`), só em carregamento de documento (`Sec-Fetch-Dest: document`), nunca para robô, rascunho
+  ou superadmin. O `refresh` depois da inscrição e a server action não contam: inflavam cada inscrição em
+  duas visitas. Sem IP e sem user agent, só a contagem.
+  O canal é normalizado igual nas visitas e nas inscrições (minúsculas, `[a-z0-9_-]`, até 32
+  caracteres, "direto" quando vazio), e cada evento guarda no máximo 30 canais por dia; o excedente vira
+  "outro". Sem isso, qualquer `?origem=` inventado virava uma linha no banco e um rótulo no console.
+- **Aparelho do clique no grupo:** celular ou computador, pela classe do user agent, para ler a taxa de
+  clique pelo celular como o §14 pede. É um **contador por evento** (`live_event_device_clicks`),
+  somado no primeiro clique de cada inscrição, **nunca gravado na pessoa**: o termo de contato que ela
+  aceitou lista o que se guarda sobre ela, e o aparelho não está lá.
+- **Compras do evento:** o webhook grava, para a **primeira fatura paga** de uma assinatura, a campanha
+  do checkout (`purchase_attributions`) quando ela foi capturada até 14 dias antes. O botão de cada
+  evento usa `utm_campaign=<endereço>`, e é isso que o console soma. A compra só conta **enquanto a
+  fatura continuar paga**: estorno e chargeback saem dos números sem ninguém apagar nada. Se a gravação
+  falhar, o webhook responde erro e o provedor reenvia (a gravação é idempotente pela fatura).
+- **Último toque também por cookie:** o middleware guarda a campanha de qualquer link que traga uma
+  (`medchina-campanha`, 14 dias, httpOnly), e o checkout usa esse cookie quando o link não traz campanha
+  — o botão que cai em `/planos` (sem oferta vendável) e a volta dias depois também creditam o evento.
+  Sem campanha no link nem no cookie, o checkout limpa a campanha anterior, para uma compra semanas
+  depois não ser creditada a um evento antigo.
+- **E-mails:** o assunto nomeia o evento pelo assunto em poucas palavras ("É amanhã: o ao vivo sobre
+  a Lei 15.345"); sem assunto, pelo título entre aspas.
+
+### 18.1 Revisão adversarial (2026-09-28)
+
+Uma revisão em quatro frentes (segurança, correção, produto, dados) confirmou 28 problemas na primeira
+versão do §18. Tudo acima já descreve o comportamento corrigido; o que mudou de regra:
+
+- **Uma inscrição num segundo evento não desfaz decisão nenhuma.** O formulário não prova que o número
+  é de quem digitou. Por isso: não suspende descadastro registrado pela equipe; não devolve o
+  consentimento de novidades a quem o revogou (só acrescenta a quem nunca teve); e o e-mail de
+  confirmação vai para pessoa nova ou, para quem já existia, só quando o e-mail digitado é o guardado.
+- **A janela por rede conta as inscrições DESTE evento**, como o limite que ela lê.
+- **Rascunho não se revela:** a inscrição num rascunho responde igual a um evento inexistente.
+- **O título da aba e a abertura do `/assinar` da Lei 15.345 voltaram** a ser os do código antigo
+  (`page_title` e `offer_angle` no evento), e o cabeçalho "Uma noite" passou a sair do horário
+  (manhã, tarde ou noite em Brasília).
+- **Console:** erro de leitura aparece como erro, com "Tentar de novo", nunca como "sem dados"; trocar
+  de aba não perde o que foi digitado; taxa de inscrição acima de 100% vira "—" (as visitas só
+  começaram a ser contadas na `0113`); os próximos eventos aparecem do mais perto para o mais longe;
+  os cartões mostram o funil em barras (`MetricBars`); campos e seletores têm nome acessível.
+
+Testes: `packages/db/tests/0043_live_events_crud.test.sql` (50 asserções) e
+`apps/web/src/lib/live-event-common.test.ts` + `campaign-params.test.ts`.
