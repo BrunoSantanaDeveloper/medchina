@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import postgres from "postgres";
 
+import { aiSpendMeter } from "@/lib/ai-spend";
 import { recordAudit } from "@/lib/audit";
 import {
   type AiProviderName,
@@ -124,11 +125,28 @@ export async function POST(request: Request) {
     const messages: ChatMessage[] = [{ role: "user", content: question }];
 
     for (let round = 0; round < MAX_ROUNDS; round += 1) {
-      const step = (await chat.generateStructured(config, messages, {
-        name: "analyst_step",
-        description: "Run a read-only query, or give the final answer.",
-        schema: STEP_SCHEMA as unknown as Record<string, unknown>,
-      })) as Step;
+      // The operator asking the database questions is the platform spending
+      // its own money: org NULL, so no workspace is billed for it. A dozen
+      // rounds of a 2k-token prompt is not free, and this is the only place
+      // that cost could otherwise hide.
+      const meter = aiSpendMeter({
+        orgId: null,
+        feature: "insights",
+        provider: provider.name,
+        model: provider.model,
+        client: supabase,
+      });
+      const step = (await chat.generateStructured(
+        config,
+        messages,
+        {
+          name: "analyst_step",
+          description: "Run a read-only query, or give the final answer.",
+          schema: STEP_SCHEMA as unknown as Record<string, unknown>,
+        },
+        meter.sink,
+      )) as Step;
+      await meter.settled();
 
       if (step.action === "final" || !step.sql) {
         return NextResponse.json({ answer: step.answer ?? "Não cheguei a uma resposta.", steps });

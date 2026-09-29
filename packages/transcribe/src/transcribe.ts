@@ -11,23 +11,38 @@ import {
   transcriptCoverage,
 } from "./normalize";
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+/**
+ * Pinned, never a `-latest` alias: measured against the live API on 2026-08-27,
+ * `gemini-flash-latest` and `gemini-3.7-flash` BOTH answered 503 "high demand"
+ * while the older generations answered normally. The alias points at the newest
+ * generation, which is exactly the most congested pool — the worst possible
+ * default for a background job that must not fail. Re-measured 2026-09-29 on
+ * the replacement project: `-latest`, 3.8 and 3.7 still 503 on three
+ * consecutive attempts; 3.6 and below answer instantly.
+ *
+ * It is 3.6 rather than 2.5 because THE 2.x FAMILY IS GONE for this project:
+ * `gemini-2.5-flash`, `gemini-2.5-flash-lite` and `gemini-2.0-flash` all answer
+ * 404 "no longer available to new users". A model a Google project has used
+ * before keeps working; a project created after the retirement never gets it —
+ * so rebuilding the Cloud project (as the suspension forced) silently retired
+ * the primary AND its last fallback at once, and every transcription was paying
+ * a wasted 404 round-trip before the chain reached a model that exists.
+ */
+const DEFAULT_MODEL = "gemini-3.6-flash";
 /**
  * Models tried IN ORDER after the primary exhausts its transient retries.
  *
- * Pinned versions, never a `-latest` alias: measured against the live API on
- * 2026-08-27, `gemini-flash-latest` and `gemini-3.7-flash` BOTH answered 503
- * "high demand" while 3.6 / 3.5 / 2.5 answered normally. The alias points at
- * the newest generation, which is exactly the most congested pool — so it is
- * the worst possible default for a background job that must not fail.
+ * The chain deliberately spans GENERATIONS and TIERS (3.6 -> 3.5 -> 3.5-lite):
+ * separate capacity pools, so one overloaded generation cannot take the whole
+ * chain down, and the last step is a lite model because the lite pools stayed
+ * clear in every probe while the flagship pools were shedding load. Override
+ * with TRANSCRIBE_MODEL_FALLBACKS (comma-separated, empty disables).
  *
- * The chain deliberately spans GENERATIONS (3.6 -> 3.5 -> 2.5): separate
- * capacity pools, so one overloaded generation cannot take the whole chain
- * down. Override with TRANSCRIBE_MODEL_FALLBACKS (comma-separated, empty
- * disables). Keep these pinned and re-check when Google retires a version —
- * `gemini-2.0-flash` sat here until it was retired and started answering 404.
+ * Keep these pinned and RE-MEASURE when a project is rebuilt or a version is
+ * retired: availability is per Google project, not per API key, so a chain that
+ * is healthy in one project can be entirely 404 in the next one.
  */
-const DEFAULT_FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash"];
+const DEFAULT_FALLBACK_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite"];
 
 /**
  * Gemini rejects generateContent requests whose inline payload exceeds ~20MB.
@@ -233,6 +248,46 @@ function modelChain(): { model: string; retryOnce: boolean }[] {
 }
 
 /** A failed run may still carry PROGRESS — the caller persists it for resume. */
+/**
+ * What one call to the model consumed. A single transcription is rarely one
+ * call: a long consultation is a first pass plus continuations, and a
+ * congested model sends the whole thing to a fallback — every one of those is
+ * billed, so every one of them reports.
+ */
+export interface TranscribeUsage {
+  /** The model that answered, which the fallback chain can change mid-run. */
+  model: string;
+  tokensIn: number;
+  tokensOut: number;
+  /** Audio tokens, priced apart from text by Gemini. */
+  audioTokensIn: number;
+}
+
+/** Gemini reports the prompt as a total plus a per-modality breakdown. */
+function splitUsage(
+  metadata:
+    | {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
+        promptTokensDetails?: { modality?: string; tokenCount?: number }[];
+      }
+    | undefined,
+  model: string,
+): TranscribeUsage | null {
+  if (!metadata) return null;
+  const audio = (metadata.promptTokensDetails ?? [])
+    .filter((detail) => (detail.modality ?? "").toUpperCase() === "AUDIO")
+    .reduce((total, detail) => total + (detail.tokenCount ?? 0), 0);
+  return {
+    model,
+    tokensIn: Math.max(0, (metadata.promptTokenCount ?? 0) - audio),
+    // Thinking is billed as output whether or not anyone reads it.
+    tokensOut: (metadata.candidatesTokenCount ?? 0) + (metadata.thoughtsTokenCount ?? 0),
+    audioTokensIn: audio,
+  };
+}
+
 interface PartialCarrier {
   partialTranscript?: TranscriptResult;
 }
@@ -242,7 +297,17 @@ function withPartial(error: Error, partial: TranscriptResult | null): Error {
   return error;
 }
 
-async function transcribeAudio(
+/**
+ * Exported for EVALUATION only (`scripts/eval-transcription.mts`), never for
+ * production callers — `processTranscription` below is the one that owns the
+ * row, the status machine and the resume. It is exported rather than copied
+ * because an evaluation that reimplements the prompt, the schema, the coverage
+ * check and the continuation loop would be measuring a different pipeline than
+ * the one that runs, and would drift away from it silently.
+ *
+ * It reads its model from `TRANSCRIBE_MODEL`, so a comparison sets that per run.
+ */
+export async function transcribeAudio(
   mime: string,
   bytes: Uint8Array,
   /** Recorded duration, used to verify the transcript reaches the end. */
@@ -257,6 +322,11 @@ async function transcribeAudio(
    * each one.
    */
   resumeFrom?: TranscriptResult | null,
+  /**
+   * Called once per model call with what it consumed. Transcription is the
+   * platform's largest AI expense and used to be entirely unmeasured.
+   */
+  onUsage?: (usage: TranscribeUsage) => void,
 ): Promise<TranscriptResult> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("GEMINI_API_KEY is not set — transcription uses Gemini.");
@@ -309,6 +379,19 @@ async function transcribeAudio(
         abortSignal: AbortSignal.timeout(budgetMs),
       },
     });
+    // Reported before the reply is even checked: a call that came back empty
+    // or cut short still consumed the whole audio.
+    if (onUsage) {
+      const usage = splitUsage(response.usageMetadata, model);
+      if (usage) {
+        try {
+          onUsage(usage);
+        } catch {
+          // Metering never fails a transcription.
+        }
+      }
+    }
+
     const text = response.text;
     if (!text) throw new Error("Gemini returned no transcript.");
     return normalizeTimestamps(normalizeSpeakers(JSON.parse(text) as TranscriptResult), expectedSeconds);
@@ -549,7 +632,7 @@ export async function processTranscription(
 ): Promise<TranscriptionRunResult> {
   const { data: row, error: loadError } = await supabase
     .from("transcriptions")
-    .select("id, audio_path, mime, result")
+    .select("id, org_id, audio_path, mime, result")
     .eq("id", transcriptionId)
     .maybeSingle();
   if (loadError || !row) return { ok: false, error: loadError?.message ?? "Transcription not found." };
@@ -564,14 +647,45 @@ export async function processTranscription(
 
   await supabase.from("transcriptions").update({ status: "processing", error: null }).eq("id", transcriptionId);
 
+  // Collected during the run and written afterwards — including when the run
+  // failed, because a transcription that died on the third continuation was
+  // billed for all three.
+  const spent: TranscribeUsage[] = [];
+  const recordSpend = async () => {
+    for (const [index, usage] of spent.entries()) {
+      try {
+        await supabase.rpc("record_ai_spend", {
+          target_org: row.org_id,
+          target_feature: "transcription",
+          target_provider: "gemini",
+          target_model: usage.model,
+          target_tokens_in: usage.tokensIn,
+          target_tokens_out: usage.tokensOut,
+          // Only the first call carries the seconds: the continuations re-read
+          // the SAME audio, and counting it again would inflate the minutes
+          // the console reconciles against `audio_usage`.
+          target_audio_seconds: index === 0 ? Math.max(0, Math.round(expectedSeconds ?? 0)) : 0,
+          target_audio_tokens: usage.audioTokensIn,
+          target_ref: transcriptionId,
+          target_estimated: false,
+        });
+      } catch {
+        // Bookkeeping never fails a transcription.
+      }
+    }
+  };
+
   try {
     const { data: blob, error: downloadError } = await supabase.storage.from("transcriptions").download(row.audio_path);
     if (downloadError || !blob) throw new Error(downloadError?.message ?? "Audio download failed.");
 
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    const result = await transcribeAudio(row.mime, bytes, expectedSeconds, deadlineAt, resumeFrom);
+    const result = await transcribeAudio(row.mime, bytes, expectedSeconds, deadlineAt, resumeFrom, (usage) =>
+      spent.push(usage),
+    );
 
     await supabase.from("transcriptions").update({ status: "ready", result }).eq("id", transcriptionId);
+    await recordSpend();
 
     return { ok: true, segments: result.segments.length };
   } catch (error) {
@@ -584,6 +698,7 @@ export async function processTranscription(
       .from("transcriptions")
       .update({ status: "error", error: message, ...(partial ? { result: partial } : {}) })
       .eq("id", transcriptionId);
+    await recordSpend();
     return { ok: false, error: message, transient: classifyProviderError(error).transient };
   }
 }

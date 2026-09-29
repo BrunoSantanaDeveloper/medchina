@@ -7,8 +7,10 @@ import {
   formatDate,
   formatDateTime,
   formatMoney,
+  formatSpend,
   MINUTE_REASON,
   sinceDays,
+  SPEND_FEATURE,
   SUBSCRIPTION_STATUS_LABEL,
 } from "./account-overview";
 import { useSnackbar } from "notistack";
@@ -363,6 +365,28 @@ export default function AccountDetailDialog({
                     }
                   />
                 )}
+                <Row
+                  label="Custo de IA (30 d)"
+                  value={(() => {
+                    const spend = dossier.ai.spend;
+                    const cost = account.aiCost.cents30d;
+                    const revenue = account.billing.monthlyCents ?? 0;
+                    if (spend.window.lifetimeCalls === 0) return "nenhuma chamada registrada";
+                    const headline = `${formatSpend(spend.window.costUsdMicros, spend.usdToBrl)} em ${spend.window.calls} chamada(s)`;
+                    // The margin only when both halves are in the same
+                    // currency — see formatSpend and migration 0116.
+                    if (cost === null || revenue === 0) return headline;
+                    return (
+                      <Typography
+                        variant="body2"
+                        component="span"
+                        className={revenue - cost < 0 ? "text-accent-3" : "text-text-primary"}
+                      >
+                        {headline} · margem {formatMoney(revenue - cost, account.billing.currency)}
+                      </Typography>
+                    );
+                  })()}
+                />
               </Section>
 
               <Section title="Ela está usando">
@@ -591,7 +615,7 @@ export default function AccountDetailDialog({
 
               {!showEverything ? (
                 <Button variant="text" onClick={() => setShowEverything(true)}>
-                  Ver o veredito da IA, consentimento, acesso e linha do tempo
+                  Ver o veredito da IA e no que o custo dela foi gasto, consentimento, acesso e linha do tempo
                 </Button>
               ) : (
                 <>
@@ -695,6 +719,149 @@ export default function AccountDetailDialog({
                           .join(" · ")}
                       />
                     )}
+                  </Section>
+
+                  {/* The other half of "is the AI earning its cost here": the
+                      cost. Split by what the money bought, with the units
+                      beside it, because the only way to argue with a provider
+                      invoice is to have the tokens and the seconds. */}
+                  <Section title="O que a IA custou aqui">
+                    {(() => {
+                      const spend = dossier.ai.spend;
+                      const rate = spend.usdToBrl;
+                      const revenue = account.billing.monthlyCents ?? 0;
+                      const cost = account.aiCost.cents30d;
+
+                      if (spend.window.lifetimeCalls === 0) {
+                        return (
+                          <Typography variant="body2" className="text-text-secondary">
+                            Nenhuma chamada de IA registrada para esta conta. Ou ela não usa, ou o gasto é anterior ao
+                            início da medição.
+                          </Typography>
+                        );
+                      }
+
+                      const bars = spend.byFeature
+                        .filter((line) => line.costUsdMicros > 0)
+                        .map((line) => ({
+                          key: line.feature,
+                          label: `${SPEND_FEATURE[line.feature] ?? line.feature} · ${formatSpend(line.costUsdMicros, rate)}`,
+                          value: line.costUsdMicros,
+                          tone: line.feature === "transcription" ? ("primary" as const) : ("secondary" as const),
+                        }));
+
+                      return (
+                        <>
+                          <Row
+                            label="Custo (30 d)"
+                            value={`${formatSpend(spend.window.costUsdMicros, rate)} em ${spend.window.calls} chamada(s)`}
+                          />
+                          <Row
+                            label="Desde o início"
+                            value={`${formatSpend(spend.window.lifetimeCostUsdMicros, rate)} em ${spend.window.lifetimeCalls} chamada(s) · primeira ${formatDate(spend.window.firstAt)} · última ${sinceDays(spend.window.lastAt)}`}
+                          />
+                          {/* Only when BOTH halves are known. A margin against
+                              an unconverted dollar figure would be arithmetic
+                              on two different currencies. */}
+                          {cost !== null && revenue > 0 && (
+                            <Row
+                              label="Margem no mês"
+                              value={
+                                <Typography
+                                  variant="body2"
+                                  component="span"
+                                  className={revenue - cost < 0 ? "text-accent-3" : "text-text-primary"}
+                                >
+                                  {formatMoney(revenue - cost, account.billing.currency)} — ela paga{" "}
+                                  {formatMoney(revenue, account.billing.currency)} e a IA dela custou{" "}
+                                  {formatMoney(cost, account.billing.currency)}
+                                </Typography>
+                              }
+                            />
+                          )}
+                          {cost === null && revenue > 0 && (
+                            <Row
+                              label="Margem no mês"
+                              value="não dá para calcular sem a cotação do dólar no catálogo de preços"
+                            />
+                          )}
+
+                          {bars.length > 0 && (
+                            <Box className="py-1">
+                              <Typography variant="body2" className="text-text-secondary mb-2">
+                                Em que foi gasto, nos últimos 30 dias
+                              </Typography>
+                              <MetricBars spacing="dense" items={bars} total={spend.window.costUsdMicros} />
+                            </Box>
+                          )}
+
+                          {/* The units behind each line. A cost is arguable;
+                              300 minutes of audio and 40.000 tokens are facts. */}
+                          {spend.byFeature.map((line) => (
+                            <Row
+                              key={line.feature}
+                              label={SPEND_FEATURE[line.feature] ?? line.feature}
+                              value={[
+                                formatSpend(line.costUsdMicros, rate),
+                                `${line.calls} chamada(s)`,
+                                line.audioSeconds > 0 ? `${Math.round(line.audioSeconds / 60)} min de áudio` : null,
+                                line.tokensIn > 0 || line.tokensOut > 0
+                                  ? `${line.tokensIn.toLocaleString("pt-BR")} tokens entrada · ${line.tokensOut.toLocaleString("pt-BR")} saída`
+                                  : null,
+                                line.unpricedCalls > 0 ? `${line.unpricedCalls} sem preço` : null,
+                                line.estimatedCalls > 0 ? `${line.estimatedCalls} estimada(s)` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            />
+                          ))}
+
+                          {spend.byModel.length > 0 && (
+                            <Row
+                              label="Modelos"
+                              value={spend.byModel
+                                .map(
+                                  (line) =>
+                                    `${line.model} ${formatSpend(line.costUsdMicros, rate)}${line.priced ? "" : " (sem preço)"}`,
+                                )
+                                .join(" · ")}
+                            />
+                          )}
+
+                          {/* Six months, so a cost that doubled has a shape.
+                              The current month is partial by definition and is
+                              charted anyway here — unlike the weekly recording
+                              trend, this is money already spent, not a rate
+                              being compared against whole periods. */}
+                          {/* Two months with spend is the floor for a trend:
+                              a single bar among five zeros is a chart of
+                              nothing, and the account'''s total already says
+                              what that one month cost. */}
+                          {spend.monthly.filter((month) => month.costUsdMicros > 0).length >= 2 && (
+                            <Box className="py-1">
+                              <TrendSparkline
+                                label="Custo por mês"
+                                data={spend.monthly.map((month) => month.costUsdMicros)}
+                                plotType="bar"
+                                formatValue={(value) => formatSpend(value, rate)}
+                                caption={`Seis meses, do mais antigo ao atual (${spend.monthly.map((month) => month.month).join(", ")}). O mês corrente ainda está correndo.`}
+                              />
+                            </Box>
+                          )}
+
+                          {(spend.window.unpricedCalls > 0 || spend.window.estimatedCalls > 0) && (
+                            <Typography variant="body2" className="text-accent-3">
+                              {spend.window.unpricedCalls > 0
+                                ? `${spend.window.unpricedCalls} chamada(s) sem preço configurado — o gasto existiu e não está somado acima. `
+                                : ""}
+                              {spend.window.estimatedCalls > 0
+                                ? `${spend.window.estimatedCalls} lançamento(s) são estimativa a partir dos segundos gravados, não medição do provedor.`
+                                : ""}
+                            </Typography>
+                          )}
+                        </>
+                      );
+                    })()}
                   </Section>
 
                   <Section title="Consentimento e risco">

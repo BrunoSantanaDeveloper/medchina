@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 import { StructuredOutputError, structuredFailureFromGemini } from "@flyee/ai/errors";
-import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
+import { type AssistantConfig, type ChatMessage, type ChatProvider, type StructuredOutput, type UsageSink, reportUsage } from "@flyee/ai/types";
 
 /**
  * Reasoning tokens a structured call may spend BEFORE the answer.
@@ -31,6 +31,39 @@ const THINKING_CAPABLE = /gemini-(?:2\.5|[3-9])/i;
 // error it can name. The SDK arms this timer once per request; retries share it.
 const HTTP_OPTIONS = { timeout: 90_000, retryOptions: { attempts: 3 } };
 
+/**
+ * Gemini reports the prompt as one total plus a per-modality breakdown, and
+ * bills audio input at its own rate. Splitting them here is what lets the
+ * ledger price a transcription differently from a chat turn.
+ *
+ * Thinking tokens are folded into output because that is how they are billed:
+ * a reasoning model that spends 2.000 tokens thinking has spent output money,
+ * whether or not the caller ever sees those tokens.
+ */
+function geminiUsage(
+  metadata:
+    | {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
+        promptTokensDetails?: { modality?: string; tokenCount?: number }[];
+      }
+    | undefined,
+  model: string,
+) {
+  if (!metadata) return null;
+  const audio = (metadata.promptTokensDetails ?? [])
+    .filter((detail) => (detail.modality ?? "").toUpperCase() === "AUDIO")
+    .reduce((total, detail) => total + (detail.tokenCount ?? 0), 0);
+  const prompt = metadata.promptTokenCount ?? 0;
+  return {
+    tokensIn: Math.max(0, prompt - audio),
+    tokensOut: (metadata.candidatesTokenCount ?? 0) + (metadata.thoughtsTokenCount ?? 0),
+    audioTokensIn: audio,
+    model,
+  };
+}
+
 function toGeminiContents(messages: ChatMessage[]) {
   return messages.map((message) => ({
     role: message.role === "assistant" ? "model" : "user",
@@ -51,7 +84,7 @@ export class GeminiProvider implements ChatProvider {
     return true;
   }
 
-  async *streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string> {
+  async *streamChat(config: AssistantConfig, messages: ChatMessage[], onUsage?: UsageSink): AsyncGenerator<string> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error("GEMINI_API_KEY is not set");
     const client = new GoogleGenAI({ apiKey: key, httpOptions: HTTP_OPTIONS });
@@ -68,16 +101,21 @@ export class GeminiProvider implements ChatProvider {
       },
     });
 
+    // Every chunk carries the usage so far; the last one carries the total.
+    let usage: ReturnType<typeof geminiUsage> = null;
     for await (const chunk of stream) {
+      usage = geminiUsage(chunk.usageMetadata, config.model) ?? usage;
       const text = chunk.text;
       if (text) yield text;
     }
+    if (usage) reportUsage(onUsage, usage);
   }
 
   async generateStructured(
     config: AssistantConfig,
     messages: ChatMessage[],
     output: StructuredOutput,
+    onUsage?: UsageSink,
   ): Promise<unknown> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error("GEMINI_API_KEY is not set");
@@ -102,6 +140,12 @@ export class GeminiProvider implements ChatProvider {
         responseJsonSchema: output.schema,
       },
     });
+
+    // Reported before the failure checks below on purpose: a call cut at
+    // MAX_TOKENS or stopped by a safety filter was still billed in full, and a
+    // ledger that only counts successes understates the bill.
+    const usage = geminiUsage(response.usageMetadata, config.model);
+    if (usage) reportUsage(onUsage, usage);
 
     // Ask WHY it stopped before trying to read it: a reply cut at MAX_TOKENS is
     // a budget problem the caller can name, not "invalid JSON".

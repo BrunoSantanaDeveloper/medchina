@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
 import TrackEvent from "@/components/consent/track-event";
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Container from "@/components/marketing/container";
 import Cta from "@/components/marketing/cta";
 import Faq from "@/components/marketing/faq";
@@ -43,6 +44,7 @@ export default async function PricingPage({
 
   return (
     <>
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("nav-pricing"), path: "/planos" }]} />
       <PricingSection
         eyebrow={t("pricing-eyebrow")}
         title={t("pricing-page-title")}

@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { Button } from "@mui/material";
 
 import AnamnesisCard from "@/components/marketing/anamnesis-card";
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Cta from "@/components/marketing/cta";
 import FeatureRows from "@/components/marketing/feature-row";
 import ProcessSteps from "@/components/marketing/process-steps";
@@ -42,6 +43,7 @@ export default async function HowItWorksPage() {
 
   return (
     <>
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("nav-how-it-works"), path: "/como-funciona" }]} />
       <Section decor="glow" spacing="compact">
         <SectionHeader as="h1" eyebrow={t("hero-eyebrow")} title={t("hiw-title")} subtitle={t("hiw-subtitle")} />
         <div className="mx-auto max-w-xl">

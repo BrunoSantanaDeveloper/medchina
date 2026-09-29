@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Cta from "@/components/marketing/cta";
 import ProcessSteps from "@/components/marketing/process-steps";
 import Section from "@/components/marketing/section";
@@ -24,6 +25,7 @@ export default async function MigrationPage() {
 
   return (
     <>
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("footer-migration"), path: "/migracao" }]} />
       <Section decor="glow" spacing="compact">
         <SectionHeader as="h1" title={t("mig-title")} subtitle={t("mig-subtitle")} />
       </Section>

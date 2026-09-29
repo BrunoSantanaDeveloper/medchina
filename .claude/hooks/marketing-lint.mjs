@@ -68,11 +68,24 @@ const LANDING_DS_PATTERNS = [
   /\/components\/marketing\/home-copy\//,
 ];
 
+/**
+ * Open Graph / Twitter card routes — exempt for a different reason than the
+ * Landing DS, which is why they are not in that list.
+ *
+ * These files are not pages and not CSS: Next renders them through Satori into
+ * a PNG on the server, where there is no document, no stylesheet and no CSS
+ * custom properties. `hsl(var(--token))` resolves to nothing there and
+ * `next/image` cannot run at all — the token rule still holds, but the values
+ * arrive CONCRETE through the `hsl()` helper of @flyee/design-tokens, which is
+ * indistinguishable from a hardcoded colour to a line-by-line check.
+ */
+const SATORI_IMAGE_PATTERN = /\/(opengraph|twitter)-image\.tsx$/;
+
 function lint(filePath, content) {
   const p = filePath.replace(/\\/g, "/");
   const isPage = /\/app\/\(marketing\)\//.test(p);
   const file = basename(p);
-  const isExempt = LANDING_DS_PATTERNS.some((pattern) => pattern.test(p));
+  const isExempt = LANDING_DS_PATTERNS.some((pattern) => pattern.test(p)) || SATORI_IMAGE_PATTERN.test(p);
   const violations = [];
   const advisories = [];
   const lines = content.split(/\r?\n/);

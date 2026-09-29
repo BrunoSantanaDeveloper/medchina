@@ -52,7 +52,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   let result;
   try {
     const dataBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-    result = await analyzeAttachment({ mime: attachment.mime, dataBase64 });
+    result = await analyzeAttachment(
+      { mime: attachment.mime, dataBase64 },
+      { orgId: attachment.org_id, refId: attachment.id, client: supabase },
+    );
   } catch (error) {
     // No model text in the log (it read a clinical document), and a code that
     // says whether clicking again could work.

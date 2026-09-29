@@ -1,3 +1,4 @@
+import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 
 /**
@@ -32,7 +33,12 @@ export interface AttachmentAnalysisResult extends AttachmentAnalysis {
   promptVersion: string;
 }
 
-const RESULT_SCHEMA = {
+/**
+ * Exported for the strict-mode conformance test: OpenAI serves as the fallback
+ * provider, and a schema it cannot accept only shows up as a 400 in production,
+ * on the day the primary provider is down.
+ */
+export const RESULT_SCHEMA = {
   type: "object",
   properties: {
     summary: { type: "string", description: "One neutral sentence naming what the attachment is." },
@@ -79,13 +85,20 @@ const PROMPT = [
  * draft. `mime` is passed to the provider as-is — a PDF goes through Gemini's
  * native document support; images work on every provider.
  */
-export async function analyzeAttachment(input: {
-  mime: string;
-  dataBase64: string;
-}): Promise<AttachmentAnalysisResult> {
+export async function analyzeAttachment(
+  input: {
+    mime: string;
+    dataBase64: string;
+  },
+  spend?: AiSpendContext,
+): Promise<AttachmentAnalysisResult> {
   const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
   const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
 
+  // Metered so the account list can say what this consultation cost. The
+  // meter is inert without a spend context (scripts, tests) and can never
+  // fail the call.
+  const meter = aiSpendMeter(spend && { ...spend, feature: "attachment", provider, model });
   const raw = (await getChatProvider(provider).generateStructured(
     {
       provider,
@@ -103,12 +116,15 @@ export async function analyzeAttachment(input: {
       },
     ],
     { name: "attachment_analysis", description: "A draft reading of a clinical attachment", schema: RESULT_SCHEMA },
+    meter.sink,
   )) as {
     summary?: string;
     observations?: string[];
     extractedValues?: { label?: string; value?: string }[];
     limitations?: string[];
   };
+
+  await meter.settled();
 
   const cleanList = (list: unknown): string[] =>
     Array.isArray(list) ? list.map((item) => String(item ?? "").trim()).filter(Boolean) : [];

@@ -2,6 +2,7 @@ import ContactForm from "./contact-form";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Reveal from "@/components/marketing/reveal";
 import Section from "@/components/marketing/section";
 import SectionHeader from "@/components/marketing/section-header";
@@ -42,6 +43,7 @@ export default async function ContactPage({
 
   return (
     <Section spacing="compact">
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("nav-contact"), path: "/contato" }]} />
       <SectionHeader title={t("contact-title")} subtitle={t("contact-subtitle")} as="h1" />
       <Reveal>
         <ContactForm initialMessage={SUBJECT_PREFILL[subject] ?? ""} />

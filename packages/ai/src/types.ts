@@ -50,12 +50,58 @@ export interface StructuredOutput {
   schema: Record<string, unknown>;
 }
 
+/**
+ * What one provider call consumed, as the provider itself reported it.
+ *
+ * Nothing here is derived or estimated: this is the only honest input to
+ * "what did that cost?", and a caller that cannot get it should record the
+ * call with no usage rather than guess (see `ai_spend.priced` in 0115).
+ */
+export interface ChatUsage {
+  /** Text/image input tokens, EXCLUDING audio when the provider separates it. */
+  tokensIn: number;
+  /** Everything billed as output, reasoning tokens included. */
+  tokensOut: number;
+  /** Audio input tokens, when the provider prices them apart from text. */
+  audioTokensIn?: number;
+  /** The model that actually served the call — a fallback chain may differ. */
+  model?: string;
+}
+
+/**
+ * Called once per provider call, after the reply, with what it consumed.
+ *
+ * Optional everywhere on purpose: metering must never be able to fail a
+ * clinical call. Providers invoke it in a try/catch; callers hand it to
+ * `recordAiSpend`.
+ */
+export type UsageSink = (usage: ChatUsage) => void;
+
 export interface ChatProvider {
   readonly name: AiProviderName;
   /** True when the given model can accept audio attachments. */
   supportsAudio(model: string): boolean;
   /** Streams the assistant reply as text deltas. */
-  streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string>;
+  streamChat(config: AssistantConfig, messages: ChatMessage[], onUsage?: UsageSink): AsyncGenerator<string>;
   /** Returns the reply as a JSON object conforming to output.schema (not streamed). */
-  generateStructured(config: AssistantConfig, messages: ChatMessage[], output: StructuredOutput): Promise<unknown>;
+  generateStructured(
+    config: AssistantConfig,
+    messages: ChatMessage[],
+    output: StructuredOutput,
+    onUsage?: UsageSink,
+  ): Promise<unknown>;
+}
+
+/**
+ * Hands usage to the sink without letting a metering bug reach the caller.
+ * Every provider funnels through this for the same reason: the ledger is
+ * bookkeeping, and bookkeeping does not get to break a consultation.
+ */
+export function reportUsage(onUsage: UsageSink | undefined, usage: ChatUsage): void {
+  if (!onUsage) return;
+  try {
+    onUsage(usage);
+  } catch {
+    // Deliberately swallowed: see above.
+  }
 }

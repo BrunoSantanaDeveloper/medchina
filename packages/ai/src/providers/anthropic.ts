@@ -1,7 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 import { StructuredOutputError } from "@flyee/ai/errors";
-import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
+import {
+  type AssistantConfig,
+  type ChatMessage,
+  type ChatProvider,
+  type StructuredOutput,
+  type UsageSink,
+  reportUsage,
+} from "@flyee/ai/types";
 
 function toAnthropicMessages(messages: ChatMessage[]) {
   return messages.map((message) => ({
@@ -31,7 +38,7 @@ export class AnthropicProvider implements ChatProvider {
     return false;
   }
 
-  async *streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string> {
+  async *streamChat(config: AssistantConfig, messages: ChatMessage[], onUsage?: UsageSink): AsyncGenerator<string> {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
     // Without these the SDK defaults to 600s per attempt x 3 attempts — half an
@@ -51,12 +58,22 @@ export class AnthropicProvider implements ChatProvider {
         yield event.delta.text;
       }
     }
+
+    // Usage only settles on the assembled message: message_start carries the
+    // input count and the deltas accumulate the output one.
+    const final = await stream.finalMessage();
+    reportUsage(onUsage, {
+      tokensIn: final.usage.input_tokens ?? 0,
+      tokensOut: final.usage.output_tokens ?? 0,
+      model: final.model ?? config.model,
+    });
   }
 
   async generateStructured(
     config: AssistantConfig,
     messages: ChatMessage[],
     output: StructuredOutput,
+    onUsage?: UsageSink,
   ): Promise<unknown> {
     const key = process.env.ANTHROPIC_API_KEY;
     if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
@@ -79,6 +96,15 @@ export class AnthropicProvider implements ChatProvider {
         },
       ],
       tool_choice: { type: "tool", name: output.name },
+    });
+
+    // Reported before the failure checks below: a call cut at max_tokens or
+    // refused was still billed, and a ledger that counts only successes
+    // understates the bill.
+    reportUsage(onUsage, {
+      tokensIn: response.usage.input_tokens ?? 0,
+      tokensOut: response.usage.output_tokens ?? 0,
+      model: response.model ?? config.model,
     });
 
     // Why it stopped decides what the caller can say. A tool input cut at

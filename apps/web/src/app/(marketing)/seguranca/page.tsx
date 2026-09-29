@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
 import AnamnesisCard from "@/components/marketing/anamnesis-card";
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Cta from "@/components/marketing/cta";
 import FeatureGrid from "@/components/marketing/feature-grid";
 import FeatureRows from "@/components/marketing/feature-row";
@@ -33,6 +34,7 @@ export default async function SecurityPage() {
 
   return (
     <>
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("nav-security"), path: "/seguranca" }]} />
       <Section decor="glow" spacing="compact">
         <SectionHeader
           as="h1"

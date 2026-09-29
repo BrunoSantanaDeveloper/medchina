@@ -1,5 +1,6 @@
 "use client";
 
+import AiPricesAdmin from "./components/ai-prices-admin";
 import AssistantsAdmin from "./components/assistants-admin";
 import McpAdmin from "./components/mcp-admin";
 import Link from "next/link";
@@ -63,6 +64,19 @@ export default function AdminAi() {
             <Card component="section">
               <CardContent>
                 <AssistantsAdmin />
+              </CardContent>
+            </Card>
+          </Grid>
+          {/* The price book sits with the assistants because that is where a
+              model is chosen — and choosing one without saying what it costs
+              is how the platform spent a year unable to price itself. */}
+          <Grid size={12}>
+            <Card component="section">
+              <CardContent className="flex flex-col gap-3">
+                <Typography variant="h6" component="h2" className="mb-0">
+                  Custo dos modelos
+                </Typography>
+                <AiPricesAdmin />
               </CardContent>
             </Card>
           </Grid>

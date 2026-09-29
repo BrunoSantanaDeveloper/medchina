@@ -66,7 +66,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let result;
   try {
-    result = await buildClinicalSummary(input);
+    result = await buildClinicalSummary(input, {
+      orgId: consultation.org_id,
+      refId: consultation.id,
+      client: supabase,
+    });
   } catch (error) {
     // Logged without the model's text (it is the patient's record), and mapped
     // to the code that says whether trying again can help.

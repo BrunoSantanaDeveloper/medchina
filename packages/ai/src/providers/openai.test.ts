@@ -2,6 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import { OpenAiProvider } from "./openai.ts";
+import { strictSchemaViolations } from "../strict-schema.ts";
 import type { AssistantConfig } from "../types.ts";
 
 const config = (model: string): AssistantConfig => ({
@@ -95,6 +96,40 @@ describe("OpenAI provider", () => {
     assert.equal(format.type, "json_schema");
     assert.equal(format.json_schema?.name, "hypotheses");
     assert.equal(format.json_schema?.strict, true);
+  });
+
+  it("converts the schema on the way out, so an optional field is not a 400", async () => {
+    // The domain schemas mark a field optional by leaving it out of `required`.
+    // Strict mode has no absent field, so the provider translates: everything is
+    // listed, objects close, and what was optional becomes nullable. Sending
+    // them as written fails every clinical call with a 400.
+    const schema = {
+      type: "object",
+      properties: {
+        summary: { type: "string" },
+        cupping: { type: "object", properties: { region: { type: "string" } } },
+      },
+      required: ["summary"],
+    } as Record<string, any>;
+
+    const body = await captureRequest(() =>
+      provider.generateStructured(config("gpt-4o"), [{ role: "user", content: "oi" }], {
+        name: "plan",
+        schema,
+      }),
+    );
+
+    const sent = (body.response_format as { json_schema: { schema: Record<string, any> } }).json_schema.schema;
+    assert.equal(sent.additionalProperties, false);
+    assert.deepEqual(sent.required, ["summary", "cupping"]);
+    assert.equal(sent.properties.summary.type, "string");
+    assert.deepEqual(sent.properties.cupping.type, ["object", "null"]);
+    assert.equal(sent.properties.cupping.additionalProperties, false);
+    assert.deepEqual(strictSchemaViolations(sent), []);
+    // The domain schema is a module-level constant shared with the Gemini
+    // provider: mutating it here would quietly rewrite the other provider too.
+    assert.deepEqual(schema.required, ["summary"]);
+    assert.equal(schema.additionalProperties, undefined);
   });
 
   it("maps audio attachments to the format the API names", async () => {

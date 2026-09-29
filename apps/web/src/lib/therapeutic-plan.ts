@@ -1,3 +1,4 @@
+import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import { complaintOnOneLine, complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { detectSafetyFlags, type SafetyFlag, safetyFlagTerm } from "@/lib/clinical-safety";
@@ -190,8 +191,12 @@ const MODALITY_SCHEMAS: Record<PracticeModality, object> = {
  * The scope is enforced by the SCHEMA, not only by the prompt: a modality she
  * does not practise has no property to be written into, so a fluent model
  * cannot talk her into one.
+ *
+ * Exported for the strict-mode conformance test: OpenAI serves as the fallback
+ * provider, and a schema it cannot accept only shows up as a 400 in production,
+ * on the day the primary provider is down.
  */
-function buildResultSchema(scope: readonly PracticeModality[]) {
+export function buildResultSchema(scope: readonly PracticeModality[]) {
   return {
     type: "object",
     properties: {
@@ -279,7 +284,11 @@ const cleanList = (list: unknown): string[] =>
  * Prepare a therapeutic-plan draft. `supabase` must read the knowledge
  * collections (RLS applies).
  */
-export async function buildTherapeuticPlan(supabase: SupabaseClient, input: PlanInput): Promise<TherapeuticPlanResult> {
+export async function buildTherapeuticPlan(
+  supabase: SupabaseClient,
+  input: PlanInput,
+  spend?: AiSpendContext,
+): Promise<TherapeuticPlanResult> {
   const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
   const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
   const scope = resolvePlanScope(input.practiceModalities);
@@ -375,6 +384,10 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
     })
     .join("\n\n---\n\n");
 
+  // Metered so the account list can say what this consultation cost. The
+  // meter is inert without a spend context (scripts, tests) and can never
+  // fail the call.
+  const meter = aiSpendMeter(spend && { ...spend, feature: "plan", provider, model });
   const raw = (await getChatProvider(provider).generateStructured(
     {
       provider,
@@ -390,11 +403,14 @@ export async function buildTherapeuticPlan(supabase: SupabaseClient, input: Plan
       description: "A therapeutic plan draft for professional validation",
       schema: buildResultSchema(scope),
     },
+    meter.sink,
   )) as {
     objective?: string;
     modalities?: Record<string, Record<string, unknown>>;
     citations?: number[];
   };
+
+  await meter.settled();
 
   // ---- Verify + assemble ---------------------------------------------------
   // The scope is re-applied here on purpose: the schema already excludes what

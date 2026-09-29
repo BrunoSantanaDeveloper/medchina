@@ -27,6 +27,23 @@ Audio for Anthropic-backed assistants: route the assistant through Gemini, or ad
 
 Per provider: Anthropic uses forced tool use (`tool_choice`), Gemini uses `responseJsonSchema` (Gemini 2.5+), OpenRouter uses `response_format: json_schema` (model support varies; unsupported models surface a provider error).
 
+## Usage reporting (what the call cost)
+
+Both `streamChat` and `generateStructured` take an optional `onUsage` sink and call it once with a `ChatUsage`: text
+tokens in, everything billed as output (reasoning tokens included), and — where the provider separates it — audio
+input tokens, which are priced apart.
+
+Two rules the providers follow, and any new provider must:
+
+- **Report before the failure checks.** A call cut at `max_tokens`, refused by a safety filter, or returning invalid
+  JSON was billed in full; a sink that only fires on success understates the bill.
+- **Never let metering fail the call.** Every provider goes through `reportUsage()`, which swallows anything the sink
+  throws. Bookkeeping does not get to break a consultation.
+
+Callers in this repo hand the sink to `recordAiSpend` / `aiSpendMeter` (`apps/web/src/lib/ai-spend.ts`), which writes
+the `ai_spend` ledger of migration 0115 and prices it in the database. A provider that cannot report usage simply
+passes nothing: the call is then recorded as unpriced rather than as free.
+
 ## Knowledge grounding
 
 Assistants with `config.knowledge` (see `packages/knowledge/README.md`) get retrieved excerpts appended to their system prompt, labeled by trust level, with instructions to cite `[n]` and never invent evidence.

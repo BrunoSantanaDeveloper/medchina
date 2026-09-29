@@ -57,15 +57,18 @@ async function generateFinalSummary(
     // this route open until the platform killed it, which read as "the
     // consultation will not finalize".
     const suggested = await Promise.race([
-      buildClinicalSummary({
-        chiefComplaint: consultation.chief_complaint,
-        answers: (answers ?? []).map((row) => ({
-          blockKey: row.block_key,
-          fieldKey: row.field_key,
-          value: row.value,
-          state: row.state,
-        })),
-      }),
+      buildClinicalSummary(
+        {
+          chiefComplaint: consultation.chief_complaint,
+          answers: (answers ?? []).map((row) => ({
+            blockKey: row.block_key,
+            fieldKey: row.field_key,
+            value: row.value,
+            state: row.state,
+          })),
+        },
+        { orgId: consultation.org_id, refId: consultationId, client: supabase },
+      ),
       new Promise<never>((_, rejectRace) =>
         setTimeout(() => rejectRace(new Error("final summary timed out — finalization proceeds without it")), 45_000),
       ),

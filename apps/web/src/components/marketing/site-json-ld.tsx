@@ -22,7 +22,9 @@ export default function SiteJsonLd() {
             "@id": `${BRAND.siteUrl}/#organization`,
             name: BRAND.name,
             url: BRAND.siteUrl,
-            logo: `${BRAND.siteUrl}${BRAND.favicon.light}`,
+            // The square 512px mark, not a favicon: this is the logo a
+            // knowledge panel renders, and Google wants a real image here.
+            logo: `${BRAND.siteUrl}${BRAND.mark}`,
             description: BRAND.description,
           },
           {

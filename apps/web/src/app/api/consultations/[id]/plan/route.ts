@@ -97,7 +97,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let result;
   try {
-    result = await buildTherapeuticPlan(supabase, input);
+    result = await buildTherapeuticPlan(supabase, input, {
+      orgId: consultation.org_id,
+      refId: consultation.id,
+      client: supabase,
+    });
   } catch (error) {
     // Real provider error stays SERVER-side (never to a clinical client), but
     // is logged so a failure is diagnosable instead of an opaque 503 — the

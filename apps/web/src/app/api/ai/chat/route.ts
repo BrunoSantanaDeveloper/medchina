@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { recordAiSpend } from "@/lib/ai-spend";
 import { recordAudit } from "@/lib/audit";
 import { COLLECTION_KIND, type KnowledgeSourceRef, SOURCES_SENTINEL } from "@/lib/clinical-library";
 import { describePatientCase, loadPatientCase } from "@/lib/patient-case";
 import { buildPracticeScopeContext, normalizeScope } from "@/lib/practice-scope-context";
 import { alertAfterLibraryMessage, getAudioAllowance } from "@/lib/usage";
-import { type ChatAttachment, type ChatMessage, getChatProvider } from "@flyee/ai";
+import { type ChatAttachment, type ChatMessage, type ChatUsage, getChatProvider } from "@flyee/ai";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
 import {
@@ -348,6 +349,10 @@ export async function POST(request: Request) {
 
   const encoder = new TextEncoder();
   let fullText = "";
+  // What the provider says this answer cost us. Collected during the
+  // stream, written once it ends — including when it ended badly, because
+  // a half-generated answer was billed like a whole one.
+  let usage: ChatUsage | null = null;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -368,6 +373,9 @@ export async function POST(request: Request) {
             maxTokens: assistant.max_tokens,
           },
           chatMessages,
+          (reported) => {
+            usage = reported;
+          },
         );
         for await (const delta of generator) {
           fullText += delta;
@@ -379,6 +387,21 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`\n[error] ${message}`));
         controller.close();
       } finally {
+        // Spend is recorded whether or not text survived: the money left
+        // regardless. The library quota below is a different question — it
+        // meters what the professional GOT, so it still waits for an answer.
+        if (usage) {
+          await recordAiSpend({
+            orgId: body.orgId,
+            // A conversation pinned to a patient is a Pro case review, not a
+            // study question, and the bill has to be able to tell them apart.
+            feature: casePatientId ? "case_review" : "library",
+            provider: assistant.provider,
+            model: assistant.model,
+            usage,
+            refId: conversationId,
+          });
+        }
         if (fullText) {
           await supabase.from("messages").insert({
             conversation_id: conversationId,

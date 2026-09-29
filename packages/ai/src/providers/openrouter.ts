@@ -1,5 +1,13 @@
 import { StructuredOutputError } from "@flyee/ai/errors";
-import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
+import {
+  type AssistantConfig,
+  type ChatMessage,
+  type ChatProvider,
+  type ChatUsage,
+  type StructuredOutput,
+  type UsageSink,
+  reportUsage,
+} from "@flyee/ai/types";
 
 function toOpenRouterMessages(config: AssistantConfig, messages: ChatMessage[]) {
   return [
@@ -41,7 +49,7 @@ export class OpenRouterProvider implements ChatProvider {
     return true;
   }
 
-  async *streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string> {
+  async *streamChat(config: AssistantConfig, messages: ChatMessage[], onUsage?: UsageSink): AsyncGenerator<string> {
     const key = process.env.OPENROUTER_API_KEY;
     if (!key) throw new Error("OPENROUTER_API_KEY is not set");
 
@@ -57,6 +65,9 @@ export class OpenRouterProvider implements ChatProvider {
       body: JSON.stringify({
         model: config.model,
         stream: true,
+        // Without this the stream ends with no usage at all and the call
+        // lands in the ledger as an unpriceable zero.
+        stream_options: { include_usage: true },
         temperature: config.temperature,
         max_tokens: config.maxTokens,
         messages: toOpenRouterMessages(config, messages),
@@ -71,6 +82,7 @@ export class OpenRouterProvider implements ChatProvider {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let usage: ChatUsage | null = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -83,9 +95,25 @@ export class OpenRouterProvider implements ChatProvider {
         const trimmed = line.trim();
         if (!trimmed.startsWith("data:")) continue;
         const payload = trimmed.slice(5).trim();
-        if (payload === "[DONE]") return;
+        if (payload === "[DONE]") {
+          if (usage) reportUsage(onUsage, usage);
+          return;
+        }
         try {
-          const parsed = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] };
+          const parsed = JSON.parse(payload) as {
+            choices?: { delta?: { content?: string } }[];
+            usage?: { prompt_tokens?: number; completion_tokens?: number };
+            model?: string;
+          };
+          // The usage chunk has no choices: it is the last thing the stream
+          // sends before [DONE], and it is the only place a cost can come from.
+          if (parsed.usage) {
+            usage = {
+              tokensIn: parsed.usage.prompt_tokens ?? 0,
+              tokensOut: parsed.usage.completion_tokens ?? 0,
+              model: parsed.model ?? config.model,
+            };
+          }
           const delta = parsed.choices?.[0]?.delta?.content;
           if (delta) yield delta;
         } catch {
@@ -99,6 +127,7 @@ export class OpenRouterProvider implements ChatProvider {
     config: AssistantConfig,
     messages: ChatMessage[],
     output: StructuredOutput,
+    onUsage?: UsageSink,
   ): Promise<unknown> {
     const key = process.env.OPENROUTER_API_KEY;
     if (!key) throw new Error("OPENROUTER_API_KEY is not set");
@@ -136,7 +165,18 @@ export class OpenRouterProvider implements ChatProvider {
 
     const data = (await response.json()) as {
       choices?: { message?: { content?: string; refusal?: string | null }; finish_reason?: string | null }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      model?: string;
     };
+    // Before the failure checks below: a refused or truncated answer was
+    // billed like any other.
+    if (data.usage) {
+      reportUsage(onUsage, {
+        tokensIn: data.usage.prompt_tokens ?? 0,
+        tokensOut: data.usage.completion_tokens ?? 0,
+        model: data.model ?? config.model,
+      });
+    }
     const content = data.choices?.[0]?.message?.content;
     const finishReason = data.choices?.[0]?.finish_reason ?? undefined;
     if (data.choices?.[0]?.message?.refusal || finishReason === "content_filter") {

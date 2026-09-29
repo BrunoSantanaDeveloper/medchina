@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Prose from "@/components/marketing/prose";
 import Section from "@/components/marketing/section";
 import SectionHeader from "@/components/marketing/section-header";
@@ -28,6 +29,7 @@ export default async function CookiesPage() {
 
   return (
     <Section spacing="compact">
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("footer-cookies"), path: "/legal/cookies" }]} />
       <SectionHeader title={t("cookies-title")} subtitle={t("legal-updated")} align="start" className="mx-0" as="h1" />
       <Prose className="mx-0">
         {[1, 2, 3, 4, 5].map((index) => (

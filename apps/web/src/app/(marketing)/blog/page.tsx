@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Cta from "@/components/marketing/cta";
 import Reveal from "@/components/marketing/reveal";
 import Section from "@/components/marketing/section";
@@ -30,6 +31,7 @@ export default async function BlogPage() {
 
   return (
     <>
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("footer-blog"), path: "/blog" }]} />
       <Section decor="glow">
         <SectionHeader as="h1" eyebrow={t("blog-eyebrow")} title={t("blog-title")} subtitle={t("blog-subtitle")} />
       </Section>

@@ -1,5 +1,14 @@
 import { StructuredOutputError } from "@flyee/ai/errors";
-import type { AssistantConfig, ChatMessage, ChatProvider, StructuredOutput } from "../types";
+import { toStrictJsonSchema } from "@flyee/ai/strict-schema";
+import {
+  type AssistantConfig,
+  type ChatMessage,
+  type ChatProvider,
+  type ChatUsage,
+  type StructuredOutput,
+  type UsageSink,
+  reportUsage,
+} from "@flyee/ai/types";
 
 /** Models that accept audio parts on the chat-completions API. */
 const AUDIO_MODEL_PATTERN = /audio-preview|gpt-4o-audio|gpt-audio/i;
@@ -90,7 +99,7 @@ export class OpenAiProvider implements ChatProvider {
     };
   }
 
-  async *streamChat(config: AssistantConfig, messages: ChatMessage[]): AsyncGenerator<string> {
+  async *streamChat(config: AssistantConfig, messages: ChatMessage[], onUsage?: UsageSink): AsyncGenerator<string> {
     const { url, key } = this.endpoint();
 
     const response = await fetch(url, {
@@ -99,7 +108,13 @@ export class OpenAiProvider implements ChatProvider {
       signal: AbortSignal.timeout(90_000),
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ ...this.baseBody(config, messages), stream: true }),
+      // Without stream_options the stream ends with no usage at all and
+      // the call lands in the ledger as an unpriceable zero.
+      body: JSON.stringify({
+        ...this.baseBody(config, messages),
+        stream: true,
+        stream_options: { include_usage: true },
+      }),
     });
 
     if (!response.ok || !response.body) {
@@ -110,6 +125,7 @@ export class OpenAiProvider implements ChatProvider {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    let usage: ChatUsage | null = null;
 
     for (;;) {
       const { done, value } = await reader.read();
@@ -123,9 +139,25 @@ export class OpenAiProvider implements ChatProvider {
         const trimmed = line.trim();
         if (!trimmed.startsWith("data:")) continue;
         const payload = trimmed.slice(5).trim();
-        if (payload === "[DONE]") return;
+        if (payload === "[DONE]") {
+          if (usage) reportUsage(onUsage, usage);
+          return;
+        }
         try {
-          const parsed = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] };
+          const parsed = JSON.parse(payload) as {
+            choices?: { delta?: { content?: string } }[];
+            usage?: { prompt_tokens?: number; completion_tokens?: number };
+            model?: string;
+          };
+          // The usage chunk has no choices: it is the last thing the stream
+          // sends before [DONE], and it is the only place a cost can come from.
+          if (parsed.usage) {
+            usage = {
+              tokensIn: parsed.usage.prompt_tokens ?? 0,
+              tokensOut: parsed.usage.completion_tokens ?? 0,
+              model: parsed.model ?? config.model,
+            };
+          }
           const delta = parsed.choices?.[0]?.delta?.content;
           if (delta) yield delta;
         } catch {
@@ -139,6 +171,7 @@ export class OpenAiProvider implements ChatProvider {
     config: AssistantConfig,
     messages: ChatMessage[],
     output: StructuredOutput,
+    onUsage?: UsageSink,
   ): Promise<unknown> {
     const { url, key } = this.endpoint();
 
@@ -152,7 +185,16 @@ export class OpenAiProvider implements ChatProvider {
         ...this.baseBody(config, messages),
         response_format: {
           type: "json_schema",
-          json_schema: { name: output.name, description: output.description, strict: true, schema: output.schema },
+          json_schema: {
+            name: output.name,
+            description: output.description,
+            strict: true,
+            // Translated, not written this way at the source: the domain
+            // schemas mark a field optional by leaving it out of `required`,
+            // and strict mode has no absent field — only an explicit null.
+            // Sending them unconverted is a 400 on every clinical call.
+            schema: toStrictJsonSchema(output.schema),
+          },
         },
       }),
     });
@@ -164,7 +206,18 @@ export class OpenAiProvider implements ChatProvider {
 
     const data = (await response.json()) as {
       choices?: { message?: { content?: string; refusal?: string | null }; finish_reason?: string | null }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      model?: string;
     };
+    // Before the failure checks below: a refused or truncated answer was
+    // billed like any other.
+    if (data.usage) {
+      reportUsage(onUsage, {
+        tokensIn: data.usage.prompt_tokens ?? 0,
+        tokensOut: data.usage.completion_tokens ?? 0,
+        model: data.model ?? config.model,
+      });
+    }
     const choice = data.choices?.[0]?.message;
     const finishReason = data.choices?.[0]?.finish_reason ?? undefined;
     // A refusal is a deliberate model decision, not a malformed reply: saying

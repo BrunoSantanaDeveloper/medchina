@@ -1,3 +1,4 @@
+import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import { anamnesisBlocksFor } from "@/lib/anamnesis";
 import { complaintOnOneLine, complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
@@ -131,7 +132,12 @@ const ESSENTIAL_FIELD_QUESTIONS: Record<(typeof ESSENTIAL_FIELDS)[number], strin
   "tcm.pulse": "Palpar o pulso?",
 };
 
-const RESULT_SCHEMA = {
+/**
+ * Exported for the strict-mode conformance test: OpenAI serves as the fallback
+ * provider, and a schema it cannot accept only shows up as a 400 in production,
+ * on the day the primary provider is down.
+ */
+export const RESULT_SCHEMA = {
   type: "object",
   properties: {
     hypotheses: {
@@ -372,7 +378,11 @@ async function retrieveForCase(
  * Retrieve from the clinical library, then reason over the recorded case.
  * `supabase` must be able to read the knowledge collections (RLS applies).
  */
-export async function buildHypotheses(supabase: SupabaseClient, recorded: RecordedCase): Promise<ReasoningResult> {
+export async function buildHypotheses(
+  supabase: SupabaseClient,
+  recorded: RecordedCase,
+  spend?: AiSpendContext,
+): Promise<ReasoningResult> {
   const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
   const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
 
@@ -411,6 +421,10 @@ export async function buildHypotheses(supabase: SupabaseClient, recorded: Record
   const absent = absentFields(recorded);
   const prompt = buildPrompt(recorded, buildLibraryContext(retrieved, kindByCollection), absent);
 
+  // Metered so the account list can say what this consultation cost. The
+  // meter is inert without a spend context (scripts, tests) and can never
+  // fail the call.
+  const meter = aiSpendMeter(spend && { ...spend, feature: "hypotheses", provider, model });
   const raw = (await getChatProvider(provider).generateStructured(
     {
       provider,
@@ -426,6 +440,7 @@ export async function buildHypotheses(supabase: SupabaseClient, recorded: Record
       description: "Pattern hypotheses for professional validation",
       schema: RESULT_SCHEMA,
     },
+    meter.sink,
   )) as {
     hypotheses?: {
       pattern?: string;
@@ -437,6 +452,8 @@ export async function buildHypotheses(supabase: SupabaseClient, recorded: Record
       citations?: number[];
     }[];
   };
+
+  await meter.settled();
 
   // ---- Verify (the rules the prompt cannot be trusted with) ----------------
   const recordedFields = new Set(recorded.answers.map((a) => fieldLabel(a.blockKey, a.fieldKey)));

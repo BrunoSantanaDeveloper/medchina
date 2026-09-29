@@ -1,3 +1,4 @@
+import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import { complaintOnOneLine } from "@/lib/chief-complaint";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
 
@@ -31,7 +32,12 @@ export interface SummaryResult {
   promptVersion: string;
 }
 
-const RESULT_SCHEMA = {
+/**
+ * Exported for the strict-mode conformance test: OpenAI serves as the fallback
+ * provider, and a schema it cannot accept only shows up as a 400 in production,
+ * on the day the primary provider is down.
+ */
+export const RESULT_SCHEMA = {
   type: "object",
   properties: {
     summary: {
@@ -55,7 +61,7 @@ function describeCase(input: SummaryInput): string {
   return lines.join("\n");
 }
 
-export async function buildClinicalSummary(input: SummaryInput): Promise<SummaryResult> {
+export async function buildClinicalSummary(input: SummaryInput, spend?: AiSpendContext): Promise<SummaryResult> {
   const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
   const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
 
@@ -76,6 +82,10 @@ export async function buildClinicalSummary(input: SummaryInput): Promise<Summary
     describeCase(input) || "(nothing recorded)",
   ].join("\n");
 
+  // Metered so the account list can say what this consultation cost. The
+  // meter is inert without a spend context (scripts, tests) and can never
+  // fail the call.
+  const meter = aiSpendMeter(spend && { ...spend, feature: "anamnesis", provider, model });
   const raw = (await getChatProvider(provider).generateStructured(
     {
       provider,
@@ -91,7 +101,9 @@ export async function buildClinicalSummary(input: SummaryInput): Promise<Summary
       description: "A draft clinical summary for professional review",
       schema: RESULT_SCHEMA,
     },
+    meter.sink,
   )) as { summary?: string };
+  await meter.settled();
 
   return { summary: String(raw.summary ?? "").trim(), model, promptVersion: SUMMARY_PROMPT_VERSION };
 }

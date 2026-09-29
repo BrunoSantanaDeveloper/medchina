@@ -57,19 +57,26 @@ export const metadata: Metadata = {
   description: BRAND.description,
   icons: {
     icon: [
-      {
-        media: "(prefers-color-scheme: dark)",
-        url: BRAND.favicon.dark,
-        href: BRAND.favicon.dark,
-      },
-      {
-        media: "(prefers-color-scheme: light)",
-        url: BRAND.favicon.light,
-        href: BRAND.favicon.light,
-      },
+      /**
+       * UNCONDITIONAL first, and it has to stay here: Googlebot does not
+       * evaluate `prefers-color-scheme`, so a list of only theme-aware icons
+       * left it with nothing declared and it fell back to /favicon.ico — 32×32,
+       * upscaled into the search result. This one is the 512×512 square master
+       * mark, which Google downscales instead.
+       */
+      { url: BRAND.mark, type: "image/png", sizes: "512x512" },
+      { media: "(prefers-color-scheme: dark)", url: BRAND.favicon.dark },
+      { media: "(prefers-color-scheme: light)", url: BRAND.favicon.light },
     ],
-    apple: BRAND.favicon.light,
+    // A touch icon is a home-screen tile: it needs the PNG mark, not a 32px .ico.
+    apple: BRAND.mark,
   },
+  /**
+   * Lets Google show a full-size image preview instead of the default thumbnail
+   * cap. Harmless where it does not apply — a `noindex` page overrides this
+   * whole field, and robots.txt keeps the app out regardless.
+   */
+  robots: { "max-image-preview": "large" },
 };
 
 export default async function RootLayout({

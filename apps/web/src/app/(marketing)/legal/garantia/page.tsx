@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Prose from "@/components/marketing/prose";
 import Section from "@/components/marketing/section";
 import SectionHeader from "@/components/marketing/section-header";
@@ -40,6 +41,7 @@ export default async function GuaranteePage() {
 
   return (
     <Section spacing="compact">
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("footer-guarantee"), path: "/legal/garantia" }]} />
       <SectionHeader
         title={t("guarantee-title", { days })}
         subtitle={t("guarantee-subtitle", { days })}

@@ -20,6 +20,20 @@ export const EMBEDDING_DIMENSIONS = 768;
 
 export const isEmbeddingConfigured = () => Boolean(process.env.GEMINI_API_KEY);
 
+/**
+ * NOT metered in `ai_spend` (migration 0115), unlike every other provider
+ * call on the platform. Two reasons, both worth revisiting:
+ *
+ *   * embedContent does not report token usage the way generateContent does,
+ *     so a row here would be a call with no units — indistinguishable in the
+ *     console from a model whose price is missing;
+ *   * the org is not known at this layer. Query embeddings are issued by
+ *     retrieval, which runs inside hypotheses, plans and the library chat —
+ *     all of which already record their own spend.
+ *
+ * The ledger already accepts `feature = 'embedding'`: when the API starts
+ * reporting counts, thread an orgId through embed() and record here.
+ */
 const BATCH_SIZE = 100;
 
 async function embed(texts: string[], taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY"): Promise<number[][]> {

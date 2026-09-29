@@ -153,6 +153,40 @@ export type Dossier = {
     };
     plans: { ai: number; aiValidated: number; manual: number };
     reasoningPaywall: { viewed: number; clicked: number };
+    /**
+     * What this account'''s AI cost us (migrations 0115/0117), in USD micros.
+     *
+     * `unpricedCalls` and `estimatedCalls` ride with every line for a reason:
+     * a cost of zero beside 200 unpriced calls is a price book nobody filled
+     * in, and an estimated line is history rebuilt from recorded seconds. The
+     * UI must never let either read as a measured bill.
+     */
+    spend: {
+      usdToBrl: number | null;
+      window: {
+        costUsdMicros: number;
+        calls: number;
+        unpricedCalls: number;
+        estimatedCalls: number;
+        lifetimeCostUsdMicros: number;
+        lifetimeCalls: number;
+        firstAt: string | null;
+        lastAt: string | null;
+      };
+      byFeature: {
+        feature: string;
+        costUsdMicros: number;
+        calls: number;
+        unpricedCalls: number;
+        estimatedCalls: number;
+        tokensIn: number;
+        tokensOut: number;
+        audioSeconds: number;
+        lastAt: string | null;
+      }[];
+      byModel: { provider: string; model: string; costUsdMicros: number; calls: number; priced: boolean }[];
+      monthly: { month: string; costUsdMicros: number; calls: number }[];
+    };
   };
   consent: {
     activePatients: number;

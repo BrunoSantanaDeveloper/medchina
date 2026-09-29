@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
+import BreadcrumbJsonLd from "@/components/marketing/breadcrumb-json-ld";
 import Cta from "@/components/marketing/cta";
 import FeatureGrid from "@/components/marketing/feature-grid";
 import Prose from "@/components/marketing/prose";
@@ -27,6 +28,7 @@ export default async function AboutPage() {
 
   return (
     <>
+      <BreadcrumbJsonLd home={t("nav-home")} trail={[{ name: t("nav-about"), path: "/sobre" }]} />
       <Section decor="glow">
         <SectionHeader eyebrow={t("about-eyebrow")} title={t("about-title")} subtitle={t("about-subtitle")} as="h1" />
         <Reveal>

@@ -119,7 +119,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let result;
   try {
-    result = await buildHypotheses(supabase, recorded);
+    result = await buildHypotheses(supabase, recorded, {
+      orgId: consultation.org_id,
+      refId: consultation.id,
+      client: supabase,
+    });
   } catch (error) {
     // The real provider error (invalid/restricted key, model access, safety
     // block, empty/invalid output) must never reach a clinical client, but

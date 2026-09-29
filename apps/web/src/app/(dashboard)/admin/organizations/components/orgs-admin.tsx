@@ -4,6 +4,7 @@ import { listUserAdminInfo, type UserAdminInfo } from "../actions";
 import AccountDetailDialog from "./account-detail-dialog";
 import {
   ACCOUNT_FILTERS,
+  type AccountCountKey,
   type AccountOverview,
   type AccountsOverview,
   type AccountTotals,
@@ -11,8 +12,10 @@ import {
   FLAG_LABEL,
   formatDate,
   formatMoney,
+  formatSpend,
   renewalLabel,
   sinceDays,
+  SPEND_FEATURE,
   SUBSCRIPTION_STATUS_LABEL,
   trialLabel,
 } from "./account-overview";
@@ -22,6 +25,7 @@ import PersonWithoutWorkspaceDialog, {
   type PeopleWithoutWorkspace,
   type PersonWithoutWorkspace,
 } from "./person-without-workspace";
+import Link from "next/link";
 import { useSnackbar } from "notistack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -65,6 +69,36 @@ import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
 type AccountRow = AccountOverview & { id: string };
+
+/**
+ * The platform's AI bill for the window (migration 0115).
+ *
+ * A second query beside the account list on purpose: this one includes spend
+ * that belongs to NO account — the operator's own /admin/insights questions,
+ * shared-library ingestion — which by definition cannot appear in a list of
+ * accounts. The per-account totals and the cost filters still come from the
+ * account query, so a tile can never disagree with the rows under it.
+ */
+type SpendOverview = {
+  windowDays: number;
+  since: string;
+  measuringSince: string | null;
+  usdToBrl: number | null;
+  pricedModels: number;
+  totals: {
+    costUsdMicros: number;
+    calls: number;
+    unpricedCalls: number;
+    estimatedCalls: number;
+    audioSeconds: number;
+    accountCostUsdMicros: number;
+    platformCostUsdMicros: number;
+    accountsWithSpend: number;
+  };
+  byFeature: { feature: string; costUsdMicros: number; calls: number; unpricedCalls: number }[];
+  byModel: { provider: string; model: string; costUsdMicros: number; calls: number; priced: boolean }[];
+  topAccounts: { orgId: string; name: string; costUsdMicros: number; calls: number }[];
+};
 
 /**
  * One row for either kind of subject the operator searches for.
@@ -117,7 +151,7 @@ const STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> 
  */
 const HEADLINE_TILES: {
   key: string;
-  total: keyof AccountTotals;
+  total: AccountCountKey;
   label: string;
   hint: string;
   tone: TileTone;
@@ -230,6 +264,7 @@ export default function OrgsAdmin() {
   const [authInfo, setAuthInfo] = useState<Record<string, UserAdminInfo>>({});
   const [superadminIds, setSuperadminIds] = useState<Set<string>>(() => new Set());
   const { enqueueSnackbar } = useSnackbar();
+  const [spend, setSpend] = useState<SpendOverview | null>(null);
   const [membersOrg, setMembersOrg] = useState<AccountRow | null>(null);
   const [members, setMembers] = useState<Record<string, MemberState>>({});
   // Mirrors which rosters loaded SUCCESSFULLY, so the column defs stay stable
@@ -266,6 +301,11 @@ export default function OrgsAdmin() {
       supabase.rpc("admin_people_without_workspace"),
     ]);
     if (!orphans.error) setPeople(orphans.data as PeopleWithoutWorkspace);
+    // The bill for the same 30 days the rows describe. A failure here leaves
+    // the panel out rather than the list: knowing who needs a phone call does
+    // not depend on knowing what the month cost.
+    const bill = await supabase.rpc("admin_ai_spend_overview", { window_days: 30 });
+    if (!bill.error) setSpend(bill.data as SpendOverview);
     setSelfId(auth.user?.id ?? null);
     setSuperadminIds(new Set((roles.data ?? []).map((row) => row.id as string)));
     if (info.ok) {
@@ -557,6 +597,52 @@ export default function OrgsAdmin() {
         },
       },
       {
+        // The other half of every row: revenue has been here since 0104, and
+        // what the account COSTS us was the number nobody could see.
+        field: "aiCost",
+        headerName: "Custo IA (30 d)",
+        type: "number",
+        minWidth: 150,
+        align: "left",
+        headerAlign: "left",
+        // Sorted on the raw micros, not the formatted string: "R$ 0,9800"
+        // sorts above "R$ 12,00" as text, and this column exists to be sorted.
+        valueGetter: (_, row) => row.account?.aiCost.usdMicros30d ?? 0,
+        renderCell: (params: GridRenderCellParams<GridRow, number>) => {
+          const cost = params.row.account?.aiCost;
+          if (!cost) {
+            return (
+              <Box className="flex h-full items-center">
+                <Typography variant="body2" className="text-text-secondary">
+                  —
+                </Typography>
+              </Box>
+            );
+          }
+          const rate = totals?.usdToBrl ?? null;
+          const margin = cost.marginCents;
+          return (
+            <Box className="flex h-full flex-col justify-center">
+              <Typography
+                variant="body2"
+                className={margin !== null && margin < 0 ? "text-accent-3 tabular-nums" : "tabular-nums"}
+              >
+                {formatSpend(cost.usdMicros30d, rate)}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary truncate">
+                {cost.calls30d === 0
+                  ? "nenhuma chamada"
+                  : cost.unpriced30d > 0
+                    ? `${cost.calls30d} chamadas · ${cost.unpriced30d} sem preço`
+                    : margin !== null
+                      ? `margem ${formatMoney(margin, totals?.currency)}`
+                      : `${cost.calls30d} chamadas`}
+              </Typography>
+            </Box>
+          );
+        },
+      },
+      {
         field: "signals",
         headerName: "Sinais",
         minWidth: 160,
@@ -682,7 +768,7 @@ export default function OrgsAdmin() {
         },
       },
     ],
-    [authInfo, buildItems, openMembers, superadminIds, suspendingId],
+    [authInfo, buildItems, openMembers, superadminIds, suspendingId, totals],
   );
 
   const searching = query.trim().length > 0;
@@ -760,6 +846,42 @@ export default function OrgsAdmin() {
     };
   }, [totals]);
 
+  /**
+   * The AI bill for the same 30 days, split by what the money bought.
+   *
+   * Deliberately the same shape as the revenue band above it: the two
+   * questions an operator asks about a month are what came in and what went
+   * out, and they should read the same way. The bars are per FEATURE rather
+   * than per account — "transcrição" is a product decision, and one
+   * expensive account is a phone call.
+   */
+  const bill = useMemo(() => {
+    if (!spend) return null;
+    const rate = spend.usdToBrl;
+    const items = spend.byFeature
+      .filter((line) => line.costUsdMicros > 0)
+      .map((line) => ({
+        key: line.feature,
+        label: `${SPEND_FEATURE[line.feature] ?? line.feature} · ${formatSpend(line.costUsdMicros, rate)}`,
+        value: line.costUsdMicros,
+        tone: line.feature === "transcription" ? ("primary" as const) : ("secondary" as const),
+        hint: `${line.calls} chamada(s)${line.unpricedCalls > 0 ? ` · ${line.unpricedCalls} sem preço` : ""}`,
+      }));
+    return {
+      total: spend.totals.costUsdMicros,
+      items,
+      rate,
+      // Everything below is a caveat the number cannot carry on its own.
+      unpriced: spend.totals.unpricedCalls,
+      estimated: spend.totals.estimatedCalls,
+      platform: spend.totals.platformCostUsdMicros,
+      accounts: spend.totals.accountsWithSpend,
+      pricedModels: spend.pricedModels,
+      measuringSince: spend.measuringSince,
+      topModel: spend.byModel[0] ?? null,
+    };
+  }, [spend]);
+
   return (
     <Box className="flex flex-col gap-4">
       {/* Says WHY half the menu is missing, instead of letting the operator
@@ -816,6 +938,75 @@ export default function OrgsAdmin() {
                 Nenhuma conta gera receita ainda. Assim que a primeira assinatura for cobrada, a divisão entre
                 garantido, em risco e cortesia aparece aqui.
               </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* What the month COST, beside what it earned. The caveats are part of
+          the number, not a footnote: an unpriced call is money we spent and
+          cannot name, and an estimated one is history rebuilt from recorded
+          seconds (migration 0115) rather than a measured bill. */}
+      {bill && (
+        <Card component="section">
+          <CardContent className="flex flex-col gap-4">
+            <Box className="flex flex-row items-baseline justify-between gap-4">
+              <Typography variant="h5" component="h2" className="card-title mb-0">
+                Custo de IA (30 dias)
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary tabular-nums">
+                {formatSpend(bill.total, bill.rate)}
+              </Typography>
+            </Box>
+
+            {bill.pricedModels === 0 ? (
+              // Zero with no price book is not a cheap month — it is a console
+              // that cannot answer the question yet. Say which, and where to fix it.
+              <Alert severity="info" className="neutral bg-background-paper/60!">
+                Nenhum preço configurado ainda, então todo custo aparece como zero. Informe o preço por milhão de tokens
+                de cada modelo em <Link href="/admin/ai">Assistentes de IA</Link> para estes números passarem a valer.
+              </Alert>
+            ) : bill.total > 0 ? (
+              <MetricBars items={bill.items} total={bill.total} />
+            ) : (
+              <Typography variant="body2" className="text-text-secondary">
+                Nenhuma chamada de IA nos últimos 30 dias.
+              </Typography>
+            )}
+
+            <Box className="flex flex-row flex-wrap gap-x-6 gap-y-1">
+              <Typography variant="body2" className="text-text-secondary">
+                {bill.accounts} conta(s) com gasto
+              </Typography>
+              {bill.platform > 0 && (
+                <Typography variant="body2" className="text-text-secondary">
+                  Plataforma (insights, biblioteca): {formatSpend(bill.platform, bill.rate)}
+                </Typography>
+              )}
+              {bill.topModel && (
+                <Typography variant="body2" className="text-text-secondary">
+                  Modelo mais caro: {bill.topModel.model} ({formatSpend(bill.topModel.costUsdMicros, bill.rate)})
+                </Typography>
+              )}
+              {bill.rate === null && bill.total > 0 && (
+                <Typography variant="body2" className="text-text-secondary">
+                  Valores em dólar — defina a cotação para comparar com a receita
+                </Typography>
+              )}
+            </Box>
+
+            {(bill.unpriced > 0 || bill.estimated > 0) && (
+              <Alert severity="warning" className="neutral bg-background-paper/60!">
+                {bill.unpriced > 0 && (
+                  <>{bill.unpriced} chamada(s) sem preço configurado — esse gasto existiu e não está somado acima. </>
+                )}
+                {bill.estimated > 0 && (
+                  <>
+                    {bill.estimated} lançamento(s) são estimativa a partir dos segundos gravados, não medição do
+                    provedor.
+                  </>
+                )}
+              </Alert>
             )}
           </CardContent>
         </Card>
