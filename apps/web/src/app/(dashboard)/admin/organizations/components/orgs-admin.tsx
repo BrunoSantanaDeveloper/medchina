@@ -9,6 +9,7 @@ import {
   type AccountsOverview,
   type AccountTotals,
   clockLabel,
+  costMeasured,
   FLAG_LABEL,
   formatDate,
   formatMoney,
@@ -607,7 +608,9 @@ export default function OrgsAdmin() {
         headerAlign: "left",
         // Sorted on the raw micros, not the formatted string: "R$ 0,9800"
         // sorts above "R$ 12,00" as text, and this column exists to be sorted.
-        valueGetter: (_, row) => row.account?.aiCost.usdMicros30d ?? 0,
+        // Both hops are optional: `aiCost` is absent when the deployed
+        // database predates 0116, which is what used to crash this grid.
+        valueGetter: (_, row) => row.account?.aiCost?.usdMicros30d ?? 0,
         renderCell: (params: GridRenderCellParams<GridRow, number>) => {
           const cost = params.row.account?.aiCost;
           if (!cost) {
@@ -800,6 +803,24 @@ export default function OrgsAdmin() {
     return [...accounts, ...orphans];
   }, [rows, people]);
 
+  /**
+   * The database can be older than this page — the app ships through CI and
+   * the migrations are applied by hand, so there is always a window where
+   * 0116 has not run yet. In that window the cost payload is simply absent,
+   * and every cost surface hides instead of reporting zeros.
+   */
+  const measured = costMeasured(totals);
+
+  const visibleColumns = useMemo(
+    () => (measured ? columns : columns.filter((column) => column.field !== "aiCost")),
+    [columns, measured],
+  );
+
+  const secondaryFilters = useMemo(
+    () => (measured ? SECONDARY_FILTERS : SECONDARY_FILTERS.filter((entry) => !entry.key.startsWith("ai_cost"))),
+    [measured],
+  );
+
   const visibleRows = useMemo(
     () => (searching || filter === "all" ? gridRows : gridRows.filter((row) => row.flags.includes(filter))),
     [gridRows, filter, searching],
@@ -903,6 +924,14 @@ export default function OrgsAdmin() {
         >
           Não foi possível consultar a autenticação agora, então entrar como, redefinir 2FA, bloquear e excluir estão
           fora do menu. Não é que a conta não permita — é que a verificação falhou.
+        </Alert>
+      )}
+
+      {loaded && !loadFailed && !measured && (
+        <Alert severity="info" className="neutral bg-background-paper/60!">
+          O custo de IA não aparece porque este banco ainda não tem as migrações 0115 a 0117. Aplique-as (
+          <code>npm run db:migrate:remote</code>) e informe os preços por modelo em{" "}
+          <Link href="/admin/ai">Assistentes de IA</Link>.
         </Alert>
       )}
 
@@ -1028,7 +1057,7 @@ export default function OrgsAdmin() {
               tone={tile.tone}
               label={tile.label}
               hint={tile.hint}
-              value={totals ? totals[tile.total] : "—"}
+              value={totals?.[tile.total] ?? "—"}
               pressed={filter === tile.key}
               // The filter goes to the URL so it survives a reload and can be
               // shared — the daily digest already links in this way, and until
@@ -1051,11 +1080,11 @@ export default function OrgsAdmin() {
         aria-label="Filtrar as contas"
         className="flex flex-row flex-wrap gap-1"
       >
-        {SECONDARY_FILTERS.map((entry) => (
+        {secondaryFilters.map((entry) => (
           <ToggleButton key={entry.key} value={entry.key} title={entry.hint} className="rounded-lg! border!">
             {entry.label}
             <Typography component="span" variant="body2" className="text-text-secondary ml-2 tabular-nums">
-              {totals ? totals[entry.total] : "—"}
+              {totals?.[entry.total] ?? "—"}
             </Typography>
           </ToggleButton>
         ))}
@@ -1081,7 +1110,7 @@ export default function OrgsAdmin() {
       {!loadFailed && (
         <DataTable<GridRow>
           rows={visibleRows}
-          columns={columns}
+          columns={visibleColumns}
           loading={!loaded}
           // A workspace row opens its dossier; a person without one has no dossier
           // to open, so the row explains WHY she has no workspace instead of

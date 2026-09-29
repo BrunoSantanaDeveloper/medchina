@@ -118,7 +118,11 @@ export type AccountOverview = {
   minutes: AccountMinutes;
   usage: AccountUsage;
   attribution: AccountAttribution | null;
-  aiCost: AccountAiCost;
+  /**
+   * Absent when the database predates migration 0116 — a deploy that
+   * landed before its migration. Never assume it is there.
+   */
+  aiCost?: AccountAiCost;
   flags: string[];
 };
 
@@ -142,21 +146,33 @@ export type AccountTotals = {
   /** Paid plans granted by an operator: capability given away, not revenue. */
   compedMrrCents: number;
   currency: string;
+  // All of the cost totals are absent on a database that predates 0116 —
+  // the console hides the cost column, tiles and filters in that case rather
+  // than reporting zeros it cannot stand behind.
   /** What every account's AI cost us in the last 30 days, in USD micros. */
-  aiCost30dUsdMicros: number;
+  aiCost30dUsdMicros?: number;
   /** The same sum converted, or NULL with no exchange rate configured. */
-  aiCost30dCents: number | null;
+  aiCost30dCents?: number | null;
   /** Spend that belongs to no account: admin insights, shared library. */
-  aiPlatformCost30dUsdMicros: number;
+  aiPlatformCost30dUsdMicros?: number;
   /** Calls we could not price at all — the caveat on every number above. */
-  aiUnpricedCalls30d: number;
-  aiCostAccounts: number;
-  aiCostUnpaid: number;
-  aiCostOverRevenue: number;
-  usdToBrl: number | null;
+  aiUnpricedCalls30d?: number;
+  aiCostAccounts?: number;
+  aiCostUnpaid?: number;
+  aiCostOverRevenue?: number;
+  usdToBrl?: number | null;
   /** When real measurement started; NULL means nothing is measured yet. */
-  aiMeasuringSince: string | null;
+  aiMeasuringSince?: string | null;
 };
+
+/**
+ * Whether this payload can talk about cost at all.
+ *
+ * One check, used by every surface, so the column, the tiles, the filters and
+ * the dossier can never disagree about whether the number exists.
+ */
+export const costMeasured = (totals: AccountTotals | null | undefined): boolean =>
+  totals?.aiCost30dUsdMicros !== undefined;
 
 export type AccountsOverview = {
   generatedAt: string;
@@ -172,7 +188,10 @@ export type AccountsOverview = {
  * here is what stops that at compile time.
  */
 export type AccountCountKey = {
-  [K in keyof AccountTotals]-?: AccountTotals[K] extends number ? K : never;
+  // NonNullable, not a bare lookup: the cost totals are optional (a database
+  // older than 0116 omits them), and `number | undefined` would fail the test
+  // and silently drop the cost filters from the union.
+  [K in keyof AccountTotals]-?: NonNullable<AccountTotals[K]> extends number ? K : never;
 }[keyof AccountTotals];
 
 /** Tiles double as filters: the number and the list always come from one query. */

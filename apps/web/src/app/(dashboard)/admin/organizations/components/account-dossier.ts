@@ -161,7 +161,8 @@ export type Dossier = {
      * in, and an estimated line is history rebuilt from recorded seconds. The
      * UI must never let either read as a measured bill.
      */
-    spend: {
+    /** Absent on a database that predates migration 0117. */
+    spend?: {
       usdToBrl: number | null;
       window: {
         costUsdMicros: number;

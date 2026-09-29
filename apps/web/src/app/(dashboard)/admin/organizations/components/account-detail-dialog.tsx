@@ -369,7 +369,11 @@ export default function AccountDetailDialog({
                   label="Custo de IA (30 d)"
                   value={(() => {
                     const spend = dossier.ai.spend;
-                    const cost = account.aiCost.cents30d;
+                    // The database can be older than this page: the app ships
+                    // through CI and the migrations are applied by hand, so
+                    // there is always a window where 0117 has not run yet.
+                    if (!spend) return "medição de custo ainda não instalada neste banco";
+                    const cost = account.aiCost?.cents30d ?? null;
                     const revenue = account.billing.monthlyCents ?? 0;
                     if (spend.window.lifetimeCalls === 0) return "nenhuma chamada registrada";
                     const headline = `${formatSpend(spend.window.costUsdMicros, spend.usdToBrl)} em ${spend.window.calls} chamada(s)`;
@@ -728,9 +732,17 @@ export default function AccountDetailDialog({
                   <Section title="O que a IA custou aqui">
                     {(() => {
                       const spend = dossier.ai.spend;
+                      if (!spend) {
+                        return (
+                          <Typography variant="body2" className="text-text-secondary">
+                            Este banco ainda não tem a medição de custo (migrações 0115 a 0117). Aplique-as para que o
+                            gasto desta conta apareça aqui.
+                          </Typography>
+                        );
+                      }
                       const rate = spend.usdToBrl;
                       const revenue = account.billing.monthlyCents ?? 0;
-                      const cost = account.aiCost.cents30d;
+                      const cost = account.aiCost?.cents30d ?? null;
 
                       if (spend.window.lifetimeCalls === 0) {
                         return (
