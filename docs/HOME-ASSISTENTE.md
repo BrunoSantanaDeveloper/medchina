@@ -226,7 +226,7 @@ Já existe e deve ser usado, não reescrito: `ConsultationBriefingDialog`,
 ### 6.2 "Ver o que a IA prepara"
 
 A trilha de demonstração roteirizada foi removida do onboarding por descrever o
-resultado em prosa em vez de mostrá-lo (ver `app/onboarding/page.tsx`). Se esta
+resultado em prosa em vez de mostrá-lo (commit `501ff0d`, 2026-07-24). Se esta
 sugestão entrar, precisa **mostrar** — uma consulta de exemplo real, com
 proveniência visível — ou não entra.
 

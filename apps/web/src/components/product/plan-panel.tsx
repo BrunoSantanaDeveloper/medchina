@@ -968,7 +968,7 @@ export default function PlanPanel({
                     severity="info"
                     className="neutral bg-background-paper/60!"
                     action={
-                      <Button size="small" color="inherit" href="/primeiros-passos">
+                      <Button size="small" color="inherit" href="/settings">
                         {t("plan-scope-adjust")}
                       </Button>
                     }

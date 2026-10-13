@@ -79,6 +79,12 @@ export const SESSION_STORAGE_KEYS = {
    * not the URL: an e-mail in a query string ends up in history and server logs.
    */
   signupEmail: `${storagePrefix}-signup-email`,
+  /**
+   * The WhatsApp confirmation code already on screen at /auth/whatsapp (token,
+   * code, number), so reloading the tab does not mint another one. The token is
+   * hers and only proves a confirmation SHE has to send; it dies with the tab.
+   */
+  accountWhatsApp: `${storagePrefix}-account-whatsapp`,
 };
 
 export const LOCAL_STORAGE_KEYS = {
@@ -87,4 +93,10 @@ export const LOCAL_STORAGE_KEYS = {
   leftMenuType: `${storagePrefix}-left-menu-type`,
   contentType: `${storagePrefix}-content-type`,
   cookieConsent: `${storagePrefix}-cookie-consent`,
+  /**
+   * "This workspace no longer needs the first-consultation guide" — suffixed
+   * with the workspace id by `use-first-consultation-guide`. A shortcut for a
+   * NO the database already gave, never the source of the answer.
+   */
+  firstConsultationGuide: `${storagePrefix}-first-consultation-guide`,
 };

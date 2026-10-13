@@ -1,63 +1,60 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Grid, Typography } from "@mui/material";
 
 import ActivationProgress from "@/components/product/activation-progress";
-import PracticeContextForm from "@/components/product/practice-context-form";
+import { QuickActionTile } from "@/components/product/home-tiles";
+import { TILE_TONE } from "@/components/product/tile-tone";
 import NiAi from "@/icons/nexture/ni-ai";
+import NiBook from "@/icons/nexture/ni-book";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
-import NiMicrophone from "@/icons/nexture/ni-microphone";
-import NiUsers from "@/icons/nexture/ni-users";
-import { type ExperienceFacts, getExperienceFacts, getOnboardingFlowKey } from "@/lib/onboarding";
+import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
+import NiPen from "@/icons/nexture/ni-pen";
+import {
+  buildFirstConsultationSteps,
+  buildPreparationSteps,
+  type ExperienceFacts,
+  followsRecordingPath,
+  getExperienceFacts,
+  getOnboardingFlowKey,
+  ONBOARDING_ROUTE,
+  prepStepsDone,
+} from "@/lib/onboarding";
 import { getProductAction } from "@/lib/product-actions";
-import { trackProductEvent } from "@/lib/product-events";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
-import { type FlowKey, getOnboardingState, type OnboardingStateRow, selectTrack } from "@flyee/onboarding";
+import { getOnboardingState, type OnboardingStateRow, type OnboardingStep } from "@flyee/onboarding";
 
-type Track = NonNullable<OnboardingStateRow["selectedTrack"]>;
-type LiveStep = { key: string; title: string; body: string; href?: string; done: boolean };
+const LIBRARY_HREF = getProductAction("library").href;
+const IMPORT_HREF = getProductAction("import-patients").href;
+const PROTOCOLS_HREF = getProductAction("protocols").href;
+const ACERVO_HREF = getProductAction("acervo").href;
 
-/**
- * The scripted "demo" track was removed. It promised "see the result before
- * registering anyone" but only DESCRIBED that result across three text slides,
- * and its own footer pointed at the clinical library as "the real demo" — while
- * a progress ring rewarded reading three paragraphs. Seeing the AI with no
- * patient, consent or recording is now the library's job, invited below.
- */
-type OfferedTrack = Extract<Track, "manual" | "ai">;
-
-const TRACKS: { key: OfferedTrack; icon: React.ReactNode; total: number }[] = [
-  { key: "manual", icon: <NiUsers size="medium" />, total: 3 },
-  { key: "ai", icon: <NiMicrophone size="medium" />, total: 5 },
-];
-const isTrack = (value: string | null): value is OfferedTrack => value === "manual" || value === "ai";
-/** Rows stored before the demo track was removed still say "demo". */
-const normalizeTrack = (value: Track | null): OfferedTrack => (value === "ai" ? "ai" : "manual");
-const NEW_PATIENT_HREF = getProductAction("new-patient").href;
-const PATIENTS_HREF = getProductAction("patients").href;
-
-function StepList({ steps, actionLabel }: { steps: LiveStep[]; actionLabel: string }) {
+/** One list of steps, each read from real state. The next open one is marked. */
+function StepList({ steps, actionLabel }: { steps: OnboardingStep[]; actionLabel: string }) {
   const t = useTranslations("product");
   const nextKey = steps.find((step) => !step.done)?.key;
   return (
-    <Box className="flex flex-col gap-2">
+    <Box component="ol" className="m-0 flex list-none flex-col gap-2 p-0">
       {steps.map((step) => (
         <Box
+          component="li"
           key={step.key}
+          // `relative`: the visually hidden state label below is absolutely
+          // positioned and must stay anchored to its own row.
           className={cn(
-            "border-grey-100 flex items-start gap-3 rounded-2xl border p-3",
+            "border-grey-100 relative flex items-start gap-3 rounded-2xl border p-3",
             step.key === nextKey && "border-primary/40 bg-primary/5",
           )}
         >
           <span
+            aria-hidden
             className={cn(
               "mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full border",
               step.done ? "border-primary bg-primary text-white" : "border-grey-200 text-transparent",
@@ -66,24 +63,30 @@ function StepList({ steps, actionLabel }: { steps: LiveStep[]; actionLabel: stri
             <NiCheck size="small" />
           </span>
           <Box className="min-w-0 flex-1">
-            <Typography variant="subtitle2" className={cn(step.done && "text-text-secondary")}>
-              {step.title}
+            <Typography variant="subtitle2" component="h3" className={cn("mb-0", step.done && "text-text-secondary")}>
+              {t(step.title)}
+              {/* The check mark is decorative; the state is also said in words. */}
+              {step.done && <span className="sr-only"> — {t("getting-step-done")}</span>}
             </Typography>
             {step.key === nextKey && <Chip size="small" color="primary" label={t("getting-next-step")} />}
-            <Typography variant="body2" className="text-text-secondary">
-              {step.body}
-            </Typography>
+            {step.description && (
+              <Typography variant="body2" className="text-text-secondary">
+                {t(step.description)}
+              </Typography>
+            )}
           </Box>
-          {!step.done && step.href && (
+          {step.href && (
             <Button
               LinkComponent={Link}
               href={step.href}
               variant="text"
               size="small"
+              color={step.done ? "grey" : "primary"}
               endIcon={<NiChevronRightSmall size="small" />}
               className="flex-none"
+              aria-label={`${step.done ? t("getting-review-step") : actionLabel}: ${t(step.title)}`}
             >
-              {actionLabel}
+              {step.done ? t("getting-review-step") : actionLabel}
             </Button>
           )}
         </Box>
@@ -92,167 +95,90 @@ function StepList({ steps, actionLabel }: { steps: LiveStep[]; actionLabel: stri
   );
 }
 
-/** Persistent self-serve hub: every path remains available after onboarding. */
+const countDone = (steps: OnboardingStep[]) => steps.filter((step) => step.done).length;
+
+/**
+ * The persistent hub: the whole path from sign-up to the first finalized
+ * record, in two halves that are different kinds of thing.
+ *
+ *  - **Preparo do consultório** — what she can do alone. Each row opens that
+ *    step of `/onboarding`, done or not: a preparation she can review is a
+ *    configuration; one she can only do once is a form.
+ *  - **Primeiro atendimento** — what needs a patient. The rows point at where
+ *    it happens; the guidance itself lives on the consultation screen.
+ *
+ * It used to offer two tabbed "tracks" (manual / IA) with their own step lists
+ * and totals, while the home checklist counted a third way and the guide a
+ * fourth. All of them now read the same facts through `lib/onboarding.ts`, so a
+ * step is done here exactly when it is done everywhere. Recording is not a
+ * track any more — it is three extra rows for whoever said she records.
+ */
 export default function GettingStartedPage() {
   const t = useTranslations("product");
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const requestedTrack = searchParams.get("trilha");
-  const [flowKey, setFlowKey] = useState<FlowKey | null>(null);
   const [state, setState] = useState<OnboardingStateRow | null>(null);
   const [facts, setFacts] = useState<ExperienceFacts | null>(null);
-  const [selected, setSelected] = useState<OfferedTrack>(isTrack(requestedTrack) ? requestedTrack : "manual");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      if (!isSupabaseConfigured) {
-        if (active) {
-          setError(true);
-          setLoading(false);
-        }
-        return;
-      }
+  const load = useCallback(async () => {
+    setStatus("loading");
+    if (!isSupabaseConfigured) {
+      setStatus("error");
+      return;
+    }
+    try {
       const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
-      try {
-        const key = await getOnboardingFlowKey(supabase, user.id);
-        const experience = await getExperienceFacts(supabase, user.id);
-        const onboarding = await getOnboardingState(supabase, key);
-        if (!active) return;
-        const initial = isTrack(requestedTrack) ? requestedTrack : normalizeTrack(onboarding.selectedTrack);
-        setFlowKey(key);
-        setFacts(experience);
-        setState(onboarding);
-        setSelected(initial);
-      } catch {
-        if (active) setError(true);
-      } finally {
-        if (active) setLoading(false);
+      if (!user) {
+        setStatus("error");
+        return;
       }
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, [requestedTrack]);
-
-  const manualDone = facts
-    ? [facts.hasPracticeContext, facts.hasPatient, facts.hasFinalizedConsultation].filter(Boolean).length
-    : 0;
-  const aiDone = facts
-    ? [
-        facts.hasPracticeContext,
-        facts.hasPatient,
-        facts.hasAiReadyConsent,
-        facts.hasRecording,
-        facts.hasReadyRecording,
-      ].filter(Boolean).length
-    : 0;
-  const progress: Record<OfferedTrack, number> = { manual: manualDone, ai: aiDone };
-
-  const choose = async (track: OfferedTrack) => {
-    trackProductEvent(state?.selectedTrack === track ? "journey.track_reentered" : "journey.track_selected", {
-      intent: track,
-      origin: "getting_started",
-    });
-    setSelected(track);
-    router.replace(`/primeiros-passos?trilha=${track}`, { scroll: false });
-    if (flowKey) {
-      await selectTrack(createClient(), flowKey, track);
-      setState((current) => (current ? { ...current, selectedTrack: track } : current));
+      const key = await getOnboardingFlowKey(supabase, user.id);
+      const [experience, onboarding] = await Promise.all([
+        getExperienceFacts(supabase, user.id),
+        getOnboardingState(supabase, key),
+      ]);
+      setFacts(experience);
+      setState(onboarding);
+      setStatus("ready");
+    } catch {
+      setStatus("error");
     }
-  };
+  }, []);
 
-  const manualSteps = useMemo<LiveStep[]>(
-    () =>
-      facts
-        ? [
-            {
-              key: "practice-context",
-              title: t("getting-manual-context"),
-              body: t("getting-manual-context-body"),
-              done: facts.hasPracticeContext,
-            },
-            {
-              key: "patient",
-              title: t("getting-manual-patient"),
-              body: t("getting-manual-patient-body"),
-              href: NEW_PATIENT_HREF,
-              done: facts.hasPatient,
-            },
-            {
-              key: "consultation",
-              title: t("getting-manual-consultation"),
-              body: t("getting-manual-consultation-body"),
-              href: PATIENTS_HREF,
-              done: facts.hasFinalizedConsultation,
-            },
-          ]
-        : [],
-    [facts, t],
-  );
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const aiSteps = useMemo<LiveStep[]>(
-    () =>
-      facts
-        ? [
-            {
-              key: "practice-context",
-              title: t("getting-ai-context"),
-              body: t("getting-ai-context-body"),
-              done: facts.hasPracticeContext,
-            },
-            {
-              key: "patient",
-              title: t("getting-ai-patient"),
-              body: t("getting-ai-patient-body"),
-              href: NEW_PATIENT_HREF,
-              done: facts.hasPatient,
-            },
-            {
-              key: "consent",
-              title: t("getting-ai-consent"),
-              body: t("getting-ai-consent-body"),
-              href: PATIENTS_HREF,
-              done: facts.hasAiReadyConsent,
-            },
-            {
-              key: "record",
-              title: t("getting-ai-record"),
-              body: t("getting-ai-record-body"),
-              href: PATIENTS_HREF,
-              done: facts.hasRecording,
-            },
-            {
-              key: "review",
-              title: t("getting-ai-review"),
-              body: t("getting-ai-review-body"),
-              href: "/pacientes",
-              done: facts.hasReadyRecording,
-            },
-          ]
-        : [],
-    [facts, t],
-  );
-
-  if (loading)
+  if (status === "loading")
     return (
       <Box className="flex min-h-72 items-center justify-center">
         <CircularProgress aria-label={t("loading")} />
       </Box>
     );
-  if (error || !state || !facts) return <Alert severity="error">{t("getting-load-error")}</Alert>;
+  if (status === "error" || !state || !facts)
+    return (
+      <Alert
+        severity="error"
+        action={
+          <Button color="inherit" size="small" onClick={() => void load()}>
+            {t("retry")}
+          </Button>
+        }
+      >
+        {t("getting-load-error")}
+      </Alert>
+    );
+
+  const preparation = buildPreparationSteps(prepStepsDone(facts, state));
+  const recordingPath = followsRecordingPath(state, facts);
+  const consultation = buildFirstConsultationSteps(facts, recordingPath);
 
   return (
-    <Box className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+    <Box className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <Box className="flex flex-col gap-2">
-        <Typography variant="h1" component="h1">
+        <Typography variant="h1" component="h1" className="mb-0">
           {t("getting-title")}
         </Typography>
         <Typography variant="body1" className="text-text-secondary max-w-3xl">
@@ -260,79 +186,86 @@ export default function GettingStartedPage() {
         </Typography>
       </Box>
 
-      <Box className="grid gap-3 md:grid-cols-3" role="tablist" aria-label={t("getting-track-label")}>
-        {TRACKS.map((track) => (
-          <Card
-            key={track.key}
-            component="button"
-            role="tab"
-            id={`getting-track-${track.key}`}
-            aria-controls="getting-track-panel"
-            aria-selected={selected === track.key}
-            onClick={() => choose(track.key)}
-            className={cn("cursor-pointer text-left", selected === track.key && "outline-primary outline-2")}
-          >
-            <CardContent className="flex items-center gap-3">
-              <span className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-xl">
-                {track.icon}
-              </span>
-              <Box className="min-w-0 flex-1">
-                <Typography variant="subtitle1">{t(`getting-track-${track.key}`)}</Typography>
-                <Typography variant="body2" className="text-text-secondary">
-                  {t(`getting-track-${track.key}-body`)}
-                </Typography>
-              </Box>
-              <ActivationProgress done={progress[track.key]} total={track.total} size={42} />
-            </CardContent>
-          </Card>
-        ))}
-      </Box>
-
-      <Card component="section" role="tabpanel" id="getting-track-panel" aria-labelledby={`getting-track-${selected}`}>
+      <Card component="section" aria-labelledby="getting-preparation-title">
         <CardContent className="flex flex-col gap-5">
-          <Box className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <Box className="flex flex-row items-start justify-between gap-3">
             <Box>
-              <Typography variant="h4" component="h2">
-                {t(`getting-${selected}-title`)}
+              <Typography variant="h4" component="h2" id="getting-preparation-title" className="mb-0">
+                {t("getting-preparation-title")}
               </Typography>
               <Typography variant="body2" className="text-text-secondary">
-                {t(`getting-${selected}-body`)}
+                {t("getting-preparation-body")}
               </Typography>
             </Box>
-            <Chip
-              color={
-                progress[selected] === TRACKS.find((track) => track.key === selected)?.total ? "success" : "default"
-              }
-              label={t("getting-progress", {
-                done: progress[selected],
-                total: TRACKS.find((track) => track.key === selected)?.total ?? 0,
-              })}
+            <ActivationProgress
+              done={countDone(preparation)}
+              total={preparation.length}
+              size={42}
+              label={t("getting-progress", { done: countDone(preparation), total: preparation.length })}
+              className="flex-none"
             />
           </Box>
+          <StepList steps={preparation} actionLabel={t("getting-open-step")} />
+        </CardContent>
+      </Card>
 
-          {!facts.hasPracticeContext && (
-            <Box id="practice-context" className="scroll-mt-28">
-              <PracticeContextForm
-                onCompleted={() =>
-                  setFacts((current) => (current ? { ...current, hasPracticeContext: true } : current))
-                }
-              />
+      <Card component="section" aria-labelledby="getting-consultation-title">
+        <CardContent className="flex flex-col gap-5">
+          <Box className="flex flex-row items-start justify-between gap-3">
+            <Box>
+              <Typography variant="h4" component="h2" id="getting-consultation-title" className="mb-0">
+                {t("getting-consultation-title")}
+              </Typography>
+              <Typography variant="body2" className="text-text-secondary">
+                {t("getting-consultation-body")}
+              </Typography>
+            </Box>
+            <ActivationProgress
+              done={countDone(consultation)}
+              total={consultation.length}
+              size={42}
+              label={t("getting-progress", { done: countDone(consultation), total: consultation.length })}
+              className="flex-none"
+            />
+          </Box>
+          <StepList steps={consultation} actionLabel={t("getting-open-step")} />
+          {/* Recording is not a separate track: it is three more rows for
+              whoever records. Someone who has not said so is shown the way to
+              say it, not a list of steps that may not be hers. */}
+          {!recordingPath && (
+            <Box className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1">
+              <Typography variant="body2" className="text-text-secondary">
+                {t("getting-recording-invite")}
+              </Typography>
+              <Button
+                LinkComponent={Link}
+                href={`${ONBOARDING_ROUTE}?passo=recording`}
+                variant="text"
+                size="small"
+                endIcon={<NiChevronRightSmall size="small" />}
+              >
+                {t("getting-recording-invite-cta")}
+              </Button>
             </Box>
           )}
-          {selected === "manual" && <StepList steps={manualSteps} actionLabel={t("getting-open-step")} />}
-          {selected === "ai" && <StepList steps={aiSteps} actionLabel={t("getting-open-step")} />}
         </CardContent>
       </Card>
 
       {/* Seeing the AI work without spending a patient, a consent and a
-          recording is a real need — it was what the scripted demo claimed to
-          serve. The library actually does it: real answers, cited sources, no
-          clinical data required. So it is invited here on its own, for either
-          track, instead of being buried under a simulation. */}
+          recording is a real need. The library actually does it: real answers,
+          cited sources, no clinical data required — and it already answers
+          through the modalities she declared in the preparation. */}
       <Card component="section">
         <CardContent className="flex flex-col gap-2">
           <Box className="flex items-center gap-3">
-            <span className="bg-primary/10 text-primary flex h-10 w-10 flex-none items-center justify-center rounded-xl">
+            <span
+              aria-hidden
+              className={cn(
+                "flex h-10 w-10 flex-none items-center justify-center rounded-2xl",
+                TILE_TONE.primary.bg,
+                TILE_TONE.primary.text,
+              )}
+            >
               <NiAi size="medium" />
             </span>
             <Typography variant="h6" component="h2" className="mb-0">
@@ -344,7 +277,7 @@ export default function GettingStartedPage() {
           </Typography>
           <Button
             LinkComponent={Link}
-            href="/biblioteca"
+            href={LIBRARY_HREF}
             variant="contained"
             color="primary"
             className="self-start"
@@ -355,10 +288,42 @@ export default function GettingStartedPage() {
         </CardContent>
       </Card>
 
-      <Box className="flex justify-end">
-        <Button LinkComponent={Link} href="/onboarding" variant="text" color="grey">
-          {t("getting-change-track")}
-        </Button>
+      {/* The deeper personalisation is WORK, not configuration — an afternoon
+          with a spreadsheet, a protocol written out. It is invited here, where
+          she comes when she has time, and kept out of the onboarding. */}
+      <Box component="section" className="flex flex-col gap-3" aria-labelledby="getting-more-title">
+        <Typography variant="h5" component="h2" id="getting-more-title" className="mb-0">
+          {t("getting-more-title")}
+        </Typography>
+        <Grid container spacing={2.5}>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <QuickActionTile
+              href={IMPORT_HREF}
+              icon={<NiDownloadCloud size="large" />}
+              tone="accent-2"
+              title={t("getting-more-import")}
+              description={t("getting-more-import-body")}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <QuickActionTile
+              href={PROTOCOLS_HREF}
+              icon={<NiPen size="large" />}
+              tone="accent-1"
+              title={t("getting-more-protocols")}
+              description={t("getting-more-protocols-body")}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <QuickActionTile
+              href={ACERVO_HREF}
+              icon={<NiBook size="large" />}
+              tone="accent-4"
+              title={t("getting-more-acervo")}
+              description={t("getting-more-acervo-body")}
+            />
+          </Grid>
+        </Grid>
       </Box>
     </Box>
   );

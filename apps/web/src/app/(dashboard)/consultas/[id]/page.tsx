@@ -38,6 +38,7 @@ import ConsultationAiSummary from "@/components/product/consultation-ai-summary"
 import ConsultationRecorder from "@/components/product/consultation-recorder";
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import ConsultationStepRail, { type RailEntry } from "@/components/product/consultation-step-rail";
+import FirstConsultationGuide from "@/components/product/first-consultation-guide";
 import HypothesesPanel from "@/components/product/hypotheses-panel";
 import MobileCaptureHandoff from "@/components/product/mobile-capture-handoff";
 import PlanPanel from "@/components/product/plan-panel";
@@ -47,6 +48,7 @@ import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule
 import UsageMeter from "@/components/product/usage-meter";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import { useFirstConsultationGuide } from "@/hooks/use-first-consultation-guide";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
 import NiCross from "@/icons/nexture/ni-cross";
@@ -566,6 +568,15 @@ export default function ConsultaPage() {
     : null;
   const canEdit = Boolean(capabilities?.canEditClinicalRecord && isPrimary && !busy);
   const isReadOnly = !canEdit;
+  // The first consultation is guided HERE, with the patient in the room — not
+  // in the onboarding, where a user test showed the professional lost when
+  // asked to start one alone at her desk. Shown until this practice closes its
+  // first record or she dismisses it; only asked about while the record is
+  // editable, so opening an old finalized chart never triggers the reads.
+  const firstVisitGuide = useFirstConsultationGuide(
+    consultation?.orgId ?? null,
+    Boolean(capabilities?.canEditClinicalRecord),
+  );
 
   useEffect(() => {
     if (saveSnapshot.state === "error") {
@@ -1536,6 +1547,22 @@ export default function ConsultaPage() {
           />
         </Box>
       </Grid>
+
+      {firstVisitGuide.visible && capabilities?.canEditClinicalRecord && !isFinalized && (
+        <Grid size={12}>
+          <FirstConsultationGuide
+            // "Can she record this one?" as the allowance answers it: minutes
+            // to spend, or a trial she may still start.
+            withRecording={Boolean(allowance?.canStart || allowance?.trialAvailable)}
+            onStart={() => {
+              document.getElementById("etapa-record")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              // The scroll above already placed the chart under the pinned bar.
+              document.getElementById("consultation-chief-complaint")?.focus({ preventScroll: true });
+            }}
+            onDismiss={() => void firstVisitGuide.dismiss()}
+          />
+        </Grid>
+      )}
 
       {/* An AI-drafted consultation says so, and points review at the exceptions. */}
       {consultation.status === "awaiting_review" && (

@@ -56,6 +56,12 @@ export default function ProfileCard() {
         .maybeSingle();
       setDisplayName(data?.display_name ?? "");
       setAvatarUrl(data?.avatar_url ?? null);
+      // Read, never left blank: the save below writes BOTH credentials, so a
+      // form that opened with them empty erased her registration the first
+      // time she changed anything else on this card — and the next document
+      // went out signed by a name alone.
+      setRegistration(data?.professional_registration ?? "");
+      setProfessionalTitle(data?.professional_title ?? "");
     };
     load();
   }, []);

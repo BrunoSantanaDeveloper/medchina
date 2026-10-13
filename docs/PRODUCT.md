@@ -384,6 +384,8 @@ Chamada principal: “Comece gratuitamente. Cadastre pacientes e use todos os re
 
 - Telefone verificado quando necessário para segurança e prevenção de abuso.
 
+  > **Implementado em 2026-10-13 (migração `0122`).** O **número de WhatsApp é obrigatório** em todo cadastro. **Confirmá-lo** é uma chave do operador (`/admin/support`), que nasce desligada: enquanto estiver desligada, vale só a confirmação de e-mail. Ligada, o cadastro comum confirma antes de a conta ser criada — a profissional envia um código do próprio WhatsApp — e o cadastro que vem de campanha vai direto ao pagamento e confirma depois de pagar. Um WhatsApp confirmado pertence a uma conta só.
+
 - Senha ou método de autenticação aprovado.
 
 - Área de atuação.
@@ -393,6 +395,8 @@ Chamada principal: “Comece gratuitamente. Cadastre pacientes e use todos os re
 Dados como registro profissional, assinatura, configurações clínicas e termos de paciente serão coletados progressivamente, antes da primeira ação que dependa deles.
 
 ## 6.4 Escolha de início
+
+> **Revisão de 2026-10-12 — esta seção descreve o desenho anterior.** A escolha de início foi removida. Em teste com usuário, a profissional ficou perdida ao ser levada a iniciar uma consulta dentro do onboarding, sem paciente presente. O pós-cadastro passou a ser o **preparo do consultório** (`/onboarding`), em quatro passos que não precisam de paciente: como você atende (modalidades, incluindo as que ela digitar, e áreas), como você assina, a gravação pronta e o próximo atendimento. A gravação com IA é um convite dentro do preparo, não uma bifurcação. A primeira consulta é orientada na própria tela de atendimento. A tabela abaixo fica como registro.
 
 | **Opção**                     | **Destino**                                                     |
 |-------------------------------|-----------------------------------------------------------------|
@@ -452,6 +456,8 @@ Dados como registro profissional, assinatura, configurações clínicas e termos
 - Ensinar no contexto, com orientações curtas, em vez de depender de um vídeo longo.
 
 ## 7.3 Checklist recomendado
+
+> **Revisão de 2026-10-12.** O checklist em uso tem três passos: preparar o consultório, cadastrar a primeira paciente e finalizar o primeiro atendimento. Dos itens abaixo, o preparo cobre o perfil profissional (titulação e registro), o teste de microfone e a leitura dos termos de consentimento. Autenticação em dois fatores e política de áudio seguem em Configurações. Demonstração fictícia, instalação do app e personalização de blocos da anamnese ficam fora do preparo. A lista abaixo fica como referência do escopo original.
 
 - Completar perfil profissional.
 

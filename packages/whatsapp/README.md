@@ -19,6 +19,20 @@ WhatsApp dispatcher behind a provider interface — manual, automatic and **sche
 > The code below stays for the day that decision changes — and the webhook
 > signature check is live regardless, because the endpoint exists and must not
 > accept forged payloads.
+>
+> **The one live use: confirming the professional's WhatsApp at sign-up
+> (migration 0122).** It is a switch the operator turns on in `/admin/support`,
+> and it is born OFF: until then the sign-up is confirmed by e-mail only, and
+> this package stays as inert as before. With the switch on, she sends the code
+> shown on her screen, from her own WhatsApp, to `WHATSAPP_SIGNUP_NUMBER` — an
+> ordinary sign-up before the account exists, a campaign sign-up after the
+> payment. That is INBOUND: the webhook (`/api/webhooks/whatsapp/meta`) logs
+> the message here as always, then `apps/web/src/lib/signup-whatsapp.ts`
+> matches it against the codes that are waiting and replies inside the 24h
+> window she opened — free text, no approved template, no per-message charge
+> for a user-initiated conversation. The switch refuses to turn on until the
+> Cloud API number exists and the webhook can verify
+> (`WHATSAPP_META_APP_SECRET`). Nothing business-initiated is sent.
 
 ## Providers
 

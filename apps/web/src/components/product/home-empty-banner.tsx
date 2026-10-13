@@ -17,10 +17,16 @@ const IMPORT_HREF = getProductAction("import-patients").href;
  * The first-run home for a workspace with no patients yet, in the template's
  * illustrated banner layout (text left, illustration right, actions below).
  *
- * This is the one screen a brand-new professional sees before anything else
- * exists, so it carries the path to value twice: register the first patient by
- * hand, or bring the whole practice in through the importer. Both lead to the
- * same aha moment — the first finalized consultation.
+ * It is what the home shows before anyone is registered, so it carries the path
+ * to value twice: register the first patient by hand, or bring the whole
+ * practice in through the importer. Both lead to the same aha moment — the
+ * first finalized consultation.
+ *
+ * It does not say "start here": the first thing a new account sees is the
+ * preparation of the practice (`/onboarding`), and the order of the steps is
+ * the checklist's to state. A banner that also claimed to be the beginning put
+ * two "first steps" on the same screen for anyone who had skipped the
+ * preparation.
  */
 export default function HomeEmptyBanner() {
   const t = useTranslations("product");

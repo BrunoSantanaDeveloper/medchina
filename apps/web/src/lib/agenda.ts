@@ -262,22 +262,78 @@ export function defaultAppointmentStart(
 }
 
 /**
- * Weekly occurrences for a series: the first is `startAt` itself, each next one
- * keeps the same WALL-CLOCK time in the practice timezone one week later.
+ * How often a series repeats. HOW OFTEN and HOW MANY are separate questions:
+ * a treatment block of ten sessions is ten whether she sees the patient once a
+ * week or three times a week, so the dialog asks both instead of folding them
+ * into one "N weekly sessions" list.
+ */
+export const RECURRENCE_CADENCES = ["weekly", "twice_weekly", "thrice_weekly", "daily", "biweekly", "monthly"] as const;
+export type RecurrenceCadence = (typeof RECURRENCE_CADENCES)[number];
+
+/**
+ * Day offsets INSIDE one 7-day cycle for the cadences that repeat more than
+ * once a week, spread as evenly as the week allows — the alternate-day rhythm a
+ * treatment block is normally prescribed in (Mon/Thu, Mon/Wed/Fri). The chosen
+ * day is always the first of the cycle, and the dialog previews every date, so
+ * the rhythm is visible before she saves rather than inferred.
+ */
+const WEEK_PATTERNS: Partial<Record<RecurrenceCadence, number[]>> = {
+  weekly: [0],
+  twice_weekly: [0, 3],
+  thrice_weekly: [0, 2, 4],
+};
+
+function dayOffsets(cadence: RecurrenceCadence, count: number): number[] {
+  if (cadence === "daily") return Array.from({ length: count }, (_, index) => index);
+  if (cadence === "biweekly") return Array.from({ length: count }, (_, index) => index * 14);
+  const pattern = WEEK_PATTERNS[cadence] ?? [0];
+  return Array.from(
+    { length: count },
+    (_, index) => Math.floor(index / pattern.length) * 7 + pattern[index % pattern.length],
+  );
+}
+
+/**
+ * The occurrences of a series: the first is `startAt` itself, every next one
+ * keeps the same WALL-CLOCK time in the practice timezone.
+ *
  * Stepping is done on the CALENDAR date and rebuilt in the timezone — a dayjs
  * `.add(7, "day")` on a tz object adds exact 168h, which drifts the wall clock
  * across a DST change.
  */
-export function weeklyOccurrences(startAt: string | Date, count: number, timeZone: string): Date[] {
+export function seriesOccurrences(
+  startAt: string | Date,
+  cadence: RecurrenceCadence,
+  count: number,
+  timeZone: string,
+): Date[] {
   const first = dayjs(startAt).tz(timeZone);
   const datePart = first.format("YYYY-MM-DD");
   const timePart = first.format("HH:mm:ss");
-  return Array.from({ length: Math.max(count, 1) }, (_, index) => {
+  const total = Math.max(count, 1);
+  const rebuild = (isoDate: string) => dayjs.tz(`${isoDate}T${timePart}`, timeZone).toDate();
+
+  if (cadence === "monthly") {
+    // Calendar months, never 30 days: the session keeps its day of the month,
+    // clamped by dayjs when the next month is shorter (31 Jan -> 28 Feb).
+    return Array.from({ length: total }, (_, index) =>
+      index === 0
+        ? first.toDate()
+        : rebuild(dayjs.utc(`${datePart}T00:00:00Z`).add(index, "month").format("YYYY-MM-DD")),
+    );
+  }
+
+  return dayOffsets(cadence, total).map((offset, index) => {
     if (index === 0) return first.toDate();
     const stepped = new Date(`${datePart}T00:00:00Z`);
-    stepped.setUTCDate(stepped.getUTCDate() + index * 7);
-    return dayjs.tz(`${stepped.toISOString().slice(0, 10)}T${timePart}`, timeZone).toDate();
+    stepped.setUTCDate(stepped.getUTCDate() + offset);
+    return rebuild(stepped.toISOString().slice(0, 10));
   });
+}
+
+/** Weekly series — the "same time next week" shorthand used outside the dialog. */
+export function weeklyOccurrences(startAt: string | Date, count: number, timeZone: string): Date[] {
+  return seriesOccurrences(startAt, "weekly", count, timeZone);
 }
 
 /**

@@ -31,11 +31,13 @@ import { pickerLocaleText } from "@/components/product/picker-locale";
 import {
   type AgendaMutationResult,
   calendarDayRange,
+  RECURRENCE_CADENCES,
+  type RecurrenceCadence,
   saveAppointment,
   saveAppointmentSeries,
   type ScheduleConflict,
   type SeriesConflict,
-  weeklyOccurrences,
+  seriesOccurrences,
 } from "@/lib/agenda";
 import { listActivePatientOptions, type PatientOption } from "@/lib/patients";
 import { trackProductEvent } from "@/lib/product-events";
@@ -62,8 +64,13 @@ export type ScheduleSaveOutcome =
 
 const DURATIONS = [30, 45, 50, 60, 90, 120];
 
-/** Weekly-series sizes offered in the repeat select (1 = single session). */
-const REPEAT_OPTIONS = [1, 2, 3, 4, 5, 6, 8, 10, 12];
+/**
+ * Repeat asks two questions, because they are two: HOW OFTEN (the cadence) and
+ * HOW MANY sessions. The old single list ("4 weekly sessions") could only ever
+ * express one rhythm, so a block of ten alternate-day sessions had no shape to
+ * be booked in.
+ */
+const SESSION_COUNTS = [2, 3, 4, 5, 6, 8, 10, 12, 16, 20];
 
 type DayAgendaItem = { id: string; patientName: string; scheduledFor: string; durationMinutes: number };
 
@@ -114,7 +121,10 @@ export default function ScheduleDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ScheduleConflict | null>(null);
-  const [repeatCount, setRepeatCount] = useState(1);
+  // "none" is a cadence the UI offers, not one the series helper knows about:
+  // not repeating is a single appointment, not a series of one.
+  const [cadence, setCadence] = useState<RecurrenceCadence | "none">("none");
+  const [sessionCount, setSessionCount] = useState(4);
   const [seriesConflicts, setSeriesConflicts] = useState<SeriesConflict[] | null>(null);
   const [dayAgenda, setDayAgenda] = useState<RemoteState<DayAgendaItem[], string>>(() => remoteSuccess([]));
   const trackedOpen = useRef(false);
@@ -162,7 +172,8 @@ export default function ScheduleDialog({
     setBusy(false);
     setError(null);
     setConflict(null);
-    setRepeatCount(1);
+    setCadence("none");
+    setSessionCount(4);
     setSeriesConflicts(null);
     formik.resetForm({
       values: {
@@ -191,6 +202,11 @@ export default function ScheduleDialog({
       setPatients(result.data);
       const selected = seed?.patientId ? (result.data.find((option) => option.id === seed.patientId) ?? null) : null;
       setPatient(selected);
+      // A practice with nobody registered yet has nothing to pick from: the
+      // patient field would open on "Nenhum paciente cadastrado ainda", with
+      // the way to create one in a small link under it. Go straight to the
+      // name — the date and time stay filled for when she comes back.
+      if (result.data.length === 0 && !seed?.patientId) setView("patient");
       // Validate ONLY when a patient was actually seeded.
       //
       // The save button is gated on `formik.isValid`, and a value written with
@@ -289,9 +305,9 @@ export default function ScheduleDialog({
 
     // A weekly series is N independent appointments in one atomic call.
     // Conflicting occurrences are skipped and reported — no bulk override.
-    if (!isReschedule && repeatCount > 1) {
-      const starts = weeklyOccurrences(formik.values.start.toISOString(), repeatCount, timeZone).map((occurrence) =>
-        occurrence.toISOString(),
+    if (!isReschedule && cadence !== "none") {
+      const starts = seriesOccurrences(formik.values.start.toISOString(), cadence, sessionCount, timeZone).map(
+        (occurrence) => occurrence.toISOString(),
       );
       const seriesResult = await saveAppointmentSeries(createClient(), {
         orgId,
@@ -382,7 +398,14 @@ export default function ScheduleDialog({
                 [...(current ?? []), created].sort((a, b) => a.fullName.localeCompare(b.fullName)),
               );
               setPatient(created);
-              formik.setFieldValue("patientId", created.id, false);
+              // Validated, like the seeded path above and for the same reason:
+              // the save button is gated on `formik.isValid`. When the dialog
+              // is MOUNTED already open, the mount-time validation resolves
+              // after the reset and leaves "patient required" (and a stale
+              // "date required") behind; writing the new patient with
+              // validation off kept the button disabled with every field
+              // filled, until she happened to touch the date.
+              formik.setFieldValue("patientId", created.id, true);
               setView("schedule");
               setError(null);
             }}
@@ -526,27 +549,56 @@ export default function ScheduleDialog({
 
             {!isReschedule && (
               <Box className="flex flex-col gap-1">
-                <TextField
-                  select
-                  name="repeat"
-                  label={t("agenda-field-repeat")}
-                  value={repeatCount}
-                  onChange={(event) => {
-                    setRepeatCount(Number(event.target.value));
-                    setSeriesConflicts(null);
-                  }}
-                  helperText={repeatCount > 1 ? t("agenda-repeat-hint") : undefined}
-                >
-                  {REPEAT_OPTIONS.map((count) => (
-                    <MenuItem key={count} value={count}>
-                      {count === 1 ? t("agenda-repeat-none") : t("agenda-repeat-weekly", { count })}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                {repeatCount > 1 && formik.values.start?.isValid() && (
+                <Box className="flex flex-col gap-4 sm:flex-row">
+                  <TextField
+                    select
+                    name="repeat"
+                    label={t("agenda-field-repeat")}
+                    value={cadence}
+                    onChange={(event) => {
+                      setCadence(event.target.value as RecurrenceCadence | "none");
+                      setSeriesConflicts(null);
+                    }}
+                    className="sm:flex-1"
+                  >
+                    <MenuItem value="none">{t("agenda-repeat-none")}</MenuItem>
+                    {RECURRENCE_CADENCES.map((option) => (
+                      <MenuItem key={option} value={option}>
+                        {t(`agenda-cadence-${option}`)}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  {cadence !== "none" && (
+                    <TextField
+                      select
+                      name="sessionCount"
+                      label={t("agenda-field-sessions")}
+                      value={sessionCount}
+                      onChange={(event) => {
+                        setSessionCount(Number(event.target.value));
+                        setSeriesConflicts(null);
+                      }}
+                      className="sm:flex-1"
+                    >
+                      {SESSION_COUNTS.map((count) => (
+                        <MenuItem key={count} value={count}>
+                          {t("agenda-sessions-count", { count })}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )}
+                </Box>
+                {cadence !== "none" && (
+                  <Typography variant="body2" className="text-text-secondary text-xs">
+                    {t("agenda-repeat-hint")}
+                  </Typography>
+                )}
+                {/* Every date, before she commits: the only way the alternate-day
+                    rhythm of 2x/3x a week is a choice instead of a surprise. */}
+                {cadence !== "none" && formik.values.start?.isValid() && (
                   <Typography variant="body2" className="text-text-secondary text-xs">
                     {t("agenda-repeat-dates", {
-                      dates: weeklyOccurrences(formik.values.start.toISOString(), repeatCount, timeZone)
+                      dates: seriesOccurrences(formik.values.start.toISOString(), cadence, sessionCount, timeZone)
                         .map((occurrence) =>
                           occurrence.toLocaleDateString(locale, { day: "2-digit", month: "2-digit", timeZone }),
                         )

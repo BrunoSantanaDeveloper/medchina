@@ -11,6 +11,8 @@ import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { chromium, type Locator, type Page } from "playwright";
 
+import { confirmedSignupMetadata } from "./signup-verification.mts";
+
 const ROOT = resolve(import.meta.dirname, "..");
 const BASE = "http://localhost:3010";
 const SHOTS = resolve(
@@ -49,7 +51,11 @@ const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SU
       email: NEW_EMAIL,
       password: PASSWORD,
       email_confirm: true,
-      user_metadata: { display_name: "Dra. Nova", company: "Consultório Novo" },
+      user_metadata: {
+        display_name: "Dra. Nova",
+        company: "Consultório Novo",
+        ...(await confirmedSignupMetadata(admin, NEW_EMAIL)),
+      },
     });
     if (error) throw new Error(`createUser new: ${error.message}`);
   }

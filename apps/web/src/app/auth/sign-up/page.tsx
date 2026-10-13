@@ -1,9 +1,11 @@
 "use client";
+import { getSignupWhatsAppConfirmation, planSignup } from "./actions";
+import WhatsAppConfirmation from "./whatsapp-confirmation";
 import { useFormik } from "formik";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import * as yup from "yup";
 
 import {
@@ -26,10 +28,12 @@ import Logo from "@/components/logo/logo";
 import { DEFAULTS } from "@/config";
 import { SESSION_STORAGE_KEYS } from "@/constants";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { useWhatsAppConfirmationStatus } from "@/hooks/use-whatsapp-confirmation-status";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
 import NiCrossSquare from "@/icons/nexture/ni-cross-square";
 import { resolvePostAuthDestination } from "@/lib/onboarding";
+import { formatSignupWhatsAppInput, parseSignupWhatsApp } from "@/lib/signup-whatsapp-shared";
 import { cn } from "@/lib/utils";
 import { useThemeContext } from "@/theme/theme-provider";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -49,10 +53,32 @@ const InputErrorTooltip = ({ title }: { title: string }) => (
   </Box>
 );
 
+type SignupValues = { name: string; email: string; whatsapp: string; company: string; password: string };
+
+type PendingVerification = {
+  token: string;
+  code: string;
+  number: string;
+  /** What she typed, held until the confirmation arrives and the account can be created. */
+  values: SignupValues;
+};
+
 /**
  * Free-account sign-up (PRD §6.3). `company` is the PRACTICE name — one
  * professional per workspace in the MVP — and it feeds the handle_new_user
  * trigger, which creates the profile plus the first organization.
+ *
+ * Her WhatsApp (migration 0122, lib/signup-whatsapp.ts). The NUMBER is always
+ * asked for, and the database refuses an account without one. Whether it is
+ * CONFIRMED, and when, is decided on the server by `planSignup`:
+ *
+ *  - confirmation switched off — the account is created at once and confirmed
+ *    by e-mail, as it always was;
+ *  - switched on, ordinary sign-up — a second screen shows a code, and the
+ *    account is only created when her message arrives;
+ *  - switched on, campaign sign-up (`buyingPlan`) — created at once, so
+ *    nothing stands between her and the checkout; she confirms after paying,
+ *    at /auth/whatsapp.
  */
 export default function Page() {
   const router = useRouter();
@@ -70,11 +96,139 @@ export default function Page() {
    * the payment screen is this form. Every field here is abandonment, so the
    * practice name — which she can rename at any time, and which nobody else
    * sees until she issues a document — is derived from her own name instead of
-   * being asked for. Three fields, and the header says how many steps are left,
-   * because an unbounded form reads as bureaucracy even when it is short.
+   * being asked for, and the header says how many steps are left, because an
+   * unbounded form reads as bureaucracy even when it is short. For the same
+   * reason her WhatsApp is asked for here but confirmed only after she pays.
    */
   const buyingPlan = Boolean(next?.startsWith("/assinatura") || next?.startsWith("/settings/billing"));
   const [serverError, setServerError] = useState<string | null>(null);
+  const [verification, setVerification] = useState<PendingVerification | null>(null);
+  const verificationStatus = useWhatsAppConfirmationStatus(verification?.token ?? null);
+  const [creating, setCreating] = useState(false);
+  const [createFailed, setCreateFailed] = useState(false);
+  /** One account creation per confirmation, however many polls report it. */
+  const createStarted = useRef(false);
+  /** Is the confirmation switched on? Only to say so before the button. */
+  const [confirmationOn, setConfirmationOn] = useState(false);
+  const signInHref = `/auth/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    getSignupWhatsAppConfirmation()
+      .then((on) => {
+        if (!cancelled) setConfirmationOn(on);
+      })
+      // A failed read only costs the sentence under the button.
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
+   * Creates the account. `token` is the confirmed verification, when there is
+   * one; without it the account is created on the declared number alone (and,
+   * with the confirmation switched on, is born pending). Safe to repeat: a
+   * token is only spent when the row is actually written, and once the account
+   * exists a second call reaches it instead of creating another.
+   */
+  const createAccount = useCallback(
+    async (values: SignupValues, token: string | null): Promise<boolean> => {
+      const supabase = createClient();
+      const callback = new URL("/auth/callback", window.location.origin);
+      if (next) callback.searchParams.set("next", next);
+      const number = parseSignupWhatsApp(values.whatsapp);
+      // Invite recipients receive their single workspace only after explicit
+      // acceptance. Everyone else gets a personal practice workspace here.
+      const { data, error } = await supabase.auth.signUp({
+        email: values.email,
+        password: values.password,
+        options: {
+          emailRedirectTo: callback.toString(),
+          // `company` is what makes handle_new_user create the workspace; with
+          // the field hidden for offer traffic, her own name takes its place —
+          // otherwise the trigger creates no organization and she lands on
+          // /auth/complete-profile instead of the checkout she paid attention to.
+          data: {
+            display_name: values.name,
+            ...(!joiningInvite ? { company: (buyingPlan ? values.name : values.company).trim() } : {}),
+            // Mandatory: the auth.users gate refuses an account without it.
+            whatsapp: number.ok ? number.digits : "",
+            // Read and removed by the same gate, which then creates her confirmed.
+            ...(token ? { whatsapp_verification: token } : {}),
+          },
+        },
+      });
+      if (error) return false;
+      if (data.session) {
+        const destination = data.user ? await resolvePostAuthDestination(supabase, data.user.id) : DEFAULTS.appRoot;
+        router.push(next ?? destination);
+        router.refresh();
+      } else {
+        // Email confirmation is enabled on the Supabase project. Carry the
+        // address so the next screen can resend the link — without it, an
+        // e-mail that lands in spam is a dead end mid sign-up.
+        try {
+          sessionStorage.setItem(SESSION_STORAGE_KEYS.signupEmail, values.email);
+        } catch {
+          // Private-mode storage refusal only costs the prefill; she can type it.
+        }
+        router.push(`/auth/get-verification${next ? `?next=${encodeURIComponent(next)}` : ""}`);
+      }
+      return true;
+    },
+    [buyingPlan, joiningInvite, next, router],
+  );
+
+  /** The valid form, or a request for a new code: asks the server what comes next and does it. */
+  const proceed = useCallback(
+    async (values: SignupValues) => {
+      setServerError(null);
+      const plan = await planSignup({ email: values.email, deferred: buyingPlan }).catch(() => null);
+      if (!plan || plan.step === "blocked") {
+        // Back to the form, where the message has somewhere to be read.
+        setVerification(null);
+        setServerError(
+          plan?.reason === "too_many"
+            ? t("signup-whatsapp-too-many")
+            : plan?.reason === "invalid_email"
+              ? t("field-email")
+              : plan
+                ? t("signup-whatsapp-unavailable")
+                : t("request-failed"),
+        );
+        return;
+      }
+      if (plan.step === "confirm") {
+        createStarted.current = false;
+        setCreateFailed(false);
+        setVerification({ token: plan.token, code: plan.code, number: plan.number, values });
+        return;
+      }
+      if (!(await createAccount(values, null))) setServerError(t("request-failed"));
+    },
+    [buyingPlan, createAccount, t],
+  );
+
+  /** Her message arrived: the account can exist now. */
+  const createConfirmed = useCallback(
+    async (pending: PendingVerification) => {
+      setCreating(true);
+      setCreateFailed(false);
+      if (!(await createAccount(pending.values, pending.token))) {
+        setCreating(false);
+        setCreateFailed(true);
+      }
+    },
+    [createAccount],
+  );
+
+  useEffect(() => {
+    if (verification && verificationStatus.status === "confirmed" && !createStarted.current) {
+      createStarted.current = true;
+      void createConfirmed(verification);
+    }
+  }, [verification, verificationStatus.status, createConfirmed]);
 
   const validationSchema = yup.object({
     name: yup
@@ -82,6 +236,24 @@ export default function Page() {
       .required(t("field-required"))
       .min(3, t("field-min", { count: 3 })),
     email: yup.string().required(t("field-required")).email(t("field-email")),
+    whatsapp: yup
+      .string()
+      .required(t("field-required"))
+      .test("whatsapp", t("whatsapp-invalid"), function (value) {
+        const parsed = parseSignupWhatsApp(value);
+        if (parsed.ok) return true;
+        // The reason is the useful part: "one digit is missing" and "that is a
+        // landline" send her to different fixes.
+        return this.createError({
+          message: t(
+            parsed.reason === "landline"
+              ? "whatsapp-landline"
+              : parsed.reason === "short"
+                ? "whatsapp-short"
+                : "whatsapp-invalid",
+          ),
+        });
+      }),
     company:
       joiningInvite || buyingPlan
         ? yup.string()
@@ -98,7 +270,7 @@ export default function Page() {
   });
 
   const formik = useFormik({
-    initialValues: { name: "", email: prefillEmail, company: "", password: "" },
+    initialValues: { name: "", email: prefillEmail, whatsapp: "", company: "", password: "" },
     validationSchema,
     onSubmit: async (values) => {
       setServerError(null);
@@ -106,45 +278,7 @@ export default function Page() {
         setServerError(t("not-configured"));
         return;
       }
-      const supabase = createClient();
-      const callback = new URL("/auth/callback", window.location.origin);
-      if (next) callback.searchParams.set("next", next);
-      // Invite recipients receive their single workspace only after explicit
-      // acceptance. Everyone else gets a personal practice workspace here.
-      const { data, error } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-        options: {
-          emailRedirectTo: callback.toString(),
-          // `company` is what makes handle_new_user create the workspace; with
-          // the field hidden for offer traffic, her own name takes its place —
-          // otherwise the trigger creates no organization and she lands on
-          // /auth/complete-profile instead of the checkout she paid attention to.
-          data: {
-            display_name: values.name,
-            ...(!joiningInvite ? { company: (buyingPlan ? values.name : values.company).trim() } : {}),
-          },
-        },
-      });
-      if (error) {
-        setServerError(t("request-failed"));
-        return;
-      }
-      if (data.session) {
-        const destination = data.user ? await resolvePostAuthDestination(supabase, data.user.id) : DEFAULTS.appRoot;
-        router.push(next ?? destination);
-        router.refresh();
-      } else {
-        // Email confirmation is enabled on the Supabase project. Carry the
-        // address so the next screen can resend the link — without it, an
-        // e-mail that lands in spam is a dead end mid sign-up.
-        try {
-          sessionStorage.setItem(SESSION_STORAGE_KEYS.signupEmail, values.email);
-        } catch {
-          // Private-mode storage refusal only costs the prefill; she can type it.
-        }
-        router.push(`/auth/get-verification${next ? `?next=${encodeURIComponent(next)}` : ""}`);
-      }
+      await proceed({ ...values, email: values.email.trim() });
     },
     validateOnBlur: false,
     validateOnMount: false,
@@ -222,197 +356,256 @@ export default function Page() {
             <Logo classNameFull="h-12 w-auto" classNameMobile="hidden" />
           </Box>
 
-          <Box className="flex flex-col gap-10">
-            <Box className="flex flex-col">
-              <Typography variant="h1" component="h1" className="mb-2">
-                {t(buyingPlan ? "signup-offer-title" : "signup-title")}
-              </Typography>
-              <Typography variant="body1" className="text-text-primary">
-                {t(buyingPlan ? "signup-offer-subtitle" : "signup-subtitle")}
-              </Typography>
-            </Box>
-
-            <Box className="flex flex-col gap-5">
-              <Box className="flex hidden flex-col gap-2 md:flex-row">
-                <Button
-                  variant="outlined"
-                  color="grey"
-                  className="flex-none md:w-1/2"
-                  onClick={() => handleOAuth("google")}
-                >
-                  <Box className="mr-2">{googleSVG()}</Box>
-                  {t("google-signup")}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="grey"
-                  className="flex-none md:w-1/2"
-                  onClick={() => handleOAuth("github")}
-                >
-                  <Box className="mr-2">{githubSVG()}</Box>
-                  {t("github-signup")}
-                </Button>
+          {verification ? (
+            <WhatsAppConfirmation
+              code={verification.code}
+              number={verification.number}
+              status={verificationStatus}
+              creating={creating}
+              createFailed={createFailed}
+              signInHref={signInHref}
+              onRetryCreate={() => void createConfirmed(verification)}
+              onNewCode={() => void proceed(verification.values)}
+              onBack={() => {
+                // Her answers stay in the form; only the code is dropped.
+                setVerification(null);
+                setServerError(null);
+              }}
+            />
+          ) : (
+            <Box className="flex flex-col gap-10">
+              <Box className="flex flex-col">
+                <Typography variant="h1" component="h1" className="mb-2">
+                  {t(buyingPlan ? "signup-offer-title" : "signup-title")}
+                </Typography>
+                <Typography variant="body1" className="text-text-primary">
+                  {t(buyingPlan ? "signup-offer-subtitle" : "signup-subtitle")}
+                </Typography>
               </Box>
 
-              <Divider className="text-text-secondary my-0 hidden text-sm">{t("or")}</Divider>
+              <Box className="flex flex-col gap-5">
+                <Box className="flex hidden flex-col gap-2 md:flex-row">
+                  <Button
+                    variant="outlined"
+                    color="grey"
+                    className="flex-none md:w-1/2"
+                    onClick={() => handleOAuth("google")}
+                  >
+                    <Box className="mr-2">{googleSVG()}</Box>
+                    {t("google-signup")}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="grey"
+                    className="flex-none md:w-1/2"
+                    onClick={() => handleOAuth("github")}
+                  >
+                    <Box className="mr-2">{githubSVG()}</Box>
+                    {t("github-signup")}
+                  </Button>
+                </Box>
 
-              <Box
-                component="form"
-                method="post"
-                onSubmit={(event) => {
-                  setSubmitted(true);
-                  formik.handleSubmit(event);
-                }}
-                className="flex flex-col"
-              >
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" htmlFor="name" className="flex flex-row">
-                    {t("name")}
-                    {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
-                  </FormLabel>
-                  <Input
-                    id="name"
-                    name="name"
-                    autoComplete="name"
-                    value={formik.values.name}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  {buyingPlan && (
-                    <FormHelperText className="text-text-secondary">{t("signup-offer-practice-note")}</FormHelperText>
-                  )}
-                </FormControl>
+                <Divider className="text-text-secondary my-0 hidden text-sm">{t("or")}</Divider>
 
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" htmlFor="email" className="flex flex-row">
-                    {t("email")}
-                    {formik.touched.email && formik.errors.email && <InputErrorTooltip title={formik.errors.email} />}
-                  </FormLabel>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={formik.values.email}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                </FormControl>
-
-                {joiningInvite ? (
-                  <Alert severity="info" className="neutral bg-background-paper/60! mb-4">
-                    {t("invite-signup-body")}
-                  </Alert>
-                ) : buyingPlan ? null : (
+                <Box
+                  component="form"
+                  method="post"
+                  onSubmit={(event) => {
+                    setSubmitted(true);
+                    formik.handleSubmit(event);
+                  }}
+                  className="flex flex-col"
+                >
                   <FormControl className="outlined" variant="standard" size="small">
-                    <FormLabel component="label" htmlFor="company" className="flex flex-row">
-                      {t("practice")}
-                      {formik.touched.company && formik.errors.company && (
-                        <InputErrorTooltip title={formik.errors.company} />
-                      )}
+                    <FormLabel component="label" htmlFor="name" className="flex flex-row">
+                      {t("name")}
+                      {formik.touched.name && formik.errors.name && <InputErrorTooltip title={formik.errors.name} />}
                     </FormLabel>
                     <Input
-                      id="company"
-                      name="company"
-                      autoComplete="organization"
-                      // An example, because the label alone used to be read as
-                      // the answer: workspaces called just "Consultório".
-                      placeholder={t("practice-placeholder")}
-                      value={formik.values.company}
+                      id="name"
+                      name="name"
+                      autoComplete="name"
+                      value={formik.values.name}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
                     />
-                    <FormHelperText className="text-text-secondary">{t("practice-hint")}</FormHelperText>
-                  </FormControl>
-                )}
-
-                <FormControl className="outlined" variant="standard" size="small">
-                  <FormLabel component="label" htmlFor="password" className="flex flex-row">
-                    {t("password")}
-                    {formik.touched.password && formik.errors.password && (
-                      <InputErrorTooltip title={formik.errors.password} />
+                    {buyingPlan && (
+                      <FormHelperText className="text-text-secondary">{t("signup-offer-practice-note")}</FormHelperText>
                     )}
-                  </FormLabel>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={formik.values.password}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  <Typography variant="body2" className="text-text-secondary mt-2 inline-block align-middle">
-                    <span className="inline">{t("signup-password-must")}</span>
-                    <RuleMark ok={isLengthValid} />
-                    <span className={cn("inline font-semibold", isLengthValid && "text-success")}>
-                      {t("signup-password-length")}{" "}
-                    </span>
-                    <RuleMark ok={isCaseValid} />
-                    <span className={cn("inline font-semibold", isCaseValid && "text-success")}>
-                      {t("signup-password-case")}{" "}
-                    </span>
-                    <RuleMark ok={isSymbolValid} />
-                    <span className={cn("inline font-semibold", isSymbolValid && "text-success")}>
-                      {t("signup-password-symbol")}
-                    </span>
-                  </Typography>
-                </FormControl>
+                  </FormControl>
 
-                {serverError && (
-                  <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
-                    <AlertTitle variant="subtitle2">{t("signup-failed")}</AlertTitle>
-                    <Typography variant="body2" className="text-text-primary">
-                      {serverError}
+                  <FormControl className="outlined" variant="standard" size="small">
+                    <FormLabel component="label" htmlFor="email" className="flex flex-row">
+                      {t("email")}
+                      {formik.touched.email && formik.errors.email && <InputErrorTooltip title={formik.errors.email} />}
+                    </FormLabel>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      value={formik.values.email}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                    />
+                  </FormControl>
+
+                  <FormControl className="outlined" variant="standard" size="small">
+                    <FormLabel component="label" htmlFor="whatsapp" className="flex flex-row">
+                      {t("whatsapp")}
+                      {formik.touched.whatsapp && formik.errors.whatsapp && (
+                        <InputErrorTooltip title={formik.errors.whatsapp} />
+                      )}
+                    </FormLabel>
+                    <Input
+                      id="whatsapp"
+                      name="whatsapp"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder={t("whatsapp-placeholder")}
+                      aria-describedby="whatsapp-help"
+                      value={formik.values.whatsapp}
+                      onChange={(event) =>
+                        void formik.setFieldValue("whatsapp", formatSignupWhatsAppInput(event.target.value))
+                      }
+                      onBlur={formik.handleBlur}
+                    />
+                    {/* Unlike the other fields, WHAT is wrong with a phone number is not
+                        obvious from the field itself, so the reason is written out. */}
+                    <FormHelperText
+                      id="whatsapp-help"
+                      className={
+                        formik.touched.whatsapp && formik.errors.whatsapp ? "text-error" : "text-text-secondary"
+                      }
+                    >
+                      {formik.touched.whatsapp && formik.errors.whatsapp
+                        ? formik.errors.whatsapp
+                        : confirmationOn && buyingPlan
+                          ? // Said before she is asked: the confirmation waits for the payment.
+                            t("whatsapp-hint-after-payment")
+                          : t("whatsapp-hint", { brand: BRAND.name })}
+                    </FormHelperText>
+                  </FormControl>
+
+                  {joiningInvite ? (
+                    <Alert severity="info" className="neutral bg-background-paper/60! mb-4">
+                      {t("invite-signup-body")}
+                    </Alert>
+                  ) : buyingPlan ? null : (
+                    <FormControl className="outlined" variant="standard" size="small">
+                      <FormLabel component="label" htmlFor="company" className="flex flex-row">
+                        {t("practice")}
+                        {formik.touched.company && formik.errors.company && (
+                          <InputErrorTooltip title={formik.errors.company} />
+                        )}
+                      </FormLabel>
+                      <Input
+                        id="company"
+                        name="company"
+                        autoComplete="organization"
+                        // An example, because the label alone used to be read as
+                        // the answer: workspaces called just "Consultório".
+                        placeholder={t("practice-placeholder")}
+                        value={formik.values.company}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                      />
+                      <FormHelperText className="text-text-secondary">{t("practice-hint")}</FormHelperText>
+                    </FormControl>
+                  )}
+
+                  <FormControl className="outlined" variant="standard" size="small">
+                    <FormLabel component="label" htmlFor="password" className="flex flex-row">
+                      {t("password")}
+                      {formik.touched.password && formik.errors.password && (
+                        <InputErrorTooltip title={formik.errors.password} />
+                      )}
+                    </FormLabel>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={formik.values.password}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                    />
+                    <Typography variant="body2" className="text-text-secondary mt-2 inline-block align-middle">
+                      <span className="inline">{t("signup-password-must")}</span>
+                      <RuleMark ok={isLengthValid} />
+                      <span className={cn("inline font-semibold", isLengthValid && "text-success")}>
+                        {t("signup-password-length")}{" "}
+                      </span>
+                      <RuleMark ok={isCaseValid} />
+                      <span className={cn("inline font-semibold", isCaseValid && "text-success")}>
+                        {t("signup-password-case")}{" "}
+                      </span>
+                      <RuleMark ok={isSymbolValid} />
+                      <span className={cn("inline font-semibold", isSymbolValid && "text-success")}>
+                        {t("signup-password-symbol")}
+                      </span>
                     </Typography>
-                  </Alert>
-                )}
-                {submitted && !formik.isValid && (
-                  <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
-                    <AlertTitle variant="subtitle2">{t("errors-title")}</AlertTitle>
-                  </Alert>
-                )}
+                  </FormControl>
 
-                <Button
-                  type="submit"
-                  variant="contained"
-                  className="mt-2 mb-4"
-                  disabled={formik.isSubmitting || !hydrated}
-                >
-                  {t(buyingPlan ? "signup-offer-continue" : "continue")}
-                </Button>
+                  {serverError && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">{t("signup-failed")}</AlertTitle>
+                      <Typography variant="body2" className="text-text-primary">
+                        {serverError}
+                      </Typography>
+                    </Alert>
+                  )}
+                  {submitted && !formik.isValid && (
+                    <Alert severity="error" icon={<NiCrossSquare />} className="neutral bg-background-paper/60! mb-4">
+                      <AlertTitle variant="subtitle2">{t("errors-title")}</AlertTitle>
+                    </Alert>
+                  )}
 
-                <Typography variant="body2" className="text-text-secondary">
-                  {t("legal-agree")}{" "}
-                  <Link target="_blank" href="/legal/termos" className="link-primary link-underline-hover">
-                    {t("legal-terms")}
-                  </Link>{" "}
-                  {t("legal-and")}{" "}
-                  <Link target="_blank" href="/legal/privacidade" className="link-primary link-underline-hover">
-                    {t("legal-privacy")}
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    className="mt-2 mb-4"
+                    disabled={formik.isSubmitting || !hydrated}
+                  >
+                    {t(buyingPlan ? "signup-offer-continue" : "continue")}
+                  </Button>
+
+                  {confirmationOn && !buyingPlan && (
+                    <Typography variant="body2" className="text-text-secondary mb-3">
+                      {t("signup-whatsapp-next")}
+                    </Typography>
+                  )}
+
+                  <Typography variant="body2" className="text-text-secondary">
+                    {t("legal-agree")}{" "}
+                    <Link target="_blank" href="/legal/termos" className="link-primary link-underline-hover">
+                      {t("legal-terms")}
+                    </Link>{" "}
+                    {t("legal-and")}{" "}
+                    <Link target="_blank" href="/legal/privacidade" className="link-primary link-underline-hover">
+                      {t("legal-privacy")}
+                    </Link>
+                    .
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Divider className="text-text-secondary my-0 text-sm"></Divider>
+              <Box className="flex flex-col">
+                <Typography variant="h6" component="h6">
+                  {t("signup-has-account-title")}
+                </Typography>
+                <Typography variant="body1" className="text-text-secondary">
+                  {t("signup-has-account-body", { brand: BRAND.name })}{" "}
+                  <Link href={signInHref} className="link-primary link-underline-hover">
+                    {t("signup-has-account-link")}
                   </Link>
                   .
                 </Typography>
               </Box>
             </Box>
-
-            <Divider className="text-text-secondary my-0 text-sm"></Divider>
-            <Box className="flex flex-col">
-              <Typography variant="h6" component="h6">
-                {t("signup-has-account-title")}
-              </Typography>
-              <Typography variant="body1" className="text-text-secondary">
-                {t("signup-has-account-body", { brand: BRAND.name })}{" "}
-                <Link
-                  href={`/auth/sign-in${next ? `?next=${encodeURIComponent(next)}` : ""}`}
-                  className="link-primary link-underline-hover"
-                >
-                  {t("signup-has-account-link")}
-                </Link>
-                .
-              </Typography>
-            </Box>
-          </Box>
+          )}
         </Box>
       </Paper>
     </Box>

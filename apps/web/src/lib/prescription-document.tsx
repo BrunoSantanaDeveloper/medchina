@@ -4,6 +4,7 @@
 // outside the Next/SWC pipeline.
 import React from "react";
 
+import { letterheadLines, type PracticeLetterhead } from "@/lib/practice-letterhead";
 import { credentialLines } from "@/lib/professional-credentials";
 import type { IssueContext } from "@flyee/documents";
 import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
@@ -43,6 +44,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   org: { fontSize: 16, fontFamily: "Helvetica-Bold", color: ACCENT },
+  orgMeta: { fontSize: 7.5, color: MUTED, lineHeight: 1.35 },
   docKind: { fontSize: 9, color: MUTED, marginTop: 2, textTransform: "uppercase", letterSpacing: 1 },
   headerRight: { textAlign: "right", fontSize: 8, color: MUTED },
   professionalLine: { fontSize: 9, color: MUTED, marginBottom: 18 },
@@ -77,6 +79,7 @@ type Labels = (key: string) => string;
 
 export type PrescriptionDocumentData = {
   orgName: string;
+  practice: PracticeLetterhead;
   patientName: string;
   professionalName: string;
   /** Registration as it appears on her own document ("CNAA 3086"). Optional. */
@@ -99,6 +102,11 @@ function PrescriptionDocument({ data, t, ctx }: { data: PrescriptionDocumentData
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.org}>{data.orgName}</Text>
+            {letterheadLines(data.practice, { cpf: t("doc-cpf"), cnpj: t("doc-cnpj") }).map((line) => (
+              <Text key={line} style={styles.orgMeta}>
+                {line}
+              </Text>
+            ))}
             <Text style={styles.docKind}>{t("prescription-title")}</Text>
           </View>
           <View style={styles.headerRight}>

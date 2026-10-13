@@ -4,6 +4,7 @@ import AccountCard from "./components/account-card";
 import PracticeScopeCard from "./components/practice-scope-card";
 import ProfileCard from "./components/profile-card";
 import SettingsMenu from "./components/settings-menu";
+import WhatsappMessageCard from "./components/whatsapp-message-card";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -78,6 +79,10 @@ export default function Settings() {
                 write-once until now — declared in onboarding and then
                 unreachable. */}
             <PracticeScopeCard />
+            {/* Also profile data, and the same kind of thing: what goes out
+                under her name. The app only prepares the reminder — she sends
+                it from her own number — so the wording belongs here. */}
+            <WhatsappMessageCard />
             <AccountCard />
           </>
         )}

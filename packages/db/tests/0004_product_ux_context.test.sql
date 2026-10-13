@@ -191,10 +191,18 @@ select set_config(
   true
 );
 set local role authenticated;
+-- Assinatura ampliada em 0121: a tela do consultório passou a exigir contato e
+-- localidade. O que esta asserção pinga continua sendo o fuso.
 select public.update_practice_settings(
   'a2000000-0000-4000-8000-000000000001',
   'UX practice',
-  'America/Sao_Paulo'
+  'America/Sao_Paulo',
+  null,
+  '62999887766',
+  'contato@uxpractice.test',
+  null, null, null, null, null,
+  'Goiania',
+  'GO'
 );
 reset role;
 

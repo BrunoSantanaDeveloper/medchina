@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { recordAudit } from "@/lib/audit";
 import { clinicalError } from "@/lib/clinical-route";
+import { PRACTICE_LETTERHEAD_COLUMNS, toPracticeLetterhead } from "@/lib/practice-letterhead";
 import { prescriptionText } from "@/lib/prescription";
 import { type PrescriptionDocumentData, renderPrescriptionPdf } from "@/lib/prescription-document";
 import { createClient } from "@flyee/auth/server";
@@ -97,7 +98,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const [{ data: patient }, { data: org }, { data: professional }] = await Promise.all([
     supabase.from("patients").select("full_name").eq("id", consultation.patient_id).maybeSingle(),
-    supabase.from("organizations").select("name, timezone").eq("id", consultation.org_id).maybeSingle(),
+    supabase
+      .from("organizations")
+      .select(`name, timezone, ${PRACTICE_LETTERHEAD_COLUMNS}`)
+      .eq("id", consultation.org_id)
+      .maybeSingle(),
     supabase
       .from("profiles")
       .select("display_name, professional_registration, professional_title")
@@ -162,6 +167,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const source = readPrescriptionSnapshot(sourceSnapshot, prescriptionId, id);
     return {
       orgName: org.name,
+      practice: toPracticeLetterhead(org),
       patientName: patient?.full_name ?? "—",
       professionalName: professional.display_name,
       professionalRegistration: professional.professional_registration,

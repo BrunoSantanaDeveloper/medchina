@@ -8,7 +8,28 @@ import { createClient } from "@flyee/auth/client";
 export type OrgRole = "owner" | "admin" | "member";
 export type AudioRetentionPolicy = "after_validation" | "thirty_days" | "manual";
 
-export interface OrgSummary {
+/**
+ * The clinic's own identity (migration 0121). Deliberately NOT the billing
+ * profile: that one exists for the payment provider and may carry a different
+ * document — see the migration's header.
+ *
+ * Every field is nullable because the columns are: accounts created before this
+ * screen have none of it, and the requirement lives in the save, not in the row.
+ */
+export interface PracticeIdentity {
+  document: string | null;
+  phone: string | null;
+  email: string | null;
+  postalCode: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+}
+
+export interface OrgSummary extends PracticeIdentity {
   id: string;
   name: string;
   slug: string;
@@ -66,7 +87,9 @@ export function useOrganization() {
 
     const { data } = await supabase
       .from("memberships")
-      .select("role, organizations(id, name, slug, timezone, audio_retention)")
+      .select(
+        "role, organizations(id, name, slug, timezone, audio_retention, practice_document, practice_phone, practice_email, practice_postal_code, practice_street, practice_number, practice_complement, practice_district, practice_city, practice_state)",
+      )
       .eq("user_id", user.id)
       .order("created_at");
 
@@ -79,6 +102,16 @@ export function useOrganization() {
           slug: string;
           timezone: string;
           audio_retention: AudioRetentionPolicy;
+          practice_document: string | null;
+          practice_phone: string | null;
+          practice_email: string | null;
+          practice_postal_code: string | null;
+          practice_street: string | null;
+          practice_number: string | null;
+          practice_complement: string | null;
+          practice_district: string | null;
+          practice_city: string | null;
+          practice_state: string | null;
         };
         return {
           id: org.id,
@@ -87,6 +120,16 @@ export function useOrganization() {
           timezone: org.timezone || "America/Sao_Paulo",
           audioRetention: org.audio_retention ?? "after_validation",
           role: row.role as OrgRole,
+          document: org.practice_document,
+          phone: org.practice_phone,
+          email: org.practice_email,
+          postalCode: org.practice_postal_code,
+          street: org.practice_street,
+          number: org.practice_number,
+          complement: org.practice_complement,
+          district: org.practice_district,
+          city: org.practice_city,
+          state: org.practice_state,
         };
       });
 

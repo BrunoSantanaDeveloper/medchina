@@ -6,6 +6,7 @@ import { recordAudit } from "@/lib/audit";
 import { clinicalError } from "@/lib/clinical-route";
 import { type PlanDocumentData, renderPlanPdf } from "@/lib/plan-document";
 import { PLAN_MODALITIES } from "@/lib/plan-modalities";
+import { PRACTICE_LETTERHEAD_COLUMNS, toPracticeLetterhead } from "@/lib/practice-letterhead";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
 import { issueDocument } from "@flyee/documents";
@@ -100,7 +101,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const [{ data: patient }, { data: org }, { data: professional }] = await Promise.all([
     supabase.from("patients").select("full_name").eq("id", consultation.patient_id).maybeSingle(),
-    supabase.from("organizations").select("name, timezone").eq("id", consultation.org_id).maybeSingle(),
+    supabase
+      .from("organizations")
+      .select(`name, timezone, ${PRACTICE_LETTERHEAD_COLUMNS}`)
+      .eq("id", consultation.org_id)
+      .maybeSingle(),
     supabase
       .from("profiles")
       .select("display_name, professional_registration, professional_title")
@@ -186,6 +191,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     return {
       orgName: org.name,
+      practice: toPracticeLetterhead(org),
       patientName: patient?.full_name ?? "—",
       professionalName: professional.display_name,
       professionalRegistration: professional.professional_registration,

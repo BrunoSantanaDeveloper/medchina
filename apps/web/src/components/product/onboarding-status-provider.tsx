@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { useAudioAllowance } from "@/hooks/use-audio-allowance";
+import { type TrialParams, useAudioAllowance } from "@/hooks/use-audio-allowance";
 import type { AudioAllowance } from "@/lib/audio-allowance";
 import { deriveOnboardingStatus, type OnboardingStatus, type PendingSubscription } from "@/lib/onboarding-status";
 import { isSupabaseConfigured } from "@flyee/auth";
@@ -12,6 +12,12 @@ type OnboardingStatusValue = {
   /** Null until the first read lands — never a guessed "free". */
   status: OnboardingStatus | null;
   allowance: AudioAllowance | null;
+  /**
+   * What the Pro trial is worth, as configured (never a number in the copy).
+   * Null until read, or when the platform has none configured — the step that
+   * mentions the trial then says it without figures.
+   */
+  trialParams: TrialParams | null;
   /**
    * Re-read after the TRAIL changed the commercial state itself — starting the
    * Pro trial. Without it the badge kept reading "Gratuito" beside a step that
@@ -23,6 +29,7 @@ type OnboardingStatusValue = {
 const OnboardingStatusContext = createContext<OnboardingStatusValue>({
   status: null,
   allowance: null,
+  trialParams: null,
   reload: async () => undefined,
 });
 
@@ -42,7 +49,7 @@ const OnboardingStatusContext = createContext<OnboardingStatusValue>({
  * hidden tabs.
  */
 export function OnboardingStatusProvider({ orgId, children }: { orgId: string | null; children: React.ReactNode }) {
-  const { allowance, loading, reload: reloadAllowance } = useAudioAllowance(orgId);
+  const { allowance, trialParams, loading, reload: reloadAllowance } = useAudioAllowance(orgId);
   const [pending, setPending] = useState<PendingSubscription | null>(null);
   const [pendingLoaded, setPendingLoaded] = useState(false);
 
@@ -106,9 +113,9 @@ export function OnboardingStatusProvider({ orgId, children }: { orgId: string | 
     // Unknown only on the FIRST read. A re-read (the moment a payment
     // confirms) keeps the previous state instead of blinking out at exactly
     // the instant she is watching for the change.
-    if (!pendingLoaded || (loading && !allowance)) return { status: null, allowance, reload };
-    return { status: deriveOnboardingStatus({ allowance, pending }), allowance, reload };
-  }, [allowance, loading, pending, pendingLoaded, reload]);
+    if (!pendingLoaded || (loading && !allowance)) return { status: null, allowance, trialParams, reload };
+    return { status: deriveOnboardingStatus({ allowance, pending }), allowance, trialParams, reload };
+  }, [allowance, loading, pending, pendingLoaded, reload, trialParams]);
 
   return <OnboardingStatusContext.Provider value={value}>{children}</OnboardingStatusContext.Provider>;
 }

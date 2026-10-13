@@ -5,6 +5,7 @@
 import React from "react";
 
 import type { GuidanceSection } from "@/lib/home-guidance";
+import { letterheadLines, type PracticeLetterhead } from "@/lib/practice-letterhead";
 import type { IssueContext } from "@flyee/documents";
 import { Document, Image, Page, renderToBuffer, StyleSheet, Text, View } from "@react-pdf/renderer";
 
@@ -50,6 +51,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   org: { fontSize: 14, fontFamily: "Helvetica-Bold", color: ACCENT },
+  orgMeta: { fontSize: 7.5, color: MUTED, lineHeight: 1.35 },
   docKind: { fontSize: 9, color: MUTED, marginTop: 2 },
   headerRight: { textAlign: "right", fontSize: 8, color: MUTED },
   title: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 2 },
@@ -92,6 +94,7 @@ type Labels = (key: string) => string;
 
 export type HomeGuidanceDocumentData = {
   orgName: string;
+  practice: PracticeLetterhead;
   patientName: string;
   professionalName: string;
   consultationDate: string;
@@ -107,6 +110,11 @@ function HomeGuidanceDocument({ data, t, ctx }: { data: HomeGuidanceDocumentData
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.org}>{data.orgName}</Text>
+            {letterheadLines(data.practice, { cpf: t("doc-cpf"), cnpj: t("doc-cnpj") }).map((line) => (
+              <Text key={line} style={styles.orgMeta}>
+                {line}
+              </Text>
+            ))}
             <Text style={styles.docKind}>{t("guidance-title")}</Text>
           </View>
           <View style={styles.headerRight}>

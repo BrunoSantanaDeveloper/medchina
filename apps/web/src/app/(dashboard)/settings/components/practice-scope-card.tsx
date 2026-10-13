@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 
 import PracticeModalitiesField from "@/components/product/fields/practice-modalities-field";
-import { PRACTICE_MODALITIES, type PracticeModality } from "@/lib/practice-context";
+import { normalizeOtherModalities, PRACTICE_MODALITIES, type PracticeModality } from "@/lib/practice-context";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 
@@ -45,10 +45,15 @@ import { createClient } from "@flyee/auth/client";
  * fertility care. Modalities say HOW she treats; an area says WHAT she follows,
  * and declaring it is what makes the cycle/fertility block available for the
  * patients she marks.
+ *
+ * And what she practises BEYOND the five (0119), typed in her own words. That
+ * list bounds nothing — the plan and the library only know the five — which the
+ * hint says outright, so nobody types "Tui Na" expecting protocols for it.
  */
 export default function PracticeScopeCard() {
   const t = useTranslations("product");
   const [modalities, setModalities] = useState<PracticeModality[]>([]);
+  const [otherModalities, setOtherModalities] = useState<string[]>([]);
   const [fertilityCare, setFertilityCare] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -74,7 +79,7 @@ export default function PracticeScopeCard() {
     }
     const { data, error } = await supabase
       .from("profiles")
-      .select("practice_modalities, practice_areas")
+      .select("practice_modalities, practice_modalities_other, practice_areas")
       .eq("id", user.id)
       .maybeSingle();
     if (error) {
@@ -84,6 +89,7 @@ export default function PracticeScopeCard() {
     } else {
       const stored = (data?.practice_modalities as string[] | null) ?? [];
       setModalities(PRACTICE_MODALITIES.filter((slug) => stored.includes(slug)));
+      setOtherModalities(normalizeOtherModalities(data?.practice_modalities_other as string[] | null));
       setFertilityCare(((data?.practice_areas as string[] | null) ?? []).includes("fertility"));
     }
     setLoading(false);
@@ -98,11 +104,12 @@ export default function PracticeScopeCard() {
     setSaving(true);
     try {
       const supabase = createClient();
-      const [scope, areas] = await Promise.all([
+      const [scope, others, areas] = await Promise.all([
         supabase.rpc("update_practice_modalities", { target_modalities: modalities }),
+        supabase.rpc("update_practice_modalities_other", { target_entries: otherModalities }),
         supabase.rpc("update_practice_areas", { target_areas: fertilityCare ? ["fertility"] : [] }),
       ]);
-      const saved = [scope, areas].every(
+      const saved = [scope, others, areas].every(
         (response) => !response.error && (response.data as { ok?: boolean } | null)?.ok,
       );
       setStatus(saved ? "saved" : "error");
@@ -150,10 +157,16 @@ export default function PracticeScopeCard() {
               <PracticeModalitiesField
                 value={modalities}
                 onChange={setModalities}
+                other={otherModalities}
+                onOtherChange={setOtherModalities}
                 disabled={saving}
                 label={t("practice-scope-field")}
-                helperText={t("practice-scope-field-help")}
               />
+              {otherModalities.length > 0 && (
+                <Typography variant="body2" className="text-text-secondary leading-5">
+                  {t("practice-scope-other-note")}
+                </Typography>
+              )}
               <Box className="flex flex-col gap-1">
                 <Typography variant="subtitle2" component="h3">
                   {t("practice-areas-title")}

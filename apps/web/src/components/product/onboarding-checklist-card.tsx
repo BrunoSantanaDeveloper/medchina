@@ -60,7 +60,11 @@ export default function OnboardingChecklistCard({
       setState(onboardingState);
       setFacts(activationFacts);
     };
-    load();
+    // A failed read leaves the card out (it renders nothing without facts).
+    // Showing the three steps as pending instead would tell someone with a
+    // full practice that she has done nothing — the readers throw so that an
+    // unknown state is never drawn as an empty one.
+    load().catch(() => undefined);
   }, []);
 
   const handleDismiss = useCallback(async () => {

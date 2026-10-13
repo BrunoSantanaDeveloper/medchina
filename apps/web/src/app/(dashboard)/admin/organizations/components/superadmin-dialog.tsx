@@ -97,6 +97,11 @@ export default function SuperadminDialog({
                   <li>Abre sessões de suporte dentro da conta de qualquer profissional.</li>
                   <li>Suspende e bane contas, reseta o 2FA e atribui planos pagos sem cobrança.</li>
                   <li>Concede este mesmo papel a outras pessoas.</li>
+                  <li>
+                    Libera o <strong>consultório dela</strong>: importação sem limite de linhas, minutos e raciocínio do
+                    melhor plano, biblioteca sem cota — sem cobrança. Um consultório que já paga um plano continua no
+                    plano que paga.
+                  </li>
                 </Box>
               </Alert>
 
@@ -107,7 +112,8 @@ export default function SuperadminDialog({
           ) : (
             <Typography variant="body2" className="text-text-secondary">
               {userName} perde a área /admin e todo privilégio entre consultórios na próxima requisição. A conta, o
-              consultório e os dados dela ficam intactos.
+              consultório e os dados dela ficam intactos — mas o consultório volta ao plano que ele realmente tem, com
+              os limites desse plano.
             </Typography>
           )}
 

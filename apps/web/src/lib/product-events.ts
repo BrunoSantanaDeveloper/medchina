@@ -36,7 +36,32 @@ export type ProductEventName =
   | "protocol.saved"
   | "upgrade.prompt_viewed"
   | "upgrade.prompt_clicked"
-  | "billing.contact_clicked";
+  | "billing.contact_clicked"
+  // The preparation of the practice (0120). The onboarding used to emit ONE
+  // event — the track choice — so where it lost someone was only knowable by
+  // counting rows after the fact.
+  | "onboarding.step_viewed"
+  | "onboarding.step_completed"
+  | "onboarding.step_skipped"
+  | "onboarding.exited"
+  | "onboarding.completed";
+
+export type PreparationEventName = Extract<ProductEventName, `onboarding.${string}`>;
+
+/**
+ * One preparation event. `step` is restricted to the four keys the RPC knows
+ * (`prep_step`, migration 0120) — anything else is dropped there in silence, so
+ * the type is what keeps a typo from becoming an event with no step.
+ *
+ * Nothing she typed in a step travels with it: not a modality, not a
+ * registration. The RPC rebuilds properties from allowlisted keys and values.
+ */
+export function trackPreparationEvent(
+  event: PreparationEventName,
+  step?: "scope" | "signature" | "recording" | "next",
+): void {
+  trackProductEvent(event, { origin: "onboarding", ...(step ? { prep_step: step } : {}) });
+}
 
 export type CommercialEventOrigin = "menu" | "consultation" | "home" | "usage" | "billing";
 // Kept in sync with the value allowlist inside `track_product_event`

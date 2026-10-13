@@ -209,6 +209,10 @@ export default function AccountDetailDialog({
                   }
                 />
                 <Row label="Modalidades" value={listOf(dossier.identity.modalities)} />
+                {/* Free text she typed (0119). Shown apart because it is not the
+                    same kind of answer: the five above shape the plan and the
+                    library, these only say who she is. */}
+                <Row label="Outras modalidades" value={listOf(dossier.identity.modalitiesOther ?? null)} />
                 <Row label="Áreas" value={listOf(dossier.identity.areas)} />
                 <Row
                   label="Começou por"

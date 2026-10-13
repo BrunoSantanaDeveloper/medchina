@@ -1,5 +1,6 @@
 "use client";
 
+import SignupWhatsAppAdmin from "./components/signup-whatsapp-admin";
 import SupportAdmin from "./components/support-admin";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -64,6 +65,18 @@ export default function AdminSupport() {
           <Card component="section">
             <CardContent>
               <SupportAdmin />
+            </CardContent>
+          </Card>
+        </Grid>
+      )}
+
+      {/* The other WhatsApp decision the operator owns: whether a sign-up has to
+          be confirmed by it (migration 0122). */}
+      {allowed && (
+        <Grid size={12}>
+          <Card component="section">
+            <CardContent>
+              <SignupWhatsAppAdmin />
             </CardContent>
           </Card>
         </Grid>

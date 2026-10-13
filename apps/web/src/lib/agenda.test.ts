@@ -6,6 +6,7 @@ import {
   calendarUpcomingRange,
   calendarWeekRange,
   defaultAppointmentStart,
+  seriesOccurrences,
   weeklyOccurrences,
   whatsappConfirmationLink,
 } from "./agenda";
@@ -123,6 +124,59 @@ describe("weeklyOccurrences", () => {
 
     // Next week is EDT (UTC-4) but the appointment stays at 09:00 local.
     expect(occurrences[1].toISOString()).toBe("2026-03-12T13:00:00.000Z");
+  });
+});
+
+describe("seriesOccurrences", () => {
+  const SP = "America/Sao_Paulo";
+  // 2026-07-24 is a Friday, 11:00 in Sao Paulo (UTC-3).
+  const friday = "2026-07-24T14:00:00.000Z";
+  const dates = (occurrences: Date[]) => occurrences.map((date) => date.toISOString().slice(0, 10));
+
+  it("spreads two sessions a week over alternate days, not two in a row", () => {
+    // Fri + Mon, Fri + Mon — a 3-day gap inside each week.
+    expect(dates(seriesOccurrences(friday, "twice_weekly", 4, SP))).toEqual([
+      "2026-07-24",
+      "2026-07-27",
+      "2026-07-31",
+      "2026-08-03",
+    ]);
+  });
+
+  it("spreads three sessions a week every other day", () => {
+    expect(dates(seriesOccurrences(friday, "thrice_weekly", 4, SP))).toEqual([
+      "2026-07-24",
+      "2026-07-26",
+      "2026-07-28",
+      "2026-07-31",
+    ]);
+  });
+
+  it("steps daily and fortnightly by calendar days", () => {
+    expect(dates(seriesOccurrences(friday, "daily", 3, SP))).toEqual(["2026-07-24", "2026-07-25", "2026-07-26"]);
+    expect(dates(seriesOccurrences(friday, "biweekly", 3, SP))).toEqual(["2026-07-24", "2026-08-07", "2026-08-21"]);
+  });
+
+  it("keeps the day of the month monthly, clamping a short month", () => {
+    // 31 Jan has no counterpart in February: it lands on the 28th, never 3 March.
+    expect(dates(seriesOccurrences("2026-01-31T14:00:00.000Z", "monthly", 3, SP))).toEqual([
+      "2026-01-31",
+      "2026-02-28",
+      "2026-03-31",
+    ]);
+  });
+
+  it("keeps the wall-clock time across a DST change for every cadence", () => {
+    // Sao Paulo has no DST, so use New York: 2026-03-05 09:00 EST -> EDT.
+    const daily = seriesOccurrences("2026-03-05T14:00:00.000Z", "daily", 5, "America/New_York");
+
+    // March 8 starts EDT (UTC-4); 09:00 local is 13:00Z instead of 14:00Z.
+    expect(daily[2].toISOString()).toBe("2026-03-07T14:00:00.000Z");
+    expect(daily[4].toISOString()).toBe("2026-03-09T13:00:00.000Z");
+  });
+
+  it("never returns an empty series", () => {
+    expect(seriesOccurrences(friday, "weekly", 0, SP)).toHaveLength(1);
   });
 });
 

@@ -15,6 +15,11 @@ export type Dossier = {
     ownerId: string | null;
     userCreatedAt: string | null;
     modalities: string[] | null;
+    /**
+     * What she declared beyond the five product modalities (0119), as she typed
+     * it. Absent on a database that predates the migration.
+     */
+    modalitiesOther?: string[] | null;
     areas: string[] | null;
     fiscalId: string | null;
     billingPhone: string | null;

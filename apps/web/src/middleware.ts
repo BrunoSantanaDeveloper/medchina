@@ -122,10 +122,37 @@ const IMPERSONATION_READONLY_API = [
   "/api/ai",
 ];
 
+/**
+ * Where an account that still owes its WhatsApp confirmation is held, and the
+ * few places it may go before that (migration 0122).
+ *
+ * Such an account is, in practice, a campaign sign-up: it was created without
+ * a confirmation so that nothing would stand between the ad and the payment.
+ * So the checkout stays open to it — both doors of it — and everything else
+ * waits. After a payment the checkout sends her to /onboarding, which is not
+ * on this list: that is exactly where the confirmation is asked for.
+ *
+ * Server actions post to the page they were called from, so the checkout's own
+ * actions pass with it. API routes are held too (403, not a redirect): the
+ * trial and the recorder must not start behind a screen she never reached.
+ */
+const WHATSAPP_CONFIRMATION = "/auth/whatsapp";
+const WHATSAPP_PENDING_ALLOWED = ["/assinatura", "/settings/billing", "/api/impersonation/exit"];
+
 export async function middleware(request: NextRequest) {
   const { response, user, needsMfa, impersonating } = await updateSession(request);
   const { pathname, search } = request.nextUrl;
   const requestedPath = `${pathname}${search}`;
+
+  /**
+   * `whatsapp_pending` is written by the database into the user's APP metadata
+   * (a client cannot touch it) and arrives with the session's user, so this is
+   * answered without a query. A support session is never held: the operator
+   * has to be able to see the account she was asked about.
+   */
+  const whatsappPending =
+    !impersonating &&
+    (user as { app_metadata?: Record<string, unknown> } | null)?.app_metadata?.whatsapp_pending === true;
 
   /**
    * A campaign code (`?cupom=`) must reach the checkout, and between the click
@@ -293,6 +320,27 @@ export async function middleware(request: NextRequest) {
     const signIn = new URL("/auth/sign-in", request.url);
     signIn.searchParams.set("next", sanitizeInternalNext(requestedPath));
     return withCoupon(NextResponse.redirect(signIn));
+  }
+
+  // The account exists and may pay, but has not confirmed its WhatsApp yet.
+  if (
+    user &&
+    whatsappPending &&
+    !isPublic(pathname) &&
+    !WHATSAPP_PENDING_ALLOWED.some((prefix) => pathname.startsWith(prefix))
+  ) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        {
+          error: "whatsapp_confirmation_required",
+          message: "Confirm your WhatsApp to start using the account.",
+        },
+        { status: 403 },
+      );
+    }
+    const confirmation = new URL(WHATSAPP_CONFIRMATION, request.url);
+    confirmation.searchParams.set("next", sanitizeInternalNext(requestedPath));
+    return withCoupon(NextResponse.redirect(confirmation));
   }
 
   return withCoupon(response);

@@ -151,6 +151,24 @@ export function formatCep(value: string): string {
 
 export const CEP_MASK = "00000-000";
 
+/**
+ * The 27 federative units, in the order a Brazilian reads a state list
+ * (alphabetical by code). A closed set, so a form can offer it instead of a
+ * free text field: "SP " and "Sp" are the same state, and "XX" is not one —
+ * a two-letter check would accept all three.
+ */
+export const BR_STATES = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+] as const;
+
+export type BrState = (typeof BR_STATES)[number];
+
+export function isValidBrState(value: string | null | undefined): value is BrState {
+  if (!value) return false;
+  return (BR_STATES as readonly string[]).includes(value.trim().toUpperCase());
+}
+
 export interface PostalAddress {
   postalCode: string;
   street: string;

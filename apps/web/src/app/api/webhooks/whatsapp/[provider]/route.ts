@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { confirmSignupsFromWhatsApp } from "@/lib/signup-whatsapp";
 import { createServiceClient } from "@flyee/auth/service";
 import { getWhatsAppProvider, handleWhatsAppWebhookEvents, type WhatsAppProviderName } from "@flyee/whatsapp";
 
@@ -60,6 +61,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
     try {
       const supabase = createServiceClient();
       await handleWhatsAppWebhookEvents(supabase, provider.name, events);
+      // A sign-up waiting for this person's code (migration 0122). Inline, not
+      // through the `whatsapp/message.received` event: the screen is polling
+      // right now, and a job queue without keys would leave her waiting.
+      await confirmSignupsFromWhatsApp(supabase, provider, events);
     } catch {
       // Missing service credentials — acknowledge anyway so the provider
       // does not retry forever against an unconfigured template clone.

@@ -98,6 +98,30 @@
       "from": "@/components/product/step-celebration-dialog",
       "props": "open, title, accomplished, nextTitle, nextHint?, ctaLabel, onNext, onClose",
       "use": "The beat BETWEEN two steps of a guided flow: names what now exists in her records and loads the next step. Competence feedback, never a token — it awards, counts and ranks nothing, so it stays on the right side of the no-points/badges/leaderboards/streaks rule. Its primary action is what advances the wizard (drive SetupWizard in controlled mode)."
+    },
+    {
+      "name": "MicCheck",
+      "from": "@/components/product/mic-check",
+      "props": "onResult?(heard | silent | blocked | unavailable)",
+      "use": "'Will my microphone work?' answered BEFORE a patient is in the room: asks the browser permission, shows the live level and names what it found. Records and uploads nothing. Use wherever the product prepares her for a recording — never as a recorder."
+    },
+    {
+      "name": "SignaturePreview",
+      "from": "@/components/product/signature-preview",
+      "props": "name, title?, registration?, practiceName?",
+      "use": "The signature block of an issued document as it will print, fed by the same credentialLines() the PDF renderers use. Show it beside any field that changes what goes under her name. A preview of the block only — never mock a document that does not exist."
+    },
+    {
+      "name": "FirstConsultationGuide",
+      "from": "@/components/product/first-consultation-guide",
+      "props": "withRecording, onStart, onDismiss",
+      "use": "Orientation for a first visit to the consultation screen (what the chief complaint is for, blank = não informado, finalizing freezes). Three facts led by icons, deliberately NOT numbered — the screen numbers its own steps. Guidance about a moment of USE belongs on the screen where it happens, not in the onboarding."
+    },
+    {
+      "name": "PracticeModalitiesField",
+      "from": "@/components/product/fields/practice-modalities-field",
+      "props": "value, onChange, other, onOtherChange, onBlur?, disabled?, label?, helperText?",
+      "use": "What she treats with: the five product modalities plus her own words. The two lists are stored apart — only the five have clinical effect — and a typed label that names a known modality becomes the known one. The one place the option list and the label rules live."
     }
   ],
 

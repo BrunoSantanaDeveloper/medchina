@@ -11,6 +11,7 @@ import { getCampaignOffer } from "@/lib/campaign-offer";
 import { campaignQuery, pickCampaignParams } from "@/lib/campaign-params";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { pendingPixCharge } from "@/lib/pending-pix";
+import { brLocalDigits } from "@/lib/signup-whatsapp-shared";
 import { createClient } from "@flyee/auth/server";
 import { isPixAvailable } from "@flyee/billing";
 
@@ -126,6 +127,15 @@ export default async function AssinaturaPage({
   // PostgREST types an embedded relation as an array; both shapes reach here.
   const orgRel = membership?.organizations as Record<string, unknown> | Record<string, unknown>[] | null;
   const org = (Array.isArray(orgRel) ? orgRel[0] : orgRel) ?? {};
+
+  // Her own row only (RLS). Absent for accounts older than 0122, and a number
+  // from another country has no place in a Brazilian invoice field.
+  const { data: whatsappRow } = await supabase
+    .from("account_whatsapp")
+    .select("phone")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const signupPhone = brLocalDigits(whatsappRow?.phone as string | null | undefined);
 
   // `is_active`, never `is_public`: the campaign line is deliberately unlisted
   // and is reached only by the link the ads carry (migration 0085).
@@ -302,7 +312,10 @@ export default async function AssinaturaPage({
           document: (org.billing_cpf_cnpj as string | null) ?? null,
           postalCode: (org.billing_postal_code as string | null) ?? null,
           addressNumber: (org.billing_address_number as string | null) ?? null,
-          phone: (org.billing_phone as string | null) ?? null,
+          // She already typed her WhatsApp at sign-up (migration 0122): the
+          // invoice phone starts from it instead of asking again, one field
+          // fewer between her and the payment.
+          phone: (org.billing_phone as string | null) || signupPhone,
         }}
       />
     </Shell>

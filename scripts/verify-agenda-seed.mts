@@ -11,6 +11,8 @@ import { resolve } from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
 
+import { confirmedSignupMetadata } from "./signup-verification.mts";
+
 const ROOT = resolve(import.meta.dirname, "..");
 
 function loadEnv(path: string) {
@@ -52,7 +54,11 @@ if (!userId) {
     email: EMAIL,
     password: PASSWORD,
     email_confirm: true,
-    user_metadata: { display_name: "Dra. Verificação", company: "Consultório Verificação" },
+    user_metadata: {
+      display_name: "Dra. Verificação",
+      company: "Consultório Verificação",
+      ...(await confirmedSignupMetadata(admin, EMAIL)),
+    },
   });
   if (error) throw new Error(`createUser: ${error.message}`);
   userId = data.user!.id;
