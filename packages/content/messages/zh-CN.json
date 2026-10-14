@@ -3311,7 +3311,9 @@
     "reminders-message-edit": "编辑消息",
     "reminders-message-save-default": "保存为默认",
     "reminders-message-saved": "已保存。后续提醒已使用此文本。",
-    "reminders-message-scope": "此次修改仅用于本列表的发送。如需长期使用，请保存为默认。"
+    "reminders-message-scope": "此次修改仅用于本列表的发送。如需长期使用，请保存为默认。",
+    "source-unverified": "来源未确认",
+    "plan-share-channel-not-configured": "本安装未开启邮件发送。请使用下方链接并告知支持团队——这不是您在病历中能解决的问题。"
   },
   "auth": {
     "invite-workspace-conflict": "此账号已有一间诊所。目前每位医师只能使用一个工作空间。",

@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await Promise.all([
       supabase
         .from("anamnesis_answers")
-        .select("block_key, field_key, value, source, state")
+        .select("block_key, field_key, value, source, state, provenance")
         // A draft she rejected is not part of the record it was rejected from.
         .neq("state", "rejected")
         .eq("consultation_id", id),
@@ -96,6 +96,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       value: row.value,
       source: row.source,
       state: row.state,
+      // Absent provenance (typed by hand) is not an unconfirmed origin.
+      originVerified: (row.provenance as { originVerified?: unknown } | null)?.originVerified !== false,
     })),
     ageYears: Number.isFinite(ageYears) ? ageYears : null,
     priorPatterns: [...new Set((priorResult.data ?? []).map((row) => row.pattern as string))],

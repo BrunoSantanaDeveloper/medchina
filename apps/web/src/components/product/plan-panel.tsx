@@ -1248,9 +1248,11 @@ export default function PlanPanel({
                     ? t("plan-share-whatsapp-ready")
                     : shareResult.reason === "contact_missing"
                       ? t("plan-share-contact-missing")
-                      : shareResult.reason === "channel_unavailable"
-                        ? t("plan-share-channel-unavailable")
-                        : t("plan-share-link-ready")}
+                      : shareResult.reason === "channel_not_configured"
+                        ? t("plan-share-channel-not-configured")
+                        : shareResult.reason === "channel_rejected" || shareResult.reason === "channel_unavailable"
+                          ? t("plan-share-channel-unavailable")
+                          : t("plan-share-link-ready")}
               </Alert>
               {/* A real anchor, not a scripted window.open: the click that
                   leaves for WhatsApp is HERS, so no popup blocker eats it and

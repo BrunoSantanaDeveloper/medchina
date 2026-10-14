@@ -106,6 +106,12 @@ type Provenance = {
   transcriptionId?: string;
   /** False when the extraction could not find this quote in the transcript. */
   verified?: boolean;
+  /**
+   * False when WHO SPOKE could not be established by the diarization. The chart
+   * then does not claim an origin — saying "relato da paciente" over a sentence
+   * the professional said is how a hypothesis ends up built on the wrong mouth.
+   */
+  originVerified?: boolean;
 };
 type FieldMeta = {
   value: string;
@@ -2077,7 +2083,14 @@ export default function ConsultaPage() {
                                     <StateChip
                                       state={meta.state}
                                       reviewed={Boolean(meta.reviewed)}
-                                      sourceLabel={t(`source-${meta.source}`)}
+                                      // An AI draft whose speaker the diarization could
+                                      // not confirm says exactly that, instead of naming
+                                      // a mouth it does not know.
+                                      sourceLabel={
+                                        meta.provenance.quote && meta.provenance.originVerified === false
+                                          ? t("source-unverified")
+                                          : t(`source-${meta.source}`)
+                                      }
                                       t={t}
                                     />
                                   )}

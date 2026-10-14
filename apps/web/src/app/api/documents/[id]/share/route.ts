@@ -4,7 +4,7 @@ import { recordAudit } from "@/lib/audit";
 import { clinicalError, clinicalRpcResponse, createClinicalRequestClient } from "@/lib/clinical-route";
 import { createShareLinkToken } from "@/lib/share-link";
 import { whatsappDeepLink } from "@/lib/whatsapp-link";
-import { sendPatientDocumentEmail } from "@flyee/email";
+import { isEmailConfigured, sendPatientDocumentEmail } from "@flyee/email";
 
 /** A week: long enough for the patient to find the message, short enough to expire. */
 const TTL_HOURS = 168;
@@ -87,8 +87,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     whatsappUrl = whatsappDeepLink(patient?.phone, message);
     if (!whatsappUrl) reason = "contact_missing";
   } else if (channel === "email") {
+    // Three different failures used to arrive as one sentence ("could not send
+    // right now"), and only one of them is hers to fix. Reported from a real
+    // consultation: the home guidance went out by WhatsApp and never by e-mail,
+    // with nothing on screen or in the log saying why.
     if (!patient?.email) {
       reason = "contact_missing";
+    } else if (!isEmailConfigured) {
+      // No provider key in this deployment. Nothing she does in the chart fixes
+      // it, so the screen must not suggest trying again.
+      reason = "channel_not_configured";
+      console.error("[document.share] e-mail não configurado: RESEND_API_KEY ausente");
     } else {
       try {
         const sent = await sendPatientDocumentEmail(patient.email, {
@@ -97,9 +106,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           patientFirstName: patient.firstName,
         });
         emailSent = sent.sent;
-        if (!sent.sent) reason = "channel_unavailable";
-      } catch {
-        reason = "channel_unavailable";
+        if (!sent.sent) {
+          reason = "channel_rejected";
+          // The provider's own words, server-side only: the address, the domain
+          // and the reason never belong on the patient's screen.
+          console.error("[document.share] provedor recusou o e-mail:", sent.error ?? "sem detalhe");
+        }
+      } catch (error) {
+        reason = "channel_rejected";
+        console.error("[document.share] falha ao enviar o e-mail:", error);
       }
     }
   }

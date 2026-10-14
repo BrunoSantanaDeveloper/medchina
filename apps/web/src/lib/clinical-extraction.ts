@@ -55,8 +55,12 @@ export interface ExtractedAnswer {
    * values once the quote is located, not the model's claim about them — the
    * transcript viewer links a field to its segment by exact timestamp, so a
    * plausible-looking "2:05" against a segment at "02:05" silently breaks it.
+   *
+   * `originVerified` says whether WHO SPOKE was established by the diarization
+   * instead of claimed by the model. False means the chart must not assert an
+   * origin — see the source rule below.
    */
-  provenance: { quote: string; start: string; speaker: string; verified: boolean };
+  provenance: { quote: string; start: string; speaker: string; verified: boolean; originVerified: boolean };
 }
 
 export interface ExtractionResult {
@@ -76,6 +80,8 @@ export interface ExtractionResult {
   promptVersion: string;
   /** Answers dropped by the verification below, per reason — quality telemetry. */
   dropped: { unknownField: number; observationFromPatient: number; absenceAsValue: number };
+  /** Values whose ORIGIN the diarization corrected: the model had the speaker wrong. */
+  corrected: { origin: number };
   /** Answers kept whose quote could NOT be found in the transcript. */
   unverified: number;
 }
@@ -109,6 +115,37 @@ export function isPipelineUpdatable(answer: ExistingAnswer): boolean {
   if (answer.state === "edited" || answer.state === "rejected") return false;
   if (answer.source !== "professional" && answer.source !== "professional_voice") return true;
   return answer.source === "professional_voice" && Boolean(answer.provenance?.transcriptionId);
+}
+
+/**
+ * WHO SPOKE a value, decided by the diarization rather than by the model.
+ *
+ * The model used to label every value itself (`source`), and nothing checked
+ * it outside the four exam fields — so a sentence the PRACTITIONER said could
+ * be stored, and shown to her, as "relato da paciente", and then reach the
+ * hypotheses prompt as the patient’s own words. Reported from a real online
+ * consultation.
+ *
+ * Verified only when the quote was anchored in the transcript AND the
+ * diarization named the practitioner. In a teleconsultation the patient’s
+ * voice may never reach the microphone, and then there is no second speaker to
+ * tell apart: the claim is kept as a draft and flagged, never asserted.
+ */
+export function resolveAnswerOrigin(input: {
+  /** Speaker label of the anchored segment, or null when the quote was not found. */
+  spokenBy: string | null;
+  /** Diarized label of the practitioner, or null when the model could not say. */
+  practitionerSpeaker: string | null;
+  /** What the model claimed — used only while nothing can be verified. */
+  claimedSource: "patient_report" | "professional_voice";
+}): { source: "patient_report" | "professional_voice"; originVerified: boolean } {
+  if (!input.spokenBy || !input.practitionerSpeaker) {
+    return { source: input.claimedSource, originVerified: false };
+  }
+  return {
+    source: input.spokenBy === input.practitionerSpeaker ? "professional_voice" : "patient_report",
+    originVerified: true,
+  };
 }
 
 /** A consultation where no conditional block applies — the safe default. */
@@ -419,6 +456,7 @@ export async function extractAnamnesis(
     model,
     promptVersion: EXTRACTION_PROMPT_VERSION,
     dropped: { unknownField: 0, observationFromPatient: 0, absenceAsValue: 0 },
+    corrected: { origin: 0 },
     unverified: 0,
   };
   if (!key) throw new Error("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
@@ -469,6 +507,8 @@ export async function extractAnamnesis(
   const practitionerSpeaker = raw.practitionerSpeaker?.trim() || null;
   const answers: ExtractedAnswer[] = [];
   const dropped = { unknownField: 0, observationFromPatient: 0, absenceAsValue: 0 };
+  /** Values whose origin the diarization had to correct — the model guessed wrong. */
+  const corrected = { origin: 0 };
   let unverified = 0;
 
   for (const item of raw.answers ?? []) {
@@ -488,12 +528,12 @@ export async function extractAnamnesis(
       continue;
     }
 
-    const source = item.source === "professional_voice" ? "professional_voice" : "patient_report";
+    const claimedSource = item.source === "professional_voice" ? "professional_voice" : "patient_report";
 
     // Rule 3, verified in code: a tongue/pulse/palpation/pattern finding
     // attributed to the patient's speech is not a valid observation — drop it
     // rather than record an inference as a fact.
-    if (field.observationOnly && source !== "professional_voice") {
+    if (field.observationOnly && claimedSource !== "professional_voice") {
       dropped.observationFromPatient += 1;
       continue;
     }
@@ -506,21 +546,48 @@ export async function extractAnamnesis(
     // standing between a patient's sentence and the tongue field. Now the
     // DIARIZATION arbitrates — an observation anchored to a segment the patient
     // spoke is dropped, whatever the model called it.
-    if (field.observationOnly && anchor && practitionerSpeaker && anchor.segment.speaker !== practitionerSpeaker) {
+    if (!anchor) unverified += 1;
+
+    /**
+     * WHO SPOKE is decided by the diarization, for EVERY field — not only the
+     * exam ones.
+     *
+     * The model's own `source` label used to be written to the chart unchecked,
+     * so a sentence the PRACTITIONER said could be stored, and shown to her, as
+     * "relato da paciente" — and then reach the hypotheses prompt as the
+     * patient's own words. Reported from a real online consultation, where the
+     * excerpt under a field was her own voice.
+     *
+     * When the speakers cannot be told apart (no anchor, or the model could not
+     * say which label is the practitioner — common in a teleconsultation, where
+     * the patient's voice may never reach the microphone), the chart asserts
+     * NOTHING: the claim is kept as a draft, flagged unverified, and comes back
+     * for her review.
+     */
+    const spokenBy = anchor && practitionerSpeaker ? anchor.segment.speaker : null;
+    const originVerified = spokenBy !== null;
+    const source = spokenBy
+      ? spokenBy === practitionerSpeaker
+        ? "professional_voice"
+        : "patient_report"
+      : claimedSource;
+    if (originVerified && source !== claimedSource) corrected.origin += 1;
+
+    // An observation that the diarization places in the patient's mouth is
+    // dropped, whatever the model called it (rule 3, second half).
+    if (field.observationOnly && originVerified && source !== "professional_voice") {
       dropped.observationFromPatient += 1;
       continue;
     }
-
-    if (!anchor) unverified += 1;
 
     // Rule 5, verified in code: the clinically sensitive families ALWAYS come
     // back for review, whatever the model decided (PRD §10.10). Prompts drift;
     // this does not. The quote is scanned too — a summarised value can lose the
     // very word (an anticoagulant's name) that makes the passage sensitive.
     const alwaysAttention = field.alwaysReview || SENSITIVE.test(value) || SENSITIVE.test(claimedQuote);
-    // A value whose evidence could not be located is exactly the one a human
-    // must look at first.
-    const state = item.state === "attention" || alwaysAttention || !anchor ? "attention" : "clear";
+    // A value whose evidence could not be located — or whose SPEAKER could not
+    // be established — is exactly the one a human must look at first.
+    const state = item.state === "attention" || alwaysAttention || !anchor || !originVerified ? "attention" : "clear";
 
     answers.push({
       blockKey,
@@ -534,6 +601,7 @@ export async function extractAnamnesis(
         start: anchor ? anchor.segment.start : (item.start ?? "").trim(),
         speaker: anchor ? anchor.segment.speaker : (item.speaker ?? "").trim(),
         verified: Boolean(anchor),
+        originVerified,
       },
     });
   }
@@ -563,6 +631,7 @@ export async function extractAnamnesis(
     model,
     promptVersion: EXTRACTION_PROMPT_VERSION,
     dropped,
+    corrected,
     unverified,
   };
 }

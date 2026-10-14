@@ -3311,7 +3311,9 @@
     "reminders-message-edit": "Editar mensagem",
     "reminders-message-save-default": "Salvar como padrão",
     "reminders-message-saved": "Salvo. Os próximos lembretes já usam este texto.",
-    "reminders-message-scope": "A edição vale para os envios desta lista. Para usar sempre, salve como padrão."
+    "reminders-message-scope": "A edição vale para os envios desta lista. Para usar sempre, salve como padrão.",
+    "source-unverified": "Origem não confirmada",
+    "plan-share-channel-not-configured": "O envio por e-mail não está ligado nesta instalação. Use o link abaixo e avise o suporte — não é algo que você resolva na ficha."
   },
   "auth": {
     "invite-workspace-conflict": "Esta conta já possui um consultório. No modelo atual, cada profissional usa apenas um espaço de trabalho.",

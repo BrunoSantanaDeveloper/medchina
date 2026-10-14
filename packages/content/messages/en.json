@@ -3311,7 +3311,9 @@
     "reminders-message-edit": "Edit message",
     "reminders-message-save-default": "Save as default",
     "reminders-message-saved": "Saved. The next reminders already use this text.",
-    "reminders-message-scope": "This edit applies to the sends in this list. To use it always, save it as the default."
+    "reminders-message-scope": "This edit applies to the sends in this list. To use it always, save it as the default.",
+    "source-unverified": "Origin not confirmed",
+    "plan-share-channel-not-configured": "E-mail sending is not switched on in this installation. Use the link below and tell support — this is not something you can fix in the record."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

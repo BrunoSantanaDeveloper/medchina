@@ -82,7 +82,15 @@ export interface ReasoningResult {
 /** The recorded consultation, as the reasoning sees it. */
 export interface RecordedCase {
   chiefComplaint: string | null;
-  answers: { blockKey: string; fieldKey: string; value: string; source: string; state: string }[];
+  answers: {
+    blockKey: string;
+    fieldKey: string;
+    value: string;
+    source: string;
+    state: string;
+    /** False when the diarization could not say who spoke it (clinical-extraction.ts). */
+    originVerified?: boolean;
+  }[];
   /** Age in years, when the birth date is recorded — several patterns read differently by age. */
   ageYears?: number | null;
   /**
@@ -198,8 +206,16 @@ function describeCase(recorded: RecordedCase): string {
   if (recorded.chiefComplaint) lines.push(`Queixa principal: ${complaintOnOneLine(recorded.chiefComplaint)}`);
   for (const answer of recorded.answers) {
     const key = fieldLabel(answer.blockKey, answer.fieldKey);
+    // Who said it, as far as the record can prove. "origem não confirmada"
+    // is said out loud instead of defaulting to the patient: a pattern built on
+    // the practitioner's own sentence, read as the patient's report, is the
+    // kind of error that looks like a finding.
     const origin =
-      answer.source === "professional_voice" || answer.source === "professional" ? "profissional" : "relato";
+      answer.originVerified === false
+        ? "origem não confirmada"
+        : answer.source === "professional_voice" || answer.source === "professional"
+          ? "profissional"
+          : "relato";
     // The extraction already judged this value ambiguous, contradictory or
     // sensitive. Passing it in unmarked let the reasoning build on a doubt as
     // if it were settled.

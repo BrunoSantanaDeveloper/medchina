@@ -3311,7 +3311,9 @@
     "reminders-message-edit": "Nachricht bearbeiten",
     "reminders-message-save-default": "Als Standard speichern",
     "reminders-message-saved": "Gespeichert. Die nächsten Erinnerungen verwenden bereits diesen Text.",
-    "reminders-message-scope": "Diese Änderung gilt für die Sendungen in dieser Liste. Zum dauerhaften Verwenden als Standard speichern."
+    "reminders-message-scope": "Diese Änderung gilt für die Sendungen in dieser Liste. Zum dauerhaften Verwenden als Standard speichern.",
+    "source-unverified": "Herkunft nicht bestätigt",
+    "plan-share-channel-not-configured": "Der E-Mail-Versand ist in dieser Installation nicht eingeschaltet. Nutzen Sie den Link unten und melden Sie es dem Support — in der Akte lässt sich das nicht beheben."
   },
   "auth": {
     "invite-workspace-conflict": "This account already has a practice. In the current model, each professional uses one workspace.",

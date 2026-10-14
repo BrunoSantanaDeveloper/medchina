@@ -1,4 +1,10 @@
-import { anchorQuote, type ExistingAnswer, isAbsenceValue, isPipelineUpdatable } from "./clinical-extraction";
+import {
+  anchorQuote,
+  type ExistingAnswer,
+  isAbsenceValue,
+  isPipelineUpdatable,
+  resolveAnswerOrigin,
+} from "./clinical-extraction";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -168,5 +174,36 @@ describe("what a later recording may update", () => {
       true,
     );
     expect(isPipelineUpdatable(answer({ source: "ai_inference" }))).toBe(true);
+  });
+});
+
+describe("who said it is decided by the diarization, not by the model", () => {
+  it("corrects the model when the speaker says otherwise", () => {
+    // Reported from a real online consultation: the excerpt under the field was
+    // the PROFESSIONAL speaking, and the chart showed “relato da paciente”.
+    expect(
+      resolveAnswerOrigin({ spokenBy: "Speaker 1", practitionerSpeaker: "Speaker 1", claimedSource: "patient_report" }),
+    ).toEqual({ source: "professional_voice", originVerified: true });
+
+    expect(
+      resolveAnswerOrigin({
+        spokenBy: "Speaker 2",
+        practitionerSpeaker: "Speaker 1",
+        claimedSource: "professional_voice",
+      }),
+    ).toEqual({ source: "patient_report", originVerified: true });
+  });
+
+  it("asserts nothing when the speakers cannot be told apart", () => {
+    // A teleconsultation where the patient’s voice never reached the microphone:
+    // there is no second speaker, so the claim stays a draft and is flagged.
+    expect(
+      resolveAnswerOrigin({ spokenBy: "Speaker 1", practitionerSpeaker: null, claimedSource: "patient_report" }),
+    ).toEqual({ source: "patient_report", originVerified: false });
+
+    // Quote not found in the transcript: nothing to attribute it to.
+    expect(
+      resolveAnswerOrigin({ spokenBy: null, practitionerSpeaker: "Speaker 1", claimedSource: "professional_voice" }),
+    ).toEqual({ source: "professional_voice", originVerified: false });
   });
 });
