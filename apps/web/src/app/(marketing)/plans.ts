@@ -31,10 +31,17 @@ export async function getDisplayPlans(coupon?: CheckoutCoupon | null): Promise<P
     }));
   }
 
-  // Highlight the middle plan — the conventional anchor of a 3-tier grid.
-  const highlightIndex = plans.length >= 3 ? 1 : -1;
-
-  return plans.map((plan, index) => {
+  /**
+   * The anchor card is DATA (`plans.is_highlighted`, migration 0124), chosen in
+   * /admin/billing. It used to be the plan at index 1 — the middle of three —
+   * which meant promoting a tier required reordering the whole grid through
+   * `sort`, "no anchor at all" could not be expressed, and adding or
+   * unpublishing a plan silently moved the emphasis to whatever slid into
+   * position 2. There is deliberately no positional fallback here: a second
+   * rule would decide the page whenever the first says "none", which is exactly
+   * the state an operator picks on purpose.
+   */
+  return plans.map((plan) => {
     const features: string[] = [];
     if (plan.kind === "credits" && plan.creditAmount) {
       features.push(t("pricing-feature-credits", { count: plan.creditAmount }));
@@ -90,7 +97,7 @@ export async function getDisplayPlans(coupon?: CheckoutCoupon | null): Promise<P
         : undefined,
       period: plan.kind === "recurring" && plan.period && !plan.isFree ? t(`pricing-period-${plan.period}`) : undefined,
       features,
-      highlighted: index === highlightIndex,
+      highlighted: plan.isHighlighted,
       // Raw values power the Offer JSON-LD (formatted `price` is display-only).
       // Deliberately the LIST price: the structured data describes the offer
       // open to everyone, and crawlers never carry a campaign code anyway.

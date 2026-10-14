@@ -43,6 +43,8 @@ type PlanForm = {
   is_free: boolean;
   is_active: boolean;
   is_public: boolean;
+  /** The anchor card of the public pricing grids (0124) — at most one plan. */
+  is_highlighted: boolean;
   limits: string;
   sort: number;
 };
@@ -59,6 +61,7 @@ type PlanRow = {
   isFree: boolean;
   isActive: boolean;
   isPublic: boolean;
+  isHighlighted: boolean;
   raw: Record<string, unknown>;
 };
 
@@ -76,13 +79,19 @@ const EMPTY: PlanForm = {
   is_free: false,
   is_active: true,
   is_public: true,
+  is_highlighted: false,
   limits: "{}",
   sort: 0,
 };
 
 /** The catalog flags a row carries, as searchable text (the chips render them). */
 const flagsOf = (row: PlanRow) =>
-  [row.isFree ? "grátis padrão" : null, row.isActive ? null : "inativo", row.isPublic ? null : "não listado"]
+  [
+    row.isFree ? "grátis padrão" : null,
+    row.isActive ? null : "inativo",
+    row.isPublic ? null : "não listado",
+    row.isHighlighted ? "destaque" : null,
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -131,6 +140,7 @@ export default function PlansAdmin() {
       is_free: row.is_free as boolean,
       is_active: row.is_active as boolean,
       is_public: row.is_public !== false,
+      is_highlighted: row.is_highlighted === true,
       limits: JSON.stringify(row.limits ?? {}, null, 2),
       sort: row.sort as number,
     });
@@ -162,6 +172,7 @@ export default function PlansAdmin() {
       is_free: form.is_free,
       is_active: form.is_active,
       is_public: form.is_public,
+      is_highlighted: form.is_highlighted,
       limits,
       sort: Number(form.sort) || 0,
     };
@@ -192,6 +203,7 @@ export default function PlansAdmin() {
         isFree: Boolean(row.is_free),
         isActive: Boolean(row.is_active),
         isPublic: row.is_public !== false,
+        isHighlighted: row.is_highlighted === true,
         raw: row,
       })),
     [rows],
@@ -242,6 +254,7 @@ export default function PlansAdmin() {
             {params.row.isFree && <Chip label="grátis padrão" size="small" color="success" variant="outlined" />}
             {!params.row.isActive && <Chip label="inativo" size="small" variant="outlined" />}
             {!params.row.isPublic && <Chip label="não listado" size="small" color="primary" variant="outlined" />}
+            {params.row.isHighlighted && <Chip label="destaque" size="small" color="secondary" variant="outlined" />}
             {params.value === "" && (
               <Typography variant="body2" className="text-text-secondary">
                 —
@@ -408,10 +421,29 @@ export default function PlansAdmin() {
                 }
                 label="Listado nas tabelas de preço"
               />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={form.is_highlighted}
+                    onChange={(e) => setForm({ ...form, is_highlighted: e.target.checked })}
+                  />
+                }
+                label="Destaque na home e em /planos"
+              />
             </Box>
             {/* The distinction the console has to make explicit: unchecking
                 "Active" is how an offer becomes UNBUYABLE, which is the wrong
                 tool for taking it off the catalog. */}
+            {/* A checkbox cannot show that this one is exclusive, nor that an
+                unlisted plan has no grid to be the anchor of. */}
+            {form.is_highlighted && (
+              <Alert severity="info" className="neutral bg-background-paper/60! mt-2">
+                {form.is_public
+                  ? "Só um plano fica em destaque: marcar este tira o destaque do que estiver marcado hoje."
+                  : "Este plano não está listado, então não aparece nas tabelas de preço — o destaque só passa a valer se você marcar também “Listado nas tabelas de preço”."}
+              </Alert>
+            )}
             {!form.is_public && form.is_active && (
               <Alert severity="info" className="neutral bg-background-paper/60! mt-2">
                 Não listado: fica fora de /planos e da tabela de planos da cliente, mas ainda pode ser comprado em

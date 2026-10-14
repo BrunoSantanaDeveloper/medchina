@@ -4,6 +4,7 @@ import CampaignOfferAdmin from "./components/campaign-offer-admin";
 import ConversionOffersAdmin from "./components/conversion-offers-admin";
 import CouponsAdmin from "./components/coupons-admin";
 import FoundersAdmin from "./components/founders-admin";
+import GuaranteeAdmin from "./components/guarantee-admin";
 import ModulesAdmin from "./components/modules-admin";
 import PlansAdmin from "./components/plans-admin";
 import SubscriptionsAdmin from "./components/subscriptions-admin";
@@ -89,6 +90,20 @@ export default function AdminBilling() {
               <Box hidden={tab !== 4}>
                 {tab === 4 && (
                   <Box className="flex flex-col gap-8">
+                    {/* First because it is the only term the three offers
+                        SHARE. Each block below answers "what are we selling";
+                        this one answers "under what promise", and reading it
+                        after the prices would be reading it after the decision
+                        it qualifies. */}
+                    <Box className="flex flex-col gap-3">
+                      <Box>
+                        <Typography variant="subtitle1">Garantia · vale para todas as ofertas</Typography>
+                        <Typography variant="body2" className="text-text-secondary">
+                          Um número só, lido pelas páginas de oferta, pela tela de pagamento e pelos termos.
+                        </Typography>
+                      </Box>
+                      <GuaranteeAdmin />
+                    </Box>
                     <Box className="flex flex-col gap-3">
                       <Box>
                         <Typography variant="subtitle1">Oferta de campanha · /assinar</Typography>
