@@ -2,11 +2,25 @@ import { NextResponse } from "next/server";
 
 import { recordAiSpend } from "@/lib/ai-spend";
 import { recordAudit } from "@/lib/audit";
-import { COLLECTION_KIND, type KnowledgeSourceRef, SOURCES_SENTINEL } from "@/lib/clinical-library";
+import {
+  COLLECTION_KIND,
+  type KnowledgeSourceRef,
+  LIBRARY_ASSISTANT_SLUG,
+  SOURCES_SENTINEL,
+} from "@/lib/clinical-library";
 import { describePatientCase, loadPatientCase } from "@/lib/patient-case";
 import { buildPracticeScopeContext, normalizeScope } from "@/lib/practice-scope-context";
 import { alertAfterLibraryMessage, getAudioAllowance } from "@/lib/usage";
-import { type ChatAttachment, type ChatMessage, type ChatUsage, getChatProvider } from "@flyee/ai";
+import {
+  AI_EFFORTS,
+  type AiEffort,
+  type ChatAttachment,
+  type ChatMessage,
+  type ChatUsage,
+  describeAiFailure,
+  getChatProvider,
+  isStructuredOutputError,
+} from "@flyee/ai";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
 import {
@@ -175,6 +189,17 @@ export async function POST(request: Request) {
     casePatientId = (conversation.patient_id as string | null) ?? null;
   } else {
     casePatientId = body.patientId ?? null;
+  }
+  // A patient's record goes only to the clinical library assistant — the one
+  // whose processor and instructions were chosen for clinical data. Any other
+  // active assistant (the template's example one pointed at a second
+  // processor) would otherwise take the record just by being named here,
+  // including by continuing a case-review conversation under another slug.
+  if (casePatientId && assistant.slug !== LIBRARY_ASSISTANT_SLUG) {
+    return NextResponse.json(
+      { error: "Case review is only available in the clinical library.", code: "case_review_library_only" },
+      { status: 403 },
+    );
   }
 
   // What this professional actually treats with. The same declaration that
@@ -353,6 +378,9 @@ export async function POST(request: Request) {
   // stream, written once it ends — including when it ended badly, because
   // a half-generated answer was billed like a whole one.
   let usage: ChatUsage | null = null;
+  // The provider itself said the text is not an answer (refused, or cut at
+  // the token limit) — as opposed to the stream breaking off.
+  let notAnAnswer = false;
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -364,6 +392,9 @@ export async function POST(request: Request) {
             encoder.encode(`${SOURCES_SENTINEL}${JSON.stringify({ sources, retrievalFailed })}${SOURCES_SENTINEL}`),
           );
         }
+        // Thinking depth for providers that take one (Claude), set per
+        // assistant in /admin/ai; Gemini ignores it.
+        const configuredEffort = (assistant.config as { effort?: string } | null)?.effort;
         const generator = provider.streamChat(
           {
             provider: assistant.provider,
@@ -371,6 +402,9 @@ export async function POST(request: Request) {
             systemPrompt,
             temperature: Number(assistant.temperature),
             maxTokens: assistant.max_tokens,
+            effort: (AI_EFFORTS as readonly string[]).includes(configuredEffort ?? "")
+              ? (configuredEffort as AiEffort)
+              : undefined,
           },
           chatMessages,
           (reported) => {
@@ -383,7 +417,15 @@ export async function POST(request: Request) {
         }
         controller.close();
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Provider error";
+        // A refusal or a reply cut at the token limit is not an answer, and
+        // used to be stored, and metered against her quota, as if complete. A
+        // stream that broke off (she closed the tab, the network dropped) still
+        // keeps what she already read, as it always did.
+        notAnAnswer = isStructuredOutputError(error);
+        if (notAnAnswer) console.warn("[ai/chat] reply was not an answer", describeAiFailure(error));
+        // Its wording ("gemini structured output truncated…") means nothing to
+        // her; an empty reason makes the page show its own translated message.
+        const message = notAnAnswer ? "" : error instanceof Error ? error.message : "Provider error";
         controller.enqueue(encoder.encode(`\n[error] ${message}`));
         controller.close();
       } finally {
@@ -402,7 +444,7 @@ export async function POST(request: Request) {
             refId: conversationId,
           });
         }
-        if (fullText) {
+        if (fullText && !notAnAnswer) {
           await supabase.from("messages").insert({
             conversation_id: conversationId,
             role: "assistant",

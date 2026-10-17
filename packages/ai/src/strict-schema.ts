@@ -88,6 +88,80 @@ export function toStrictJsonSchema(schema: unknown): unknown {
   return next;
 }
 
+/** Keywords Claude's structured outputs reject (numeric, string-length and array-size constraints). */
+const ANTHROPIC_UNSUPPORTED = [
+  "minimum",
+  "maximum",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
+  "multipleOf",
+  "minLength",
+  "maxLength",
+  "minItems",
+  "maxItems",
+  "uniqueItems",
+] as const;
+
+/**
+ * Convert a plain JSON Schema into what Claude's structured outputs accept.
+ *
+ * Unlike OpenAI's strict mode, Claude keeps optionality the honest way —
+ * a property left out of `required` may be absent — so the domain's shape
+ * survives untouched. Two things change: every object closes itself
+ * (`additionalProperties: false` is mandatory), and constraint keywords the
+ * grammar compiler does not take are dropped (the domain code already
+ * validates what it receives).
+ */
+export function toAnthropicJsonSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map((entry) => toAnthropicJsonSchema(entry));
+  if (!isObject(schema)) return schema;
+
+  const next: JsonSchema = { ...schema };
+  for (const keyword of ANTHROPIC_UNSUPPORTED) delete next[keyword];
+
+  if (next.items !== undefined) next.items = toAnthropicJsonSchema(next.items);
+  for (const key of ["anyOf", "oneOf", "allOf"] as const) {
+    if (Array.isArray(next[key])) {
+      next[key] = (next[key] as unknown[]).map((branch) => toAnthropicJsonSchema(branch));
+    }
+  }
+  if (isObject(next.properties)) {
+    next.properties = Object.fromEntries(
+      Object.entries(next.properties).map(([key, value]) => [key, toAnthropicJsonSchema(value)]),
+    );
+    next.additionalProperties = false;
+  }
+  return next;
+}
+
+/**
+ * Per-request limits of Claude's structured-output grammar. Past them the API
+ * answers 400 "Schema is too complex for compilation" — which on the clinical
+ * routes would be a failed plan, not a slow one.
+ */
+export const ANTHROPIC_SCHEMA_LIMITS = { optional: 24, unions: 16 } as const;
+
+/** How many optional properties and union-typed properties a schema declares. */
+export function anthropicSchemaComplexity(schema: unknown): { optional: number; unions: number } {
+  const total = { optional: 0, unions: 0 };
+  const visit = (node: unknown) => {
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (!isObject(node)) return;
+    if (isObject(node.properties)) {
+      const required = new Set(Array.isArray(node.required) ? (node.required as string[]) : []);
+      for (const [key, value] of Object.entries(node.properties)) {
+        if (!required.has(key)) total.optional += 1;
+        if (isObject(value) && (Array.isArray(value.type) || Array.isArray(value.anyOf))) total.unions += 1;
+        visit(value);
+      }
+    }
+    if (node.items !== undefined) visit(node.items);
+    for (const key of ["anyOf", "oneOf", "allOf"] as const) if (Array.isArray(node[key])) visit(node[key]);
+  };
+  visit(schema);
+  return total;
+}
+
 /**
  * Report what still violates strict mode. Used by tests over the REAL clinical
  * schemas, so a schema added later cannot quietly become un-sendable to OpenAI

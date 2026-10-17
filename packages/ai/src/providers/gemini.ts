@@ -1,7 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 
 import { StructuredOutputError, structuredFailureFromGemini } from "@flyee/ai/errors";
-import { type AssistantConfig, type ChatMessage, type ChatProvider, type StructuredOutput, type UsageSink, reportUsage } from "@flyee/ai/types";
+import {
+  type AssistantConfig,
+  type ChatMessage,
+  type ChatProvider,
+  type StructuredOutput,
+  type UsageSink,
+  reportUsage,
+} from "@flyee/ai/types";
 
 /**
  * Reasoning tokens a structured call may spend BEFORE the answer.
@@ -64,6 +71,20 @@ function geminiUsage(
   };
 }
 
+function geminiClient(config: AssistantConfig) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY is not set");
+  // A caller running under a shared deadline (finalization, the insights
+  // rounds) passes what is left of it instead of the 90 s default.
+  const httpOptions = config.timeoutMs ? { ...HTTP_OPTIONS, timeout: config.timeoutMs } : HTTP_OPTIONS;
+  return new GoogleGenAI({ apiKey: key, httpOptions });
+}
+
+/** Thinking tokens granted on top of the answer budget (0 where the model cannot think). */
+function reasoningBudgetFor(config: AssistantConfig): number {
+  return THINKING_CAPABLE.test(config.model) ? Math.max(0, config.reasoningBudget ?? DEFAULT_REASONING_BUDGET) : 0;
+}
+
 function toGeminiContents(messages: ChatMessage[]) {
   return messages.map((message) => ({
     role: message.role === "assistant" ? "model" : "user",
@@ -85,30 +106,54 @@ export class GeminiProvider implements ChatProvider {
   }
 
   async *streamChat(config: AssistantConfig, messages: ChatMessage[], onUsage?: UsageSink): AsyncGenerator<string> {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error("GEMINI_API_KEY is not set");
-    const client = new GoogleGenAI({ apiKey: key, httpOptions: HTTP_OPTIONS });
+    const client = geminiClient(config);
 
-    const contents = toGeminiContents(messages);
-
+    // The chat had no reasoning room either: on a thinking model the answer
+    // shared its cap with the thinking, was cut mid-sentence when the thinking
+    // ran long — and was then stored as if complete.
+    const reasoningBudget = reasoningBudgetFor(config);
     const stream = await client.models.generateContentStream({
       model: config.model,
-      contents,
+      contents: toGeminiContents(messages),
       config: {
         systemInstruction: config.systemPrompt,
         temperature: config.temperature,
-        maxOutputTokens: config.maxTokens,
+        maxOutputTokens: config.maxTokens + reasoningBudget,
+        ...(reasoningBudget > 0 ? { thinkingConfig: { thinkingBudget: reasoningBudget } } : {}),
       },
     });
 
-    // Every chunk carries the usage so far; the last one carries the total.
+    // Every chunk carries the usage so far; the last one carries the total and
+    // the reason the reply stopped.
     let usage: ReturnType<typeof geminiUsage> = null;
-    for await (const chunk of stream) {
-      usage = geminiUsage(chunk.usageMetadata, config.model) ?? usage;
-      const text = chunk.text;
-      if (text) yield text;
+    let text = "";
+    let finishReason: string | undefined;
+    let blockReason: string | undefined;
+    try {
+      for await (const chunk of stream) {
+        usage = geminiUsage(chunk.usageMetadata, config.model) ?? usage;
+        finishReason = chunk.candidates?.[0]?.finishReason ?? finishReason;
+        blockReason = chunk.promptFeedback?.blockReason ?? blockReason;
+        const delta = chunk.text;
+        if (delta) {
+          text += delta;
+          yield delta;
+        }
+      }
+    } finally {
+      // Also when the stream broke off or the caller stopped reading: what was
+      // generated so far was billed.
+      if (usage) reportUsage(onUsage, usage);
     }
-    if (usage) reportUsage(onUsage, usage);
+
+    // Cut at MAX_TOKENS or stopped by a filter: the text that went out is not
+    // an answer, and the caller must not store or meter it as one.
+    const failure = structuredFailureFromGemini({
+      text,
+      candidates: [{ finishReason }],
+      promptFeedback: { blockReason },
+    });
+    if (failure) throw new StructuredOutputError({ provider: "gemini", ...failure });
   }
 
   async generateStructured(
@@ -117,15 +162,11 @@ export class GeminiProvider implements ChatProvider {
     output: StructuredOutput,
     onUsage?: UsageSink,
   ): Promise<unknown> {
-    const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error("GEMINI_API_KEY is not set");
-    const client = new GoogleGenAI({ apiKey: key, httpOptions: HTTP_OPTIONS });
+    const client = geminiClient(config);
 
     // `maxTokens` is the budget for the ANSWER. Reasoning gets its own room on
     // top, because the API counts both against the same cap.
-    const reasoningBudget = THINKING_CAPABLE.test(config.model)
-      ? Math.max(0, config.reasoningBudget ?? DEFAULT_REASONING_BUDGET)
-      : 0;
+    const reasoningBudget = reasoningBudgetFor(config);
 
     const response = await client.models.generateContent({
       model: config.model,

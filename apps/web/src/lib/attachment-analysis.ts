@@ -1,5 +1,6 @@
+import { clinicalAiRoute } from "@/lib/ai-routing";
 import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
-import { type AiProviderName, getChatProvider } from "@flyee/ai";
+import { getChatProvider } from "@flyee/ai";
 
 /**
  * AI reading of an attached document or photo (Fase B, PRD §10.2/§10.3/§16).
@@ -13,9 +14,6 @@ import { type AiProviderName, getChatProvider } from "@flyee/ai";
  *    is partial by construction.
  */
 export const ANALYSIS_PROMPT_VERSION = "attachment-analysis-2026-08-01";
-
-const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export interface AttachmentAnalysis {
   /** One neutral sentence: what this attachment IS. */
@@ -92,8 +90,7 @@ export async function analyzeAttachment(
   },
   spend?: AiSpendContext,
 ): Promise<AttachmentAnalysisResult> {
-  const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
-  const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
+  const { provider, model, effort } = clinicalAiRoute("attachment");
 
   // Metered so the account list can say what this consultation cost. The
   // meter is inert without a spend context (scripts, tests) and can never
@@ -107,6 +104,7 @@ export async function analyzeAttachment(
         "You are a careful assistant to a Traditional Chinese Medicine practitioner. You describe attachments for her review. You never diagnose and never overstate what an image or document supports.",
       temperature: 0,
       maxTokens: 2048,
+      effort,
     },
     [
       {

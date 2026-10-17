@@ -15,15 +15,38 @@ import { createClient } from "@flyee/auth/server";
 
 export const maxDuration = 60;
 
-/** First configured provider wins; the model is the provider's fast reasoning tier. */
+/** Each provider's fast reasoning tier. */
 const PROVIDERS: { name: AiProviderName; model: string; enabled: boolean }[] = [
-  { name: "anthropic", model: "claude-sonnet-4-5", enabled: isAnthropicConfigured },
   { name: "gemini", model: "gemini-3.6-flash", enabled: isGeminiConfigured },
+  { name: "anthropic", model: "claude-sonnet-5-5", enabled: isAnthropicConfigured },
   { name: "openrouter", model: "anthropic/claude-sonnet-4.5", enabled: isOpenRouterConfigured },
 ];
 
+/**
+ * Gemini, unless INSIGHTS_PROVIDER names another provider.
+ *
+ * The answers are built from production query results, so where they go is a
+ * decision, never a side effect. The first configured provider used to win,
+ * Anthropic first: merely adding ANTHROPIC_API_KEY (to try Claude on one
+ * clinical feature) silently started sending those results to a second
+ * processor — and to a model this account cannot even call. INSIGHTS_MODEL
+ * only counts together with INSIGHTS_PROVIDER, so a model id never lands on a
+ * provider nobody named.
+ */
+function insightsProvider() {
+  const named = process.env.INSIGHTS_PROVIDER;
+  const chosen = PROVIDERS.find((entry) => entry.name === (named || "gemini") && entry.enabled);
+  return chosen && named && process.env.INSIGHTS_MODEL ? { ...chosen, model: process.env.INSIGHTS_MODEL } : chosen;
+}
+
 /** How many SQL round-trips the model gets before it must answer. */
 const MAX_ROUNDS = 4;
+/** The most one round may take, even with time left. */
+const ROUND_TIMEOUT_MS = 25_000;
+/** A round that cannot get this much is not started. */
+const MIN_ROUND_MS = 8_000;
+/** Kept at the end of the route's time to answer and close the connection. */
+const CLOSING_MS = 5_000;
 const ROW_LIMIT = 500;
 const STATEMENT_TIMEOUT_MS = 5000;
 
@@ -84,6 +107,7 @@ Rules:
 type InsightsRequest = { question: string };
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
   const supabase = await createClient();
   const {
     data: { user },
@@ -93,10 +117,14 @@ export async function POST(request: Request) {
   const { data: profile } = await supabase.from("profiles").select("is_superadmin").eq("id", user.id).maybeSingle();
   if (!profile?.is_superadmin) return NextResponse.json({ error: "Restrito a superadmins." }, { status: 403 });
 
-  const provider = PROVIDERS.find((entry) => entry.enabled);
+  const provider = insightsProvider();
   if (!provider) {
     return NextResponse.json(
-      { error: "Nenhum provedor de IA configurado. Defina ANTHROPIC_API_KEY, GEMINI_API_KEY ou OPENROUTER_API_KEY." },
+      {
+        error: process.env.INSIGHTS_PROVIDER
+          ? `INSIGHTS_PROVIDER="${process.env.INSIGHTS_PROVIDER}" não está disponível — confira o nome (gemini, anthropic ou openrouter) e a chave desse provedor.`
+          : "Nenhum provedor de IA configurado. Defina GEMINI_API_KEY — ou escolha outro provedor com INSIGHTS_PROVIDER e a chave dele.",
+      },
       { status: 503 },
     );
   }
@@ -121,10 +149,21 @@ export async function POST(request: Request) {
       systemPrompt: systemPrompt(await loadCatalog(sql)),
       temperature: 0,
       maxTokens: 2048,
+      effort: "low" as const,
     };
     const messages: ChatMessage[] = [{ role: "user", content: question }];
+    let outOfTime = false;
 
     for (let round = 0; round < MAX_ROUNDS; round += 1) {
+      // Every round shares this route's maxDuration. Each one gets what is
+      // left of it (capped), so a slow provider fails here with a reason
+      // instead of the platform killing the route mid-answer.
+      const left = maxDuration * 1000 - CLOSING_MS - (Date.now() - startedAt);
+      if (left < MIN_ROUND_MS) {
+        outOfTime = true;
+        break;
+      }
+
       // The operator asking the database questions is the platform spending
       // its own money: org NULL, so no workspace is billed for it. A dozen
       // rounds of a 2k-token prompt is not free, and this is the only place
@@ -137,7 +176,7 @@ export async function POST(request: Request) {
         client: supabase,
       });
       const step = (await chat.generateStructured(
-        config,
+        { ...config, timeoutMs: Math.min(ROUND_TIMEOUT_MS, left) },
         messages,
         {
           name: "analyst_step",
@@ -183,7 +222,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        answer: "Esgotei as tentativas de consulta antes de chegar a uma resposta. Tente estreitar a pergunta.",
+        answer: outOfTime
+          ? "O tempo da consulta acabou antes de chegar a uma resposta. Tente estreitar a pergunta."
+          : "Esgotei as tentativas de consulta antes de chegar a uma resposta. Tente estreitar a pergunta.",
         steps,
       },
       { status: 200 },

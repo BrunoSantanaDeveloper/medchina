@@ -1,9 +1,10 @@
+import { clinicalAiRoute } from "@/lib/ai-routing";
 import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import { complaintOnOneLine, complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { detectSafetyFlags, type SafetyFlag, safetyFlagTerm } from "@/lib/clinical-safety";
 import { PRACTICE_MODALITIES, type PracticeModality } from "@/lib/practice-context";
-import { type AiProviderName, getChatProvider } from "@flyee/ai";
+import { getChatProvider } from "@flyee/ai";
 import { type KnowledgeSearchResult, resolveCollectionIds, searchKnowledge } from "@flyee/knowledge";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -23,9 +24,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 export const PLAN_PROMPT_VERSION = "therapeutic-plan-2026-07-15";
-
-const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export type AcupunctureStrategy = "tonify" | "disperse" | "harmonize" | "warm" | "regulate";
 
@@ -289,8 +287,7 @@ export async function buildTherapeuticPlan(
   input: PlanInput,
   spend?: AiSpendContext,
 ): Promise<TherapeuticPlanResult> {
-  const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
-  const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
+  const { provider, model, effort } = clinicalAiRoute("plan");
   const scope = resolvePlanScope(input.practiceModalities);
   const inScope = new Set<PracticeModality>(scope);
 
@@ -396,6 +393,7 @@ export async function buildTherapeuticPlan(
         "You are a careful assistant to a Traditional Chinese Medicine practitioner. You prepare a therapeutic plan draft for her to validate and sign. You never prescribe and never hide a contraindication.",
       temperature: 0.2,
       maxTokens: 4096,
+      effort,
     },
     [{ role: "user", content: buildPrompt(input, context, safetyFlags, scope) }],
     {

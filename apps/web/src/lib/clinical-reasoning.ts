@@ -1,8 +1,9 @@
+import { clinicalAiRoute } from "@/lib/ai-routing";
 import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import { countedAnamnesisBlocks, PULSE_POSITION_FIELDS, PULSE_POSITION_ORGANS } from "@/lib/anamnesis";
 import { complaintOnOneLine, complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
-import { type AiProviderName, getChatProvider } from "@flyee/ai";
+import { getChatProvider } from "@flyee/ai";
 import { type KnowledgeSearchResult, resolveCollectionIds, searchKnowledge } from "@flyee/knowledge";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -32,9 +33,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Bump when the prompt changes — it is recorded per hypothesis (PRD §10.10). */
 export const REASONING_PROMPT_VERSION = "hypotheses-2026-09-02";
-
-const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export type Correspondence = "weak" | "moderate" | "strong";
 
@@ -429,8 +427,7 @@ export async function buildHypotheses(
   recorded: RecordedCase,
   spend?: AiSpendContext,
 ): Promise<ReasoningResult> {
-  const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
-  const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
+  const { provider, model, effort } = clinicalAiRoute("hypotheses");
 
   if (recorded.answers.length === 0 && !recorded.chiefComplaint) {
     return { hypotheses: [], model, promptVersion: REASONING_PROMPT_VERSION, retrieved: 0, retrievalFailed: false };
@@ -479,6 +476,7 @@ export async function buildHypotheses(
         "You are a careful assistant to a Traditional Chinese Medicine practitioner. You prepare hypotheses for her to validate. You never diagnose and never overstate what the data supports.",
       temperature: 0,
       maxTokens: 4096,
+      effort,
     },
     [{ role: "user", content: prompt }],
     {

@@ -105,7 +105,9 @@ export async function recordAiSpend(input: AiSpendInput): Promise<void> {
  *     await meter.settled();
  */
 export function aiSpendMeter(input: Omit<AiSpendInput, "usage"> | null | undefined) {
-  let write: Promise<void> | null = null;
+  // One call can report more than once: a Claude refusal fallback bills the
+  // declined attempt and the one that answered, each at its own model's price.
+  const writes: Promise<void>[] = [];
 
   return {
     // No context means the caller has nothing to bill (a script, a test, a
@@ -113,11 +115,11 @@ export function aiSpendMeter(input: Omit<AiSpendInput, "usage"> | null | undefin
     // call sites read the same either way.
     sink: (usage: ChatUsage) => {
       if (!input) return;
-      write = recordAiSpend({ ...input, usage });
+      writes.push(recordAiSpend({ ...input, usage }));
     },
-    /** Resolves once the row has been written, or immediately if none was. */
+    /** Resolves once every row has been written, or immediately if none was. */
     settled: async () => {
-      if (write) await write;
+      await Promise.all(writes);
     },
   };
 }

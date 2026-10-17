@@ -11,10 +11,10 @@
     "./strict-schema": "./src/strict-schema.ts"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test src/providers/openai.test.ts src/errors.test.ts src/strict-schema.test.ts"
+    "test": "node --experimental-strip-types --test src/providers/openai.test.ts src/providers/anthropic.test.ts src/providers/gemini.test.ts src/errors.test.ts src/strict-schema.test.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.60.0",
+    "@anthropic-ai/sdk": "^0.135.0",
     "@google/genai": "^1.9.0"
   }
 }

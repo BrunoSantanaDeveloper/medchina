@@ -1,3 +1,4 @@
+import { clinicalAiRoute } from "@/lib/ai-routing";
 import {
   ALWAYS_REVIEW_FIELDS,
   type AnamnesisApplicability,
@@ -6,6 +7,7 @@ import {
 } from "@/lib/anamnesis";
 import { SENSITIVE } from "@/lib/clinical-safety";
 import { transcriptTimestampSeconds } from "@/lib/transcript";
+import { reportUsage, type UsageSink } from "@flyee/ai/types";
 import type { TranscriptResult } from "@flyee/transcribe";
 import { GoogleGenAI } from "@google/genai";
 
@@ -25,8 +27,6 @@ import { GoogleGenAI } from "@google/genai";
  *     is VERIFIED against the transcript here, because a quote the model
  *     invented is worse than no quote: it manufactures proof.
  */
-
-const DEFAULT_MODEL = "gemini-3.6-flash";
 
 /** Ceiling for this stage even when the pipeline leaves more room. */
 const EXTRACTION_MAX_MS = Number(process.env.EXTRACTION_TIMEOUT_MS) || 90_000;
@@ -313,7 +313,8 @@ export function anchorQuote(
   return null;
 }
 
-const RESULT_SCHEMA = {
+/** The reply the model is asked for — exported so an evaluation sends the exact same contract. */
+export const EXTRACTION_SCHEMA = {
   type: "object",
   properties: {
     practitionerSpeaker: {
@@ -453,9 +454,13 @@ export async function extractAnamnesis(
    * 0103). Defaults to none, so a caller that does not know never opens them.
    */
   applicability: AnamnesisApplicability = NO_CONDITIONAL_BLOCKS,
+  /** What the call consumed, as the provider reported it (the pipeline does not meter this stage yet). */
+  onUsage?: UsageSink,
 ): Promise<ExtractionResult> {
-  const key = process.env.GEMINI_API_KEY;
-  const model = process.env.EXTRACTION_MODEL || process.env.TRANSCRIBE_MODEL || DEFAULT_MODEL;
+  // EXTRACTION_PROVIDER moves this stage off Gemini (default) without touching
+  // the rest of the pipeline. On Gemini the model still falls back to
+  // TRANSCRIBE_MODEL, as it always has.
+  const { provider, model, effort } = clinicalAiRoute("extraction");
   const empty: ExtractionResult = {
     answers: [],
     chiefComplaint: null,
@@ -467,7 +472,9 @@ export async function extractAnamnesis(
     corrected: { origin: 0 },
     unverified: 0,
   };
-  if (!key) throw new Error("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
+  if (provider === "gemini" && !process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
+  }
   if (!transcript.segments?.length) return empty;
 
   // The budget is what REMAINS of the invocation, never a fixed timeout: this
@@ -478,38 +485,93 @@ export async function extractAnamnesis(
   // ceiling below is the real wall-clock cost, retries included.
   const remainingMs = deadlineAt ? deadlineAt - Date.now() : EXTRACTION_MAX_MS;
   const budgetMs = Math.max(20_000, Math.min(EXTRACTION_MAX_MS, remainingMs));
+  const prompt = buildPrompt(transcript, existing, applicability);
+
+  if (provider !== "gemini") {
+    // Any other provider goes through packages/ai with the SAME prompt, schema
+    // and verification — so switching EXTRACTION_PROVIDER changes the model
+    // and nothing the chart relies on. Loaded only here: the default Gemini
+    // path never pulls the other providers' SDKs into the pipeline.
+    const { getChatProvider } = await import("@flyee/ai");
+    const raw = (await getChatProvider(provider).generateStructured(
+      {
+        provider,
+        model,
+        systemPrompt:
+          "You prepare a DRAFT anamnesis for a Traditional Chinese Medicine practitioner to review. You never diagnose and never invent.",
+        temperature: 0,
+        maxTokens: 8192,
+        effort,
+        timeoutMs: budgetMs,
+      },
+      [{ role: "user", content: prompt }],
+      {
+        name: "anamnesis_extraction",
+        description: "A draft anamnesis for professional review",
+        schema: EXTRACTION_SCHEMA,
+      },
+      onUsage,
+    )) as RawExtraction;
+    return verifyExtraction(raw, transcript, applicability, model);
+  }
+
   const client = new GoogleGenAI({
-    apiKey: key,
+    apiKey: process.env.GEMINI_API_KEY,
     httpOptions: { timeout: budgetMs, retryOptions: { attempts: 3 } },
   });
   const response = await client.models.generateContent({
     model,
-    contents: [{ role: "user", parts: [{ text: buildPrompt(transcript, existing, applicability) }] }],
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
       responseMimeType: "application/json",
-      responseJsonSchema: RESULT_SCHEMA,
+      responseJsonSchema: EXTRACTION_SCHEMA,
       temperature: 0,
       abortSignal: AbortSignal.timeout(budgetMs),
     },
   });
 
+  const usage = response.usageMetadata;
+  if (usage) {
+    // Thinking is billed as output whether or not anyone reads it.
+    reportUsage(onUsage, {
+      tokensIn: usage.promptTokenCount ?? 0,
+      tokensOut: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
+      model,
+    });
+  }
   const text = response.text;
   if (!text) throw new Error("Gemini returned no extraction.");
-  const raw = JSON.parse(text) as {
-    practitionerSpeaker?: string;
-    answers?: {
-      field: string;
-      value: string;
-      source: string;
-      state: string;
-      quote: string;
-      start: string;
-      speaker: string;
-    }[];
-    chiefComplaint?: { value?: string; quote?: string; start?: string };
-    gaps?: string[];
-  };
+  return verifyExtraction(JSON.parse(text) as RawExtraction, transcript, applicability, model);
+}
 
+/** What the model returns, before any of it is trusted. */
+export interface RawExtraction {
+  practitionerSpeaker?: string;
+  answers?: {
+    field: string;
+    value: string;
+    source: string;
+    state: string;
+    quote: string;
+    start: string;
+    speaker: string;
+  }[];
+  chiefComplaint?: { value?: string; quote?: string; start?: string };
+  gaps?: string[];
+}
+
+/**
+ * Hold a model's raw extraction to the rules above: unknown fields dropped, a
+ * practitioner observation attributed to the patient rejected, a value that
+ * asserts absence refused, every quote located in the transcript. Pure — the
+ * same function judges every provider's reply, in production and in evaluation.
+ */
+export function verifyExtraction(
+  raw: RawExtraction,
+  transcript: TranscriptResult,
+  applicability: AnamnesisApplicability,
+  model: string,
+): ExtractionResult {
   const allowed = new Map(fieldCatalog(applicability).map((f) => [f.key, f]));
   const segments = transcript.segments;
   const practitionerSpeaker = raw.practitionerSpeaker?.trim() || null;

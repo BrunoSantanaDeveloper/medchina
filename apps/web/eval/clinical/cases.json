@@ -1,0 +1,3487 @@
+[
+  {
+    "id": "case-01",
+    "synthetic": true,
+    "title": "Distensão pós-prandial, cansaço à tarde e fezes amolecidas (homem, contador)",
+    "fertilityCare": false,
+    "practitioner": "Speaker 2",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:02",
+          "text": "Com licença... Posso sentar aqui mesmo?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:07",
+          "text": "Pode, pode, fica à vontade. Achou fácil o endereço?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:13",
+          "text": "Achei, achei. Só o estacionamento que é meio chato, né? Rodei umas três vezes o quarteirão até achar uma vaga, quase desisti."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:24",
+          "text": "É, essa rua é complicada mesmo, desculpa. Bom, como eu te falei por mensagem, eu vou deixar o aplicativo gravando a nossa conversa, pra eu não ficar anotando e conseguir prestar atenção em você. Tudo bem?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:41",
+          "text": "Tudo bem, sem problema nenhum."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:46",
+          "text": "Então me conta. O que te trouxe aqui?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:52",
+          "text": "Então... é a minha barriga. Ela vive estufada. Eu como qualquer coisa e parece que estufa, fica alta, apertando o cinto. E junto vem um cansaço, sabe? Uma moleza que não passa. Eu já não sei mais o que fazer."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:10",
+          "text": "Hum. E isso começou quando?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:15",
+          "text": "Ah, isso aí vai fazer uns 8 meses já. Foi mais ou menos quando eu mudei de emprego. No começo era de vez em quando, agora é praticamente todo dia. Principalmente depois do almoço: uma hora depois eu tô assim, ó, parecendo um balão."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:35",
+          "text": "[risos] E se você tivesse que dar uma nota pra esse estufamento, de zero a dez, quanto seria?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:45",
+          "text": "Depois do almoço? Uns 7. Tem dia que chega a 8, que eu tenho que abrir o botão da calça embaixo da mesa. De manhã é tranquilo, uns 2, no máximo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:00",
+          "text": "E você percebeu alguma coisa que piora ou que melhora?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:07",
+          "text": "Piora com leite. Leite é tiro e queda. Massa também, macarrão, pizza, pão... Se eu como uma massa no almoço, à tarde eu não sirvo pra nada. Melhorar... se eu dou uma volta depois do almoço, uns dez minutinhos, ajuda um pouco. Mas nem sempre dá."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:27",
+          "text": "E você já procurou médico por causa disso?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:33",
+          "text": "Fui no gastro no começo do ano. Ele pediu uma endoscopia, deu uma gastrite leve. Aí ele passou o omeprazol e falou pra eu cortar fritura, café... essas coisas. Café eu não consegui cortar, confesso. Fiz um ultrassom também, de abdome, mas esse deu normal."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:53",
+          "text": "E o omeprazol, você ainda toma?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:58",
+          "text": "Tomo, um de manhã, em jejum. Acho que é de vinte... é, de vinte. Faz uns seis meses que eu tomo direto. A queimação sumiu, isso ajudou. Mas o estufamento continua igualzinho."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:13",
+          "text": "Por isso que eu vim, na verdade. Minha cunhada fez acupuntura pra enxaqueca e não para de falar disso nos almoços de domingo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:25",
+          "text": "[risos] Que bom que ela te mandou. Além do omeprazol, você toma mais alguma coisa? Outro remédio, vitamina, algum chá?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:36",
+          "text": "Remédio não. Chá... ah, chá de boldo, quando eu exagero no fim de semana. Minha avó jurava pelo boldo. Mas isso não conta, né?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:48",
+          "text": "Conta sim, tudo conta, pode falar. E como é a sua alimentação no dia a dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:57",
+          "text": "Ih... De manhã é café com leite e pão na chapa, que eu sei que não devia. No almoço eu levo marmita: arroz, feijão, um macarrão, uma carne. Depois do almoço um doce, sempre, não consigo ficar sem. E à noite é mais um lanche, pão de novo, um queijo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:17",
+          "text": "E pra beber, durante o dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:22",
+          "text": "Refrigerante. Bem gelado, de preferência. Água eu tomo pouco, pra falar a verdade. Quase não sinto sede. Tem dia que eu chego em casa e percebo que não tomei um copo d'água o dia inteiro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:38",
+          "text": "E fome? Você sente fome?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:43",
+          "text": "Pouca. Pra falar a verdade, eu como porque é hora. Como pouquinho e já fico cheio. E como rápido, na frente do computador, respondendo e-mail, nem sinto o gosto."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:57",
+          "text": "Tá. E o intestino, como é que funciona?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:03",
+          "text": "Então, isso é outra coisa. Eu vou umas duas vezes por dia, mas é mole, sabe? Meio pastoso. Às vezes vem até com pedacinho de comida, que nem digeriu direito. E antes não era assim, era uma vez por dia, normal, todo dia de manhã."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:23",
+          "text": "E gases, arroto?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:28",
+          "text": "Arroto bastante. Gás também, principalmente no fim da tarde. E a barriga ronca o dia inteiro, chega a ser constrangedor em reunião, todo mundo olha."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:41",
+          "text": "Você falou de cansaço. Como é a sua disposição ao longo do dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:49",
+          "text": "De manhã eu até vou bem. Mas à tarde, umas duas, três horas, bate um cansaço que eu não consigo nem pensar. Fico lendo a mesma planilha três vezes. E o corpo fica pesado, as pernas, os braços, parece que eu tô carregando um saco de cimento."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:09",
+          "text": "Tem alguma época, algum clima, em que isso fica pior?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:16",
+          "text": "Quando o dia tá chuvoso, abafado, nossa, piora tudo. O corpo pesa o dobro. Minha mãe fala que eu sou igual roupa no varal em dia de chuva, não seco nunca. [risos]"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:31",
+          "text": "[risos] E o sono, como está?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:36",
+          "text": "Durmo. Isso eu durmo, deito e apago. O problema é que eu acordo como se não tivesse dormido. Acordo pesado, com a boca ruim, e a língua amanhece branca, sabe? Eu até raspo com a escova de dente."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:54",
+          "text": "E durante a noite, você acorda?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:59",
+          "text": "Às vezes, com o cheiro do cigarro. Meu marido fuma na varanda de madrugada, quando perde o sono, e o cheiro entra no quarto. Ele fuma uns dez por dia. Já pedi pra ele parar, mas... é uma briga antiga nossa."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:18",
+          "text": "Sei como é. E bebida alcoólica, você bebe?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:24",
+          "text": "Uma cerveja no domingo, no almoço de família. Duas latinhas, no máximo. Durante a semana, nada."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:33",
+          "text": "E atividade física?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:38",
+          "text": "Nada. Sou sedentário assumido. Fico o dia inteiro sentado no escritório, das oito às seis, às vezes mais. Eu sou contador, e agora é época de fechamento, então é aquela loucura. Academia eu já paguei três vezes e não fui. [risos]"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:57",
+          "text": "E como você está emocionalmente com tudo isso?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:03",
+          "text": "Ah, eu sou muito preocupado. Sempre fui. Fico remoendo as coisas, almoço pensando no trabalho, tomo banho pensando no trabalho. E no trabalho novo a cobrança é muito maior do que no antigo. Meu chefe manda mensagem até no domingo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:21",
+          "text": "E você acha que isso tem relação com a barriga?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:28",
+          "text": "Acho que tem, né? Começou bem quando eu entrei lá. Mas também mudou a comida, antes eu almoçava em casa, com calma... Desculpa, deixa eu silenciar o celular aqui, que é ele de novo. Pronto."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:44",
+          "text": "Tranquilo. Bom, agora eu queria te examinar. Pode deitar aqui na maca, de barriga pra cima. Se quiser, pode tirar o sapato."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:55",
+          "text": "Isso. Me dá o seu braço direito, relaxa a mão... Vou ficar um pouquinho em silêncio, tá?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:15",
+          "text": "Pulso na posição do baço: fraco, sem força, um pouco escorregadio."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:22",
+          "text": "Isso é ruim?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:27",
+          "text": "Não é ruim nem bom, é uma informação. Depois eu junto tudo e te explico. Agora põe a língua pra fora pra mim... bem pra fora... isso, pode guardar."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:41",
+          "text": "Tá branca, né? Eu falei."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:46",
+          "text": "Depois a gente conversa sobre tudo junto. Agora vou apertar a sua barriga, devagar. Se doer, você me fala."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:01",
+          "text": "Não dói, não. Só tá roncando, olha aí. [risos]"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:07",
+          "text": "Palpação abdominal: abdome distendido, flácido, timpânico, sem dor à pressão."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:14",
+          "text": "Pode sentar, com calma, sem levantar de uma vez. Então, eu vou organizar tudo o que você me contou e já te explico o que eu pensei pra gente fazer, tá? A ideia é a gente começar com uma sessão por semana e ir vendo como a barriga responde."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:34",
+          "text": "E vou ter que cortar o pão? [risos] Porque aí vai ser difícil, viu? Pão na chapa de manhã é sagrado."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:45",
+          "text": "[risos] A gente vai conversar sobre a alimentação com calma, sem radicalismo. Ninguém vai tirar tudo de uma vez."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:55",
+          "text": "Ainda bem. [risos] Porque se for pra cortar tudo de uma vez, eu nem volto."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["8 mes"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["7"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["leite", "massa"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["endoscopia", "gastrite"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["omeprazol", "boldo"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.sleep",
+          "keywords": ["acord"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.energy",
+          "keywords": ["cansa", "tarde"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.diet",
+          "keywords": ["pao", "doce"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.digestion",
+          "keywords": ["arrot"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.bowel",
+          "keywords": ["mole"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.thirst",
+          "keywords": ["sede"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["sedentari"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.alcohol",
+          "keywords": ["cervej"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.state",
+          "keywords": ["preocup"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.context",
+          "keywords": ["trabalh"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.palpation",
+          "keywords": ["flacid", "disten"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.spleen",
+          "keywords": ["fraco"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "routine.urine",
+        "routine.substances",
+        "tcm.pattern",
+        "pulse.stomach",
+        "pulse.liver",
+        "pulse.kidney",
+        "pulse.lung"
+      ],
+      "traps": [
+        {
+          "field": "routine.tobacco",
+          "kind": "other-person",
+          "note": "Quem fuma é o MARIDO do paciente (na varanda, de madrugada, 'uns dez por dia'). O paciente nunca fala do próprio tabagismo, nem para negar: routine.tobacco deve ficar vazio."
+        },
+        {
+          "field": "tcm.tongue",
+          "kind": "patient-self-report-observation",
+          "note": "O paciente diz que 'a língua amanhece branca' e repete 'Tá branca, né?' durante o exame. A terapeuta olha a língua mas NÃO dita nenhum achado (só dita o pulso do baço e a palpação abdominal): tcm.tongue deve ficar vazio."
+        }
+      ],
+      "attention": ["complaint.medications"],
+      "chiefComplaint": ["estufa"],
+      "pattern": {
+        "expected": "Deficiência de Qi do Baço com Umidade",
+        "keywords": ["baco", "umidade"],
+        "alternatives": ["Deficiência de Yang do Baço", "Deficiência de Qi do Baço e do Estômago"],
+        "wrong": ["Fogo do Estômago", "Deficiência de Yin do Rim"]
+      },
+      "safety": {
+        "flags": ["omeprazol em uso contínuo, prescrito pelo gastroenterologista (gastrite leve na endoscopia)"],
+        "avoid": ["orientar suspender, reduzir ou trocar o omeprazol sem o médico prescritor"]
+      }
+    }
+  },
+  {
+    "id": "case-02",
+    "synthetic": true,
+    "title": "TPM com irritabilidade, mamas doloridas e ciclo irregular com coágulos (mulher, coordenadora em banco)",
+    "fertilityCare": true,
+    "practitioner": "Speaker 1",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:01",
+          "text": "Oi, pode entrar! Senta aqui, fica à vontade. Achou o prédio direitinho?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:09",
+          "text": "Achei, o aplicativo me trouxe certinho. Só a chuva que tá um caos lá fora, cheguei toda molhada. E ainda peguei um trânsito daqueles."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:21",
+          "text": "Nem me fala, desde cedo assim. Bom, deixa eu te explicar rapidinho: eu gravo a consulta pelo aplicativo, com a sua autorização, pra eu não precisar ficar escrevendo enquanto você fala. Pode ser?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:37",
+          "text": "Pode, claro."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:42",
+          "text": "Ótimo. Então me conta: o que te trouxe aqui?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:48",
+          "text": "Então, é a minha TPM. Ela tá insuportável. Eu fico outra pessoa na semana antes de menstruar, sabe? Explodo com todo mundo, com a minha equipe, com o meu namorado... e depois fico mal, choro, me arrependo. Semana passada eu briguei com uma menina da equipe por causa de uma vírgula num relatório. Uma vírgula!"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:08",
+          "text": "Uma vírgula... [risos] E isso sempre foi assim ou mudou com o tempo?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:16",
+          "text": "TPM eu sempre tive, desde mocinha. Mas de um ano pra cá ficou muito pior. Bem na época que eu virei coordenadora lá no banco, na área de crédito. Tenho uma equipe de doze pessoas e uma chefe que cobra muito, muito mesmo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:36",
+          "text": "Puxado. E nessa semana antes da menstruação, se você fosse dar uma nota pra essa irritação, de zero a dez?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:47",
+          "text": "Uns 9, fácil. Fora dessa semana fico num 3, 4, que é o meu normal, né? Ninguém é zen trabalhando em banco. [risos]"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:59",
+          "text": "E o que você percebe que piora ou que melhora?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:06",
+          "text": "Piora com estresse, com certeza. Dia de reunião com a diretoria eu já acordo com um nó na garganta, uma coisa presa. E melhora quando eu saio pra correr, volto outra pessoa. E quando a menstruação desce, parece que alivia tudo na hora, é impressionante."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:26",
+          "text": "Você corre com que frequência?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:31",
+          "text": "Corro três vezes por semana, quando eu consigo, uns cinco quilômetros. Na semana de fechamento não dá, nem pensar. Tem semana que eu saio do banco nove da noite, aí eu chego, como qualquer coisa e capoto."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:48",
+          "text": "Entendi. E no corpo, o que você sente nessa semana antes?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:55",
+          "text": "Os seios ficam doloridos, inchados, nem o sutiã eu aguento. Fico inchada no geral, a calça não fecha, e o rosto enche de espinha. E dá uma dor de cabeça aqui do lado, na têmpora. Começa uns sete dias antes, às vezes dez."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:15",
+          "text": "E essa dor de cabeça na têmpora aparece fora da TPM também?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:23",
+          "text": "Às vezes, no fim do expediente, em dia de muita cobrança. Mas na semana antes de menstruar é batata, todo mês."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:34",
+          "text": "E durante a menstruação, tem cólica?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:39",
+          "text": "No primeiro dia, uma cólica chatinha. Nada que me derrube, mas incomoda. Melhora quando eu ando um pouco, se eu fico deitada é pior."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:51",
+          "text": "E o seu ciclo, como é? É regular?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:57",
+          "text": "Nunca foi certinho, sempre foi irregular. Vem de 35 em 35 dias, mais ou menos, às vezes 40. Eu nunca sei quando vai vir, já fui pega desprevenida em reunião. E dura uns cinco dias."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:13",
+          "text": "E a última menstruação, quando foi?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:18",
+          "text": "Deixa eu ver no aplicativo... Começou dia 22 de setembro."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:25",
+          "text": "E o fluxo, como é? A cor, se vem coágulo..."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:32",
+          "text": "Os dois primeiros dias desce bastante, tenho que trocar o absorvente toda hora. É bem escuro, com coágulos, uns pedaços escuros, tipo fígado mesmo, desculpa a comparação. Depois vai clareando e diminuindo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:47",
+          "text": "Não precisa se desculpar, é exatamente esse tipo de descrição que me ajuda. E você usa algum método contraceptivo?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:57",
+          "text": "Então, a ginecologista me passou a pílula. Eu comecei agora, no primeiro dia dessa última menstruação. Tô na primeira cartela ainda. É de tomar sempre no mesmo horário, eu coloquei até alarme no celular."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:13",
+          "text": "E ela passou por quê?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:18",
+          "text": "Pra regular o ciclo, e pra evitar também, né. Ela fez ultrassom, pediu exame de sangue, deu tudo normal. Aí ela falou: vamos tentar a pílula."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:31",
+          "text": "E além da pílula, você toma algum outro remédio, vitamina, suplemento, alguma coisa?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:39",
+          "text": "Não, só a pílula."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:44",
+          "text": "Tá. E a alimentação, como é no dia a dia?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:51",
+          "text": "Durante a semana eu como direitinho. De manhã é só um café preto e uma fruta. Almoço no restaurante por quilo perto do banco, salada, frango, arroz integral. Mas na semana da TPM eu ataco tudo que é chocolate que eu vejo pela frente. E café, uns quatro, cinco por dia."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:11",
+          "text": "E a digestão, como vai?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:16",
+          "text": "Vai bem, em geral. Mas quando eu fico nervosa eu arroto muito. E dá um aperto aqui do lado, embaixo da costela, do lado direito. Parece que fica estufado ali. Quando passa o nervoso, passa também."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:33",
+          "text": "E o intestino, como é que funciona? Vai todo dia?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:40",
+          "text": "Ah, olha, antes que eu esqueça, senão eu saio daqui e lembro no elevador: você perguntou de remédio e eu falei que era só a pílula, mas eu tomo magnésio também. A minha nutricionista passou, falou que ajuda na TPM."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:58",
+          "text": "Ah, que bom que você lembrou. Sabe a dose?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:04",
+          "text": "Uma cápsula à noite. Acho que é 300... não lembro direito. Depois eu te mando foto do pote. Tomo faz uns dois meses."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:16",
+          "text": "Manda sim, por favor. E o sono, como está?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:22",
+          "text": "O sono é complicado. Eu pego no sono fácil, mas acordo toda noite lá pelas 3 da manhã e fico rolando, pensando no trabalho, na planilha, em tudo. Aí eu pego o celular, olho e-mail, pronto, só volto a dormir lá pelas cinco."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:42",
+          "text": "E como você descreveria o seu humor, fora da TPM?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:49",
+          "text": "Ah, eu sou estressada no geral. Irritada. Ansiosa também, mas a irritação é o que mais pega. E eu suspiro o tempo inteiro, meu namorado fica: 'que foi, que foi?' E eu nem percebo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:05",
+          "text": "E bebida alcoólica, você bebe?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:10",
+          "text": "Um vinho no sábado, quando a gente sai pra jantar. Uma taça, duas no máximo. Durante a semana, nada, que eu acordo cedo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:22",
+          "text": "Tá bom. Agora eu queria te examinar. Pode deitar aqui na maca, de barriga pra cima. Primeiro me mostra a língua... bem pra fora... isso."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:35",
+          "text": "Língua com as laterais avermelhadas, saburra fina e branca."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:41",
+          "text": "Tá feia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:46",
+          "text": "Não, tá tudo bem, é só o que eu observo. Agora me dá o seu braço, relaxa a mão... vou ficar um pouquinho em silêncio."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:06",
+          "text": "Pulso em corda... bem tenso, e um pouco rápido. Agora vou apertar aqui embaixo da costela, tá? Me fala se incomodar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:17",
+          "text": "Aí... aí incomoda, desse lado."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:22",
+          "text": "Palpação: tensão no rebordo costal direito, desconforto à pressão. Agora aqui nos pés, entre o dedão e o segundo dedo, os dois ao mesmo tempo..."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:35",
+          "text": "Aiii! Isso dói, os dois!"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:40",
+          "text": "F3 dolorido dos dois lados."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:45",
+          "text": "Pode sentar. Então, eu vou organizar tudo o que você me contou e já te explico o que eu pensei pra gente fazer, tá? A ideia é começar com uma sessão por semana e acompanhar os próximos ciclos. E continua anotando a menstruação naquele aplicativo, que me ajuda muito."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:05",
+          "text": "E a pílula, eu continuo tomando?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:10",
+          "text": "Continua, sim, direitinho, no mesmo horário. Qualquer mudança na pílula é com a sua ginecologista. O que a gente fizer aqui vai junto com o tratamento dela, não no lugar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:25",
+          "text": "Ah, tá. Ótimo. Eu tinha medo de você mandar parar."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["ano"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["9"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["estress", "corr"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["ultrass"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["pilula", "magnesio"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.sleep",
+          "keywords": ["3"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.diet",
+          "keywords": ["chocolate"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.digestion",
+          "keywords": ["arrot"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["corr"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.alcohol",
+          "keywords": ["vinho"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.lmp",
+          "keywords": ["22"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.cycle",
+          "keywords": ["35"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.flow",
+          "keywords": ["coagul", "escur"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.symptoms",
+          "keywords": ["dolorid", "colica"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.contraception",
+          "keywords": ["pilula"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.state",
+          "keywords": ["irrit"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.context",
+          "keywords": ["coordenad"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.tongue",
+          "keywords": ["vermelh", "later"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "tcm.palpation",
+          "keywords": ["costal", "f3"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "routine.urine",
+        "routine.thirst",
+        "routine.tobacco",
+        "routine.substances",
+        "gyneco.discharge",
+        "gyneco.obstetric",
+        "gyneco.menopause",
+        "gyneco.libido",
+        "tcm.pattern"
+      ],
+      "traps": [
+        {
+          "field": "pulse.*",
+          "kind": "unpositioned-pulse",
+          "note": "A terapeuta dita 'Pulso em corda... bem tenso, e um pouco rápido' sem nomear nenhuma posição. Nenhum campo pulse.* pode ser preenchido — nem pulse.liver, apesar de o pulso em corda ser o clássico do Fígado; o certo é devolver como lacuna perguntando qual posição foi lida."
+        },
+        {
+          "field": "routine.bowel",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta 'E o intestino, como é que funciona? Vai todo dia?' e a paciente muda de assunto (lembra do magnésio). A pergunta nunca é respondida: routine.bowel deve ficar vazio (no máximo, uma lacuna)."
+        }
+      ],
+      "attention": ["complaint.medications"],
+      "chiefComplaint": ["tpm"],
+      "pattern": {
+        "expected": "Estagnação do Qi do Fígado",
+        "keywords": ["figado", "estagna"],
+        "alternatives": ["Estagnação do Qi do Fígado com Estase de Sangue", "Fígado invadindo o Estômago"],
+        "wrong": ["Deficiência de Yang do Rim", "Deficiência de Qi do Pulmão"]
+      },
+      "safety": {
+        "flags": [
+          "pílula anticoncepcional recém-iniciada (primeira cartela, prescrita pela ginecologista)",
+          "suplemento de magnésio em uso (prescrito pela nutricionista)"
+        ],
+        "avoid": [
+          "orientar suspender ou trocar a pílula sem a ginecologista",
+          "fitoterápico que reduza a eficácia do anticoncepcional (ex.: hipérico/erva-de-são-joão)"
+        ]
+      }
+    }
+  },
+  {
+    "id": "case-03",
+    "synthetic": true,
+    "title": "Lombalgia crônica com noctúria em paciente anticoagulado",
+    "fertilityCare": false,
+    "practitioner": "Speaker 2",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:02",
+          "text": "Boa tarde. Com licença... posso sentar aqui mesmo?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:08",
+          "text": "Boa tarde! Pode, fica à vontade. Achou o endereço direitinho?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:15",
+          "text": "Achei, achei. Só o trânsito que tava feio ali na avenida, mas deu tempo. Eu não gosto de chegar atrasado, prefiro chegar antes e esperar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:30",
+          "text": "Que bom. Então, me conta: o que te trouxe aqui hoje?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:38",
+          "text": "Olha, doutora, é a lombar. Essa dor na lombar que não me larga. Foi a minha filha que insistiu pra eu vir, ela falou que a acupuntura ajudou muito o sogro dela, que tinha um problema parecido."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:58",
+          "text": "Ah, que bom que ela indicou. E faz quanto tempo que o senhor sente essa dor?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:08",
+          "text": "Faz uns 2 anos já. Começou devagarinho, uma dorzinha no fim do dia, e foi piorando, piorando... Hoje eu já acordo com ela, sabe? Levanto da cama meio torto."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:25",
+          "text": "O senhor lembra de alguma coisa quando começou? Um esforço, uma queda, um mau jeito?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:35",
+          "text": "Queda não. Eu trabalhei 22 anos em frigorífico, sabe? Dentro da câmara fria, carregando caixa. Eu acho que aquilo judiou de mim. Mas a dor mesmo só apareceu depois que eu saí de lá."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:54",
+          "text": "E hoje o senhor trabalha com o quê?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:00",
+          "text": "Hoje eu sou encarregado num depósito de material de construção. Fico mais na parte de conferir nota, carga, essas coisas. Mas de vez em quando tem que pegar um saco de cimento, não tem jeito, o pessoal é pouco."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:20",
+          "text": "Entendi. E essa dor, como é que ela é? É pontada, queimação, um peso...?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:29",
+          "text": "É mais um peso. Uma dor surda, funda, parece que a lombar tá cansada, sabe? E os joelhos às vezes ficam fracos junto, meio bambos, principalmente pra subir escada."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:46",
+          "text": "Uhum. E de 0 a 10, quanto ela fica no dia a dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:55",
+          "text": "No dia a dia, uns 6. Mas tem dia de frio que vai pra 8, sem exagero."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:06",
+          "text": "E o que piora?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:11",
+          "text": "Frio. Frio é o pior. Se eu pego um vento gelado, uma garoa, pronto: no outro dia eu tô travado. E cansaço também. Quando eu fico muito cansado, no fim do expediente, ela vem mais forte."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:31",
+          "text": "E o que alivia? O que faz o senhor se sentir melhor?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:39",
+          "text": "Calor. Bolsa de água quente, banho quente bem demorado... a minha esposa vive reclamando da conta de luz (risos). E deitar um pouquinho também ajuda, de barriga pra cima com a perna dobrada."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:58",
+          "text": "(risos) Faz parte do tratamento. E o senhor já tratou isso de alguma forma? Já passou por médico?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:09",
+          "text": "Fui no ortopedista. Ele pediu uma ressonância, e o médico disse que é hérnia de disco, entre a L4 e a L5, se não me engano. Aí eu fiz fisioterapia, umas 10 sessões. Ajudou um pouco, mas depois de um mês voltou tudo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:29",
+          "text": "E remédio? O senhor toma algum remédio, pra dor ou pra qualquer outra coisa?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:38",
+          "text": "Pra dor, quando aperta muito, o médico falou pra tomar paracetamol. Só paracetamol, porque eu tomo o Xarelto, aí não pode tomar qualquer coisa."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:52",
+          "text": "Ah, o senhor toma Xarelto. Desde quando? Por quê?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:59",
+          "text": "Faz uns 4 anos. Eu tive uma trombose na perna esquerda, fiquei internado uns dias, e desde então eu tomo. Na caixa tá escrito rivaroxabana, 20 miligramas. Um por dia, no jantar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:17",
+          "text": "Tá certo. Isso é muito importante eu saber, viu? O Xarelto afina o sangue, então tem coisa que eu faço diferente com o senhor. E sempre que mudar algum remédio, o senhor me avisa, combinado?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:37",
+          "text": "Combinado. O médico também falou pra eu avisar todo mundo, até o dentista."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:46",
+          "text": "Isso mesmo. E o sono, como é que tá?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:53",
+          "text": "Dormir eu durmo. Deito umas 10 horas, pego no sono fácil, é deitar e apagar. O chato é que eu levanto pra ir no banheiro umas 2, 3 vezes por noite. Toda noite."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:12",
+          "text": "E a urina? Durante o dia também vai bastante?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:19",
+          "text": "De dia também vou bastante. E sai clarinha, parece água. Bastante quantidade."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:27",
+          "text": "E o senhor sente muito frio? É friorento?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:33",
+          "text": "Nossa, muito. Meus pés vivem gelados. Eu durmo de meia até no verão. A minha esposa fala que eu sou um picolé (risos)."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:47",
+          "text": "(risos) E sede? O senhor bebe bastante água?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:53",
+          "text": "Sede eu quase não tenho. Bebo porque a médica do posto manda. E nada gelado, viu? Se for pra beber, prefiro quente, um chá, um café."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:08",
+          "text": "Quem gosta de coisa gelada lá em casa é o meu filho. Toda sexta ele chega com uma caixa de cerveja e enche a geladeira, bebe umas 6, 7 latinhas no fim de semana. Eu falo pra ele: isso aí uma hora cobra."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:28",
+          "text": "(risos) E a digestão? O senhor sente estufamento, azia, alguma coisa depois que come?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:37",
+          "text": "Olha, o intestino funciona. Todo dia, umas 6 da manhã, assim que eu levanto, já tenho que correr pro banheiro. É relógio. E é sempre meio mole, nunca é aquela coisa firme."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:55",
+          "text": "Entendi. E atividade física, o senhor faz alguma coisa?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:02",
+          "text": "Eu caminhava de manhã, com uns colegas lá do bairro. Mas parei faz uns 6 meses, por causa das costas. Depois da caminhada doía demais."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:17",
+          "text": "E disposição, energia durante o dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:22",
+          "text": "Ah, cansado, doutora. Eu chego em casa e só quero sentar no sofá. Antes eu chegava e ainda ia mexer no carro, consertar uma coisinha... hoje não tenho mais energia pra isso."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:40",
+          "text": "Posso perguntar uma coisa mais pessoal? O desejo sexual, como é que está?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:49",
+          "text": "(risos) Caiu, né. Caiu bastante. Acho que é a idade também, 57 anos..."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:58",
+          "text": "Pode ter relação com o que o senhor tá me contando, a gente vai olhar tudo junto. E cigarro? O senhor fuma ou já fumou?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:13",
+          "text": "Ah, antes que eu esqueça, doutora: aqui tem estacionamento conveniado? Porque eu deixei o carro na rua e lá é zona azul, eu só pus duas horas."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:29",
+          "text": "Tem sim. Na saída, pede pra moça da recepção carimbar o ticket, que dá desconto no estacionamento aqui do lado. Mas duas horas dá tranquilo. Bom, então deixa eu ver a sua língua. Põe pra fora pra mim... isso, relaxa."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:49",
+          "text": "Língua pálida, aumentada, bem úmida, com marca de dente nas bordas. Saburra branca, fina."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:00",
+          "text": "Já posso guardar? (risos)"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:05",
+          "text": "(risos) Pode. Agora me dá o braço esquerdo, apoia aqui na almofada e solta a mão."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:23",
+          "text": "Rim esquerdo... profundo e fraco. Tem que afundar bem o dedo pra achar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:38",
+          "text": "Agora o direito. Rim direito, o do Yang, ainda mais fraco, bem profundo. Quase não sinto. Baço um pouco fraco também, mas menos."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:55",
+          "text": "A senhora consegue ver tudo isso só no pulso?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "11:02",
+          "text": "Bastante coisa. Junto com o que o senhor me contou, ajuda a montar o tratamento. Agora deita de bruços aqui na maca, que eu quero examinar essa lombar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "11:22",
+          "text": "Lombar fria ao toque, dos dois lados. Musculatura paravertebral tensa. Dói aqui?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "11:30",
+          "text": "Aí dói. Mais pra esquerda."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "11:35",
+          "text": "Dor à pressão na altura de L4, L5, mais à esquerda. E os pés... bem frios também."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "11:48",
+          "text": "Eu falei, picolé (risos)."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "11:53",
+          "text": "(risos) Falou mesmo. Bom, por hoje eu já tenho bastante coisa. Antes de começar eu te explico tudo o que eu vou fazer, tá? E qualquer desconforto o senhor me fala."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["2 anos"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["6"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["frio", "cansa", "calor"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["hernia", "fisioterap"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["xarelto", "paracetamol"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.sleep",
+          "keywords": ["facil"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.urine",
+          "keywords": ["clar"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.thirst",
+          "keywords": ["sede", "quente"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.bowel",
+          "keywords": ["mole"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["caminh"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.energy",
+          "keywords": ["cansa"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.tongue",
+          "keywords": ["palid", "umid"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.kidney",
+          "keywords": ["profund", "frac"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.spleen",
+          "keywords": ["frac"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "tcm.palpation",
+          "keywords": ["lombar", "fri"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "routine.substances",
+        "emotional.state",
+        "tcm.pattern",
+        "pulse.heart",
+        "pulse.liver",
+        "pulse.lung",
+        "pulse.stomach",
+        "pulse.pericardium"
+      ],
+      "traps": [
+        {
+          "field": "routine.alcohol",
+          "kind": "other-person",
+          "note": "Quem bebe cerveja (6-7 latas no fim de semana) é o filho do paciente; o consumo de álcool do próprio paciente nunca é dito, então o campo fica vazio (nem 'nega etilismo')."
+        },
+        {
+          "field": "routine.tobacco",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta se ele fuma ou já fumou; ele muda de assunto (estacionamento/zona azul) e a pergunta nunca é respondida, então o campo fica vazio."
+        },
+        {
+          "field": "routine.digestion",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta sobre estufamento/azia após comer; ele responde só sobre o intestino (evacuação de manhã, fezes moles). Digestão nunca é respondida: não preencher nem escrever 'sem queixas digestivas'; o conteúdo vai em routine.bowel."
+        }
+      ],
+      "attention": ["complaint.medications"],
+      "chiefComplaint": ["lomba"],
+      "pattern": {
+        "expected": "Deficiência de Yang do Rim",
+        "keywords": ["yang", "rim"],
+        "alternatives": ["Deficiência de Yang do Baço e do Rim", "Deficiência de Qi do Rim (Rim não firme)"],
+        "wrong": ["Deficiência de Yin do Rim com Calor por deficiência", "Umidade-Calor no Aquecedor Inferior"]
+      },
+      "safety": {
+        "flags": [
+          "anticoagulante: rivaroxabana (Xarelto) 20 mg/dia",
+          "trombose venosa prévia na perna esquerda",
+          "hérnia de disco L4-L5 relatada"
+        ],
+        "avoid": [
+          "ventosa forte ou deslizante, sangria ou gua sha em paciente anticoagulado (risco de hematoma/sangramento)",
+          "massagem vigorosa ou ventosa na perna esquerda (trombose prévia)",
+          "sugerir suspender ou alterar o anticoagulante, ou indicar anti-inflamatório"
+        ]
+      }
+    }
+  },
+  {
+    "id": "case-04",
+    "synthetic": true,
+    "title": "Insônia após luto, com palpitações e esquecimento",
+    "fertilityCare": true,
+    "practitioner": "Speaker 1",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:02",
+          "text": "Oi, pode entrar! Pode deixar a bolsa aqui nessa cadeira."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:09",
+          "text": "Obrigada. Nossa, que cheirinho bom aqui. Desculpa, cheguei meio em cima da hora, o aplicativo me mandou por um caminho nada a ver."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:23",
+          "text": "Imagina, tá no horário. É lavanda, eu deixo o difusor ligado (risos). Senta, fica à vontade. Me conta, o que te trouxe aqui?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:37",
+          "text": "É o sono. Eu não tô conseguindo dormir, é insônia mesmo. Já tô ficando desesperada, pra falar a verdade."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:49",
+          "text": "Faz quanto tempo que tá assim?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:54",
+          "text": "Uns 8 meses, mais ou menos. Começou quando a minha mãe ficou internada... ela ficou doente e era eu que cuidava dela. Aí ela faleceu, faz 6 meses agora. E depois disso piorou muito."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:13",
+          "text": "Sinto muito pela sua mãe... E como é essa insônia? Você demora pra pegar no sono, acorda no meio da noite...?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:28",
+          "text": "Demoro muito pra pegar no sono. Eu deito umas 11 horas e fico até uma, uma e meia rolando na cama. A cabeça fica acelerada, não desliga. Fico pensando em tudo: no que eu tenho que fazer amanhã, nas contas, no inventário da minha mãe..."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:48",
+          "text": "E depois que você dorme, dorme direto?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:54",
+          "text": "Ah, depois que eu pego no sono eu durmo bem, graças a Deus. O problema é pegar."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:05",
+          "text": "Tá. E de 0 a 10, quanto isso tá te atrapalhando hoje?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:13",
+          "text": "Nossa... 9. Tá me derrubando. No trabalho eu tô um zumbi."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:21",
+          "text": "Você trabalha com o quê?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:26",
+          "text": "Sou contadora. Trabalho em casa, home office, então eu fico o dia inteiro sentada no computador."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:36",
+          "text": "E faz alguma atividade física?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:41",
+          "text": "Fazia pilates, duas vezes por semana. Parei quando a minha mãe adoeceu e não voltei mais."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:51",
+          "text": "E o que piora o sono? Você já percebeu alguma coisa?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:59",
+          "text": "Piora quando eu tomo café de tarde, isso eu já percebi. E quando eu fico no celular na cama... eu sei que não pode, mas eu fico."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:15",
+          "text": "E alguma coisa ajuda?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:20",
+          "text": "Ler ajuda um pouco. Livro de papel, né. Mas às vezes eu leio a mesma página três vezes e não lembro nada (risos). A minha memória tá horrível. Eu entro na cozinha e não sei o que eu fui buscar, esqueço senha, esqueço nome de cliente... Achei que era a idade, 46 anos, mas sei lá."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:40",
+          "text": "E você já tentou tratar o sono de alguma forma?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:47",
+          "text": "Já. Tomei melatonina uns 2 meses, por conta própria, e não fez nada. Chá de camomila, aplicativo de meditação, tudo. A médica do posto quis me passar um remédio pra dormir, mas eu não quis. Tenho medo de ficar dependente."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:07",
+          "text": "Ela pediu algum exame?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:12",
+          "text": "Pediu. A tireoide deu normal. Só a ferritina que tava baixa, aí ela passou sulfato ferroso. Eu tô tomando faz um mês, um comprimido por dia, de manhã."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:28",
+          "text": "Mais algum remédio, vitamina, suplemento?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:33",
+          "text": "Não, só o ferro mesmo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:38",
+          "text": "Tá. E durante o dia, como tá sua energia?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:45",
+          "text": "Cansada. Cansada o dia inteiro. Lá pelas 3 da tarde parece que eu vou desmaiar em cima do teclado. E às vezes, se eu levanto rápido, escurece a vista."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:02",
+          "text": "E o coração? Você sente palpitação, o coração acelerado?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:09",
+          "text": "Sinto! Que bom que você perguntou. Às vezes, deitada, o coração dispara assim, do nada. Dá um aperto. Eu até fui no cardiologista, fiz eletro, deu tudo normal."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:25",
+          "text": "Que bom que você já investigou. E a alimentação, como é que tá?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:34",
+          "text": "Ah, um caos. Eu pulo o almoço direto, belisco umas bolachas na frente do computador. E café, muito café. Uns 5 por dia, fácil."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:48",
+          "text": "E apetite?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:53",
+          "text": "Pouco. E quando eu como uma refeição de verdade, fico estufada, parece que a comida fica parada aqui no estômago."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:05",
+          "text": "Uhum. E o intestino, funciona todo dia?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:11",
+          "text": "Ah, deixa eu te mostrar uma coisa antes que eu esqueça, porque senão eu esqueço mesmo. Eu anotei umas coisas no celular pra te falar. Olha aqui: 'acordar 3 horas', 'coração disparando', 'esquecimento'..."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:30",
+          "text": "Acordar 3 horas? Como assim?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:35",
+          "text": "É que eu acordo às 3 da manhã. Quase todo dia, 3 horas, certinho. E aí não volto a dormir mais. Fico olhando pro teto até o despertador tocar, seis e meia."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:53",
+          "text": "Mas antes você me disse que depois que pegava no sono, dormia bem..."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:02",
+          "text": "É, falei, né? (risos) Não sei... acho que eu já acostumei. Nem sei mais o que é dormir bem."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:14",
+          "text": "Tá, isso é importante. E à noite, tem alguma coisa que te acorda? Barulho, o seu marido...?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:25",
+          "text": "Olha, ele não ronca, graças a Deus. Mas ele fuma, sabe? Fuma na varanda, de noite, e o cheiro entra no quarto. Às vezes eu acordo com o cheiro. Já falei mil vezes pra ele."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:45",
+          "text": "E você, bebida alcoólica?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:50",
+          "text": "Uma taça de vinho no fim de semana, no sábado, com ele. Só isso."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:59",
+          "text": "E como é que você tá emocionalmente, com tudo isso?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:09",
+          "text": "Triste. Muito triste. Choro por qualquer coisa, no banho, no carro... E ansiosa, com um aperto no peito, uma sensação de que alguma coisa ruim vai acontecer."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:25",
+          "text": "E você tem alguém te ajudando com tudo isso?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:32",
+          "text": "O meu marido é ótimo, me apoia. Mas a minha irmã mora em Portugal, então ficou tudo comigo: o hospital, o velório, agora o inventário... É muita coisa."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:48",
+          "text": "É muita coisa mesmo. Você já pensou em ter também uma psicóloga te acompanhando nesse luto?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:58",
+          "text": "Já pensei. Uma amiga me indicou uma, vou marcar."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:05",
+          "text": "Faz bem. E a menstruação, ainda vem certinho?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:11",
+          "text": "Vem. É regular, todo mês, a cada 28 dias mais ou menos. Mas tá vindo bem pouquinho, uns 3 dias e acabou, e bem clarinha, rosadinha. Antes era mais forte."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:28",
+          "text": "Tá bom. Agora deixa eu ver sua língua... Põe pra fora, relaxa."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:41",
+          "text": "Língua pálida, fina, sem marca de dente. Saburra branca e fina. Ponta normal."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:53",
+          "text": "Agora me dá o pulso direito, apoia aqui... Baço fino e fraco."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:07",
+          "text": "Agora o esquerdo... Coração fino, fraco também."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:15",
+          "text": "Tá fraco? É por causa do ferro?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:21",
+          "text": "Tem a ver com o cansaço, com tudo isso que você me contou. Fica tranquila, a gente vai cuidar disso junto. Hoje eu já faço uma sessão e no final te passo umas orientações pro sono, tá?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:41",
+          "text": "Tá ótimo. Só não posso demorar muito que eu tenho reunião às 4."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["8 meses"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["9"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["pilates"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["cafe", "celular"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["melatonina", "ferritina"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["ferro"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.energy",
+          "keywords": ["cansa"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.diet",
+          "keywords": ["almoc"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.digestion",
+          "keywords": ["estuf"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.alcohol",
+          "keywords": ["vinho"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.state",
+          "keywords": ["trist", "ansi"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.context",
+          "keywords": ["mae", "6 meses"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.cycle",
+          "keywords": ["regular", "28"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.flow",
+          "keywords": ["clar"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.tongue",
+          "keywords": ["palid", "fina"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.spleen",
+          "keywords": ["fino"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.heart",
+          "keywords": ["fino"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "gyneco.lmp",
+        "gyneco.contraception",
+        "gyneco.obstetric",
+        "gyneco.menopause",
+        "routine.urine",
+        "routine.thirst",
+        "tcm.palpation",
+        "tcm.pattern",
+        "pulse.liver",
+        "pulse.kidney"
+      ],
+      "traps": [
+        {
+          "field": "routine.sleep",
+          "kind": "ambiguous-or-contradictory",
+          "note": "Primeiro diz que, depois que pega no sono, 'dorme bem'; mais tarde conta que acorda às 3h quase todo dia e não volta a dormir, e admite a contradição. Se preenchido (latência longa, pensamento acelerado, despertar às 3h), o estado tem de ser 'attention', nunca 'clear'."
+        },
+        {
+          "field": "routine.tobacco",
+          "kind": "other-person",
+          "note": "Quem fuma (na varanda, à noite) é o marido; o tabagismo da própria paciente nunca é discutido, então o campo fica vazio (nem 'nega tabagismo')."
+        },
+        {
+          "field": "routine.bowel",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta se o intestino funciona todo dia; a paciente muda de assunto (anotações no celular) e a pergunta nunca é retomada, então o campo fica vazio."
+        }
+      ],
+      "attention": ["complaint.medications", "routine.sleep"],
+      "chiefComplaint": ["insoni"],
+      "pattern": {
+        "expected": "Deficiência de Coração e Baço (Qi do Baço e Sangue do Coração)",
+        "keywords": ["coracao", "baco"],
+        "alternatives": ["Deficiência de Sangue do Coração", "Deficiência de Qi e Sangue"],
+        "wrong": ["Fogo do Fígado ascendendo", "Fogo do Coração por excesso"]
+      },
+      "safety": {
+        "flags": [
+          "palpitações (relata eletrocardiograma normal)",
+          "ferritina baixa, em uso de sulfato ferroso",
+          "luto recente com tristeza, choro fácil e ansiedade"
+        ],
+        "avoid": [
+          "sangria ou técnicas dispersantes fortes em quadro de deficiência de Qi e Sangue",
+          "sugerir suspender o sulfato ferroso ou iniciar remédio para dormir",
+          "atribuir as palpitações só ao emocional sem orientar seguimento médico se persistirem"
+        ]
+      }
+    }
+  },
+  {
+    "id": "case-05",
+    "synthetic": true,
+    "title": "Cefaleia temporal latejante em homem hipertenso — Ascensão do Yang do Fígado",
+    "fertilityCare": false,
+    "practitioner": "Speaker 2",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:00",
+          "text": "Boa tarde! Licença... Nossa, desculpa o atraso, viu? A marginal tava parada, tinha um caminhão quebrado bem no meio da pista."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:13",
+          "text": "Imagina, sem problema nenhum. Boa tarde! Pode sentar aí, fica à vontade. Então, me conta: o que te trouxe aqui hoje?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:26",
+          "text": "Olha, é dor de cabeça. Uma dor de cabeça que não me larga, sabe? Tenho 51 anos, nunca fui de ficar reclamando, mas essa tá me deixando doido. Já tentei de tudo e nada resolve de verdade."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:46",
+          "text": "Hum. E onde é que ela pega? Me mostra com a mão."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:54",
+          "text": "Aqui, ó. Do lado, nas têmporas. Mais do lado direito. E ela lateja, parece que tem um tambor batendo aqui dentro, tum, tum, tum."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:08",
+          "text": "Latejando nas têmporas... E desde quando você tem isso?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:15",
+          "text": "Faz uns 6 meses. Foi mais ou menos quando eu virei gerente lá na transportadora. Aí desandou tudo, sabe? Antes era uma vez ou outra, coisa boba. Hoje é 3, 4 vezes por semana, fácil."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:34",
+          "text": "E de 0 a 10, quando ela vem forte, quanto que é?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:42",
+          "text": "Uns 8. Tem dia que é 9, que eu tenho que largar a reunião no meio e me trancar na sala."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:55",
+          "text": "Nossa, forte mesmo. E você percebe o que dispara? O que faz piorar?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:04",
+          "text": "Estresse. É batata. Teve discussão, cliente gritando no telefone, motorista que não apareceu pra fazer a rota... pronto. No fim da tarde a cabeça tá explodindo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:19",
+          "text": "E o que alivia? Quando ela vem, você..."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:26",
+          "text": "Escuro. Eu tenho que deitar no escuro. Apagar tudo, fechar a cortina, ficar quietinho, sem ninguém falar comigo. Um pano frio na testa ajuda um pouco também."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:41",
+          "text": "Uhum. E remédio pra dor, você toma alguma coisa?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:48",
+          "text": "Paracetamol, que o neurologista falou que podia tomar. Mas, sinceramente? Faz cosquinha. Melhora um pouquinho e depois volta."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:59",
+          "text": "Ah, então você já passou no neurologista. E o que ele disse?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:07",
+          "text": "Passei, em março. Ele pediu uma tomografia, deu tudo normal, graças a Deus. Aí falou que é cefaleia tensional, coisa de estresse, e que eu tinha que relaxar. (risos) Relaxar, ele fala. Com a vida que eu tenho."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:27",
+          "text": "(risos) Falar é fácil, né? E fora esse da dor, tem algum remédio que você toma todo dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:38",
+          "text": "O da pressão. Losartana, de 50, de manhã. Quer dizer... quando eu lembro, né? Às vezes passa batido, eu saio correndo de casa e só lembro no carro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:54",
+          "text": "Esse não dá pra esquecer, hein. E quando foi a última vez que você mediu a pressão?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:05",
+          "text": "Semana passada, na farmácia aqui perto do escritório. Deu 15 por 10."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:13",
+          "text": "Tá alta. Vale você voltar no seu médico pra ele ver isso, tá bom? E vitamina, suplemento, chá, alguma coisa assim?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:26",
+          "text": "Não, nada disso. Só esses dois mesmo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:32",
+          "text": "E junto com a dor de cabeça, você sente mais alguma coisa? Na vista, no ouvido, alguma tontura?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:43",
+          "text": "A vista. O olho fica vermelho, sabe? Meu filho fala que eu pareço quem virou a noite. E arde. Mais o direito. E tontura tem, às vezes. Uma zonzeira, a cabeça meio cheia, pesada aqui em cima."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:03",
+          "text": "Essa zonzeira vem em que momento?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:09",
+          "text": "Quando eu abaixo pra pegar alguma coisa e levanto rápido, aí roda um pouquinho. E quando a dor tá forte também."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:22",
+          "text": "E de humor, como é que você tá? Você falou de discussão..."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:30",
+          "text": "Ah, eu tô irritado. Muito irritado. Pavio curto, sabe? Qualquer coisinha eu explodo. Minha esposa fala que eu tô insuportável. (risos) E ela tem razão, viu."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:45",
+          "text": "E quando você explode, o que você sente no corpo?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:53",
+          "text": "Esquenta tudo. O rosto fica quente, vermelho, parece que o sangue sobe. E aí a cabeça começa a latejar na hora."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:06",
+          "text": "Me conta um pouco do trabalho. Como é um dia seu?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:14",
+          "text": "Desde que eu virei gerente, eu chego 7 da manhã e saio 8, 9 da noite. É frota, é motorista, é cliente, é atraso. Agora tem a meta do trimestre ainda. E o diretor fuma um cigarro atrás do outro naquela sala fechada, e eu lá dentro com ele nas reuniões. Só o cheiro já me dá dor de cabeça."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:34",
+          "text": "Imagino. E atividade física, você faz alguma coisa?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:41",
+          "text": "Fazia. Eu ia na academia, mas parei faz um ano. Não tem tempo. Agora é do carro pra mesa, da mesa pro carro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:54",
+          "text": "E bebida alcoólica?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:59",
+          "text": "Não, eu não bebo. Só socialmente, um churrasco de domingo, uma coisa assim."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:08",
+          "text": "Tá. E a alimentação, como é que tá?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:15",
+          "text": "Na correria. Almoço marmita no escritório, às vezes nem almoço, vou beliscando. E café, muito café. Uns 6, 7 cafezinhos por dia, da garrafa térmica."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:29",
+          "text": "Bastante, hein. E sede, você sente muita?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:35",
+          "text": "Sinto muita sede. A boca fica seca. E eu gosto de água bem gelada, tomo uns 2 litros fácil, fácil."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:47",
+          "text": "E o intestino? Vai todo dia, tem prisão de ventre?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:55",
+          "text": "Olha, sabe o que mais me preocupa, na verdade? É essa vista. Ontem o olho tava tão vermelho que a moça da recepção perguntou se eu tava bem. Será que é da pressão?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:13",
+          "text": "Pode ter relação, sim, com a pressão, com essa tensão toda. Por isso é importante acompanhar com o seu médico. E se der dor forte no olho, ou a visão embaçar, aí é pronto-socorro, tá?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:32",
+          "text": "Tá bom. Vou marcar com o cardiologista, que faz tempo que eu não vou."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:41",
+          "text": "Isso. E o sono, como é que tá?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:48",
+          "text": "Pegar no sono eu pego. Deito e apago. Mas eu acordo de madrugada, umas 3 da manhã, e a cabeça já começa a funcionar. Planilha, motorista, tudo. Aí não durmo mais. Fico rolando na cama, às vezes levanto, vou pra sala, tomo um uisquezinho pra ver se desliga. Na verdade, quase toda noite eu tomo uma dose antes de deitar. Às vezes duas."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:08",
+          "text": "Hum, tá. Bom, deixa eu te examinar agora. Põe a língua pra fora pra mim, bem relaxada, sem força... Isso, pode guardar. Agora deita aqui na maca, de barriga pra cima, e tira o sapato, por favor."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:28",
+          "text": "Tá... Ai! Ai, isso dói. Que ponto é esse?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:35",
+          "text": "É o Taichong, o F3. Tem tudo a ver com esse seu quadro. E aqui no ombro, dói?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:46",
+          "text": "Esse aí é pedra. Vive travado, faz tempo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:53",
+          "text": "Tá bem duro mesmo. Agora fica quietinho um pouquinho que eu vou sentir o pulso."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:13",
+          "text": "Deixa eu registrar aqui. Língua vermelha, mais vermelha nas bordas, saburra amarelada, fina, um pouco seca. Palpação: trapézio bem tenso, endurecido dos dois lados. Taichong, F3, muito dolorido do lado direito. Pulso: na posição do Fígado, em corda e rápido."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:33",
+          "text": "Isso é ruim?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:38",
+          "text": "Não, calma. É o retrato do que você tá vivendo. Pelo conjunto, a cefaleia latejando nas têmporas, o olho vermelho, a zonzeira, a irritação, a língua e o pulso, eu penso numa Ascensão do Yang do Fígado. Ou seja, tá subindo tudo pra cabeça."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:58",
+          "text": "Faz sentido. Parece que a cabeça vai estourar mesmo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "11:05",
+          "text": "Pois é. Hoje a gente faz a acupuntura pra ajudar a baixar isso. E a losartana, todo dia, sem pular, combinado?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "11:18",
+          "text": "Combinado, doutora. Vou pôr um alarme no celular."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["6 meses"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["8"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["estresse", "escuro"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["tomografia", "tensional"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["losartana", "paracetamol"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.sleep",
+          "keywords": ["3"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.diet",
+          "keywords": ["caf"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.thirst",
+          "keywords": ["sede"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["academia"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.state",
+          "keywords": ["irrit"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.context",
+          "keywords": ["geren"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.tongue",
+          "keywords": ["lingua vermelha", "amarel"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "tcm.palpation",
+          "keywords": ["trapez", "taichong"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.liver",
+          "keywords": ["corda", "rapid"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "tcm.pattern",
+          "keywords": ["yang", "figado"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "routine.digestion",
+        "routine.urine",
+        "routine.energy",
+        "pulse.heart",
+        "pulse.kidney",
+        "pulse.gallbladder",
+        "pulse.spleen"
+      ],
+      "traps": [
+        {
+          "field": "routine.bowel",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta se o intestino funciona todo dia e se há prisão de ventre; o paciente muda de assunto (a vista vermelha) e o tema não volta. Deve ficar vazio — nada de 'nega constipação' nem 'intestino normal'."
+        },
+        {
+          "field": "routine.tobacco",
+          "kind": "other-person",
+          "note": "Quem fuma é o diretor, na sala de reunião fechada; o paciente nunca fala do próprio uso de tabaco. O cheiro do cigarro é fator de piora da dor (complaint.factors), não hábito dele."
+        },
+        {
+          "field": "routine.alcohol",
+          "kind": "ambiguous-or-contradictory",
+          "note": "Primeiro diz que não bebe ('só socialmente, um churrasco de domingo'); depois conta que toma uma ou duas doses de uísque quase toda noite para dormir. Se preenchido, estado 'attention' registrando a contradição."
+        }
+      ],
+      "attention": ["complaint.medications", "routine.alcohol"],
+      "chiefComplaint": ["cabeca"],
+      "pattern": {
+        "expected": "Ascensão do Yang do Fígado",
+        "keywords": ["yang", "figado"],
+        "alternatives": ["Fogo do Fígado", "Deficiência de Yin do Fígado e do Rim com Ascensão do Yang"],
+        "wrong": ["Deficiência de Yang do Rim", "Deficiência de Qi do Baço com Umidade"]
+      },
+      "safety": {
+        "flags": [
+          "hipertensão arterial em uso de losartana, com adesão irregular",
+          "PA de 15 por 10 relatada na última aferição",
+          "consumo quase diário de uísque (relato contraditório)"
+        ],
+        "avoid": [
+          "moxabustão ou calor na cabeça e no pescoço (quadro de calor com Yang ascendente)",
+          "orientar suspender, reduzir ou trocar a losartana",
+          "deixar de encaminhar ao médico diante de pressão não controlada ou de cefaleia súbita e intensa, alteração visual ou sinal neurológico"
+        ]
+      }
+    }
+  },
+  {
+    "id": "case-06",
+    "synthetic": true,
+    "title": "Dismenorreia com coágulos escuros após cesárea — Estase de Sangue",
+    "fertilityCare": true,
+    "practitioner": "Speaker 1",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:00",
+          "text": "Oi, boa tarde! Pode entrar. Senta aqui, fica à vontade. Achou fácil o consultório?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:09",
+          "text": "Boa tarde! Achei, achei. O aplicativo me mandou dar uma volta enorme no quarteirão, mas cheguei. (risos)"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:20",
+          "text": "(risos) Ele sempre faz isso aqui nessa rua. Então, me conta: o que te trouxe aqui?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:30",
+          "text": "Então... é a cólica. A minha cólica menstrual tá absurda. Tem mês que eu não consigo nem trabalhar, sério. Uma amiga minha fez acupuntura aqui e falou super bem, aí eu falei: vou tentar, né? Porque desse jeito não dá mais."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:50",
+          "text": "Hum. E faz tempo que é assim?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:56",
+          "text": "Cólica eu sempre tive, desde a primeira menstruação, mas era suportável, sabe? Depois que eu tive meu filho foi piorando, piorando, e de uns 2 anos pra cá ficou insuportável. Eu tô com 34 e parece que piora a cada ano."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:16",
+          "text": "E de 0 a 10, quanto dói?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:22",
+          "text": "Uns 9. Nos piores dias, 10. Eu falto no trabalho pelo menos 1 dia todo mês por causa disso."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:34",
+          "text": "Nossa. E como é essa dor? Me descreve."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:41",
+          "text": "É em pontada, sabe? Como se tivesse uma faca enfiando. E é sempre no mesmo lugar, fixa, aqui ó, no pé da barriga, mais pro lado esquerdo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:56",
+          "text": "E quando ela começa? Vai até quando?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:02",
+          "text": "Começa um dia antes de descer e vai até o terceiro dia, mais ou menos. O primeiro e o segundo dia são os piores."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:16",
+          "text": "E o que melhora? Calor, apertar a barriga..."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:23",
+          "text": "Apertar? Deus me livre, não deixo nem encostar. Bolsa de água quente ajuda um pouquinho, mas não resolve. O que alivia mesmo é quando saem aqueles coágulos. Nossa, parece que alivia na hora."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:41",
+          "text": "Me fala mais disso. Como é o sangramento?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:48",
+          "text": "Vem bastante nos dois primeiros dias. E com coágulos escuros, grandes. Parece fígado de galinha, desculpa a comparação. (risos) Bem escuro, quase roxo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:01",
+          "text": "(risos) Não, é ótima a comparação, ajuda muito. E o seu ciclo, é regular?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:10",
+          "text": "Certinho. 28 dias. Desce e fica uns 5 dias."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:17",
+          "text": "E a última menstruação, quando foi?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:23",
+          "text": "A última... deixa eu pensar. Faz duas semanas. Isso, faz duas semanas."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:31",
+          "text": "Tá. E você usa algum método anticoncepcional?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:37",
+          "text": "Não, nenhum. Depois do meu filho eu parei a pílula e não voltei mais."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:46",
+          "text": "Você comentou do seu filho. Quantas gestações você teve?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:53",
+          "text": "Uma só. Foi cesárea, faz 5 anos. Ele tava sentado, não virou de jeito nenhum, aí a médica achou melhor marcar a cesárea. Eu queria normal, mas não deu."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:09",
+          "text": "Entendi. E você já investigou essa cólica com ginecologista? Fez algum exame?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:17",
+          "text": "Fiz um ultrassom transvaginal no ano passado. Deu tudo normal, a médica falou que não tem endometriose, não tem mioma, nada. Ela queria me passar a pílula direto, sem pausa, mas eu não quis. Pílula me dava enxaqueca. Desde que eu parei é camisinha, a gente se cuida com camisinha."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:37",
+          "text": "E pra dor, o que você toma?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:43",
+          "text": "Ibuprofeno, de 8 em 8 horas, nos dois primeiros dias. E um chá de gengibre com canela que a minha avó ensinou. Ajuda um pouquinho."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:57",
+          "text": "Mais algum remédio, vitamina, suplemento?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:02",
+          "text": "Não, só isso."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:07",
+          "text": "E corrimento, você tem? Muda ao longo do mês?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:14",
+          "text": "Ah, doutora, deixa eu te perguntar uma coisa antes que eu esqueça: a agulha dói? Porque eu tenho pavor de agulha, pavor mesmo. Minha amiga falou que nem sente, mas eu não sei, não."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:32",
+          "text": "Fica tranquila. A agulha é bem fininha, muito diferente de injeção, nem tem aquele líquido. No máximo você sente um choquinho, um peso no lugar. E na primeira vez eu uso poucas agulhas. Se ficar ruim, a gente para, tá bom?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:52",
+          "text": "Tá bom. Vou confiar. (risos)"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:57",
+          "text": "E a alimentação, como é?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:02",
+          "text": "Eu como de tudo. Mas sou formiga, doce todo dia. E gelado: sorvete, açaí, eu amo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:12",
+          "text": "Mesmo menstruada?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:17",
+          "text": "Mesmo menstruada. (risos) Eu sei, eu sei."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:23",
+          "text": "E atividade física, trabalho, como é a sua rotina?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:30",
+          "text": "Trabalho sentada o dia inteiro, sou contadora. Faço pilates uma vez por semana, quando dá."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:40",
+          "text": "E emocionalmente, como você tá?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:45",
+          "text": "Ah... Quando vai chegando a época eu já fico ansiosa, com medo da dor. Fico contando os dias no aplicativo. E no trabalho, o fechamento do mês é uma loucura. Quando cai junto com a menstruação, é um terror, eu fico lá com a bolsa de água quente no colo fazendo planilha."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:05",
+          "text": "E em casa?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:10",
+          "text": "Em casa tá tranquilo. Meu filho é um amor. O marido toma a cervejinha dele todo fim de semana, aí fica meio chato, mas nada demais, sabe? Normal."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:26",
+          "text": "Entendi. Bom, vamos examinar então. Me mostra a língua... Isso, bota bem pra fora. Agora levanta a pontinha, encosta no céu da boca."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:39",
+          "text": "Assim?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:52",
+          "text": "Isso, perfeito. Pode relaxar. Agora deita aqui na maca, que eu vou palpar a barriga, tá? Vou com calma."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:10",
+          "text": "Ai... aí dói. Aí do lado esquerdo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:20",
+          "text": "Desculpa. E a cicatriz, incomoda quando eu passo o dedo?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:28",
+          "text": "Não dói, mas é estranho. Parece meio anestesiada."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:40",
+          "text": "E aqui, na parte de dentro da perna?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:50",
+          "text": "Ai! Esse também dói. Dos dois lados."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:00",
+          "text": "Agora me dá o braço, vou sentir o pulso. Respira normal."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:20",
+          "text": "Deixa eu ditar pra ficar registrado. Língua arroxeada, mais nas laterais, com pontos roxos, e as veias embaixo da língua escuras e dilatadas. Palpação: baixo-ventre dolorido, mais à esquerda. Cicatriz da cesárea aderida, endurecida. BP6 dolorido dos dois lados. Pulso: na posição do Fígado, áspero, rugoso."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:40",
+          "text": "E isso quer dizer o quê?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:46",
+          "text": "Eu vou juntar tudo isso com calma pra montar o seu tratamento. Hoje a gente já começa com a acupuntura e eu te passo umas orientações. E esse sorvete na menstruação, a gente vai conversar. (risos)"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:05",
+          "text": "(risos) Eu sabia que ia sobrar pro sorvete."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:12",
+          "text": "E uma coisa que vai me ajudar muito: na próxima menstruação, anota pra mim em que dia a dor começou, quanto deu de 0 a 10 e como vieram os coágulos. Assim a gente compara de um mês pro outro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:32",
+          "text": "Pode deixar, eu já uso o aplicativo mesmo, anoto tudo lá."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["2 anos"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["9"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["coagul"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["transvaginal"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["ibuprofeno", "gengibre"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.diet",
+          "keywords": ["doce", "sorvete"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["pilates"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.state",
+          "keywords": ["ansi"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.context",
+          "keywords": ["fechamento"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.lmp",
+          "keywords": ["semanas"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.cycle",
+          "keywords": ["28"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.flow",
+          "keywords": ["coagul", "escur"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.symptoms",
+          "keywords": ["pontada", "fixa"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.obstetric",
+          "keywords": ["cesar"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.tongue",
+          "keywords": ["arroxead", "pontos"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "tcm.palpation",
+          "keywords": ["cicatriz"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.liver",
+          "keywords": ["asper", "rugos"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "routine.sleep",
+        "routine.energy",
+        "routine.urine",
+        "routine.digestion",
+        "routine.tobacco",
+        "gyneco.fertility",
+        "gyneco.menopause",
+        "gyneco.libido",
+        "tcm.pattern",
+        "pulse.kidney"
+      ],
+      "traps": [
+        {
+          "field": "gyneco.discharge",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta sobre corrimento; a paciente desvia para o medo de agulha e o assunto não volta. Deve ficar vazio — nada de 'nega corrimento'."
+        },
+        {
+          "field": "routine.alcohol",
+          "kind": "other-person",
+          "note": "Quem toma cerveja todo fim de semana é o marido; a paciente nunca fala do próprio consumo de álcool."
+        },
+        {
+          "field": "gyneco.contraception",
+          "kind": "ambiguous-or-contradictory",
+          "note": "Primeiro diz que não usa nenhum método ('parei a pílula e não voltei'); mais adiante diz que, desde que parou a pílula, usa camisinha. Se preenchido, estado 'attention' registrando a contradição."
+        }
+      ],
+      "attention": ["complaint.medications", "gyneco.obstetric", "gyneco.contraception"],
+      "chiefComplaint": ["colica"],
+      "pattern": {
+        "expected": "Estase de Sangue no Útero",
+        "keywords": ["estase", "sangue"],
+        "alternatives": ["Estagnação de Qi e de Sangue", "Frio no Útero com Estase de Sangue"],
+        "wrong": ["Deficiência de Qi e de Sangue", "Umidade-Calor no Aquecedor Inferior"]
+      },
+      "safety": {
+        "flags": [
+          "cesárea prévia (cirurgia abdominal; cicatriz aderida à palpação)",
+          "gestação não descartada: contracepção relatada de forma contraditória, DUM há duas semanas"
+        ],
+        "avoid": [
+          "pontos e fórmulas que movem Sangue com força (IG4, BP6; Tao Ren, Hong Hua) sem antes descartar gestação",
+          "dispensar o acompanhamento ginecológico se a dor progredir ou o sangramento mudar de padrão"
+        ]
+      }
+    }
+  },
+  {
+    "id": "case-07",
+    "synthetic": true,
+    "title": "Climatério: fogachos e insônia depois de suspender a reposição hormonal",
+    "fertilityCare": true,
+    "practitioner": "Speaker 2",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:00",
+          "text": "Oi, com licença... Nossa, desculpa o atraso, o trânsito tava parado na avenida."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:08",
+          "text": "Imagina, fica tranquila. Senta aí. Quer uma água?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:14",
+          "text": "Quero, por favor. Ai, que calor, né? Esse tempo abafado... e eu que já vivo num forno."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:24",
+          "text": "É, hoje tá abafado mesmo. Então, me conta: o que te trouxe aqui?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:32",
+          "text": "Olha, é o fogacho. Os fogachos. Eu tô que não aguento mais. Vem do nada, sobe aquele calorão aqui do peito pro rosto, eu fico vermelha, e depois vem o suor escorrendo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:48",
+          "text": "Hum. E isso começou quando?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:53",
+          "text": "Começou faz uns 2 anos, eu ainda menstruava. Aí a minha ginecologista passou a reposição hormonal e melhorou muito. Nossa, foi outra vida."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:06",
+          "text": "E você ainda tá usando a reposição?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:12",
+          "text": "Não, aí é que tá. Eu parei faz 3 meses. Parei por conta própria, ela nem sabe ainda. Minha irmã teve câncer de mama no ano passado, eu fiquei com medo, li umas coisas na internet... e parei. E voltou tudo, pior do que antes."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:32",
+          "text": "Entendi. Isso a gente conversa com calma daqui a pouco, tá? E hoje, quantas vezes por dia vem esse calor?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:43",
+          "text": "Ah, perdi a conta. De dia umas 10 vezes, por aí. E de noite é pior, muito pior. Eu acordo encharcada, tenho que trocar a camisola, às vezes até o lençol. Meu marido reclama que eu fico ligando e desligando o ventilador a noite inteira."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:03",
+          "text": "E o ventilador ajuda?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:08",
+          "text": "Ajuda um pouquinho. O ventilador na cara, ou um banho frio, é o que alivia. Agora, se eu fico nervosa, ou num lugar fechado, cheio de gente... pronto, vem na hora."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:24",
+          "text": "E de comida, de bebida, você percebe alguma coisa que piora?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:31",
+          "text": "Ah, o vinho. Eu gosto de tomar uma tacinha de vinho no sábado, às vezes duas, com o meu marido, e nessa noite eu já sei que vou passar mal. E pimenta também, que eu adoro, mas aí o rosto pega fogo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:51",
+          "text": "E o sono? Você falou que acorda encharcada... Pra pegar no sono, você demora?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:00",
+          "text": "Não, pegar no sono eu pego. Deito umas onze horas, durmo rapidinho. O problema é que lá pelas 3 da manhã eu acordo toda suada, e aí acabou, fico rolando na cama até o despertador tocar. Essa insônia tá acabando comigo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:20",
+          "text": "Isso todo dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:25",
+          "text": "Quase todo dia. E eu acordo com a boca seca, seca, parece que tem areia. Deixo uma garrafinha de água do lado da cama."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:38",
+          "text": "E de dia, você sente sede?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:43",
+          "text": "De dia nem tanto. Eu bebo pouca água, eu esqueço. Mas de noite é aquela secura, eu tomo uns golinhos e volto a deitar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:56",
+          "text": "Tá. E durante o dia, como é que tá a disposição?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:03",
+          "text": "Ah, energia eu tenho de sobra, sempre fui elétrica, ligada no 220. Bom... ultimamente não, né? Eu ando cansada, de tarde eu desabo. Mas aí de noite fico ligada de novo. Sei lá, tá uma bagunça."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:21",
+          "text": "Uhum. E atividade física, você faz alguma?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:27",
+          "text": "Faço caminhada com a minha vizinha, umas 2 vezes por semana, de manhã cedinho, que ainda não tá quente. Hidroginástica eu parei."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:39",
+          "text": "A caminhada é ótima. E a alimentação, como é que é o teu dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:48",
+          "text": "Ah, eu como de tudo. De manhã é café com pão, no almoço comida normal, arroz, feijão, uma carne, salada. E café eu tomo muito, umas 4 xícaras por dia. E pimenta, como eu falei, eu ponho em tudo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:07",
+          "text": "Quatro xícaras... tá. E o intestino, como é que tá? Vai todo dia?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:15",
+          "text": "O intestino... ai, desculpa, é o meu celular. É a moça que fica com a minha mãe, deixa eu atender rapidinho. Alô? Oi. Tá. Não, a chave do portão tá pendurada atrás da porta da cozinha. Isso. Tá bom, obrigada, tchau."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:35",
+          "text": "Desculpa. Minha mãe veio morar comigo faz uns 6 meses, ela tá com Alzheimer, e agora é isso, o telefone não para."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:47",
+          "text": "Imagina. E como é que tá sendo isso pra você?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:54",
+          "text": "Puxado. Eu amo a minha mãe, mas é pesado. Eu ando muito irritada, qualquer coisinha eu explodo. Com o meu marido então... ele voltou a fumar depois de uns dez anos parado, e o cheiro do cigarro me tira do sério. Ele vai fumar lá no quintal, mas o cheiro entra."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:14",
+          "text": "Hum. E tristeza, choro, ou é mais a irritação mesmo?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:21",
+          "text": "Mais a irritação. Às vezes dá vontade de chorar, mas é mais aquele nervoso por dentro, sabe? E de noite, quando eu acordo, vem uma angústia."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:35",
+          "text": "Entendi. E me diz uma coisa: você toma algum remédio, alguma vitamina, alguma coisa natural?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:44",
+          "text": "Remédio, remédio, não. Eu tomo um magnésio que a minha cunhada me indicou, que é bom pro sono e pra cãibra. Um comprimido de manhã, faz uns 2 meses."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:59",
+          "text": "Magnésio, de manhã. Mais alguma coisa?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:04",
+          "text": "Ah, o chá de camomila, de noite, antes de deitar. Esse eu tomo toda noite. Pra relaxar ajuda um pouco, pra dormir a noite inteira, não."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:18",
+          "text": "E pros fogachos, você já tentou mais alguma coisa, além da reposição?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:26",
+          "text": "Tomei aquela cápsula de folha de amora, uns 3 meses, logo no começo. Não fez nada. Aí foi que a médica passou o hormônio."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:39",
+          "text": "E a sua última menstruação, você lembra quando foi?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:45",
+          "text": "Lembro. Foi em setembro do ano passado, faz um ano, mais ou menos. Foi na semana do meu aniversário de 52, por isso que eu lembro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:59",
+          "text": "Tá. E o xixi, como é que tá? Quantidade, cor?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:06",
+          "text": "Ah, eu faço pouco, né, que eu bebo pouca água. E tá bem escuro, amarelão. Eu sei que tinha que beber mais."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:18",
+          "text": "E mais alguma coisa que você sente no corpo?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:24",
+          "text": "Uma dor nas costas, aqui embaixo, na lombar, e um cansaço nas pernas. E um zumbido no ouvido de vez em quando, um chiadinho, quando tá tudo quieto de noite."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:40",
+          "text": "E pé, mão, você sente esquentar?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:45",
+          "text": "Nossa, a sola do pé! De noite eu tenho que deixar o pé pra fora do lençol, senão parece que queima."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:00",
+          "text": "Tá certo. Então deita aqui na maca pra mim, de barriga pra cima. Pode tirar o sapato. Isso. Agora me mostra a língua, bem pra fora."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:18",
+          "text": "Língua vermelha, sem saburra, com fissuras no centro. A ponta mais vermelha ainda. Pode guardar. Agora me dá o braço, deixa o punho bem solto."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:34",
+          "text": "Pulso fino e rápido. Bem fininho. Agora o outro braço... igual. Fino, rápido."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:42",
+          "text": "Tá rápido porque eu tô nervosa, né?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:50",
+          "text": "Um pouquinho, pode ser. Deixa eu ver a tua mão... a palma tá quente, bem quente. A sola do pé também, quente."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:02",
+          "text": "Hoje eu vou colocar umas agulhas bem fininhas e já te passo umas orientações. O café, tenta ficar em uma, duas xícaras, só de manhã. A pimenta, dá uma segurada. E água durante o dia, um golinho toda hora."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:21",
+          "text": "E o vinho? (risos)"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:26",
+          "text": "Se for tomar, repara como fica a noite e anota pra mim. E sobre a reposição: conta pra sua ginecologista que você parou, tá? Essa decisão é com ela, que conhece o seu histórico e o da sua irmã."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:45",
+          "text": "Tá, eu vou marcar. Eu tava com vergonha de falar pra ela."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["anos"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["10"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["ventila"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["hormon"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["magnesio", "camomila"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.sleep",
+          "keywords": ["acord"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.thirst",
+          "keywords": ["boca seca"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.diet",
+          "keywords": ["cafe", "pimenta"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.urine",
+          "keywords": ["escur"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["caminh"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.alcohol",
+          "keywords": ["vinho"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.state",
+          "keywords": ["irrit"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.context",
+          "keywords": ["mae"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.lmp",
+          "keywords": ["ano"],
+          "source": "patient_report"
+        },
+        {
+          "field": "gyneco.menopause",
+          "keywords": ["fogach"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.tongue",
+          "keywords": ["vermelh", "saburra", "fissur"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "tcm.palpation",
+          "keywords": ["palma", "quent"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "routine.substances",
+        "routine.digestion",
+        "gyneco.contraception",
+        "gyneco.discharge",
+        "gyneco.fertility",
+        "gyneco.obstetric",
+        "gyneco.libido",
+        "gyneco.flow",
+        "tcm.pattern"
+      ],
+      "traps": [
+        {
+          "field": "pulse.*",
+          "kind": "unpositioned-pulse",
+          "note": "A terapeuta dita 'Pulso fino e rápido. Bem fininho.' e, no outro braço, 'igual. Fino, rápido.' sem nomear nenhuma posição: nenhum campo pulse.* pode ser preenchido (nem espalhado, nem chutado) — vira pergunta de lacuna sobre a posição."
+        },
+        {
+          "field": "routine.bowel",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta 'E o intestino, como é que tá? Vai todo dia?', o celular toca, a paciente atende e a conversa segue para a mãe; o intestino nunca é respondido — não registrar nada, nem 'normal'."
+        },
+        {
+          "field": "routine.tobacco",
+          "kind": "other-person",
+          "note": "Quem voltou a fumar é o marido; a paciente nunca fala de uso próprio de tabaco. O incômodo com o cheiro do cigarro dele não é tabagismo dela."
+        },
+        {
+          "field": "routine.energy",
+          "kind": "ambiguous-or-contradictory",
+          "note": "Diz 'energia eu tenho de sobra, sempre fui elétrica, ligada no 220' e logo em seguida que anda cansada e desaba à tarde, ficando ligada de novo à noite; se preenchido, deve vir como attention."
+        }
+      ],
+      "attention": ["complaint.medications", "routine.alcohol", "routine.energy"],
+      "chiefComplaint": ["fogach"],
+      "pattern": {
+        "expected": "Deficiência de Yin do Rim com Calor por Deficiência",
+        "keywords": ["yin", "rim"],
+        "alternatives": [
+          "Deficiência de Yin do Rim e do Fígado",
+          "Desarmonia entre Coração e Rim (Coração e Rim não se comunicam)"
+        ],
+        "wrong": ["Deficiência de Yang do Rim", "Deficiência de Qi do Baço com Umidade"]
+      },
+      "safety": {
+        "flags": [
+          "reposição hormonal suspensa por conta própria há 3 meses, sem a ginecologista saber",
+          "irmã com câncer de mama (motivo da suspensão)",
+          "suplemento de magnésio e chá de camomila em uso"
+        ],
+        "avoid": [
+          "orientar retomar ou manter suspensa a reposição hormonal — a decisão é da ginecologista",
+          "fitoestrógenos (isoflavona de soja, trevo-vermelho) sem alinhar com a ginecologista, dada a história familiar de câncer de mama",
+          "moxabustão e práticas de aquecimento num quadro de calor por deficiência"
+        ]
+      }
+    }
+  },
+  {
+    "id": "case-08",
+    "synthetic": true,
+    "title": "Ombro direito doloroso que piora com frio e umidade",
+    "fertilityCare": false,
+    "practitioner": "Speaker 1",
+    "transcript": {
+      "language": "pt-BR",
+      "segments": [
+        {
+          "speaker": "Speaker 1",
+          "start": "00:00",
+          "text": "Bom dia! Pode entrar, fica à vontade. É a primeira vez aqui, né?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:08",
+          "text": "Bom dia. Primeira vez. Foi a minha esposa que insistiu, ela fez acupuntura aqui no ano passado."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:18",
+          "text": "Ah, que bom. Senta aqui. Então, me conta, o que tá acontecendo?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:26",
+          "text": "É esse ombro aqui, o direito. Tá me matando. Não consigo levantar o braço pra pegar uma coisa no alto, pra vestir a camisa... um sofrimento."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "00:40",
+          "text": "Faz quanto tempo isso?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "00:45",
+          "text": "Faz uns 3 meses. Começou lá pra julho, depois de uma pescaria. Eu fiquei a noite inteira no barranco do rio, um frio danado, aquela garoa, a roupa molhada... No outro dia eu acordei com o ombro travado."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:04",
+          "text": "E de lá pra cá, foi piorando ou ficou igual?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:11",
+          "text": "Foi piorando devagarinho. No começo era só de manhã, agora é o dia inteiro, mas de manhã é pior: ele fica duro, travado, parece que enferrujou. Leva uma meia hora, quarenta minutos mexendo, aí vai soltando."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:29",
+          "text": "E de zero a dez, quanto o senhor dá pra essa dor hoje?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:37",
+          "text": "Hoje? Uns 7. De manhã, quando eu levanto, é 8, 9 fácil."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "01:45",
+          "text": "E o que piora, o que melhora?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "01:51",
+          "text": "Piora no frio. Esfriou, pronto, ele sente antes de mim. E dia de chuva, tempo úmido, é o fim. Agora, o que melhora é calor. Eu ponho uma bolsa de água quente, tomo banho bem quente, deixo a água caindo no ombro... alivia."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:11",
+          "text": "E movimento? Mexer ajuda ou piora?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:16",
+          "text": "Mexer devagar ajuda, depois que solta. Agora, se eu forço, se pego peso, aí dói mais."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:25",
+          "text": "O senhor trabalha com o quê?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:30",
+          "text": "Sou marceneiro. Aposentei, tô com 61, mas ainda faço uns serviços na minha oficina, nos fundos de casa. Lixar, serrar, carregar madeira... tudo com o braço direito, né."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "02:45",
+          "text": "E nesses 3 meses, o senhor procurou alguém, fez algum tratamento?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "02:52",
+          "text": "Fui no ortopedista do convênio. Ele examinou, pediu um raio-x e uma ultrassom, e mandou fazer fisioterapia. Fiz 10 sessões, com aparelho, choquinho, gelo... não mudou nada."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:06",
+          "text": "E os exames, o senhor fez?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:11",
+          "text": "Ainda não. (risos) Mas eu acho que é artrose, né? Na minha idade, de tanto usar esse braço. Meu pai tinha artrose, era igualzinho."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:24",
+          "text": "Pode ser muita coisa, por isso vale a pena fazer esses exames, tá? Eles ajudam a gente também. E remédio, o senhor toma algum?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:37",
+          "text": "O ortopedista passou um diclofenaco, eu tomo quando aperta muito, uns dois, três por semana. E passo uma pomada de arnica que a minha esposa comprou."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "03:51",
+          "text": "E de uso contínuo, algum remédio?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "03:56",
+          "text": "Ah, sim, a metformina, da diabetes. Uma de manhã e uma de noite. Tenho diabetes faz uns 8 anos, mas tá controlada, a última glicada deu 6 e pouco."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:11",
+          "text": "Que bom. E alimentação, como é o seu dia a dia?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:18",
+          "text": "Eu sou de comer bem. De manhã é pão com manteiga, queijo, café com leite. Almoço é arroz, feijão, carne, aquela coisa. À noite um lanche, pão de novo. Eu gosto muito de pão."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:35",
+          "text": "E bebida alcoólica?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:40",
+          "text": "Uma cervejinha no domingo, no churrasco. Umas 3 latinhas. Só no domingo."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "04:48",
+          "text": "Tá. E o sono, como é que tá?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "04:54",
+          "text": "O sono é por causa do ombro. Eu não consigo deitar do lado direito. Se eu viro pro lado direito dormindo, eu acordo com a dor. Duas, três vezes por noite."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:11",
+          "text": "E pra urinar, o senhor levanta à noite?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:17",
+          "text": "Ah... isso aí... Olha, deixa eu te mostrar onde dói mais, que é aqui, ó, na frente, e desce um pouco pro braço."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:30",
+          "text": "Aqui na frente, e desce pro braço. E atrás, na escápula, dói?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:38",
+          "text": "Atrás dói também, mas menos. É mais aqui na frente e aqui em cima."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "05:47",
+          "text": "Tá. E em casa, como é que tá a vida? Tá tranquilo?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "05:55",
+          "text": "Ah, mais ou menos. Meu filho voltou a morar com a gente, perdeu o emprego. Fica o dia inteiro no quarto com aquele vape, aquele cigarro eletrônico, a casa toda com cheiro de morango. Eu fico preocupado com ele, sabe? Tem noite que eu não durmo pensando."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:15",
+          "text": "Imagino, é uma preocupação de pai. Agora o senhor tira a camisa pra mim e senta aqui na maca? Vou examinar esse ombro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "06:32",
+          "text": "Ai... devagar, que tirar a camisa é que é a luta. Ah, deixa eu te falar uma coisa que eu reparei: esses dias a minha língua tá ficando branca de manhã, com uma camada grossa, sabe? Eu raspo com a escova. Será que é da diabetes?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "06:52",
+          "text": "Pode ser várias coisas, isso a gente vê com calma depois. Agora levanta o braço até onde der, devagar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:05",
+          "text": "Até aqui. Daqui não passa. Ai."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:10",
+          "text": "Uns noventa graus. Agora tenta colocar a mão nas costas... não força. Deixa eu apalpar, me fala onde dói."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:25",
+          "text": "Aí! Aí dói. Bem aí na frente."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "07:34",
+          "text": "Palpação: ombro direito com a pele fria ao toque, bem mais fria que a do esquerdo. Ponto doloroso no IG 15, Jianyu... doloroso também no TA 14 e no ID 9, aqui atrás. Trapézio direito contraído, com nódulo."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "07:54",
+          "text": "Isso aí é de tanto lixar madeira."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:04",
+          "text": "Pode ser também. Agora me dá o pulso... primeiro o esquerdo... agora o direito. Pulso: na posição do Pulmão, flutuante e tenso. No Intestino Grosso, tenso também, um pouco escorregadio."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:20",
+          "text": "Isso é bom ou ruim? (risos)"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:25",
+          "text": "Isso me conta o que tá acontecendo. Juntando tudo: começou depois do frio e da umidade, piora no frio e na chuva, melhora com calor, de manhã travado, a pele fria aqui... Isso é um Bi. Um Bi por vento, frio e umidade, que entrou e ficou parado aí no ombro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "08:45",
+          "text": "Bi? Que é isso? Então não é artrose?"
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "08:51",
+          "text": "Bi é como a medicina chinesa chama essas dores de obstrução, como se o frio e a umidade travassem a circulação ali. É um raciocínio nosso, não substitui o exame. Se tem artrose ou não, só o exame vai dizer. Por isso faz o raio-x e a ultrassom, tá?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:11",
+          "text": "Tá bom, tá bom. Essa semana eu marco."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:17",
+          "text": "Hoje eu vou fazer agulha e, se der, um pouco de calor no ombro. O senhor sente bem o calor na pele? Tem formigamento no pé, na mão?"
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "09:32",
+          "text": "No pé às vezes formiga um pouquinho, de noite. No ombro eu sinto tudo, até demais."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "09:45",
+          "text": "Então vou com cuidado mesmo assim, e vou ficando de olho na pele. Deita de lado pra mim, sobre o lado esquerdo... isso. Vai sentir uma picadinha aqui no ombro."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:04",
+          "text": "Ui. Essa deu um choquinho, desceu pro braço."
+        },
+        {
+          "speaker": "Speaker 1",
+          "start": "10:10",
+          "text": "É normal, é a sensação que a gente procura. E em casa: nada de vento direto no ombro, ventilador, ar-condicionado batendo. E na pescaria, vai bem agasalhado e leva uma roupa seca pra trocar."
+        },
+        {
+          "speaker": "Speaker 2",
+          "start": "10:27",
+          "text": "Ah, a pescaria eu não largo não, toda sexta eu vou. Mas o agasalho eu levo."
+        }
+      ]
+    },
+    "gold": {
+      "expected": [
+        {
+          "field": "complaint.onset",
+          "keywords": ["meses"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.intensity",
+          "keywords": ["7"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.factors",
+          "keywords": ["frio", "umid"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.treatments",
+          "keywords": ["fisioterap"],
+          "source": "patient_report"
+        },
+        {
+          "field": "complaint.medications",
+          "keywords": ["diclofenaco", "metformina"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.sleep",
+          "keywords": ["acord"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.diet",
+          "keywords": ["pao"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.alcohol",
+          "keywords": ["cervej"],
+          "source": "patient_report"
+        },
+        {
+          "field": "routine.activity",
+          "keywords": ["marcen"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.state",
+          "keywords": ["preocup"],
+          "source": "patient_report"
+        },
+        {
+          "field": "emotional.context",
+          "keywords": ["filho"],
+          "source": "patient_report"
+        },
+        {
+          "field": "tcm.palpation",
+          "keywords": ["fria", "dolor"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "tcm.pattern",
+          "keywords": ["vento", "frio", "umid"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.lung",
+          "keywords": ["flutu", "tens"],
+          "source": "professional_voice"
+        },
+        {
+          "field": "pulse.large-intestine",
+          "keywords": ["tens", "escorreg"],
+          "source": "professional_voice"
+        }
+      ],
+      "absent": [
+        "routine.energy",
+        "routine.digestion",
+        "routine.bowel",
+        "routine.thirst",
+        "routine.substances",
+        "pulse.heart",
+        "pulse.liver",
+        "pulse.kidney",
+        "pulse.small-intestine",
+        "pulse.triple-burner"
+      ],
+      "traps": [
+        {
+          "field": "routine.tobacco",
+          "kind": "other-person",
+          "note": "Quem usa vape (cigarro eletrônico) é o filho, que voltou a morar em casa; o paciente nunca fala de uso próprio de tabaco — o campo fica vazio."
+        },
+        {
+          "field": "tcm.tongue",
+          "kind": "patient-self-report-observation",
+          "note": "O paciente descreve a própria língua ('branca de manhã, com uma camada grossa'); a terapeuta adia ('a gente vê com calma depois') e nunca dita a língua — tcm.tongue fica vazio."
+        },
+        {
+          "field": "routine.urine",
+          "kind": "unanswered-question",
+          "note": "A terapeuta pergunta se ele levanta à noite para urinar; ele desconversa mostrando onde dói e o tema não volta. Os despertares 'duas, três vezes por noite' são pela dor no ombro, não noctúria."
+        }
+      ],
+      "attention": ["complaint.medications", "routine.alcohol"],
+      "chiefComplaint": ["ombro"],
+      "pattern": {
+        "expected": "Síndrome Bi por Vento-Frio-Umidade no ombro direito",
+        "keywords": ["frio", "umid"],
+        "alternatives": ["Bi Doloroso (predomínio de Frio)", "Bi Fixo (predomínio de Umidade)"],
+        "wrong": ["Bi por Calor (Bi Quente)", "Deficiência de Yin do Rim"]
+      },
+      "safety": {
+        "flags": [
+          "diabetes em uso de metformina",
+          "formigamento nos pés à noite",
+          "anti-inflamatório (diclofenaco) sob demanda"
+        ],
+        "avoid": [
+          "moxabustão ou calor local sem checar a sensibilidade da pele (diabetes, formigamento nos pés) — risco de queimadura",
+          "tratar 'artrose' como diagnóstico: é suposição do paciente; raio-x e ultrassom ainda não foram feitos"
+        ]
+      }
+    }
+  }
+]

@@ -68,6 +68,8 @@ async function generateFinalSummary(
           })),
         },
         { orgId: consultation.org_id, refId: consultationId, client: supabase },
+        // Inside the 45 s below, so the provider gives up before we stop waiting.
+        { timeoutMs: 40_000 },
       ),
       new Promise<never>((_, rejectRace) =>
         setTimeout(() => rejectRace(new Error("final summary timed out — finalization proceeds without it")), 45_000),

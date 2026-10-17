@@ -20,21 +20,41 @@ export interface ChatMessage {
   attachments?: ChatAttachment[];
 }
 
+/** How much a reasoning model should think before answering (Claude `effort`). */
+export type AiEffort = "low" | "medium" | "high" | "xhigh" | "max";
+
+export const AI_EFFORTS: readonly AiEffort[] = ["low", "medium", "high", "xhigh", "max"] as const;
+
 /** Runtime configuration resolved from the assistants table. */
 export interface AssistantConfig {
   provider: AiProviderName;
   model: string;
   systemPrompt: string;
+  /** Ignored by models that reject sampling parameters (Claude 4.7+ and 5.x). */
   temperature: number;
   /** Budget for the ANSWER. Reasoning tokens are counted separately below. */
   maxTokens: number;
   /**
    * Tokens a reasoning model may spend thinking BEFORE the answer. Providers
-   * that charge thinking against the same output cap (Gemini 2.5+/3.x) add this
-   * on top of `maxTokens`, so raising a caller's answer budget never has to
-   * account for the model's private reasoning. Omitted: the provider's default.
+   * that charge thinking against the same output cap (Gemini 2.5+/3.x, Claude
+   * 5.x) add this on top of `maxTokens`, so raising a caller's answer budget
+   * never has to account for the model's private reasoning. Omitted: the
+   * provider's default.
    */
   reasoningBudget?: number;
+  /**
+   * Thinking depth, on providers that take one (Claude). Omitted: the model's
+   * own default — which on claude-opus-5-5 is "medium" and on claude-sonnet-5-5
+   * "high", so a caller with a deadline should set it.
+   */
+  effort?: AiEffort;
+  /**
+   * Wall-clock ceiling for the whole call, retries included, on providers that
+   * honour it (Claude, Gemini). A caller running under a shared deadline passes
+   * what is left of it, so the platform never kills the route before the
+   * provider fails with a reason.
+   */
+  timeoutMs?: number;
 }
 
 /**

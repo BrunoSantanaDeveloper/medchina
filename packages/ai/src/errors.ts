@@ -124,7 +124,8 @@ export function classifyAiError(error: unknown): AiFailure {
     const lower = message.toLowerCase();
     return { status, transient: !FATAL_QUOTA_MARKERS.some((marker) => lower.includes(marker)) };
   }
-  if (status !== null && [408, 500, 502, 503, 504].includes(status)) return { status, transient: true };
+  // 529 is Anthropic's "overloaded" — capacity, exactly like a 503.
+  if (status !== null && [408, 500, 502, 503, 504, 529].includes(status)) return { status, transient: true };
   // Credentials, a retired model, a rejected request: retrying changes nothing.
   if (status !== null && status >= 400 && status < 500) return { status, transient: false };
   // No recognizable status: aborted/timeout/network — worth another try.

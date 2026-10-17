@@ -27,6 +27,7 @@ import NiAi from "@/icons/nexture/ni-ai";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
+import { LIBRARY_ASSISTANT_SLUG } from "@/lib/clinical-library";
 import { createClient } from "@flyee/auth/client";
 
 /** Rows stay the raw assistant records — the edit dialog reads every column. */
@@ -45,25 +46,33 @@ type AssistantForm = {
   credits_per_message: number;
   is_active: boolean;
   sort: number;
+  /** Thinking depth for Claude ("" = the model's default), kept in `config.effort`. */
+  effort: string;
+  /** The row's `config` as loaded — knowledge and quota keys live here and must survive a save. */
+  config: Record<string, unknown>;
 };
 
 const EMPTY: AssistantForm = {
   slug: "",
   name: "",
   description: "",
-  provider: "anthropic",
-  model: "claude-sonnet-5",
+  // The processor the clinical data already goes to. Any other provider is a
+  // second processor — a decision taken in the form, never a default.
+  provider: "gemini",
+  model: "gemini-3.6-flash",
   system_prompt: "",
   temperature: 0.7,
   max_tokens: 2048,
   credits_per_message: 0,
   is_active: true,
   sort: 0,
+  effort: "",
+  config: {},
 };
 
 const MODEL_HINT: Record<string, string> = {
-  anthropic: "ex.: claude-sonnet-5, claude-haiku-4-5",
-  gemini: "ex.: gemini-2.5-flash, gemini-2.5-pro",
+  anthropic: "ex.: claude-sonnet-5-5, claude-opus-5-5, claude-haiku-5-5",
+  gemini: "ex.: gemini-3.6-flash, gemini-3.8-flash",
   // Native ids here (no vendor prefix) — that prefix is what tells the two
   // OpenAI-dialect providers apart when reading an assistant row.
   openai: "id nativo, ex.: gpt-4o, gpt-4o-mini, o4-mini",
@@ -133,6 +142,8 @@ export default function AssistantsAdmin() {
             credits_per_message: row.credits_per_message as number,
             is_active: row.is_active as boolean,
             sort: row.sort as number,
+            effort: String((row.config as { effort?: unknown } | null)?.effort ?? ""),
+            config: (row.config as Record<string, unknown> | null) ?? {},
           }
         : EMPTY,
     );
@@ -150,6 +161,11 @@ export default function AssistantsAdmin() {
       return;
     }
     const supabase = createClient();
+    // Merged into what the row already holds: its knowledge collections and
+    // quota key live in the same `config` and are not edited here.
+    const config: Record<string, unknown> = { ...form.config };
+    if (form.effort) config.effort = form.effort;
+    else delete config.effort;
     const { error: saveError } = await supabase.from("assistants").upsert({
       ...(form.id ? { id: form.id } : {}),
       slug: form.slug.trim(),
@@ -163,6 +179,7 @@ export default function AssistantsAdmin() {
       credits_per_message: Number(form.credits_per_message) || 0,
       is_active: form.is_active,
       sort: Number(form.sort) || 0,
+      config,
     });
     if (saveError) {
       setError(saveError.message);
@@ -338,6 +355,13 @@ export default function AssistantsAdmin() {
                 deste provedor vão falhar quando usados.
               </Alert>
             )}
+            {form.provider !== "gemini" && (
+              <Alert severity="warning" className="neutral bg-background-paper/60! mb-2">
+                {form.slug.trim() === LIBRARY_ASSISTANT_SLUG
+                  ? "Este é o assistente da biblioteca clínica: com este provedor, as conversas — e o prontuário que a revisão de caso envia — passam a ir para um segundo processador de dados, além do Gemini. Confirme antes o acordo de tratamento de dados (LGPD) com ele."
+                  : "As conversas deste assistente vão para um segundo processador de dados, além do Gemini. Confirme antes o acordo de tratamento de dados (LGPD) com ele. O prontuário do paciente nunca é anexado aqui: a revisão de caso só roda no assistente da biblioteca clínica."}
+              </Alert>
+            )}
             <Field
               label={`Modelo — ${MODEL_HINT[form.provider] ?? ""}`}
               value={form.model}
@@ -352,9 +376,26 @@ export default function AssistantsAdmin() {
                 onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
               />
             </FormControl>
+            {form.provider === "anthropic" && (
+              <SelectField
+                label="Esforço de raciocínio (Claude)"
+                value={form.effort}
+                options={[
+                  { value: "", label: "Padrão do modelo" },
+                  { value: "low", label: "Baixo — respostas rápidas" },
+                  { value: "medium", label: "Médio" },
+                  { value: "high", label: "Alto" },
+                  { value: "xhigh", label: "Muito alto" },
+                  { value: "max", label: "Máximo — mais lento e caro" },
+                ]}
+                onChange={(v) => setForm({ ...form, effort: v })}
+              />
+            )}
             <Box className="flex flex-col gap-0 md:flex-row md:gap-4">
               <Field
-                label="Temperatura (0-1)"
+                // Claude 4.7+ and 5.x reject sampling parameters; the provider
+                // drops it for them, so the field must not look like it works.
+                label={form.provider === "anthropic" ? "Temperatura (ignorada no Claude 5.x)" : "Temperatura (0-1)"}
                 type="number"
                 value={form.temperature}
                 onChange={(v) => setForm({ ...form, temperature: Number(v) })}

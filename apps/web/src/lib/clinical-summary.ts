@@ -1,6 +1,7 @@
+import { clinicalAiRoute } from "@/lib/ai-routing";
 import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import { complaintOnOneLine } from "@/lib/chief-complaint";
-import { type AiProviderName, getChatProvider } from "@flyee/ai";
+import { getChatProvider } from "@flyee/ai";
 
 /**
  * An AI-suggested clinical summary of the consultation so far (PRD §10 draft
@@ -11,9 +12,6 @@ import { type AiProviderName, getChatProvider } from "@flyee/ai";
  * anamnesis answers), so it stays consistent with what she is looking at.
  */
 export const SUMMARY_PROMPT_VERSION = "clinical-summary-2026-09-02";
-
-const DEFAULT_PROVIDER: AiProviderName = "gemini";
-const DEFAULT_MODEL = "gemini-3.6-flash";
 
 export interface SummaryInput {
   chiefComplaint: string | null;
@@ -61,9 +59,19 @@ function describeCase(input: SummaryInput): string {
   return lines.join("\n");
 }
 
-export async function buildClinicalSummary(input: SummaryInput, spend?: AiSpendContext): Promise<SummaryResult> {
-  const provider = (process.env.REASONING_PROVIDER as AiProviderName) || DEFAULT_PROVIDER;
-  const model = process.env.REASONING_MODEL || DEFAULT_MODEL;
+export async function buildClinicalSummary(
+  input: SummaryInput,
+  spend?: AiSpendContext,
+  options: {
+    /**
+     * Give up after this long, on providers that honour it (Claude). For a
+     * caller that stops waiting itself: a call still running past that point
+     * is billed for an answer nobody keeps.
+     */
+    timeoutMs?: number;
+  } = {},
+): Promise<SummaryResult> {
+  const { provider, model, effort } = clinicalAiRoute("summary");
 
   const prompt = [
     "You write a concise CLINICAL SUMMARY of a Traditional Chinese Medicine consultation for the practitioner to review.",
@@ -94,6 +102,8 @@ export async function buildClinicalSummary(input: SummaryInput, spend?: AiSpendC
         "You are a careful assistant to a Traditional Chinese Medicine practitioner. You summarise the recorded consultation for her review. You never diagnose and never add anything not recorded.",
       temperature: 0.2,
       maxTokens: 1024,
+      effort,
+      timeoutMs: options.timeoutMs,
     },
     [{ role: "user", content: prompt }],
     {
