@@ -695,6 +695,8 @@ A anamnese será estruturada em blocos expansíveis e configuráveis. Deve permi
 
 - Avaliação MTC: Yin/Yang, Qi, Sangue, Líquidos, Zang-Fu, Cinco Elementos, fatores patogênicos, constituição, língua, pulso e palpação.
 
+- Pulso por posição: profundidade, ritmo, força e qualidade são lidos em cada órgão e víscera — doze posições (Coração, Intestino delgado, Fígado, Vesícula biliar, Rim, Bexiga, Pulmão, Intestino grosso, Baço, Estômago, Pericárdio e Triplo Aquecedor), um registro para cada. O bloco nasce recolhido e só entra no total de campos da consulta quando ela registra alguma posição. O campo único de pulso em prosa foi encerrado: continua visível e corrigível nas consultas que já o têm, e não é mais oferecido nem preenchido pela IA. A IA só escreve numa posição quando a profissional nomeou aquele órgão em voz alta; uma leitura ditada sem posição volta como pergunta, nunca distribuída pelas doze.
+
 - Campos personalizados e modelos por profissional.
 
 - Marcação de não informado, não aplicável, negado pelo paciente e observado pela profissional.

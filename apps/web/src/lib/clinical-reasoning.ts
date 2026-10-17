@@ -1,5 +1,5 @@
 import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
-import { anamnesisBlocksFor } from "@/lib/anamnesis";
+import { countedAnamnesisBlocks, PULSE_POSITION_FIELDS, PULSE_POSITION_ORGANS } from "@/lib/anamnesis";
 import { complaintOnOneLine, complaintTitle } from "@/lib/chief-complaint";
 import { COLLECTION_KIND, LIBRARY_COLLECTIONS } from "@/lib/clinical-library";
 import { type AiProviderName, getChatProvider } from "@flyee/ai";
@@ -128,17 +128,29 @@ export interface RecordedCase {
  * this is checked in code, because it is exactly what a fluent model glosses
  * over.
  */
-const ESSENTIAL_FIELDS = ["tcm.tongue", "tcm.pulse"] as const;
+interface EssentialPillar {
+  /** The pillar itself, for the "already asked" check below. */
+  key: string;
+  /** Written into the stored limitation and the gap list, which she reads. */
+  label: string;
+  question: string;
+  /** Any ONE of these answers the pillar. */
+  fields: readonly string[];
+}
 
-/** Written into the stored limitation and the gap list, which she reads. */
-const ESSENTIAL_FIELD_LABELS: Record<(typeof ESSENTIAL_FIELDS)[number], string> = {
-  "tcm.tongue": "língua",
-  "tcm.pulse": "pulso",
-};
-const ESSENTIAL_FIELD_QUESTIONS: Record<(typeof ESSENTIAL_FIELDS)[number], string> = {
-  "tcm.tongue": "Observar a língua?",
-  "tcm.pulse": "Palpar o pulso?",
-};
+const ESSENTIAL_PILLARS: readonly EssentialPillar[] = [
+  { key: "tcm.tongue", label: "língua", question: "Observar a língua?", fields: ["tcm.tongue"] },
+  {
+    // The pulse is recorded per position now (12 fields) — ONE of them is a
+    // pulse on the chart. Reading only `tcm.pulse`, the retired general field,
+    // would have declared the examination incomplete on every consultation
+    // where she palpated all twelve.
+    key: "tcm.pulse",
+    label: "pulso",
+    question: "Palpar o pulso?",
+    fields: ["tcm.pulse", ...PULSE_POSITION_FIELDS],
+  },
+];
 
 /**
  * Exported for the strict-mode conformance test: OpenAI serves as the fallback
@@ -225,10 +237,16 @@ function describeCase(recorded: RecordedCase): string {
   return lines.join("\n");
 }
 
-/** Which anamnesis fields exist in the catalog but have no recorded value. */
+/**
+ * Which anamnesis fields exist in the catalog but have no recorded value.
+ *
+ * The COUNTED blocks: the twelve pulse positions are an absence worth naming
+ * only once she has started reading the pulse by position — a fold she never
+ * opened is not twelve holes in the chart.
+ */
 function absentFields(recorded: RecordedCase): string[] {
   const present = new Set(recorded.answers.map((a) => fieldLabel(a.blockKey, a.fieldKey)));
-  return anamnesisBlocksFor({ fertilityCare: recorded.fertilityCare === true }, present).flatMap((block) =>
+  return countedAnamnesisBlocks({ fertilityCare: recorded.fertilityCare === true }, present).flatMap((block) =>
     block.fields.map((field) => fieldLabel(block.key, field.key)).filter((key) => !present.has(key)),
   );
 }
@@ -345,7 +363,19 @@ function retrievalQueries(recorded: RecordedCase): string[] {
     [complaintTitle(recorded.chiefComplaint), pick(["complaint.onset", "complaint.factors", "complaint.intensity"])]
       .filter(Boolean)
       .join(". "),
-    pick(["tcm.tongue", "tcm.pulse", "tcm.palpation"]),
+    // The examination. The pulse positions retrieve by ORGAN, in Portuguese:
+    // the field key is English ("pulse.heart"), and embedding that against a
+    // pt-BR library is a worse query than "pulso Coração: fraco, profundo".
+    [
+      pick(["tcm.tongue", "tcm.pulse", "tcm.palpation"]),
+      PULSE_POSITION_FIELDS.map((key) =>
+        byKey.get(key) ? `pulso ${PULSE_POSITION_ORGANS.get(key)}: ${byKey.get(key)}` : null,
+      )
+        .filter(Boolean)
+        .join(". "),
+    ]
+      .filter(Boolean)
+      .join(". "),
     pick(["routine.sleep", "routine.digestion", "routine.bowel", "routine.urine", "routine.thirst"]),
     pick(["emotional.state", "routine.energy"]),
     // Cycle and fertility retrieve for what they are about (0103). Empty for
@@ -473,7 +503,7 @@ export async function buildHypotheses(
 
   // ---- Verify (the rules the prompt cannot be trusted with) ----------------
   const recordedFields = new Set(recorded.answers.map((a) => fieldLabel(a.blockKey, a.fieldKey)));
-  const missingEssentials = ESSENTIAL_FIELDS.filter((key) => !recordedFields.has(key));
+  const missingEssentials = ESSENTIAL_PILLARS.filter((pillar) => !pillar.fields.some((key) => recordedFields.has(key)));
 
   const hypotheses: ClinicalHypothesis[] = [];
 
@@ -517,18 +547,17 @@ export async function buildHypotheses(
       // "língua" and "pulso" — it used to print the raw field keys, so the one
       // line that admits a partial reading arrived in English and looked like a
       // bug ("Dados essenciais do exame não registrados (tongue, pulse)").
-      const names = missingEssentials.map((key) => ESSENTIAL_FIELD_LABELS[key]).join(" e ");
+      const names = missingEssentials.map((pillar) => pillar.label).join(" e ");
       limitation = `Dados essenciais do exame não registrados (${names}). Qualquer padrão aqui é uma leitura parcial até que a profissional os observe.`;
       if (finalCorrespondence === "strong") finalCorrespondence = "moderate";
-      for (const key of missingEssentials) {
-        const label = ESSENTIAL_FIELD_LABELS[key];
+      for (const pillar of missingEssentials) {
         // The model writes in pt-BR, but an English word can still slip in; both
         // are checked so the same request is not asked twice.
         const alreadyAsked = missingData.some((entry) => {
           const lower = entry.toLowerCase();
-          return lower.includes(label) || lower.includes(key.split(".")[1]);
+          return lower.includes(pillar.label) || lower.includes(pillar.key.split(".")[1]);
         });
-        if (!alreadyAsked) missingData.push(ESSENTIAL_FIELD_QUESTIONS[key]);
+        if (!alreadyAsked) missingData.push(pillar.question);
       }
     }
 

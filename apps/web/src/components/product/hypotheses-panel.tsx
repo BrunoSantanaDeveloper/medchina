@@ -721,7 +721,13 @@ export default function HypothesesPanel({
                   scrollButtons="auto"
                   allowScrollButtonsMobile
                   aria-label={t("hypotheses-tabs-label")}
-                  className="px-2 pt-1"
+                  // The template pulls a scrollable strip 1rem OUTWARDS
+                  // (.MuiTabs-root:has(.MuiTabScrollButton-root) { -mx-4 }) so the
+                  // arrows hang in a CARD gutter. Inside a dialog there is no such
+                  // gutter: the first and last pills were cut by the dialog edge the
+                  // moment a second hypothesis made the arrows appear. Here the strip
+                  // keeps the dialog gutter and pays for its own breathing room.
+                  className="mb-0 px-6 py-2 [&:has(.MuiTabScrollButton-root)]:mx-0"
                 >
                   {hypotheses.map((hypothesis, index) => (
                     <Tab
@@ -730,12 +736,17 @@ export default function HypothesesPanel({
                       aria-controls={`hypothesis-panel-${hypothesis.id}`}
                       className="normal-case"
                       label={
-                        <span className="flex max-w-60 flex-row items-center gap-1.5">
+                        // A pattern name is the thing she is choosing between, so it
+                        // wraps to a second line instead of being cut mid-word
+                        // ("Deficiência de Yin e Sangue (X…"). Two lines is the
+                        // ceiling: past that the strip would outgrow the reading
+                        // below it.
+                        <span className="flex max-w-[22rem] flex-row items-start gap-1.5 text-left">
                           <span
                             aria-hidden
-                            className={cn("h-2 w-2 flex-none rounded-full", hypothesisDotTone(hypothesis))}
+                            className={cn("mt-1.5 h-2 w-2 flex-none rounded-full", hypothesisDotTone(hypothesis))}
                           />
-                          <span className="truncate">
+                          <span className="line-clamp-2">
                             {index + 1}. {hypothesis.pattern}
                           </span>
                         </span>

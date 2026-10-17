@@ -1,4 +1,5 @@
-import { activeTerms, TCM_VOCABULARY, toggleTerm } from "./tcm-vocabulary";
+import { PULSE_POSITION_FIELDS } from "./anamnesis";
+import { activeTerms, TCM_VOCABULARY, termPresence, toggleTerm, type VocabularyGroup } from "./tcm-vocabulary";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -47,10 +48,29 @@ describe("TCM vocabulary chips compose the free text", () => {
   });
 
   it("offers a vocabulary exactly for the professional-observation fields", () => {
-    expect(Object.keys(TCM_VOCABULARY).sort()).toEqual(["tcm.palpation", "tcm.pulse", "tcm.tongue"]);
+    expect(Object.keys(TCM_VOCABULARY).sort()).toEqual(
+      ["tcm.palpation", "tcm.pulse", "tcm.tongue", ...PULSE_POSITION_FIELDS].sort(),
+    );
     // tcm.pattern is deliberately absent: a disharmony pattern is a clinical
     // conclusion, not a term to pick from a list.
     expect(TCM_VOCABULARY["tcm.pattern"]).toBeUndefined();
+  });
+
+  it("drops the position group on a position field — the field IS the position", () => {
+    const labels = (groups: VocabularyGroup[]) => groups.map((group) => group.label);
+    expect(labels(TCM_VOCABULARY["pulse.heart"])).toEqual([
+      "vocab-pulse-depth",
+      "vocab-pulse-rate",
+      "vocab-pulse-strength",
+      "vocab-pulse-quality",
+    ]);
+    // Every position offers the same four, so a term tapped on the liver reads
+    // the same as the one tapped on the heart (the groundwork for comparing
+    // consultations at all).
+    for (const key of PULSE_POSITION_FIELDS)
+      expect(labels(TCM_VOCABULARY[key])).toEqual(labels(TCM_VOCABULARY["pulse.heart"]));
+    // The retired general field keeps its own, position terms included.
+    expect(labels(TCM_VOCABULARY["tcm.pulse"])).toContain("vocab-pulse-position");
   });
 });
 
@@ -87,11 +107,11 @@ describe("chips recognize the prose she dictates and the AI drafts", () => {
 });
 
 describe("toggling a term already written in prose", () => {
-  it("removes it instead of appending a duplicate", () => {
-    // The bug this pins: the chip used to look for a whole comma item, miss the
-    // term inside the sentence and append it again.
-    expect(toggleTerm(DRAFT, "pálida")).toBe("Língua com saburra branca e fina");
-    expect(toggleTerm(DRAFT, "pálida")).not.toContain("pálida");
+  it("does not append a duplicate of a term already written in the sentence", () => {
+    // The chip reads the prose (it lights up) but the text is hers: tapping it
+    // neither duplicates the term nor cuts it out of her sentence.
+    expect(termPresence(DRAFT, "pálida")).toBe("phrase");
+    expect(toggleTerm(DRAFT, "pálida")).toBe(DRAFT);
   });
 
   it("round-trips without changing the meaning of the sentence", () => {
@@ -107,7 +127,6 @@ describe("toggling a term already written in prose", () => {
     expect(toggleTerm("pálida, fissurada, seca", "seca")).toBe("pálida, fissurada");
     // A closed sentence stays closed, with no comma stranded before the stop.
     expect(toggleTerm("Língua pálida, saburra branca.", "saburra branca")).toBe("Língua pálida.");
-    expect(toggleTerm("Língua pálida. Saburra branca.", "pálida")).toBe("Língua. Saburra branca.");
     expect(toggleTerm("pálida, fissurada, seca", "fissurada")).not.toMatch(/ {2}|,\s*,/u);
   });
 
@@ -147,7 +166,7 @@ describe("removing a term never rewrites what she wrote around it", () => {
   });
 
   it("does not merge two lines into one", () => {
-    expect(line("Língua pálida\nPulso fino", "pálida")).toBe("Língua\nPulso fino");
+    expect(line("pálida\nPulso fino", "pálida")).toBe("Pulso fino");
   });
 
   it("leaves a bullet list as a list", () => {
@@ -162,5 +181,35 @@ describe("removing a term never rewrites what she wrote around it", () => {
 
   it("adds a term on the line she was writing on, not comma-joined to the last", () => {
     expect(line("pálida\n", "fissurada")).toBe("pálida\nfissurada");
+  });
+});
+
+/**
+ * Reported from real use: she writes the pulse by organ ("pulso do coração
+ * fraco"), the chips light up because the terms ARE in the text, and tapping a
+ * lit chip deleted the word from inside her sentence — autosaved on the spot.
+ *
+ * The rule that settles it: a chip owns a term only where the term stands as
+ * its own item, which is the only shape a chip ever writes.
+ */
+describe("a term written inside her own phrase belongs to her", () => {
+  const BY_ORGAN = "pulso do coração fraco, pulso do intestino grosso forte";
+
+  it("lights the chip up without claiming the word", () => {
+    expect(activeTerms(BY_ORGAN, PULSE).has("fraco")).toBe(true);
+    expect(termPresence(BY_ORGAN, "fraco")).toBe("phrase");
+    expect(termPresence(BY_ORGAN, "forte")).toBe("phrase");
+  });
+
+  it("leaves her sentence exactly as she wrote it", () => {
+    expect(toggleTerm(BY_ORGAN, "fraco")).toBe(BY_ORGAN);
+    expect(toggleTerm(BY_ORGAN, "forte")).toBe(BY_ORGAN);
+  });
+
+  it("still removes what the chip itself wrote, in the same text", () => {
+    const withChip = toggleTerm(BY_ORGAN, "profundo");
+    expect(withChip).toBe(`${BY_ORGAN}, profundo`);
+    expect(termPresence(withChip, "profundo")).toBe("item");
+    expect(toggleTerm(withChip, "profundo")).toBe(BY_ORGAN);
   });
 });

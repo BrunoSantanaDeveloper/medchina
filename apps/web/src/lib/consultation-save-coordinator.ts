@@ -44,7 +44,15 @@ export class ConsultationSaveCoordinator {
   }
 
   schedule(key: string, operation: SaveOperation) {
-    if (this.disposed) return;
+    // A dispose stops work IN FLIGHT; it must never refuse the work of a live
+    // screen. React's StrictMode mounts, unmounts and remounts the consultation
+    // in development, so the effect cleanup disposed the very instance the
+    // revived tree still holds — and from then on every save was dropped in
+    // SILENCE: a dropped save also reports "no unsaved changes", so the record
+    // poller reloaded and erased what she had just typed, with the save
+    // indicator never leaving "idle". Only an unmount disposes and only a
+    // mounted screen schedules, so accepting the work is the honest answer.
+    this.disposed = false;
     this.pending.set(key, operation);
     this.failed.delete(key);
     this.emit("pending");
@@ -53,7 +61,10 @@ export class ConsultationSaveCoordinator {
   }
 
   async flush() {
-    if (this.disposed) return;
+    // Same reason as `schedule`: refusing here would strand what a live screen
+    // queued. With nothing pending there is nothing to do anyway.
+    if (this.disposed && this.pending.size === 0) return;
+    this.disposed = false;
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -79,6 +90,7 @@ export class ConsultationSaveCoordinator {
     return this.pending.size > 0 || this.failed.size > 0 || Boolean(this.running);
   }
 
+  /** Stops the pending timer. A later `schedule`/`flush` revives the queue. */
   dispose() {
     this.disposed = true;
     if (this.timer) clearTimeout(this.timer);

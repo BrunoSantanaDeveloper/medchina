@@ -44,6 +44,170 @@ export function transcriptCoverage(result: TranscriptResult, expectedSeconds?: n
 }
 
 /**
+ * A segment lasts at least as long as its words take to say, at a FAST pace,
+ * so it is never credited with more audio than it covers. Capped, so one
+ * runaway segment (a repetition loop, a known long-audio failure) cannot vouch
+ * for minutes it never reached.
+ */
+const SPOKEN_WORDS_PER_SECOND = 4;
+const MAX_SEGMENT_CREDIT_SECONDS = 90;
+/**
+ * Audio a recording keeps after its last word: the time to reach for "finish"
+ * and confirm. MEASURED on production transcripts: 5–26 s between the end of
+ * the last utterance and the end of the recording, whatever its length.
+ */
+const STOP_OVERHEAD_SECONDS = 30;
+
+/**
+ * A repetition loop inside one segment: many words, almost none distinct
+ * ("sim sim sim …"). A known long-audio failure — never speech.
+ */
+export function isDegenerateSegment(text: unknown): boolean {
+  const words = String(text ?? "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length < 40) return false;
+  return new Set(words).size / words.length < 0.15;
+}
+
+/**
+ * How many lines a repeating pattern must span to count as a loop, by period
+ * (1: the same line; 2-3: a pair or triple cycling). High on purpose: real
+ * speech repeats too — a listener's "Uhum." while the other voice holds the
+ * floor, a palpation's "Dói aqui?" / "Não." a few times — while a looping reply
+ * repeats itself dozens of times.
+ */
+const LOOP_SPAN: Record<number, number> = { 1: 8, 2: 12, 3: 12 };
+
+/**
+ * The transcript up to where the reply degenerated into a repetition loop, or
+ * null when it did not. Everything from the loop on is dropped: a loop runs its
+ * timestamps on past the speech it replaced (even past the end of the audio),
+ * and kept, it vouches for audio that was never transcribed.
+ *
+ * Placeholders ("[inaudível]") count only in a reply CUT by the output limit:
+ * a reply that ended on its own keeps them — a quiet stretch such as the
+ * needle-retention rest legitimately repeats them — but a cut reply is where a
+ * loop that ate the output budget leaves them in place of the speech.
+ */
+export function cutAtRepetitionLoop(result: TranscriptResult, options: { cut?: boolean } = {}): TranscriptResult | null {
+  const segments = result.segments ?? [];
+  const texts = segments.map((segment) => String(segment.text ?? "").trim());
+  let loopAt = texts.findIndex((text) => isDegenerateSegment(text));
+  for (const [periodKey, span] of Object.entries(LOOP_SPAN)) {
+    const period = Number(periodKey);
+    let run = 0;
+    for (let index = period; index < texts.length; index += 1) {
+      const placeholder = /^\[[^\]]*\]$/.test(texts[index]);
+      if (texts[index] === texts[index - period] && (!placeholder || options.cut)) {
+        run += 1;
+        if (run >= span - period) {
+          const start = index - run - period + 1;
+          if (loopAt < 0 || start < loopAt) loopAt = start;
+          break;
+        }
+      } else run = 0;
+    }
+  }
+  return loopAt >= 0 ? { ...result, segments: segments.slice(0, loopAt) } : null;
+}
+
+/** Where the transcript's speech ENDS, in seconds (-1 when it has none). */
+export function transcriptReach(result: TranscriptResult): number {
+  return (result.segments ?? []).reduce((max, segment) => {
+    const start = offsetSeconds(segment.start);
+    if (start < 0 || isDegenerateSegment(segment.text)) return max;
+    const words = String(segment.text ?? "")
+      .split(/\s+/)
+      .filter(Boolean).length;
+    return Math.max(max, start + Math.min(words / SPOKEN_WORDS_PER_SECOND, MAX_SEGMENT_CREDIT_SECONDS));
+  }, -1);
+}
+
+/**
+ * Whether the transcript's speech runs to within the stop overhead of the end
+ * of the recording (and covers at least half of it).
+ *
+ * Coverage is measured from the last segment's START, and against the 15% rule
+ * that failed every short clip whose speech simply ended before the recording
+ * did — two 58 s recordings judged 66% and 71% covered, one of them inside the
+ * first-consultation guide, every retry identical. Reaching the end is NOT
+ * enough to accept a transcript on its own: the caller also needs a second
+ * reply, re-reading the end of the audio, that found nothing more.
+ */
+export function reachesEnd(result: TranscriptResult, expectedSeconds?: number | null): boolean {
+  if (!expectedSeconds || expectedSeconds <= 0) return true;
+  const reach = transcriptReach(result);
+  return reach >= expectedSeconds / 2 && expectedSeconds - reach <= STOP_OVERHEAD_SECONDS;
+}
+
+/**
+ * The complete segments of a transcript reply that was CUT OFF mid-JSON.
+ *
+ * A reply that hits maxOutputTokens is not garbage — it is a valid prefix whose
+ * every finished segment was transcribed and billed. Parsing it as a whole
+ * throws, and the call used to be discarded as if it had never happened; on a
+ * long consultation that is exactly the call that got furthest. Each finished
+ * `{speaker, start, text}` object is parsed on its own; the cut one is dropped
+ * (the continuation re-reads that stretch anyway). Only a CONTIGUOUS prefix of
+ * usable segments is kept: an object that fails to parse, or that
+ * normalizeTimestamps would drop (no readable start, no text), ends it — so a
+ * hole in the middle is never hidden behind the segments after it. Null when
+ * nothing usable.
+ */
+export function salvageTranscriptJson(text: string): TranscriptResult | null {
+  const source = String(text ?? "");
+  const arrayAt = /"segments"\s*:\s*\[/.exec(source);
+  if (!arrayAt) return null;
+
+  const segments: TranscriptResult["segments"] = [];
+  let depth = 0;
+  let objectStart = -1;
+  let inString = false;
+  let escaped = false;
+  for (let index = arrayAt.index + arrayAt[0].length; index < source.length; index += 1) {
+    const char = source[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === "{") {
+      if (depth === 0) objectStart = index;
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0 && objectStart >= 0) {
+        const segment = usableSegment(source.slice(objectStart, index + 1));
+        if (!segment) break;
+        segments.push(segment);
+        objectStart = -1;
+      }
+    } else if (char === "]" && depth === 0) break;
+  }
+  if (segments.length === 0) return null;
+
+  const language = /"language"\s*:\s*"([^"\\]*)"/.exec(source)?.[1] ?? "";
+  return { language, segments };
+}
+
+/** One finished segment object, or null when normalizeTimestamps would drop it. */
+function usableSegment(json: string): TranscriptResult["segments"][number] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const segment = parsed as TranscriptResult["segments"][number];
+  return offsetSeconds(String(segment.start ?? "")) >= 0 && cleanSegmentText(segment.text).length > 0 ? segment : null;
+}
+
+/**
  * Speaker labels must be STABLE and identical per voice — the extraction drops
  * a tongue/pulse finding by comparing this string to the practitioner's label,
  * so a stray label silently discards clinical content. MEASURED: a model
@@ -51,16 +215,46 @@ export function transcriptCoverage(result: TranscriptResult, expectedSeconds?: n
  * consultation. Anything that is not "Speaker <n>" is remapped, in order of
  * first appearance, onto the canonical labels.
  */
-export function normalizeSpeakers(result: TranscriptResult): TranscriptResult {
-  const canonical = new Map<string, string>();
-  const segments = (result.segments ?? []).map((segment) => {
-    const raw = String(segment.speaker ?? "").trim();
+export function normalizeSpeakers(
+  result: TranscriptResult,
+  /**
+   * For a continuation: its prompt NAMED which label belongs to which voice, and
+   * renumbering by first appearance undoes that whenever the other voice speaks
+   * first in the window — the practitioner's tongue/pulse dictation would then
+   * merge under the patient's label when the overlap gives alignSpeakers no
+   * votes. "Speaker N" (N >= 1) is kept as emitted; anything else is remapped
+   * onto the next free number.
+   */
+  options: { keepCanonical?: boolean } = {},
+): TranscriptResult {
+  const canonicalIndex = (raw: string) => {
     // Deliberately no regex: "Speaker 08:57" must NOT parse as speaker 8. A
     // label counts as canonical only when the remainder is a plain integer.
     const tail = raw.toLowerCase().startsWith("speaker") ? raw.slice("speaker".length).trim() : null;
     const index = tail !== null && /^[0-9]+$/.test(tail) ? Number(tail) : NaN;
-    const key = Number.isInteger(index) ? `Speaker ${index}` : raw || "Speaker ?";
-    if (!canonical.has(key)) canonical.set(key, `Speaker ${canonical.size + 1}`);
+    return Number.isInteger(index) ? index : null;
+  };
+  const canonical = new Map<string, string>();
+  const taken = new Set<number>();
+  if (options.keepCanonical) {
+    for (const segment of result.segments ?? []) {
+      const index = canonicalIndex(String(segment.speaker ?? "").trim());
+      if (index !== null && index >= 1) {
+        canonical.set(`Speaker ${index}`, `Speaker ${index}`);
+        taken.add(index);
+      }
+    }
+  }
+  const segments = (result.segments ?? []).map((segment) => {
+    const raw = String(segment.speaker ?? "").trim();
+    const index = canonicalIndex(raw);
+    const key = index !== null ? `Speaker ${index}` : raw || "Speaker ?";
+    if (!canonical.has(key)) {
+      let next = 1;
+      while (taken.has(next)) next += 1;
+      taken.add(next);
+      canonical.set(key, `Speaker ${next}`);
+    }
     return { ...segment, speaker: canonical.get(key)! };
   });
   return { ...result, segments };

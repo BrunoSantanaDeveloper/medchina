@@ -32,7 +32,7 @@ const DEFAULT_MODEL = "gemini-3.6-flash";
 const EXTRACTION_MAX_MS = Number(process.env.EXTRACTION_TIMEOUT_MS) || 90_000;
 
 /** Bump when the prompt or the verification changes — recorded per answer. */
-export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-09-16";
+export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-10-17";
 
 /** Below this share of the quote's words found in a segment, it is not a quote. */
 const QUOTE_MATCH_THRESHOLD = 0.7;
@@ -396,6 +396,14 @@ export function buildPrompt(
     "8. chiefComplaint: the reason for the visit in ONE short line, in the patient's own terms",
     '   ("Dor lombar há 3 meses"). Never a diagnosis, never a disharmony pattern. Leave the',
     "   strings empty when the transcript does not state a reason for the visit.",
+    // The pulse is read position by position (12 fields). A reading she gave
+    // without naming the position cannot be placed without inventing one — and
+    // spreading it over all twelve would manufacture eleven findings. It goes
+    // back to her as a question instead, with her own words in it.
+    "9. PULSE BY POSITION (the pulse.* fields): each field is ONE position. Fill it only when the",
+    "   practitioner named that organ/position out loud. A pulse dictated with NO position",
+    '   ("o pulso está fino e rápido") must NOT be spread across the positions and must NOT be',
+    "   guessed into one: add a gap question asking which position she read it on, quoting her words.",
     ...(alreadyFilled.length > 0
       ? [
           "",

@@ -19,6 +19,8 @@
  * group labels are i18n keys.
  */
 
+import { PULSE_POSITION_FIELDS } from "@/lib/anamnesis";
+
 export interface VocabularyGroup {
   /** i18n key (product namespace) for the group heading. */
   label: string;
@@ -79,6 +81,13 @@ const PULSE_GROUPS: VocabularyGroup[] = [
   },
 ];
 
+/**
+ * The same pulse vocabulary, minus the position group — on a position field the
+ * position is the field, so "à esquerda"/"em cun" would be a term that repeats
+ * its own label (`PULSE_POSITION_FIELDS`, 2026-10-17).
+ */
+const PULSE_POSITION_GROUPS: VocabularyGroup[] = PULSE_GROUPS.filter((group) => group.label !== "vocab-pulse-position");
+
 /** Palpation: what she feels, not what the patient reports. */
 const PALPATION_GROUPS: VocabularyGroup[] = [
   {
@@ -98,8 +107,11 @@ const PALPATION_GROUPS: VocabularyGroup[] = [
 /** Which composite field keys offer a vocabulary, and which one. */
 export const TCM_VOCABULARY: Record<string, VocabularyGroup[]> = {
   "tcm.tongue": TONGUE_GROUPS,
+  // Retired as a field (lib/anamnesis.ts) but still editable wherever a record
+  // holds one, so it keeps the vocabulary it was written with.
   "tcm.pulse": PULSE_GROUPS,
   "tcm.palpation": PALPATION_GROUPS,
+  ...Object.fromEntries(PULSE_POSITION_FIELDS.map((key) => [key, PULSE_POSITION_GROUPS])),
 };
 
 /** Terms already present in the text, so a chip can show as selected. */
@@ -114,6 +126,29 @@ export function activeTerms(value: string, groups: VocabularyGroup[]): Set<strin
 }
 
 /**
+ * How the term stands in the text — which decides what a tap may do to it.
+ *
+ * `item`: it stands alone between separators, exactly as a chip writes it. The
+ * chip put it there (or it reads as if it had), so the chip may take it back.
+ *
+ * `phrase`: it is a word inside a sentence SHE wrote — "pulso do coração
+ * fraco". The chip lights up, because the finding is on the chart, but it must
+ * not cut the word out: reported from real use, tapping the lit chip deleted
+ * her own words and the autosave persisted it before she could look twice.
+ */
+export type TermPresence = "absent" | "item" | "phrase";
+
+export function termPresence(value: string, term: string): TermPresence {
+  if (locateItemTerm(value, term)) return "item";
+  return locateTerm(value, term) ? "phrase" : "absent";
+}
+
+/** Where the term sits in her sentence, so the screen can take her to it. */
+export function locatePhraseTerm(value: string, term: string): { start: number; end: number } | null {
+  return locateTerm(value, term);
+}
+
+/**
  * Adds or removes a term, keeping everything she typed by hand.
  *
  * Composition is comma-separated because that is how the phrase reads back in
@@ -125,8 +160,12 @@ export function activeTerms(value: string, groups: VocabularyGroup[]): Set<strin
  * already said it.
  */
 export function toggleTerm(value: string, term: string): string {
-  const found = locateTerm(value, term);
-  return found ? removeSpan(value, found) : appendTerm(value, term);
+  const item = locateItemTerm(value, term);
+  if (item) return removeSpan(value, item);
+  // Written inside her own phrase: the chart keeps her words exactly as she
+  // wrote them. The screen offers to take her to the word instead.
+  if (locateTerm(value, term)) return value;
+  return appendTerm(value, term);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -202,6 +241,42 @@ const COVERING_TERMS: ReadonlyMap<string, readonly string[]> = new Map(
     ALL_TERMS.filter((other) => other.length > term.length && locateAll(other, term).length > 0),
   ]),
 );
+
+/**
+ * Whether the character before/after the span closes an ITEM — the shape a chip
+ * writes: start or end of the text, a list separator, or a line of its own.
+ * Sentence-final punctuation closes an item too ("…, saburra branca.").
+ */
+function isItemEdgeBefore(text: string, index: number): boolean {
+  let cursor = index - 1;
+  while (cursor >= 0 && /[^\S\r\n]/u.test(text[cursor])) cursor -= 1;
+  if (cursor < 0) return true;
+  const char = text[cursor];
+  // A colon opens a list ("Pulso: fino, tenso") and a bullet opens an item of
+  // one — in both the term stands alone, so the chip may still take it back.
+  return isSeparator(char) || char === ":" || char === "\n" || char === "\r" || "-–—*•".includes(char);
+}
+
+function isItemEdgeAfter(text: string, index: number): boolean {
+  let cursor = index;
+  while (cursor < text.length && /[^\S\r\n]/u.test(text[cursor])) cursor += 1;
+  if (cursor >= text.length) return true;
+  const char = text[cursor];
+  return isSeparator(char) || char === "\n" || char === "\r" || ".!?…".includes(char);
+}
+
+/** The first occurrence that stands as its own item — what a chip may remove. */
+function locateItemTerm(text: string, term: string): TermSpan | null {
+  const covered = (COVERING_TERMS.get(term.toLowerCase()) ?? []).flatMap((longer) => locateAll(text, longer));
+  return (
+    locateAll(text, term).find(
+      (span) =>
+        isItemEdgeBefore(text, span.start) &&
+        isItemEdgeAfter(text, span.end) &&
+        !covered.some((other) => other.start <= span.start && other.end >= span.end),
+    ) ?? null
+  );
+}
 
 /** The first occurrence of the term that no longer term is spelling out. */
 function locateTerm(text: string, term: string): TermSpan | null {

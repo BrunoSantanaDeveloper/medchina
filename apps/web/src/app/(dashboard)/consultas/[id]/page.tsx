@@ -59,7 +59,12 @@ import NiPlay from "@/icons/nexture/ni-play";
 import NiProgress from "@/icons/nexture/ni-progress";
 import NiSearch from "@/icons/nexture/ni-search";
 import { calendarDateInTimeZone, defaultAppointmentStart, startAppointment, weeklyOccurrences } from "@/lib/agenda";
-import { anamnesisBlocksFor, PROFESSIONAL_OBSERVATION_FIELDS } from "@/lib/anamnesis";
+import {
+  anamnesisBlocksFor,
+  countedAnamnesisBlocks,
+  PROFESSIONAL_OBSERVATION_FIELDS,
+  PULSE_POSITION_FIELDS,
+} from "@/lib/anamnesis";
 import { recordAudit } from "@/lib/audit";
 import { CONSENT_KINDS } from "@/lib/consents";
 import { activeRailKey, RAIL_OBSERVED_ANCHORS, RAIL_TARGETS, railItems } from "@/lib/consultation-rail";
@@ -76,7 +81,7 @@ import {
   summarizeChanges,
 } from "@/lib/previous-consultation";
 import { trackProductEvent } from "@/lib/product-events";
-import { activeTerms, TCM_VOCABULARY, toggleTerm, type VocabularyGroup } from "@/lib/tcm-vocabulary";
+import { locatePhraseTerm, TCM_VOCABULARY, termPresence, toggleTerm, type VocabularyGroup } from "@/lib/tcm-vocabulary";
 import { cn } from "@/lib/utils";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -1076,15 +1081,25 @@ export default function ConsultaPage() {
   );
   const fertilityCare = context?.patient.fertilityCare === true;
   const blocks = useMemo(() => anamnesisBlocksFor({ fertilityCare }, answeredKeys), [fertilityCare, answeredKeys]);
+  // The chart's TOTAL is not everything on screen: the twelve pulse positions
+  // are offered on every consultation but only count once she reads the pulse
+  // by position, so an unopened fold never reports twelve missing fields.
+  const countedBlocks = useMemo(
+    () => countedAnamnesisBlocks({ fertilityCare }, answeredKeys),
+    [fertilityCare, answeredKeys],
+  );
   const blockFieldKeys = useMemo(
-    () => new Set(blocks.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`))),
-    [blocks],
+    () => new Set(countedBlocks.flatMap((block) => block.fields.map((field) => `${block.key}.${field.key}`))),
+    [countedBlocks],
   );
   const filledCount = useMemo(
     () => Object.entries(fields).filter(([key, meta]) => blockFieldKeys.has(key) && meta.value.trim()).length,
     [fields, blockFieldKeys],
   );
-  const totalFieldCount = useMemo(() => blocks.reduce((sum, block) => sum + block.fields.length, 0), [blocks]);
+  const totalFieldCount = useMemo(
+    () => countedBlocks.reduce((sum, block) => sum + block.fields.length, 0),
+    [countedBlocks],
+  );
   const attentionCount = useMemo(
     () => Object.entries(fields).filter(([key, meta]) => blockFieldKeys.has(key) && meta.state === "attention").length,
     [fields, blockFieldKeys],
@@ -1161,6 +1176,14 @@ export default function ConsultaPage() {
 
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({ complaint: true });
   const autoExpandedRef = useRef(false);
+
+  /**
+   * Which field the vocabulary is offered under, in a block whose fields share
+   * ONE vocabulary (the twelve pulse positions — `vocabularyOnDemand`). Set on
+   * focus and never cleared: tapping a chip moves focus to the chip, and a
+   * strip that disappeared under her finger would be unusable.
+   */
+  const [activeVocabularyField, setActiveVocabularyField] = useState<string | null>(null);
 
   // A record waiting for review opens the blocks that actually have something
   // to review — once, so a deliberate collapse is never undone by a poll tick.
@@ -1272,7 +1295,13 @@ export default function ConsultaPage() {
         attentionCount,
         aiDraftPresent,
         tongueRecorded: Boolean(fields["tcm.tongue"]?.value.trim()),
-        pulseRecorded: Boolean(fields["tcm.pulse"]?.value.trim()),
+        // A pulse read at ONE position is a pulse on the chart. The general
+        // field is retired (it stays only where a record already has it), so
+        // reading it alone would hold the journey back on every consultation
+        // where she palpated the twelve.
+        pulseRecorded:
+          PULSE_POSITION_FIELDS.some((key) => Boolean(fields[key]?.value.trim())) ||
+          Boolean(fields["tcm.pulse"]?.value.trim()),
         legacyRecord: Boolean(consultation?.legacyBody),
         gapCount: consultation?.aiGaps.length ?? 0,
       },
@@ -2033,6 +2062,12 @@ export default function ConsultaPage() {
             ) : (
               blocks.map((block) => {
                 const expanded = expandedBlocks[block.key] ?? false;
+                // Where EVERY field is her own observation (the MTC exam, the
+                // twelve pulse positions) the badge belongs on the block, said
+                // once — twelve copies of it down a column say nothing more.
+                const blockObservation = block.fields.every((field) =>
+                  PROFESSIONAL_OBSERVATION_FIELDS.has(`${block.key}.${field.key}`),
+                );
                 return (
                   <Card key={block.key} component="section">
                     <CardContent className="flex flex-col gap-1">
@@ -2045,6 +2080,11 @@ export default function ConsultaPage() {
                         <Typography component="h3" variant="subtitle1" className="mb-0">
                           {t(block.title)}
                         </Typography>
+                        {blockObservation && (
+                          <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
+                            {t("field-observation-badge")}
+                          </span>
+                        )}
                         {(blockStats[block.key]?.filled ?? 0) > 0 && (
                           <span className="bg-grey-100 text-text-secondary rounded-full px-2 py-0.5 text-xs font-semibold">
                             {t("block-filled-count", { count: blockStats[block.key].filled })}
@@ -2062,6 +2102,14 @@ export default function ConsultaPage() {
                       </button>
                       {expanded && (
                         <Box className="flex flex-col gap-1 pt-1">
+                          {/* What the block records and how its terms work —
+                              said once at the top instead of under twelve
+                              identical fields. */}
+                          {block.note && (
+                            <Typography variant="body2" className="text-text-secondary mb-1 text-xs">
+                              {t(block.note)}
+                            </Typography>
+                          )}
                           {block.fields.map((field) => {
                             const composite = `${block.key}.${field.key}`;
                             const meta = fields[composite];
@@ -2074,7 +2122,7 @@ export default function ConsultaPage() {
                                   className="flex flex-row flex-wrap items-center gap-2"
                                 >
                                   {t(field.label)}
-                                  {isObservation && (
+                                  {isObservation && !blockObservation && (
                                     <span className="bg-accent-1/12 text-accent-1-dark dark:text-accent-1-light rounded-full px-2 py-0.5 text-xs font-semibold">
                                       {t("field-observation-badge")}
                                     </span>
@@ -2139,6 +2187,7 @@ export default function ConsultaPage() {
                                   readOnly={isReadOnly}
                                   value={meta?.value ?? ""}
                                   onChange={(event) => queueAnswerSave(block.key, field.key, event.target.value)}
+                                  onFocus={() => setActiveVocabularyField(composite)}
                                   onBlur={() =>
                                     void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"))
                                   }
@@ -2146,18 +2195,29 @@ export default function ConsultaPage() {
                                 {/* Tongue and pulse are dictated with a patient on
                                   the table and their vocabulary is finite and
                                   consecrated — tapping beats typing, and the
-                                  text stays free-form either way. */}
-                                {canEdit && TCM_VOCABULARY[composite] && (
-                                  <VocabularyChips
-                                    groups={TCM_VOCABULARY[composite]}
-                                    value={meta?.value ?? ""}
-                                    onToggle={(next) => {
-                                      queueAnswerSave(block.key, field.key, next);
-                                      void saveCoordinator.flush().catch(() => setErrorKey("consultation-save-error"));
-                                    }}
-                                    t={t}
-                                  />
-                                )}
+                                  text stays free-form either way.
+
+                                  In a block whose fields share one vocabulary
+                                  (the twelve pulse positions) the terms are
+                                  offered under the position she is writing in:
+                                  four groups under each of twelve fields is
+                                  some 240 chips, a wall nobody reads. */}
+                                {canEdit &&
+                                  TCM_VOCABULARY[composite] &&
+                                  (!block.vocabularyOnDemand || activeVocabularyField === composite) && (
+                                    <VocabularyChips
+                                      groups={TCM_VOCABULARY[composite]}
+                                      fieldId={`consultation-field-${block.key}-${field.key}`}
+                                      value={meta?.value ?? ""}
+                                      onToggle={(next) => {
+                                        queueAnswerSave(block.key, field.key, next);
+                                        void saveCoordinator
+                                          .flush()
+                                          .catch(() => setErrorKey("consultation-save-error"));
+                                      }}
+                                      t={t}
+                                    />
+                                  )}
                                 <PreviousFieldValue
                                   previousValue={previous?.answers[composite]?.value}
                                   currentValue={meta?.value}
@@ -2650,16 +2710,33 @@ export default function ConsultaPage() {
  */
 function VocabularyChips({
   groups,
+  fieldId,
   value,
   onToggle,
   t,
 }: {
   groups: VocabularyGroup[];
+  /** The field this vocabulary writes into — so a term she typed can be shown in place. */
+  fieldId: string;
   value: string;
   onToggle: (next: string) => void;
-  t: (key: string) => string;
+  t: (key: string, values?: Record<string, string>) => string;
 }) {
-  const active = activeTerms(value, groups);
+  /**
+   * A term SHE wrote inside a sentence ("pulso do coração fraco") lights the
+   * chip up, because the finding is on the chart — but tapping it used to cut
+   * the word out of her sentence, autosaved on the spot. Reported from real
+   * use. Now that tap takes her to the word instead, and only a term standing
+   * as its own item — the shape a chip writes — is removed by the chip.
+   */
+  const showTermInField = (term: string) => {
+    const span = locatePhraseTerm(value, term);
+    const element = document.getElementById(fieldId);
+    if (!span || !(element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement)) return;
+    element.focus({ preventScroll: true });
+    element.setSelectionRange(span.start, span.end);
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   return (
     <Box className="mt-1.5 flex flex-col gap-1.5">
       {groups.map((group) => (
@@ -2668,12 +2745,19 @@ function VocabularyChips({
             {t(group.label)}
           </Typography>
           {group.terms.map((term) => {
-            const selected = active.has(term);
+            const presence = termPresence(value, term);
+            const selected = presence !== "absent";
+            const typedByHand = presence === "phrase";
             return (
               <button
                 key={term}
                 type="button"
-                aria-pressed={selected}
+                // A chip over her own words is not a toggle: it says the finding
+                // is recorded and points at where, so `aria-pressed` would
+                // promise an on/off it does not have.
+                aria-pressed={typedByHand ? undefined : selected}
+                aria-label={typedByHand ? t("vocab-term-in-text", { term }) : undefined}
+                title={typedByHand ? t("vocab-term-in-text", { term }) : undefined}
                 className={cn(
                   // These exist because tongue and pulse are dictated with the
                   // patient on the table and tapping beats typing — which only
@@ -2681,11 +2765,15 @@ function VocabularyChips({
                   // hitting the neighbour writes the wrong clinical term and
                   // autosave persists it immediately.
                   "min-h-9 rounded-full border px-3 py-1.5 text-xs transition-colors",
-                  selected
-                    ? "border-primary bg-primary/12 text-primary font-semibold"
-                    : "border-grey-100 text-text-secondary hover:border-primary/40",
+                  typedByHand
+                    ? // Present, but hers: dashed, so it does not read as a
+                      // control she can switch off.
+                      "border-primary/50 text-primary border-dashed font-semibold"
+                    : selected
+                      ? "border-primary bg-primary/12 text-primary font-semibold"
+                      : "border-grey-100 text-text-secondary hover:border-primary/40",
                 )}
-                onClick={() => onToggle(toggleTerm(value, term))}
+                onClick={() => (typedByHand ? showTermInField(term) : onToggle(toggleTerm(value, term)))}
               >
                 {term}
               </button>

@@ -26,6 +26,14 @@ export interface AnamnesisField {
    * new field silently escaped. Declared here, it travels with the field.
    */
   alwaysReview?: boolean;
+  /**
+   * A field that left the model. It is no longer offered to her or to the
+   * extraction, but where a record ALREADY holds one it stays on the chart,
+   * readable and correctable — see `anamnesisBlocksFor`. Hiding it outright
+   * would show a consultation as "não informado" about something that was
+   * informed.
+   */
+  retired?: boolean;
 }
 
 /** What decides whether a conditional block applies to a consultation. */
@@ -42,7 +50,50 @@ export interface AnamnesisBlock {
    * `anamnesisBlocksFor`.
    */
   when?: AnamnesisCondition;
+  /**
+   * A block that is always on screen but joins the "X de Y campos" total and
+   * the absence list sent to the AI only once it holds an answer — see
+   * `countedAnamnesisBlocks`.
+   */
+  optional?: boolean;
+  /** i18n key for a line under the block title, when it needs one. */
+  note?: string;
+  /**
+   * The fields of this block share ONE vocabulary, so their chips are offered
+   * under the field she is writing in instead of under all of them at once.
+   * The twelve pulse positions would otherwise put some 240 chips on screen.
+   */
+  vocabularyOnDemand?: boolean;
 }
+
+/**
+ * The twelve pulse positions (reported from real use, 2026-10-17): every item
+ * of the pulse — profundidade, ritmo, força, qualidade — is read PER ORGAN, so
+ * the pulse is twelve readings and not one line of prose. "Posição" stopped
+ * being a term to tap, because the field itself is the position.
+ *
+ * She asked for the organ alone, without cun/guan/chi and without the wrist:
+ * which finger feels what is her hand's knowledge, and repeating it in every
+ * label would only make the chart longer to read.
+ *
+ * Keys are English and FOREVER (they are stored in anamnesis_answers); the
+ * organ in pt-BR is what the extraction is told to listen for and what the
+ * library retrieval searches with.
+ */
+const PULSE_POSITIONS: { key: string; organ: string }[] = [
+  { key: "heart", organ: "Coração" },
+  { key: "small-intestine", organ: "Intestino delgado" },
+  { key: "liver", organ: "Fígado" },
+  { key: "gallbladder", organ: "Vesícula biliar" },
+  { key: "kidney", organ: "Rim" },
+  { key: "bladder", organ: "Bexiga" },
+  { key: "lung", organ: "Pulmão" },
+  { key: "large-intestine", organ: "Intestino grosso" },
+  { key: "spleen", organ: "Baço" },
+  { key: "stomach", organ: "Estômago" },
+  { key: "pericardium", organ: "Pericárdio" },
+  { key: "triple-burner", organ: "Triplo Aquecedor" },
+];
 
 export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
   {
@@ -257,9 +308,14 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
         hint: "Exame da LÍNGUA observado pela profissional: cor do corpo, saburra, forma, umidade, fissuras.",
       },
       {
+        // Retired in favour of the twelve positions below (her decision,
+        // 2026-10-17): one line of prose could not say WHICH position was
+        // fraco. It stays here so every pulse already written in it remains on
+        // its consultation, and it is never offered or asked for again.
         key: "pulse",
         label: "field-pulse",
         multiline: true,
+        retired: true,
         hint: "Exame do PULSO observado pela profissional: qualidade, profundidade, força, por posição.",
       },
       {
@@ -276,6 +332,25 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
       },
     ],
   },
+  {
+    // Optional, not conditional: it is on screen for every consultation,
+    // folded, and only joins the "X de Y campos" total and the absence list
+    // sent to the AI once she records something here. Otherwise every chart
+    // would read twelve fields short and the hypotheses prompt would list
+    // twelve absences nobody planned to palpate.
+    key: "pulse",
+    title: "block-pulse",
+    note: "block-pulse-note",
+    optional: true,
+    vocabularyOnDemand: true,
+    fields: PULSE_POSITIONS.map((position) => ({
+      key: position.key,
+      label: `field-pulse-${position.key}`,
+      hint:
+        `Pulso na posição do ${position.organ} (profundidade, ritmo, força, qualidade): ` +
+        `só o que a PROFISSIONAL ditou DESTA posição.`,
+    })),
+  },
   // The old free-form "plan" block (Conduta e anotações) was retired: conduct is
   // the therapeutic plan (PlanPanel step 3 — manual for everyone, AI-drafted for
   // Pro), so keeping a parallel plan block here only duplicated it. Migration
@@ -291,7 +366,21 @@ export const ANAMNESIS_BLOCKS: AnamnesisBlock[] = [
  * letting a patient's "acho que é fogo no fígado" land in it would write a
  * diagnosis into the chart on the strength of a layperson's guess.
  */
-export const PROFESSIONAL_OBSERVATION_FIELDS = new Set(["tcm.tongue", "tcm.pulse", "tcm.palpation", "tcm.pattern"]);
+export const PROFESSIONAL_OBSERVATION_FIELDS = new Set([
+  "tcm.tongue",
+  "tcm.pulse",
+  "tcm.palpation",
+  "tcm.pattern",
+  ...PULSE_POSITIONS.map((position) => `pulse.${position.key}`),
+]);
+
+/** The twelve position fields, in the order she reads them. */
+export const PULSE_POSITION_FIELDS: readonly string[] = PULSE_POSITIONS.map((position) => `pulse.${position.key}`);
+
+/** The organ each position reads, in the language of the record. */
+export const PULSE_POSITION_ORGANS: ReadonlyMap<string, string> = new Map(
+  PULSE_POSITIONS.map((position) => [`pulse.${position.key}`, position.organ]),
+);
 
 /** "block.field" keys whose extracted values always come back for review. */
 export const ALWAYS_REVIEW_FIELDS = new Set(
@@ -330,5 +419,31 @@ export function anamnesisBlocksFor(
     if (!block.when) return true;
     if (block.when === "fertility" && applicability.fertilityCare) return true;
     return block.fields.some((field) => answered.has(`${block.key}.${field.key}`));
+  }).map((block) => {
+    // A retired field survives only where it was written. The extraction
+    // passes no `answeredKeys`, so the model is never offered one — which is
+    // how the general pulse stopped being filled without erasing the pulses
+    // already recorded in it.
+    const fields = block.fields.filter((field) => !field.retired || answered.has(`${block.key}.${field.key}`));
+    return fields.length === block.fields.length ? block : { ...block, fields };
   });
+}
+
+/**
+ * The blocks that count as the chart of this consultation: the "X de Y campos"
+ * total and the absence list the hypotheses prompt is given.
+ *
+ * An optional block (the twelve pulse positions) is in it only once she has
+ * recorded something there. A fold she never opened is not a chart with twelve
+ * holes in it, and listing those twelve as absences would have the reasoning
+ * reciting what nobody set out to palpate.
+ */
+export function countedAnamnesisBlocks(
+  applicability: AnamnesisApplicability,
+  answeredKeys: Iterable<string> = [],
+): AnamnesisBlock[] {
+  const answered = new Set(answeredKeys);
+  return anamnesisBlocksFor(applicability, answered).filter(
+    (block) => !block.optional || block.fields.some((field) => answered.has(`${block.key}.${field.key}`)),
+  );
 }

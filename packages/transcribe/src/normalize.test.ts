@@ -2,12 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  cutAtRepetitionLoop,
   formatOffset,
   mergeTranscripts,
   normalizeSpeakers,
   normalizeTimestamps,
   offsetSeconds,
+  reachesEnd,
+  salvageTranscriptJson,
   transcriptCoverage,
+  transcriptReach,
 } from "./normalize.ts";
 import type { TranscriptResult } from "./types.ts";
 
@@ -137,6 +141,198 @@ test("coverage measures how far the transcript reaches into the audio", () => {
   // With no known duration there is nothing to verify against — never claim
   // a transcript is incomplete on a guess.
   assert.equal(transcriptCoverage(truncated, null), 1);
+});
+
+test("MEASURED FAILURE: a short clip whose speech ends before the recording does reaches the end", () => {
+  // Production, 2026-09-12 (QR) and 2026-10-02 (web, first-consultation
+  // guide): 58 s clips whose last words started at 0:38 and 0:41 were judged
+  // 66% and 71% covered, every retry failed, and the professional had to
+  // discard the recording. The rest of the clip was the stop confirmation.
+  const qr = transcript([
+    { speaker: "Speaker 1", start: "00:21", text: "um" },
+    { speaker: "Speaker 1", start: "00:23", text: "dois" },
+    { speaker: "Speaker 1", start: "00:38", text: "e é isso por hoje" },
+  ]);
+  assert.ok(transcriptCoverage(qr, 58) < 0.85);
+  assert.ok(reachesEnd(qr, 58));
+  const web = transcript([
+    { speaker: "Speaker 1", start: "00:36", text: "vamos ver agora" },
+    { speaker: "Speaker 2", start: "00:41", text: "está bem obrigada até logo" },
+  ]);
+  assert.ok(reachesEnd(web, 58));
+});
+
+test("a closing dictation reaches the end of the audio, not just where it starts", () => {
+  // An 8-minute recording that ends with one long segment of tongue, pulse and
+  // palpation findings starting 44 s before the end.
+  const dictation =
+    "Língua pálida e aumentada com marcas de dentes nas bordas, saburra branca fina e úmida na raiz. " +
+    "Pulso em corda à esquerda, fino e fraco na posição do baço à direita, mais profundo no pé. " +
+    "Abdome distendido, sensível à palpação no hipocôndrio direito, sem massa palpável. " +
+    "Extremidades frias, sudorese noturna leve, sono agitado e sede discreta ao acordar, segundo a própria paciente.";
+  const result = transcript([
+    { speaker: "Speaker 2", start: "00:10", text: "bom dia" },
+    { speaker: "Speaker 1", start: "07:16", text: dictation },
+  ]);
+  assert.ok(transcriptReach(result) > 450);
+  assert.ok(reachesEnd(result, 480));
+});
+
+test("reaching the end never covers for a truncated transcript", () => {
+  // Five minutes of audio, transcript stopped at 3:40: 80 s are missing.
+  const truncated = transcript([
+    { speaker: "Speaker 1", start: "00:05", text: "início" },
+    { speaker: "Speaker 1", start: "03:40", text: "parou aqui" },
+  ]);
+  assert.equal(reachesEnd(truncated, 300), false);
+  // The measured failure: 16:26 of speech, transcript stopped at 12:05.
+  const measured = transcript([{ speaker: "Speaker 1", start: "12:05", text: "parou aqui" }]);
+  assert.equal(reachesEnd(measured, 996), false);
+  // A short clip must still reach half of itself: 50 s transcribed to 0:20.
+  const half = transcript([{ speaker: "Speaker 1", start: "00:20", text: "pulso" }]);
+  assert.equal(reachesEnd(half, 50), false);
+  // With no known duration there is nothing to verify against.
+  assert.equal(reachesEnd(truncated, null), true);
+});
+
+test("a runaway segment cannot vouch for minutes it never reached", () => {
+  // A 47-minute audio where the model stops at 30:00 inside a repetition loop.
+  const loop = Array.from({ length: 2000 }, () => "sim").join(" ");
+  const result = transcript([
+    { speaker: "Speaker 1", start: "00:10", text: "bom dia" },
+    { speaker: "Speaker 2", start: "30:00", text: loop },
+  ]);
+  assert.ok(transcriptReach(result) <= 1890);
+  assert.equal(reachesEnd(result, 2817), false);
+});
+
+test("a repetition loop ends the transcript where it starts", () => {
+  const speech = [
+    { speaker: "Speaker 1", start: "29:40", text: "E a dor piora à noite?" },
+    { speaker: "Speaker 2", start: "29:50", text: "Piora, principalmente depois do jantar." },
+  ];
+  // One segment that loops on a single word.
+  const loopWord = Array.from({ length: 2000 }, () => "sim").join(" ");
+  assert.deepEqual(
+    cutAtRepetitionLoop(transcript([...speech, { speaker: "Speaker 2", start: "30:00", text: loopWord }]))?.segments,
+    speech,
+  );
+  // The same line repeated as segments, with its timestamps running on.
+  const repeated = Array.from({ length: 12 }, (_, index) => ({
+    speaker: "Speaker 2",
+    start: formatOffset(1800 + index * 2),
+    text: "sim",
+  }));
+  assert.deepEqual(cutAtRepetitionLoop(transcript([...speech, ...repeated]))?.segments, speech);
+  // Neither counts toward where the speech ends.
+  assert.ok(transcriptReach(transcript([...speech, { speaker: "Speaker 2", start: "30:00", text: loopWord }])) < 1800);
+});
+
+test("backchannels and inaudible stretches are speech, not a loop", () => {
+  // A listener's "Uhum." four times while the other voice holds the floor.
+  const backchannels = [
+    { speaker: "Speaker 1", start: "10:00", text: "Então eu comecei a sentir aquele aperto no peito todo fim de tarde…" },
+    ...Array.from({ length: 4 }, (_, index) => ({ speaker: "Speaker 2", start: formatOffset(605 + index * 7), text: "Uhum." })),
+  ];
+  assert.equal(cutAtRepetitionLoop(transcript(backchannels)), null);
+  // A silent stretch (the needle-retention rest) transcribed as placeholders.
+  const rest = Array.from({ length: 10 }, (_, index) => ({
+    speaker: "Speaker 1",
+    start: formatOffset(1200 + index * 30),
+    text: "[inaudible]",
+  }));
+  assert.equal(cutAtRepetitionLoop(transcript(rest)), null);
+  // A palpation round trip repeated a few times is dialogue, not a loop.
+  const palpation = Array.from({ length: 4 }, (_, index) => [
+    { speaker: "Speaker 1", start: formatOffset(900 + index * 10), text: "Dói aqui?" },
+    { speaker: "Speaker 2", start: formatOffset(903 + index * 10), text: "Não." },
+  ]).flat();
+  assert.equal(cutAtRepetitionLoop(transcript(palpation)), null);
+});
+
+test("in a reply cut by the output limit, a loop of placeholders or alternating lines is a loop", () => {
+  const speech = [{ speaker: "Speaker 1", start: "09:50", text: "Vamos ver o pulso agora." }];
+  // The loop that ate the output budget left placeholders where speech was.
+  const placeholders = Array.from({ length: 40 }, (_, index) => ({
+    speaker: "Speaker 2",
+    start: formatOffset(600 + index * 10),
+    text: "[inaudível]",
+  }));
+  assert.equal(cutAtRepetitionLoop(transcript([...speech, ...placeholders])), null);
+  assert.deepEqual(cutAtRepetitionLoop(transcript([...speech, ...placeholders]), { cut: true })?.segments, speech);
+  // Two lines alternating, long enough to be no palpation.
+  const alternating = Array.from({ length: 14 }, (_, index) => ({
+    speaker: index % 2 === 0 ? "Speaker 1" : "Speaker 2",
+    start: formatOffset(600 + index * 4),
+    text: index % 2 === 0 ? "Certo." : "Isso.",
+  }));
+  assert.deepEqual(cutAtRepetitionLoop(transcript([...speech, ...alternating]))?.segments, speech);
+});
+
+test("a reply cut at the output limit keeps every finished segment", () => {
+  const cut =
+    '{"language":"pt-BR","segments":[' +
+    '{"speaker":"Speaker 1","start":"00:01","text":"Ela disse \\"chega {de} dor\\""},' +
+    '{"speaker":"Speaker 2","start":"00:09","text":"Desde ontem."},' +
+    '{"speaker":"Speaker 1","start":"00:15","text":"Deixa eu ver a lín';
+  const salvaged = salvageTranscriptJson(cut);
+  assert.ok(salvaged);
+  assert.equal(salvaged.language, "pt-BR");
+  assert.deepEqual(
+    salvaged.segments.map((segment) => [segment.start, segment.text]),
+    [
+      ["00:01", 'Ela disse "chega {de} dor"'],
+      ["00:09", "Desde ontem."],
+    ],
+  );
+  // Nothing finished, or no segments at all: nothing to keep.
+  assert.equal(salvageTranscriptJson('{"language":"pt-BR","segments":[{"speaker":"Speaker 1","sta'), null);
+  assert.equal(salvageTranscriptJson("not json"), null);
+});
+
+test("a malformed segment ends the salvaged prefix instead of leaving a hidden hole", () => {
+  // The 00:05 object holds an invalid escape: keeping 00:09 after it would hide
+  // the missing finding from every end-based coverage check.
+  const cut =
+    '{"language":"pt-BR","segments":[' +
+    '{"speaker":"Speaker 1","start":"00:01","text":"Bom dia."},' +
+    '{"speaker":"Speaker 1","start":"00:05","text":"Língua pálida \\x pulso fino"},' +
+    '{"speaker":"Speaker 2","start":"00:09","text":"Obrigada."},' +
+    '{"speaker":"Speaker 1","start":"00:12","text":"Vam';
+  const salvaged = salvageTranscriptJson(cut);
+  assert.ok(salvaged);
+  assert.deepEqual(
+    salvaged.segments.map((segment) => segment.start),
+    ["00:01"],
+  );
+  // Same for a segment that parses but would be dropped later (no usable start).
+  const unusable =
+    '{"segments":[{"speaker":"Speaker 1","start":"00:01","text":"Bom dia."},' +
+    '{"speaker":"Speaker 1","start":"5","text":"língua pálida"},' +
+    '{"speaker":"Speaker 2","start":"00:09","text":"Obrigada."},{"spe';
+  assert.deepEqual(
+    salvageTranscriptJson(unusable)?.segments.map((segment) => segment.start),
+    ["00:01"],
+  );
+});
+
+test("a continuation keeps the labels its prompt anchored, even when the other voice speaks first", () => {
+  // The window starts with the patient (anchored as Speaker 2). Renumbering by
+  // first appearance would hand her label to the practitioner's dictation.
+  const window = transcript([
+    { speaker: "Speaker 2", start: "31:00", text: "Tá." },
+    { speaker: "Speaker 1", start: "31:05", text: "Língua pálida, pulso em corda." },
+    { speaker: "Speaker 08:57", start: "31:20", text: "rótulo espúrio" },
+  ]);
+  assert.deepEqual(
+    normalizeSpeakers(window, { keepCanonical: true }).segments.map((segment) => segment.speaker),
+    ["Speaker 2", "Speaker 1", "Speaker 3"],
+  );
+  // A first pass still canonicalizes by first appearance.
+  assert.deepEqual(
+    normalizeSpeakers(window).segments.map((segment) => segment.speaker),
+    ["Speaker 1", "Speaker 2", "Speaker 3"],
+  );
 });
 
 test("a continuation is stitched on without duplicating the overlap", () => {

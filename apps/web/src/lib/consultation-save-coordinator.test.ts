@@ -59,4 +59,31 @@ describe("ConsultationSaveCoordinator", () => {
     expect(operation).toHaveBeenCalledTimes(1);
     coordinator.dispose();
   });
+
+  /**
+   * Found while verifying the consultation screen in a browser: in development
+   * React's StrictMode mounts, unmounts and remounts it, the effect cleanup
+   * disposed the instance the revived tree was still holding, and from then on
+   * every keystroke was dropped in silence — the poller then reloaded the
+   * record and erased what had just been typed.
+   */
+  it("keeps saving after a remount disposed the instance the screen still holds", async () => {
+    const operation = vi.fn(async () => {});
+    const coordinator = new ConsultationSaveCoordinator({ debounceMs: 60_000 });
+
+    coordinator.dispose();
+    coordinator.schedule("field", operation);
+    expect(coordinator.hasUnsavedChanges()).toBe(true);
+
+    await coordinator.flush();
+    expect(operation).toHaveBeenCalledTimes(1);
+    expect(coordinator.hasUnsavedChanges()).toBe(false);
+    coordinator.dispose();
+  });
+
+  it("has nothing to flush when it was disposed with an empty queue", async () => {
+    const coordinator = new ConsultationSaveCoordinator({ debounceMs: 60_000 });
+    coordinator.dispose();
+    await expect(coordinator.flush()).resolves.toBeUndefined();
+  });
 });

@@ -1,13 +1,16 @@
-import { GoogleGenAI, type Part } from "@google/genai";
+import { FinishReason, GoogleGenAI, type Part } from "@google/genai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { TranscriptResult } from "./types";
 import {
+  cutAtRepetitionLoop,
   formatOffset,
   mergeTranscripts,
   normalizeSpeakers,
   normalizeTimestamps,
   offsetSeconds,
+  reachesEnd,
+  salvageTranscriptJson,
   transcriptCoverage,
 } from "./normalize";
 
@@ -61,9 +64,22 @@ const FILE_POLL_TIMEOUT_MS = 5 * 60_000;
  * answered in 35s on a probe at 17:14. Good runs measure 35–70s, so a call
  * still silent at 80s is almost certainly parked in a congested window:
  * cutting it leaves room for a SECOND fresh call inside the same invocation,
- * which may land in a clear window. One hung call must never eat the budget.
+ * which may land in a clear window. On short audio, one hung call must never
+ * eat the budget.
  */
 const ATTEMPT_TIMEOUT_MS = Number(process.env.TRANSCRIBE_ATTEMPT_TIMEOUT_MS) || 80_000;
+/**
+ * ...but 80 s is a ceiling for SHORT audio only: generation time grows with the
+ * length of what is transcribed. MEASURED in production on the 3.x chain: an
+ * 18.6-min audio was cut at 80 s on gemini-3.6-flash and answered in ~67 s on
+ * the fallback (~60-75 ms per audio second); a 47-min consultation was cut at
+ * 80 s and then 75 s on every one of its 16 runs, because no call that size can
+ * finish in 80 s — the cap guaranteed the failure it was meant to prevent. The
+ * cap is now the larger of 80 s and twice the expected time of what the call
+ * must write (bounded by one reply's worth), and it is lifted to everything
+ * left when the time it would free could not host another call.
+ */
+const ATTEMPT_MS_PER_AUDIO_SECOND = Number(process.env.TRANSCRIBE_ATTEMPT_MS_PER_AUDIO_SECOND) || 140;
 /**
  * Overall budget across every attempt. The pipeline passes a tighter SHARED
  * deadline, which always wins — this is only the ceiling when called directly.
@@ -199,6 +215,13 @@ const PROMPT = [
 /** Output ceiling: a 60-minute consultation is a long transcript, and the
  *  default budget is where silent truncation starts. */
 const MAX_OUTPUT_TOKENS = Number(process.env.TRANSCRIBE_MAX_OUTPUT_TOKENS) || 32_768;
+/**
+ * The most audio one reply can write out before MAX_OUTPUT_TOKENS cuts it.
+ * MEASURED on the 3.x chain: ~16 output tokens per audio second, thinking
+ * included (17,724 for an 1118 s consultation) — ~34 min at the default. No
+ * call runs longer than writing this much: past it the reply comes back cut.
+ */
+const SINGLE_PASS_AUDIO_SECONDS = MAX_OUTPUT_TOKENS / 16;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -290,10 +313,72 @@ function splitUsage(
 
 interface PartialCarrier {
   partialTranscript?: TranscriptResult;
+  /** When the failing call itself started (a continuation starts after its pass). */
+  callStartedAt?: number;
 }
+
+/**
+ * A transcript as far as the model replies have taken it.
+ *  - `cut`: the last reply ended at the output limit, not on its own — the
+ *    speech after its last finished segment was never written.
+ *  - `confirmed`: a later reply re-read the end of the audio (its window was
+ *    honoured) and ended on its own without finding more speech.
+ */
+interface Pass {
+  result: TranscriptResult;
+  cut: boolean;
+  confirmed?: boolean;
+}
+
+/** How far before the requested window a continuation may start and still count as honouring it. */
+const WINDOW_SLACK_SECONDS = 15;
+/**
+ * A continuation must reach this far past the last line we hold to count as an
+ * advance: re-read lines come back a few seconds later than the originals
+ * (the same tolerance mergeTranscripts uses to drop them as duplicates).
+ */
+const ADVANCE_SECONDS = 12;
+/**
+ * The output a reply may be asked for is sized to what it can write before our
+ * own timer fires, at a conservative ~190 tokens/s after ~15 s of prefill
+ * (3.6-flash was measured below ~220 tokens/s). A slow reply then ends at the
+ * output limit — a prefix that is kept and resumed — instead of being aborted
+ * with nothing, while Google bills the whole generation anyway.
+ */
+const SAFE_OUTPUT_TOKENS_PER_SECOND = 190;
+const PREFILL_ALLOWANCE_MS = 15_000;
 
 function withPartial(error: Error, partial: TranscriptResult | null): Error {
   if (partial && partial.segments.length > 0) (error as Error & PartialCarrier).partialTranscript = partial;
+  return error;
+}
+
+/** One line per failed call, so the persisted error names what happened to each. */
+function describeFailure(model: string, error: unknown, status: number | null, startedAt: number): string {
+  const callStartedAt = (error as (Error & PartialCarrier) | null)?.callStartedAt;
+  const call = callStartedAt ? `${model} continuation` : model;
+  const seconds = Math.round((Date.now() - (callStartedAt ?? startedAt)) / 1000);
+  const name = error instanceof Error ? error.name : "";
+  // The SDK aborts with no reason, so its text cannot tell OUR limit from a
+  // provider event — the error's name can.
+  if (name === "AbortError" || name === "TimeoutError") return `${call} cut by our time limit after ${seconds}s`;
+  if (status !== null) return `${call} failed with status ${status} after ${seconds}s`;
+  const message = error instanceof Error ? error.message : String(error);
+  return `${call} failed after ${seconds}s (${message.slice(0, 80)})`;
+}
+
+/**
+ * The terminal error, naming every attempt. "This operation was aborted" alone
+ * reached /admin/audit for a 47-min consultation and read like a Google outage;
+ * it was our own time limit, twice per run. The HTTP status rides along so the
+ * caller still classifies the failure from it.
+ */
+function failedWithCause(lastError: unknown, attempts: string[], expectedSeconds?: number | null): Error {
+  const message = lastError instanceof Error ? lastError.message : String(lastError);
+  const audio = expectedSeconds ? `audio ${Math.round(expectedSeconds)}s; ` : "";
+  const error = new Error(`Transcription failed (${audio}${attempts.join("; ") || "no attempt completed"}): ${message}`);
+  const status = (lastError as { status?: unknown } | null)?.status;
+  if (typeof status === "number") (error as Error & { status: number }).status = status;
   return error;
 }
 
@@ -349,6 +434,24 @@ export async function transcribeAudio(
     const local = TOTAL_BUDGET_MS - (Date.now() - startedAt);
     return deadlineAt ? Math.min(local, deadlineAt - Date.now()) : local;
   };
+  /**
+   * The time a fresh pass over this audio is expected to take (~70 ms per audio
+   * second measured, bounded by what one reply can write). A later pass is not
+   * started with less: it could not finish, and an aborted call is billed
+   * anyway — cancelling the request does not cancel the work on Google's side.
+   */
+  const passMs = Math.max(
+    20_000,
+    (Math.min(expectedSeconds ?? 0, SINGLE_PASS_AUDIO_SECONDS) * ATTEMPT_MS_PER_AUDIO_SECOND) / 2,
+  );
+  /**
+   * Done when the transcript ended on its own and its last segment starts within
+   * the coverage threshold — or when a confirming reply found nothing past a
+   * transcript that already reaches the end of the recording.
+   */
+  const isComplete = (pass: Pass) =>
+    (!pass.cut && transcriptCoverage(pass.result, expectedSeconds) >= MIN_COVERAGE) ||
+    (pass.confirmed === true && reachesEnd(pass.result, expectedSeconds));
 
   let audioPart: Part;
   let uploadedName: string | undefined;
@@ -360,14 +463,33 @@ export async function transcribeAudio(
     audioPart = { inlineData: { mimeType: mime, data: Buffer.from(bytes).toString("base64") } };
   }
 
-  const askModel = async (model: string, instruction: string): Promise<TranscriptResult> => {
+  const askModel = async (
+    model: string,
+    instruction: string,
+    /** Seconds of audio this call must write out — the whole file, or a window's tail. */
+    windowSeconds: number | null | undefined,
+    /** A continuation: its speaker labels were anchored by the prompt and must survive. */
+    anchored = false,
+  ): Promise<Pass> => {
     // The deadline is whatever is LEFT of the budget, never a fixed per-call
     // timeout. MEASURED IN PRODUCTION: with a 240s per-call timeout under a
     // 285s budget, a call started with 250s left ran on to ~490s; the platform
     // killed the invocation at its own 300s cap, so the terminal fail() never
     // ran and the row stranded in 'processing' with a live lease — the UI said
     // "Processando..." for hours while the cron kept re-claiming it.
-    const budgetMs = Math.max(15_000, Math.min(ATTEMPT_TIMEOUT_MS, remaining() - CALL_MARGIN_MS));
+    const capMs = Math.max(
+      ATTEMPT_TIMEOUT_MS,
+      Math.min(windowSeconds ?? 0, SINGLE_PASS_AUDIO_SECONDS) * ATTEMPT_MS_PER_AUDIO_SECOND,
+    );
+    const left = remaining() - CALL_MARGIN_MS;
+    // Cutting a slow call early only pays when the time it frees can host the
+    // next one; otherwise it throws away a reply that is billed anyway.
+    const nextCallMs = anchored ? CONTINUATION_MIN_BUDGET_MS : passMs;
+    const budgetMs = Math.max(15_000, left - capMs < nextCallMs ? left : capMs);
+    const outputTokens = Math.min(
+      MAX_OUTPUT_TOKENS,
+      Math.max(4_096, Math.floor(((budgetMs - PREFILL_ALLOWANCE_MS) / 1000) * SAFE_OUTPUT_TOKENS_PER_SECOND)),
+    );
     const response = await client.models.generateContent({
       model,
       contents: [{ role: "user", parts: [audioPart, { text: instruction }] }],
@@ -375,7 +497,10 @@ export async function transcribeAudio(
         responseMimeType: "application/json",
         responseJsonSchema: RESULT_SCHEMA,
         temperature: 0,
-        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        maxOutputTokens: outputTokens,
+        // The client's own timer is armed per request at ATTEMPT_TIMEOUT_MS and
+        // would still cut a long call at 80 s; this call's budget replaces it.
+        httpOptions: { timeout: budgetMs },
         abortSignal: AbortSignal.timeout(budgetMs),
       },
     });
@@ -392,12 +517,46 @@ export async function transcribeAudio(
       }
     }
 
+    const finish = response.candidates?.[0]?.finishReason;
+    let cut = finish === FinishReason.MAX_TOKENS;
     const text = response.text;
-    if (!text) throw new Error("Gemini returned no transcript.");
-    return normalizeTimestamps(normalizeSpeakers(JSON.parse(text) as TranscriptResult), expectedSeconds);
+    if (!text) throw new Error(`Gemini returned no transcript (finishReason ${finish ?? "?"}).`);
+    let parsed: TranscriptResult;
+    try {
+      parsed = JSON.parse(text) as TranscriptResult;
+    } catch {
+      // A reply cut at maxOutputTokens (thinking counts against it) is a JSON
+      // prefix whose finished segments were transcribed and billed: keep them,
+      // and the rest is asked for — now or by the next attempt, which resumes
+      // from them. Anything else unreadable (malformed mid-transcript, SAFETY,
+      // RECITATION) still fails, so another model retries it whole instead of
+      // a hole being accepted.
+      const salvaged = cut ? salvageTranscriptJson(text) : null;
+      if (!salvaged) throw new Error(`Gemini returned an unreadable transcript (finishReason ${finish ?? "?"}).`);
+      console.warn(`[transcribe] ${model} reply was cut by the output limit; kept ${salvaged.segments.length} segments`);
+      parsed = salvaged;
+    }
+    let result = normalizeTimestamps(normalizeSpeakers(parsed, { keepCanonical: anchored }), expectedSeconds);
+    // A reply that degenerates into a repetition loop is not transcript from
+    // there on: keep what came before and treat the pass as cut, so the rest is
+    // asked for again instead of the loop vouching for audio it never read.
+    const beforeLoop = cutAtRepetitionLoop(result, { cut });
+    if (beforeLoop) {
+      console.warn(`[transcribe] ${model} degenerated into a repetition loop — kept ${beforeLoop.segments.length} segments`);
+      result = beforeLoop;
+      cut = true;
+    }
+    // Segments past the recorded duration are KEPT: the duration is the
+    // browser's wall clock and model timestamps drift on long audio, so a
+    // filter here measured as dropping real closing speech. Logged instead.
+    const lastStart = result.segments.reduce((max, s) => Math.max(max, offsetSeconds(s.start)), -1);
+    if (expectedSeconds && lastStart > expectedSeconds + 60) {
+      console.warn(`[transcribe] ${model} placed speech at ${formatOffset(lastStart)} of a ${expectedSeconds}s recording`);
+    }
+    return { result, cut };
   };
 
-  const attemptOnce = (model: string) => askModel(model, PROMPT);
+  const attemptOnce = (model: string) => askModel(model, PROMPT, expectedSeconds);
 
   /**
    * Ask for the REST of the audio when a first pass stopped early.
@@ -438,7 +597,7 @@ export async function transcribeAudio(
       "Nunca renumere e nunca invente um falante novo.",
       "Transcreva literalmente, sem resumir, até o fim do áudio.",
     ].join("\n");
-    return askModel(model, instruction);
+    return askModel(model, instruction, expectedSeconds ? Math.max(0, expectedSeconds - fromSeconds) : null, true);
   };
 
   /**
@@ -447,27 +606,68 @@ export async function transcribeAudio(
    * end) — otherwise the loop stops, because a model that keeps re-answering
    * from 00:00 would otherwise spin until the budget dies.
    */
-  const completeTail = async (model: string, first: TranscriptResult): Promise<TranscriptResult> => {
+  const completeTail = async (model: string, first: Pass): Promise<Pass> => {
     let merged = first;
     for (let round = 0; round < MAX_CONTINUATIONS; round += 1) {
-      const coverage = transcriptCoverage(merged, expectedSeconds);
-      if (coverage >= MIN_COVERAGE) return merged;
+      if (isComplete(merged)) return merged;
       if (remaining() < CONTINUATION_MIN_BUDGET_MS) break;
 
-      const lastSeconds = merged.segments.reduce((max, s) => Math.max(max, offsetSeconds(s.start)), 0);
+      const lastSeconds = merged.result.segments.reduce((max, s) => Math.max(max, offsetSeconds(s.start)), 0);
       // Rewind a little so a sentence straddling the boundary is not lost;
       // mergeTranscripts drops what repeats.
       const from = Math.max(0, lastSeconds - CONTINUATION_OVERLAP_SECONDS);
-      const next = await continueFrom(model, merged, from);
-      const nextLast = next.segments.reduce((max, s) => Math.max(max, offsetSeconds(s.start)), -1);
-      if (nextLast <= lastSeconds) {
-        console.warn(`[transcribe] continuation from ${formatOffset(from)} added nothing new — stopping`);
+      const callStartedAt = Date.now();
+      let next: Pass;
+      try {
+        next = await continueFrom(model, merged.result, from);
+      } catch (error) {
+        // The first pass and every merged window were already transcribed and
+        // billed — they ride on the error so the caller keeps them, instead of
+        // a failed continuation throwing away everything before it.
+        const carrier = withPartial(error instanceof Error ? error : new Error(String(error)), merged.result);
+        (carrier as Error & PartialCarrier).callStartedAt = callStartedAt;
+        throw carrier;
+      }
+      const starts = next.result.segments.map((s) => offsetSeconds(s.start));
+      const nextLast = starts.length > 0 ? Math.max(...starts) : -1;
+      // Did the reply demonstrably read the requested window — start inside
+      // it, not at 00:00, not relative to the window, not empty?
+      const honoured = starts.length > 0 && Math.min(...starts) >= from - WINDOW_SLACK_SECONDS;
+      if (nextLast <= lastSeconds + ADVANCE_SECONDS) {
+        // Nothing past what we hold, or the same lines re-read a few seconds
+        // later. Not an advance: a cut stays a cut and a short transcript stays
+        // short. It CONFIRMS the end only when the window was honoured and the
+        // reply ended on its own — and the few lines it adds are kept only then.
+        if (honoured && nextLast > lastSeconds) {
+          merged = { ...merged, result: mergeTranscripts(merged.result, next.result, expectedSeconds) };
+        }
+        if (honoured && !next.cut) merged = { ...merged, confirmed: true };
+        console.warn(
+          `[transcribe] continuation from ${formatOffset(from)} added nothing new` +
+            `${honoured && !next.cut ? " (end confirmed)" : ""} — stopping`,
+        );
         break;
       }
-      merged = mergeTranscripts(merged, next, expectedSeconds);
+      if (!honoured) {
+        // It ignored the window. Its lines can still be stitched — the measured
+        // "re-transcribed from 00:00" reply — but only on the SAME clock: lines
+        // inside what we hold must mostly be lines we already hold. Otherwise
+        // (timestamps relative to the window, a drifted clock) merging would
+        // plant real speech at the wrong times, where provenance points.
+        const inside = next.result.segments.filter((s) => offsetSeconds(s.start) <= lastSeconds);
+        const unseen =
+          mergeTranscripts(merged.result, { ...next.result, segments: inside }, expectedSeconds).segments.length -
+          merged.result.segments.length;
+        if (inside.length > 0 && unseen > inside.length / 2) {
+          console.warn(`[transcribe] continuation from ${formatOffset(from)} is on another clock — not stitched`);
+          break;
+        }
+      }
+      merged = { result: mergeTranscripts(merged.result, next.result, expectedSeconds), cut: next.cut };
       console.warn(
         `[transcribe] continuation extended transcript to ${formatOffset(nextLast)} ` +
-          `(${Math.round(transcriptCoverage(merged, expectedSeconds) * 100)}% of ${expectedSeconds}s)`,
+          `(${Math.floor(transcriptCoverage(merged.result, expectedSeconds) * 100)}% of ${expectedSeconds}s` +
+          `${merged.cut ? ", cut again by the output limit" : ""})`,
       );
     }
     return merged;
@@ -476,83 +676,133 @@ export async function transcribeAudio(
   try {
     // One uploaded file serves every attempt — switching models is free.
     let lastError: unknown = new Error("Transcription attempts exhausted.");
-    /** Context of the last failure, so the persisted error names a CAUSE. */
-    let lastFailure: { model: string; elapsedS: number; status: number | null } | null = null;
+    /** What happened to each call, so the persisted error names a CAUSE. */
+    const attempts: string[] = [];
     /** Best INCOMPLETE result seen, kept as a floor rather than thrown away. */
-    let bestPartial: { result: TranscriptResult; coverage: number; model: string } | null = null;
+    let bestPartial: { result: TranscriptResult; coverage: number; model: string; cut: boolean } | null = null;
+    /** A failed call may still carry finished segments (see completeTail). */
+    const keepCarried = (error: unknown, model: string) => {
+      const carried = (error as (Error & PartialCarrier) | null)?.partialTranscript;
+      if (!carried) return;
+      const coverage = transcriptCoverage(carried, expectedSeconds);
+      if (!bestPartial || coverage >= bestPartial.coverage) bestPartial = { result: carried, coverage, model, cut: false };
+    };
 
     // ---- Resume: a previous session already transcribed part of this audio.
-    // Do not start over — verify what exists and ask only for the rest.
+    // Do not start over — ask only for the rest. A persisted partial is
+    // incomplete by construction and may END WHERE A REPLY WAS CUT, so it is
+    // never accepted on its coverage alone: a continuation has to confirm it.
     if (resumeFrom?.segments?.length) {
-      let base = normalizeTimestamps(resumeFrom, expectedSeconds);
-      const startCoverage = transcriptCoverage(base, expectedSeconds);
-      if (startCoverage >= MIN_COVERAGE) return base;
-      console.warn(`[transcribe] resuming from a persisted partial at ${Math.round(startCoverage * 100)}% coverage`);
+      let base: Pass = { result: normalizeTimestamps(resumeFrom, expectedSeconds), cut: true };
+      console.warn(
+        `[transcribe] resuming from a persisted partial at ${Math.floor(transcriptCoverage(base.result, expectedSeconds) * 100)}% coverage`,
+      );
       for (const step of modelChain()) {
         if (remaining() < CONTINUATION_MIN_BUDGET_MS) break;
+        const stepStartedAt = Date.now();
         try {
-          base = await completeTail(step.model, base);
-          if (transcriptCoverage(base, expectedSeconds) >= MIN_COVERAGE) {
+          // Each model gives its own answer: a confirmation from the previous
+          // one does not stop this one from finding more.
+          base = await completeTail(step.model, { ...base, confirmed: false });
+          if (isComplete(base)) {
             console.warn(`[transcribe] resumed partial completed by ${step.model}`);
-            return base;
+            return base.result;
           }
         } catch (error) {
+          const carried = (error as (Error & PartialCarrier) | null)?.partialTranscript;
+          if (carried && transcriptCoverage(carried, expectedSeconds) >= transcriptCoverage(base.result, expectedSeconds)) {
+            base = { result: carried, cut: true };
+          }
           const failure = classifyProviderError(error);
-          if (!failure.transient && failure.scope === "account") throw error;
+          attempts.push(describeFailure(step.model, error, failure.status, stepStartedAt));
+          if (!failure.transient && failure.scope === "account") {
+            throw error instanceof Error ? withPartial(error, base.result) : error;
+          }
           console.warn(`[transcribe] resume continuation on ${step.model} failed (status ${failure.status ?? "?"})`);
         }
       }
-      // Still short: persist whatever we EXTENDED so the next session starts
-      // even further ahead, and let the caller retry later.
-      throw withPartial(
-        new Error(
-          `Transcription resumed but the budget ran out at ${Math.round(transcriptCoverage(base, expectedSeconds) * 100)}% coverage — will resume again on the next attempt.`,
-        ),
-        base,
-      );
+      // A re-read CONFIRMED that the speech ends where the partial does, within
+      // the coverage threshold yet not near the end of the recording: a reply
+      // cut just after its last line with silence after it, which no
+      // continuation can finish. One fresh pass, when there is time for it,
+      // ends on its own and is judged normally. Below the threshold a fresh
+      // pass would stop at the same point and could never pass — only billed.
+      const resumedCoverage = transcriptCoverage(base.result, expectedSeconds);
+      if (base.confirmed && resumedCoverage >= MIN_COVERAGE && remaining() >= passMs) {
+        bestPartial = { result: base.result, coverage: resumedCoverage, model: "resumed partial", cut: false };
+      } else {
+        // Still short: persist whatever we EXTENDED so the next session starts
+        // even further ahead, and let the caller retry later.
+        throw withPartial(
+          new Error(
+            `Transcription resumed but is still incomplete at ${Math.floor(transcriptCoverage(base.result, expectedSeconds) * 100)}% coverage` +
+              `${attempts.length > 0 ? ` (${attempts.join("; ")})` : ""} — will resume again on the next attempt.`,
+          ),
+          base.result,
+        );
+      }
     }
 
     for (const step of modelChain()) {
       const tries = step.retryOnce ? 2 : 1;
       for (let attempt = 0; attempt < tries; attempt += 1) {
-        if (remaining() < 20_000) {
+        // The first pass of an invocation runs with any useful time (20 s) —
+        // this invocation will never have more, and on long audio its reply,
+        // sized to the budget, is what the next attempt resumes from. A later
+        // pass needs the time its audio is expected to take.
+        const neededMs = attempts.length > 0 || bestPartial ? passMs : 20_000;
+        if (remaining() < neededMs) {
           if (bestPartial) break;
-          throw lastError;
+          // This exit used to rethrow the raw abort, so the most common failure
+          // reached /admin/audit as a bare "This operation was aborted".
+          throw failedWithCause(
+            lastError,
+            [
+              ...attempts,
+              `${step.model} not tried (needs ${Math.round(neededMs / 1000)}s, ${Math.max(0, Math.round(remaining() / 1000))}s left)`,
+            ],
+            expectedSeconds,
+          );
         }
         const attemptStartedAt = Date.now();
         try {
-          let result = await attemptOnce(step.model);
-          let coverage = transcriptCoverage(result, expectedSeconds);
-          if (coverage < MIN_COVERAGE) {
-            // Silent truncation: a well-formed transcript that simply stops
-            // early. Rather than discard it, ask the SAME model for the rest —
-            // measured, a window request returned 11:07 → 16:00 on the audio
-            // whose single pass had died at 12:00, recovering the practitioner's
-            // dictated tongue, pulse and palpation.
+          let pass = await attemptOnce(step.model);
+          if (!isComplete(pass)) {
+            // Silent truncation (a well-formed transcript that stops early) or
+            // a reply cut by the output limit. Rather than discard it, ask the
+            // SAME model for the rest — measured, a window request returned
+            // 11:07 → 16:00 on the audio whose single pass had died at 12:00,
+            // recovering the practitioner's dictated tongue, pulse and palpation.
+            const covered = Math.floor(transcriptCoverage(pass.result, expectedSeconds) * 100);
             console.warn(
-              `[transcribe] ${step.model} covered ${Math.round(coverage * 100)}% of ${expectedSeconds}s — completing the tail`,
+              `[transcribe] ${step.model} ${pass.cut ? "was cut by the output limit" : "stopped early"} at ` +
+                `${covered}% of ${expectedSeconds}s — completing the tail`,
             );
-            result = await completeTail(step.model, result);
-            coverage = transcriptCoverage(result, expectedSeconds);
+            pass = await completeTail(step.model, pass);
           }
-          if (coverage < MIN_COVERAGE) {
+          if (!isComplete(pass)) {
             // Still short: keep the fullest attempt and let another model try.
+            const coverage = transcriptCoverage(pass.result, expectedSeconds);
             if (!bestPartial || coverage > bestPartial.coverage) {
-              bestPartial = { result, coverage, model: step.model };
+              bestPartial = { result: pass.result, coverage, model: step.model, cut: pass.cut };
             }
             break;
           }
           if (step.model !== (process.env.TRANSCRIBE_MODEL || DEFAULT_MODEL)) {
             console.warn(`[transcribe] fallback model ${step.model} succeeded after primary failure`);
           }
-          return result;
+          return pass.result;
         } catch (error) {
           lastError = error;
           const failure = classifyProviderError(error);
-          lastFailure = { model: step.model, elapsedS: Math.round((Date.now() - attemptStartedAt) / 1000), status: failure.status };
+          attempts.push(describeFailure(step.model, error, failure.status, attemptStartedAt));
+          keepCarried(error, step.model);
           // An ACCOUNT failure (bad key, credits depleted) reads the same from
-          // every model — stop now rather than burn the chain proving it.
-          if (!failure.transient && failure.scope === "account") throw error;
+          // every model — stop now rather than burn the chain proving it. The
+          // furthest transcript so far rides along so it is not re-bought.
+          if (!failure.transient && failure.scope === "account") {
+            throw error instanceof Error ? withPartial(error, bestPartial?.result ?? null) : error;
+          }
           console.warn(
             `[transcribe] ${step.model} attempt ${attempt + 1}/${tries} failed (status ${failure.status ?? "?"}), ` +
               `${remaining() > 0 ? Math.round(remaining() / 1000) : 0}s budget left`,
@@ -571,20 +821,16 @@ export async function transcribeAudio(
     // starting over. And the error names its cause: "This operation was
     // aborted" alone made it impossible to tell our budget cut from a provider
     // outage without reading the code.
-    const cause = lastFailure
-      ? `last attempt: ${lastFailure.model} ${lastFailure.status === null ? "aborted by our budget" : `failed with status ${lastFailure.status}`} after ${lastFailure.elapsedS}s`
-      : "no attempt completed";
     if (bestPartial) {
+      const how = bestPartial.cut ? "cut by the output limit" : "incomplete";
       throw withPartial(
         new Error(
-          `Transcription incomplete at ${Math.round(bestPartial.coverage * 100)}% coverage (${cause}) — partial saved; the next attempt resumes from it.`,
+          `Transcription ${how} at ${Math.floor(bestPartial.coverage * 100)}% coverage (${[`best pass ${bestPartial.model}`, ...attempts].join("; ")}) — partial saved; the next attempt resumes from it.`,
         ),
         bestPartial.result,
       );
     }
-    throw lastError instanceof Error && !(lastError as Error & PartialCarrier).partialTranscript
-      ? new Error(`Transcription failed (${cause}): ${lastError.message}`)
-      : lastError;
+    throw failedWithCause(lastError, attempts, expectedSeconds);
   } finally {
     // Uploaded files auto-expire in 48h; deleting sooner is hygiene, not
     // correctness — never let cleanup mask the transcription result. It is also
