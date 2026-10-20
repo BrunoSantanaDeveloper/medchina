@@ -2,16 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AiConfigurationError,
   classifyAiError,
   clinicalProviderCode,
   describeAiFailure,
+  isAiConfigurationError,
   StructuredOutputError,
   structuredFailureFromGemini,
 } from "./errors.ts";
 
 test("a Gemini reply cut at the token cap is truncated, not invalid JSON", () => {
   assert.deepEqual(
-    structuredFailureFromGemini({ text: '{"hypotheses":[{"pattern":"Defic', candidates: [{ finishReason: "MAX_TOKENS" }] }),
+    structuredFailureFromGemini({
+      text: '{"hypotheses":[{"pattern":"Defic',
+      candidates: [{ finishReason: "MAX_TOKENS" }],
+    }),
     { failure: "truncated", finishReason: "MAX_TOKENS" },
   );
 });
@@ -77,4 +82,25 @@ test("the log description never carries model output", () => {
   assert.equal(described.provider, "gemini");
   assert.equal(described.message, undefined, "the message would quote the patient's record");
   assert.equal(String(describeAiFailure(new Error("x".repeat(500))).message).length, 300);
+});
+
+test("a configuration the deployment cannot run is never reported as a passing outage", () => {
+  // A missing key or an unknown provider used to read as "try again later":
+  // the professional retried a call that could only be refused again.
+  const missingKey = new AiConfigurationError("ANTHROPIC_API_KEY is not set");
+  assert.deepEqual(classifyAiError(missingKey), { status: null, transient: false });
+  assert.equal(clinicalProviderCode(missingKey), "provider_rejected");
+  // Recognised by name too, across duplicated module instances.
+  const copy = Object.assign(new Error('EXTRACTION_PROVIDER="x" is not a provider'), { name: "AiConfigurationError" });
+  assert.equal(isAiConfigurationError(copy), true);
+  assert.equal(clinicalProviderCode(copy), "provider_rejected");
+});
+
+test("a Gemini status the SDK would not retry is a refusal, though its error carries no status", () => {
+  // With retryOptions, @google/genai turns a 403 or a 404 into this bare Error.
+  const refused = new Error("Non-retryable exception Forbidden sending request");
+  assert.deepEqual(classifyAiError(refused), { status: null, transient: false });
+  assert.equal(clinicalProviderCode(refused), "provider_rejected");
+  // What it does retry, once exhausted, is still an outage.
+  assert.equal(clinicalProviderCode(new Error("Retryable HTTP Error: Too Many Requests")), "provider_unavailable");
 });

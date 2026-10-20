@@ -50,6 +50,30 @@ export function isStructuredOutputError(error: unknown): error is StructuredOutp
   );
 }
 
+/**
+ * The deployment cannot make this call as configured: a provider without its
+ * key, an unknown provider name, a model id that belongs to another provider.
+ *
+ * Its own type because the remedy is not "try again later" — it is an operator
+ * changing an environment variable — and a plain Error read as a transient
+ * failure: the professional was told to wait for a service that would refuse
+ * her again on every retry.
+ */
+export class AiConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AiConfigurationError";
+  }
+}
+
+export function isAiConfigurationError(error: unknown): error is AiConfigurationError {
+  // Name-checked for the same reason as StructuredOutputError: duplicated module instances.
+  return (
+    error instanceof AiConfigurationError ||
+    (typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AiConfigurationError")
+  );
+}
+
 /** Gemini finish reasons that mean "the provider refused", not "it ran out of room". */
 const GEMINI_BLOCKED_FINISH = new Set([
   "SAFETY",
@@ -105,6 +129,14 @@ export function classifyAiError(error: unknown): AiFailure {
   if (isStructuredOutputError(error)) {
     // A refusal repeats; an exhausted budget or a mangled answer usually does not.
     return { status: null, transient: error.failure !== "blocked" };
+  }
+  // Nothing about the call changes until someone fixes the configuration.
+  if (isAiConfigurationError(error)) return { status: null, transient: false };
+  // @google/genai with httpOptions.retryOptions rethrows every status it will
+  // not retry (a 4xx other than 408/429: a revoked key, a retired model) as a
+  // plain Error with no status — read as an outage, it was retried in vain.
+  if (error instanceof Error && /^Non-retryable exception\b/.test(error.message)) {
+    return { status: null, transient: false };
   }
 
   const message = error instanceof Error ? error.message : String(error ?? "");

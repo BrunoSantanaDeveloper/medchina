@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { type ClinicalAiFeature, clinicalAiRoute } from "@/lib/ai-routing";
+import { type ClinicalAiFeature, clinicalAiFloor, clinicalAiRoute, describeClinicalAiRouting } from "@/lib/ai-routing";
+import { AiConfigurationError, clinicalProviderCode } from "@flyee/ai/errors";
 
 const FEATURES: ClinicalAiFeature[] = ["extraction", "hypotheses", "plan", "summary", "attachment"];
 
-const routeOf = (feature: ClinicalAiFeature, env: Record<string, string>) =>
-  clinicalAiRoute(feature, env as NodeJS.ProcessEnv);
+/** A literal environment, as the routing reads it (Next types NODE_ENV as required). */
+const asEnv = (env: Record<string, string>) => env as unknown as NodeJS.ProcessEnv;
+
+const routeOf = (feature: ClinicalAiFeature, env: Record<string, string>) => clinicalAiRoute(feature, asEnv(env));
 
 describe("clinicalAiRoute", () => {
   it("runs every feature on Gemini when nothing is configured", () => {
@@ -70,5 +73,59 @@ describe("clinicalAiRoute", () => {
   it("keeps the transcription model when the extraction names Gemini without a model", () => {
     const env = { EXTRACTION_PROVIDER: "gemini", TRANSCRIBE_MODEL: "gemini-3.5-flash" };
     expect(routeOf("extraction", env)).toMatchObject({ provider: "gemini", model: "gemini-3.5-flash" });
+  });
+});
+
+describe("what an operator types into the hosting dashboard", () => {
+  it("reads provider and effort regardless of case and stray spaces", () => {
+    expect(routeOf("extraction", { EXTRACTION_PROVIDER: " Anthropic ", EXTRACTION_EFFORT: "LOW " })).toEqual({
+      provider: "anthropic",
+      model: "claude-sonnet-5-5",
+      effort: "low",
+    });
+    expect(
+      routeOf("extraction", { EXTRACTION_PROVIDER: "anthropic", EXTRACTION_MODEL: " claude-haiku-5-5 " }).model,
+    ).toBe("claude-haiku-5-5");
+  });
+
+  it("raises a configuration error — never retryable — when the routing cannot work", () => {
+    const attempt = () => routeOf("plan", { PLAN_PROVIDER: "antropic" });
+    expect(attempt).toThrow(AiConfigurationError);
+    try {
+      attempt();
+    } catch (error) {
+      expect(clinicalProviderCode(error)).toBe("provider_rejected");
+    }
+  });
+});
+
+describe("the Gemini floor under a feature moved to another provider", () => {
+  it("is the model the extraction ran before any routing variable — never the failed provider's id", () => {
+    const env = { EXTRACTION_PROVIDER: "anthropic", EXTRACTION_MODEL: "claude-sonnet-5-5" };
+    expect(clinicalAiFloor("extraction", asEnv(env))).toMatchObject({ provider: "gemini", model: "gemini-3.6-flash" });
+    expect(clinicalAiFloor("extraction", asEnv({ ...env, TRANSCRIBE_MODEL: "gemini-3.5-flash" })).model).toBe(
+      "gemini-3.5-flash",
+    );
+    // A non-Gemini id there is ignored rather than sent to Gemini.
+    expect(clinicalAiFloor("hypotheses", asEnv({ REASONING_MODEL: "claude-opus-5-5" })).model).toBe("gemini-3.6-flash");
+  });
+});
+
+describe("the routing the superadmin console shows", () => {
+  it("lists every feature with its route, whether its key is set, and the extraction's floor", () => {
+    const rows = describeClinicalAiRouting(
+      { gemini: true, anthropic: false },
+      asEnv({ EXTRACTION_PROVIDER: "anthropic", PLAN_PROVIDER: "nope" }),
+    );
+    expect(rows.map((row) => row.feature)).toEqual(["extraction", "hypotheses", "plan", "summary", "attachment"]);
+    expect(rows[0]).toMatchObject({
+      route: { provider: "anthropic", model: "claude-sonnet-5-5" },
+      keyConfigured: false,
+      floor: { provider: "gemini" },
+    });
+    expect(rows[1]).toMatchObject({ route: { provider: "gemini" }, keyConfigured: true });
+    expect(rows[1].floor).toBeUndefined();
+    expect(rows[2].route).toBeUndefined();
+    expect(rows[2].error).toMatch(/PLAN_PROVIDER="nope"/);
   });
 });

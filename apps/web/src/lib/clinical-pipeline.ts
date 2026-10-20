@@ -1,6 +1,7 @@
 import { type ExistingAnswer, extractAnamnesis } from "@/lib/clinical-extraction";
 import { parseTranscriptResult } from "@/lib/transcript";
 import { alertAfterAudioUsage, billableSeconds } from "@/lib/usage";
+import { clinicalProviderCode, describeAiFailure } from "@flyee/ai/errors";
 import type { ClinicalErrorCode } from "@flyee/clinical";
 import { processTranscription, type TranscriptResult } from "@flyee/transcribe";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -227,7 +228,7 @@ export async function processRecording(
 
   const { data: transcriptionRow } = await supabase
     .from("transcriptions")
-    .select("result")
+    .select("result, metadata")
     .eq("id", transcriptionId)
     .maybeSingle();
   // Sanitize before the prompt sees it: a segment missing `text` used to be
@@ -271,28 +272,49 @@ export async function processRecording(
 
   let extraction;
   try {
-    extraction = await extractAnamnesis(transcript, deadlineAt, existing, { fertilityCare: fertilityCare === true });
-  } catch {
-    return reject("provider_unavailable", "extraction");
+    extraction = await extractAnamnesis(
+      transcript,
+      deadlineAt,
+      existing,
+      { fertilityCare: fertilityCare === true },
+      // Billed beside the transcription it came from: the console used to see
+      // what the audio cost and nothing of what drafting the chart cost.
+      { orgId: recording.org_id, refId: transcriptionId, client: supabase },
+    );
+  } catch (error) {
+    // Same rule as the transcription above: an outage is retried, a refusal —
+    // a revoked key, a configuration that cannot work — is not. Every failure
+    // used to read as a passing outage, so a dead key burned all four attempts
+    // and the professional was told to wait for it.
+    console.error("[pipeline] extraction failed", describeAiFailure(error));
+    return reject(clinicalProviderCode(error), "extraction");
   }
 
   // Who is who, resolved once and kept: the extraction computed it, used it to
   // arbitrate observations, and then threw it away — leaving the transcript
   // viewer to show opaque "Speaker 1 / Speaker 2" gutters forever.
-  if (extraction.practitionerSpeaker) {
-    await supabase
-      .from("transcriptions")
-      .update({
-        metadata: {
-          practitionerSpeaker: extraction.practitionerSpeaker,
-          extractionModel: extraction.model,
-          extractionPromptVersion: extraction.promptVersion,
-          unverifiedProvenance: extraction.unverified,
-          droppedAnswers: extraction.dropped,
-        },
-      })
-      .eq("id", transcriptionId);
-  }
+  // Written after every extraction, so the record describes the LATEST run:
+  // a draft made on the Gemini floor says so (the configured provider failed,
+  // and the operator needs to see it on the record, not only in a log that
+  // rotates), and a later run that drafted where it was configured clears it.
+  // Who the practitioner is belongs to the transcript, not to the run — the
+  // same audio does not change speakers — so a run that could not tell keeps
+  // what an earlier one found.
+  const previousMetadata = (transcriptionRow?.metadata as { practitionerSpeaker?: unknown } | null) ?? null;
+  await supabase
+    .from("transcriptions")
+    .update({
+      metadata: {
+        ...previousMetadata,
+        practitionerSpeaker: extraction.practitionerSpeaker ?? previousMetadata?.practitionerSpeaker ?? null,
+        extractionModel: extraction.model,
+        extractionPromptVersion: extraction.promptVersion,
+        unverifiedProvenance: extraction.unverified,
+        droppedAnswers: extraction.dropped,
+        extractionFallback: extraction.fallbackFrom,
+      },
+    })
+    .eq("id", transcriptionId);
 
   if (!(await heartbeat(supabase, recordingId, claimId))) {
     return { ok: false, code: "processing_already_claimed" };

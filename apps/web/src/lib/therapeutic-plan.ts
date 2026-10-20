@@ -23,7 +23,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *    professional action validates it.
  */
 
-export const PLAN_PROMPT_VERSION = "therapeutic-plan-2026-07-15";
+export const PLAN_PROMPT_VERSION = "therapeutic-plan-2026-10-17";
+
+/**
+ * The seeded moxibustion checklist is pt-BR text like its other lines; these
+ * mirror the plan-safety-* labels of the pt-BR catalog.
+ */
+const CHECKLIST_CATEGORY_LABEL: Record<SafetyFlag["category"], string> = {
+  medication: "medicação em uso",
+  anticoagulant: "anticoagulante",
+  pacemaker: "marca-passo / dispositivo cardíaco",
+  pregnancy: "gestação",
+  breastfeeding: "amamentação",
+  surgery: "cirurgia / pós-operatório",
+  allergy: "alergia",
+  lesion: "lesão / ferida na região",
+};
 
 export type AcupunctureStrategy = "tonify" | "disperse" | "harmonize" | "warm" | "regulate";
 
@@ -453,8 +468,12 @@ export async function buildTherapeuticPlan(
     if (checklist.length === 0) {
       checklist.push("Revisar contraindicações locais e sistêmicas antes da aplicação.");
       // The term, not the recorded sentence: this checklist is printed on the
-      // plan the patient takes home.
-      for (const flag of safetyFlags) checklist.push(`Verificar: ${safetyFlagTerm(flag) || flag.category}`);
+      // plan the patient takes home. A flag with no printable term (anything
+      // written in the medications field raises one, known name or not) reads
+      // its category in pt-BR — never the internal slug.
+      for (const flag of safetyFlags) {
+        checklist.push(`Verificar: ${safetyFlagTerm(flag) || CHECKLIST_CATEGORY_LABEL[flag.category]}`);
+      }
     }
     modalities.moxibustion = {
       enabled: true,

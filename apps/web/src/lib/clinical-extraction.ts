@@ -1,4 +1,5 @@
-import { clinicalAiRoute } from "@/lib/ai-routing";
+import { clinicalAiFloor, type ClinicalAiRoute, clinicalAiRoute } from "@/lib/ai-routing";
+import { type AiSpendContext, aiSpendMeter } from "@/lib/ai-spend";
 import {
   ALWAYS_REVIEW_FIELDS,
   type AnamnesisApplicability,
@@ -7,7 +8,8 @@ import {
 } from "@/lib/anamnesis";
 import { SENSITIVE } from "@/lib/clinical-safety";
 import { transcriptTimestampSeconds } from "@/lib/transcript";
-import { reportUsage, type UsageSink } from "@flyee/ai/types";
+import { AiConfigurationError, classifyAiError, describeAiFailure, StructuredOutputError } from "@flyee/ai/errors";
+import { AI_PROVIDERS, reportUsage } from "@flyee/ai/types";
 import type { TranscriptResult } from "@flyee/transcribe";
 import { GoogleGenAI } from "@google/genai";
 
@@ -32,7 +34,7 @@ import { GoogleGenAI } from "@google/genai";
 const EXTRACTION_MAX_MS = Number(process.env.EXTRACTION_TIMEOUT_MS) || 90_000;
 
 /** Bump when the prompt or the verification changes — recorded per answer. */
-export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-10-17";
+export const EXTRACTION_PROMPT_VERSION = "anamnesis-2026-10-17b";
 
 /** Below this share of the quote's words found in a segment, it is not a quote. */
 const QUOTE_MATCH_THRESHOLD = 0.7;
@@ -84,6 +86,13 @@ export interface ExtractionResult {
   corrected: { origin: number };
   /** Answers kept whose quote could NOT be found in the transcript. */
   unverified: number;
+  /**
+   * Set when the configured provider failed and this draft was made on the
+   * Gemini floor instead: which provider and model failed, and a short reason
+   * (a status or a failure kind — never model output). Null when it ran where
+   * it was configured.
+   */
+  fallbackFrom: { provider: string; model: string; reason: string } | null;
 }
 
 /**
@@ -454,26 +463,44 @@ export async function extractAnamnesis(
    * 0103). Defaults to none, so a caller that does not know never opens them.
    */
   applicability: AnamnesisApplicability = NO_CONDITIONAL_BLOCKS,
-  /** What the call consumed, as the provider reported it (the pipeline does not meter this stage yet). */
-  onUsage?: UsageSink,
+  /**
+   * Where the calls are billed (`ai_spend`, feature "anamnesis") — every
+   * attempt, the floor's included. Absent in scripts and tests: nothing is
+   * written then.
+   */
+  spend?: AiSpendContext,
 ): Promise<ExtractionResult> {
   // EXTRACTION_PROVIDER moves this stage off Gemini (default) without touching
   // the rest of the pipeline. On Gemini the model still falls back to
   // TRANSCRIBE_MODEL, as it always has.
-  const { provider, model, effort } = clinicalAiRoute("extraction");
+  //
+  // A routing that cannot work (a Gemini id left in EXTRACTION_MODEL after the
+  // provider moved, a typo) is the operator's to fix — /admin/ai shows it in
+  // red — but this stage is the consultation loop itself: the draft is made on
+  // the Gemini floor meanwhile, and the record says why, instead of every
+  // recording failing until someone reads a log.
+  let route: ClinicalAiRoute;
+  let misrouted: unknown = null;
+  try {
+    route = clinicalAiRoute("extraction");
+  } catch (error) {
+    misrouted = error;
+    route = clinicalAiFloor("extraction");
+  }
   const empty: ExtractionResult = {
     answers: [],
     chiefComplaint: null,
     gaps: [],
     practitionerSpeaker: null,
-    model,
+    model: route.model,
     promptVersion: EXTRACTION_PROMPT_VERSION,
     dropped: { unknownField: 0, observationFromPatient: 0, absenceAsValue: 0 },
     corrected: { origin: 0 },
     unverified: 0,
+    fallbackFrom: null,
   };
-  if (provider === "gemini" && !process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
+  if (route.provider === "gemini" && !process.env.GEMINI_API_KEY) {
+    throw new AiConfigurationError("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
   }
   if (!transcript.segments?.length) return empty;
 
@@ -484,25 +511,131 @@ export async function extractAnamnesis(
   // The SDK arms its abort timer once per request (retries share it), so the
   // ceiling below is the real wall-clock cost, retries included.
   const remainingMs = deadlineAt ? deadlineAt - Date.now() : EXTRACTION_MAX_MS;
-  const budgetMs = Math.max(20_000, Math.min(EXTRACTION_MAX_MS, remainingMs));
+  const budgetMs = Math.max(STAGE_MIN_MS, Math.min(EXTRACTION_MAX_MS, remainingMs));
+  const stageEndsAt = Date.now() + budgetMs;
   const prompt = buildPrompt(transcript, existing, applicability);
 
-  if (provider !== "gemini") {
-    // Any other provider goes through packages/ai with the SAME prompt, schema
-    // and verification — so switching EXTRACTION_PROVIDER changes the model
-    // and nothing the chart relies on. Loaded only here: the default Gemini
-    // path never pulls the other providers' SDKs into the pipeline.
-    const { getChatProvider } = await import("@flyee/ai");
-    const raw = (await getChatProvider(provider).generateStructured(
+  if (misrouted) {
+    // The full message — which quotes the variable as written — goes to the
+    // server log and /admin/ai only; the record keeps a fixed reason.
+    console.warn("[extraction] routing cannot work — drafting on the Gemini floor", {
+      floorModel: route.model,
+      ...describeAiFailure(misrouted),
+    });
+    const raw = await extractOnGemini(route.model, prompt, budgetMs, spend);
+    return {
+      ...verifyExtraction(raw, transcript, applicability, route.model),
+      fallbackFrom: {
+        provider: recordedProvider(process.env.EXTRACTION_PROVIDER),
+        model: recordedModel(process.env.EXTRACTION_MODEL),
+        reason: "routing_invalid",
+      },
+    };
+  }
+
+  if (route.provider === "gemini") {
+    const raw = await extractOnGemini(route.model, prompt, budgetMs, spend);
+    return verifyExtraction(raw, transcript, applicability, route.model);
+  }
+
+  try {
+    const raw = await extractOnProvider(route, prompt, budgetMs, spend);
+    return verifyExtraction(raw, transcript, applicability, route.model);
+  } catch (error) {
+    // The configured provider failed: a revoked or expired key, an outage, its
+    // rate limit, a refusal, a generation too slow for the stage. The
+    // transcription already went to Gemini, so running the extraction there
+    // adds no processor — and a draft from the floor serves the professional
+    // better than a consultation with none.
+    //
+    // Its room is what the PIPELINE has left (capped at the stage ceiling),
+    // not what the stage had: on a retry the transcript is already done and
+    // most of the invocation is free, so a Claude call cut at the stage's 90 s
+    // must still leave the floor its turn instead of burning every attempt.
+    if (!process.env.GEMINI_API_KEY) throw error;
+    const leftMs = Math.min(EXTRACTION_MAX_MS, (deadlineAt ?? stageEndsAt) - Date.now());
+    if (leftMs < FLOOR_MIN_MS) {
+      // No room for the floor in THIS invocation — but the next attempt starts
+      // with the transcript ready and a full budget. A refusal that would end
+      // the recording here (a dead key) is passed on as retryable, so that
+      // attempt gets to draft on the floor.
+      if (classifyAiError(error).transient) throw error;
+      console.warn("[extraction] configured provider refused with no time left for the floor", {
+        provider: route.provider,
+        model: route.model,
+        ...describeAiFailure(error),
+      });
+      throw new Error("extraction floor skipped for lack of time", { cause: error });
+    }
+    const floor = clinicalAiFloor("extraction");
+    console.warn("[extraction] configured provider failed — drafting on the Gemini floor", {
+      provider: route.provider,
+      model: route.model,
+      floorModel: floor.model,
+      ...describeAiFailure(error),
+    });
+    const raw = await extractOnGemini(floor.model, prompt, leftMs, spend);
+    return {
+      ...verifyExtraction(raw, transcript, applicability, floor.model),
+      fallbackFrom: { provider: route.provider, model: recordedModel(route.model), reason: failureReason(error) },
+    };
+  }
+}
+
+/** The least time this stage is ever given, even past the pipeline's deadline. */
+const STAGE_MIN_MS = 20_000;
+
+/**
+ * Room the Gemini floor needs to be worth starting once the configured
+ * provider has failed. Strictly below STAGE_MIN_MS: a stage that started at
+ * its minimum and failed at once must still be able to reach the floor.
+ */
+const FLOOR_MIN_MS = 15_000;
+
+/**
+ * What a TENANT-READABLE record (transcriptions.metadata) may say about the
+ * routing that failed: a known provider name and a model id shaped like one —
+ * never the raw variable, which an operator could have pasted a key into.
+ */
+function recordedProvider(value: string | undefined): string {
+  const named = value?.trim().toLowerCase() ?? "";
+  if (!named) return "gemini";
+  return (AI_PROVIDERS as readonly string[]).includes(named) ? named : "(invalid)";
+}
+
+function recordedModel(value: string | undefined): string {
+  const model = value?.trim() ?? "";
+  if (!model) return "";
+  return !/^sk-/i.test(model) && /^[a-z0-9][a-z0-9.:/_-]{0,80}$/i.test(model) ? model : "(invalid)";
+}
+
+const SYSTEM_PROMPT =
+  "You prepare a DRAFT anamnesis for a Traditional Chinese Medicine practitioner to review. You never diagnose and never invent.";
+
+/**
+ * Any provider other than Gemini goes through packages/ai with the SAME
+ * prompt, schema and verification — switching EXTRACTION_PROVIDER changes the
+ * model and nothing the chart relies on. Loaded only here: the default Gemini
+ * path never pulls the other providers' SDKs into the pipeline.
+ */
+async function extractOnProvider(
+  route: ClinicalAiRoute,
+  prompt: string,
+  timeoutMs: number,
+  spend?: AiSpendContext,
+): Promise<RawExtraction> {
+  const { getChatProvider } = await import("@flyee/ai");
+  const meter = aiSpendMeter(spend && { ...spend, feature: "anamnesis", provider: route.provider, model: route.model });
+  try {
+    return (await getChatProvider(route.provider).generateStructured(
       {
-        provider,
-        model,
-        systemPrompt:
-          "You prepare a DRAFT anamnesis for a Traditional Chinese Medicine practitioner to review. You never diagnose and never invent.",
+        provider: route.provider,
+        model: route.model,
+        systemPrompt: SYSTEM_PROMPT,
         temperature: 0,
         maxTokens: 8192,
-        effort,
-        timeoutMs: budgetMs,
+        effort: route.effort,
+        timeoutMs,
       },
       [{ role: "user", content: prompt }],
       {
@@ -510,15 +643,23 @@ export async function extractAnamnesis(
         description: "A draft anamnesis for professional review",
         schema: EXTRACTION_SCHEMA,
       },
-      onUsage,
+      meter.sink,
     )) as RawExtraction;
-    return verifyExtraction(raw, transcript, applicability, model);
+  } finally {
+    // Billed whether or not it answered: a refused or cut call cost the same.
+    await meter.settled();
   }
+}
 
-  const client = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: { timeout: budgetMs, retryOptions: { attempts: 3 } },
-  });
+async function extractOnGemini(
+  model: string,
+  prompt: string,
+  timeoutMs: number,
+  spend?: AiSpendContext,
+): Promise<RawExtraction> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new AiConfigurationError("GEMINI_API_KEY is not set — clinical extraction uses Gemini.");
+  const client = new GoogleGenAI({ apiKey, httpOptions: { timeout: timeoutMs, retryOptions: { attempts: 3 } } });
   const response = await client.models.generateContent({
     model,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -526,22 +667,49 @@ export async function extractAnamnesis(
       responseMimeType: "application/json",
       responseJsonSchema: EXTRACTION_SCHEMA,
       temperature: 0,
-      abortSignal: AbortSignal.timeout(budgetMs),
+      abortSignal: AbortSignal.timeout(timeoutMs),
     },
   });
 
   const usage = response.usageMetadata;
   if (usage) {
+    const meter = aiSpendMeter(spend && { ...spend, feature: "anamnesis", provider: "gemini", model });
     // Thinking is billed as output whether or not anyone reads it.
-    reportUsage(onUsage, {
+    reportUsage(meter.sink, {
       tokensIn: usage.promptTokenCount ?? 0,
       tokensOut: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
       model,
     });
+    await meter.settled();
   }
   const text = response.text;
   if (!text) throw new Error("Gemini returned no extraction.");
-  return verifyExtraction(JSON.parse(text) as RawExtraction, transcript, applicability, model);
+  try {
+    return JSON.parse(text) as RawExtraction;
+  } catch {
+    // Never the parser's own message: V8 quotes the text around the bad token,
+    // that text is the patient's anamnesis, and the pipeline logs this error.
+    throw new StructuredOutputError({
+      failure: "invalid_json",
+      provider: "gemini",
+      finishReason: response.candidates?.[0]?.finishReason ?? undefined,
+      detail: `${text.length} characters returned`,
+    });
+  }
+}
+
+/**
+ * Why the configured provider failed, for the transcription's metadata — which
+ * the professional's browser reads. A status or a failure kind only: never a
+ * message, since a configuration message quotes the variable as written.
+ */
+function failureReason(error: unknown): string {
+  const failure = describeAiFailure(error);
+  if (failure.failure)
+    return `${String(failure.failure)}${failure.finishReason ? ` (${String(failure.finishReason)})` : ""}`;
+  if (failure.name === "AiConfigurationError") return "configuration";
+  if (failure.status) return `HTTP ${String(failure.status)}`;
+  return String(failure.name ?? "error");
 }
 
 /** What the model returns, before any of it is trusted. */
@@ -703,5 +871,6 @@ export function verifyExtraction(
     dropped,
     corrected,
     unverified,
+    fallbackFrom: null,
   };
 }

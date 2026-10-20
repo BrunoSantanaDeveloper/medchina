@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
-import { StructuredOutputError, structuredFailureFromGemini } from "@flyee/ai/errors";
+import { AiConfigurationError, StructuredOutputError, structuredFailureFromGemini } from "@flyee/ai/errors";
 import {
   type AssistantConfig,
   type ChatMessage,
@@ -73,7 +73,7 @@ function geminiUsage(
 
 function geminiClient(config: AssistantConfig) {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) throw new Error("GEMINI_API_KEY is not set");
+  if (!key) throw new AiConfigurationError("GEMINI_API_KEY is not set");
   // A caller running under a shared deadline (finalization, the insights
   // rounds) passes what is left of it instead of the 90 s default.
   const httpOptions = config.timeoutMs ? { ...HTTP_OPTIONS, timeout: config.timeoutMs } : HTTP_OPTIONS;

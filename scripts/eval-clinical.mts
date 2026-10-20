@@ -272,15 +272,32 @@ function scoreExtraction(c: EvalCase, result: ExtractionResult) {
 async function runExtraction(arm: Arm, c: EvalCase) {
   const usage: ChatUsage[] = [];
   const started = Date.now();
+  // The same stand-in client as metered(), kept in reach so a failed call's
+  // usage is still counted.
+  const spend = {
+    orgId: null,
+    refId: "eval",
+    client: {
+      rpc: async (_name: string, args: Record<string, unknown>) => {
+        usage.push({
+          model: String(args.target_model),
+          tokensIn: Number(args.target_tokens_in),
+          tokensOut: Number(args.target_tokens_out),
+        });
+        return { data: null, error: null };
+      },
+    } as unknown as AiSpendContext["client"],
+  };
   try {
-    const result = await extractAnamnesis(c.transcript, undefined, [], { fertilityCare: c.fertilityCare }, (u) =>
-      usage.push(u),
-    );
+    const result = await extractAnamnesis(c.transcript, undefined, [], { fertilityCare: c.fertilityCare }, spend);
     return {
       ok: true as const,
       ms: Date.now() - started,
       usage,
       cost: costOf(usage),
+      // A draft made on the Gemini floor scores Gemini, not the arm.
+      model: result.model,
+      fallbackFrom: result.fallbackFrom,
       score: scoreExtraction(c, result),
     };
   } catch (error) {
@@ -461,7 +478,10 @@ for (const arm of REJUDGE ? [] : ARMS) {
       rows.push({ arm: arm.id, case: CASES[index].id, feature: "extraction", ...result }),
     );
     const ok = results.filter((r) => r.ok);
-    console.log(`  extraction: ${ok.length}/${results.length} ok`);
+    const floored = ok.filter((r) => r.fallbackFrom).length;
+    console.log(
+      `  extraction: ${ok.length}/${results.length} ok${floored ? ` (${floored} drafted on the Gemini floor)` : ""}`,
+    );
   }
 
   if (FEATURES.includes("hypotheses")) {

@@ -84,28 +84,80 @@ PRs — no mínimo as de Supabase e a licença MUI). Referência completa:
 
 Obrigatórias para produção:
 
-| Variável | Observação |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | idem |
-| `DATABASE_URL` | connection string **pooled** (porta 6543) |
-| `SUPABASE_SERVICE_ROLE_KEY` | server-only (admin, backups, billing público) |
-| `NEXT_PUBLIC_MUI_X_LICENSE_KEY` | licença MUI X Premium |
-| `NEXT_PUBLIC_SITE_URL` | domínio canônico, sem barra final (sitemap/robots/OG/JSON-LD caem para `http://localhost:3000` sem ela) |
-| `NEXT_PUBLIC_CDN_URL` | `/assets/cdn/` (igual ao `.env.example`) |
+| Variável                        | Observação                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase → Settings → API                                                                               |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | idem                                                                                                    |
+| `DATABASE_URL`                  | connection string **pooled** (porta 6543)                                                               |
+| `SUPABASE_SERVICE_ROLE_KEY`     | server-only (admin, backups, billing público)                                                           |
+| `NEXT_PUBLIC_MUI_X_LICENSE_KEY` | licença MUI X Premium                                                                                   |
+| `NEXT_PUBLIC_SITE_URL`          | domínio canônico, sem barra final (sitemap/robots/OG/JSON-LD caem para `http://localhost:3000` sem ela) |
+| `NEXT_PUBLIC_CDN_URL`           | `/assets/cdn/` (igual ao `.env.example`)                                                                |
 
 Núcleo do produto (IA/transcrição) e operação:
 
-| Variável | Observação |
-| --- | --- |
-| `GEMINI_API_KEY` | transcrição/diarização + embeddings RAG — coração do produto |
-| `ANTHROPIC_API_KEY` | assistentes/raciocínio clínico (provider Anthropic) |
-| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY` | jobs em background (sem elas tudo cai para processamento inline) |
-| `RESEND_API_KEY` / `EMAIL_FROM` | e-mail transacional (convites caem para link copiável sem elas) |
-| `CONTACT_FORM_TO` | destino do formulário de contato |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | billing Stripe |
-| `ASAAS_API_KEY` / `ASAAS_WEBHOOK_TOKEN` / `ASAAS_BASE_URL` | billing Asaas (produção: `https://api.asaas.com/v3`) |
-| `BACKUP_RETENTION_DAYS` | opcional (default 30) |
+| Variável                                                   | Observação                                                       |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `GEMINI_API_KEY`                                           | transcrição/diarização + embeddings RAG — coração do produto     |
+| `ANTHROPIC_API_KEY`                                        | assistentes/raciocínio clínico (provider Anthropic)              |
+| `INNGEST_EVENT_KEY` / `INNGEST_SIGNING_KEY`                | jobs em background (sem elas tudo cai para processamento inline) |
+| `RESEND_API_KEY` / `EMAIL_FROM`                            | e-mail transacional (convites caem para link copiável sem elas)  |
+| `CONTACT_FORM_TO`                                          | destino do formulário de contato                                 |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`              | billing Stripe                                                   |
+| `ASAAS_API_KEY` / `ASAAS_WEBHOOK_TOKEN` / `ASAAS_BASE_URL` | billing Asaas (produção: `https://api.asaas.com/v3`)             |
+| `BACKUP_RETENTION_DAYS`                                    | opcional (default 30)                                            |
+
+#### IA clínica por recurso (opcional — sem nada definido, tudo roda no Gemini)
+
+Cada recurso clínico escolhe provedor, modelo e esforço pelas próprias
+variáveis (`apps/web/src/lib/ai-routing.ts`; referência completa em
+`packages/ai/README.md`). A transcrição fica sempre no Gemini — o Claude não
+recebe áudio.
+
+| Variável                                     | Observação                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| `EXTRACTION_PROVIDER` / `_MODEL` / `_EFFORT` | preenchimento da anamnese a cada gravação                          |
+| `HYPOTHESES_*`, `PLAN_*`                     | hipóteses e plano (caem em `REASONING_*`, depois Gemini)           |
+| `SUMMARY_*`, `ATTACHMENT_*`                  | resumo e leitura de anexos (`REASONING_*` nunca os leva ao Claude) |
+| `INSIGHTS_PROVIDER` / `INSIGHTS_MODEL`       | `/admin/insights` (padrão: Gemini)                                 |
+
+**Ligar a extração no Claude** (decisão de 2026-10-17, A/B em
+`scripts/eval-clinical.mts`):
+
+1. A chave: `ANTHROPIC_API_KEY` em **Production**, criada no console da
+   Anthropic com validade longa — uma chave que expira derruba o recurso no dia
+   seguinte (a extração cai no Gemini, ver abaixo, mas deixa de ser Claude).
+2. `EXTRACTION_PROVIDER=anthropic`. Sem `EXTRACTION_MODEL` o modelo é
+   `claude-sonnet-5-5`, com esforço baixo; `claude-haiku-5-5` sai ~14× mais
+   barato por gravação no A/B (US$ 0,003 contra 0,044 por caso — 20× no preço
+   de lista, mas o Haiku escreve mais), com recall 0,93 contra 0,98.
+   **Não deixe um `EXTRACTION_MODEL` de Gemini definido**: a
+   combinação é recusada — `/admin/ai` mostra "Configuração inválida" e, até
+   corrigir, a anamnese continua sendo feita no Gemini (não no Claude).
+3. Novo deploy (variável nova só vale no próximo build) e conferir em
+   `/admin/ai` → **Roteamento clínico**: a linha da anamnese deve mostrar
+   _Claude (Anthropic) · claude-sonnet-5-5_ com "Pronto".
+4. Em `/admin/ai` → **Custo dos modelos**, cadastrar o preço do modelo (lista
+   da Anthropic, US$ por milhão de tokens) — sem ele as chamadas entram no livro
+   como "sem preço".
+5. Contrato: o aditivo com as cláusulas-padrão da ANPD junto à Anthropic (o DPA
+   público só cobre UE/Reino Unido/Suíça). A política de privacidade já cita a
+   Anthropic e os termos de consentimento não nomeiam fornecedor.
+
+**Piso no Gemini:** se o Claude falhar (chave inválida ou expirada,
+indisponibilidade, limite de taxa da conta, recusa, demora além dos 90 s da
+etapa) e ainda restarem ao menos 15 s do orçamento da gravação, a anamnese é
+feita no Gemini — que já recebeu o áudio, então nenhum dado vai a um terceiro
+fornecedor. Sem esse tempo, a gravação volta para a fila e a próxima tentativa
+(com a transcrição pronta) tem o piso. Fica registrado em
+`transcriptions.metadata.extractionFallback` (provedor, modelo e um motivo
+curto como `HTTP 401` — nunca o valor das variáveis), nos logs (`[extraction]
+configured provider failed`) e no livro de custos (`anamnesis` / `gemini`).
+
+**Para voltar tudo ao Gemini**, remova `EXTRACTION_PROVIDER` **e**
+`EXTRACTION_MODEL` (um `EXTRACTION_MODEL` de Claude sem provedor é recusado e
+aparece como "Configuração inválida"), faça deploy e confira em `/admin/ai` →
+**Roteamento clínico** que a anamnese voltou para _Gemini_ com "Pronto".
 
 ### 4. Token e secrets do GitHub
 
@@ -216,11 +268,12 @@ e no GA4.
 - Deploy de produção "preso" → o job usa concurrency `vercel-production` sem
   cancelamento: deploys enfileiram na ordem dos pushes.
 - `The job has exceeded the maximum execution time` / `The operation was
-  canceled` durante o "Building…" → **quem foi cancelado foi o runner do
+canceled` durante o "Building…" → **quem foi cancelado foi o runner do
   GitHub, não o build da Vercel**. Como o deploy é build na nuvem, o
   `vercel deploy` fica BLOQUEADO esperando a Vercel terminar; o
   `timeout-minutes` do job é, na prática, "quanto tempo o build pode levar".
   Duas coisas seguram isso hoje:
+
   1. `timeout-minutes: 60` no workflow (era 30).
   2. `.vercelignore` na raiz exclui `apps/web/src/app/(dashboard)/ui` — o
      showcase de componentes do template, que sozinho é **121 das 201 rotas**

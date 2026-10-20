@@ -2,6 +2,7 @@
 
 import AiPricesAdmin from "./components/ai-prices-admin";
 import AssistantsAdmin from "./components/assistants-admin";
+import ClinicalRoutingAdmin from "./components/clinical-routing-admin";
 import McpAdmin from "./components/mcp-admin";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -64,6 +65,18 @@ export default function AdminAi() {
             <Card component="section">
               <CardContent>
                 <AssistantsAdmin />
+              </CardContent>
+            </Card>
+          </Grid>
+          {/* The clinical features are routed by environment variable, not
+              here; this is where the operator sees that a switch took. */}
+          <Grid size={12}>
+            <Card component="section">
+              <CardContent className="flex flex-col gap-3">
+                <Typography variant="h6" component="h2" className="mb-0">
+                  Roteamento clínico
+                </Typography>
+                <ClinicalRoutingAdmin />
               </CardContent>
             </Card>
           </Grid>

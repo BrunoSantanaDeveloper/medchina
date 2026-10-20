@@ -1,4 +1,4 @@
-import { StructuredOutputError } from "@flyee/ai/errors";
+import { AiConfigurationError, StructuredOutputError } from "@flyee/ai/errors";
 import { toStrictJsonSchema } from "@flyee/ai/strict-schema";
 import {
   type AssistantConfig,
@@ -79,7 +79,7 @@ export class OpenAiProvider implements ChatProvider {
 
   private endpoint(): { url: string; key: string } {
     const key = process.env.OPENAI_API_KEY;
-    if (!key) throw new Error("OPENAI_API_KEY is not set");
+    if (!key) throw new AiConfigurationError("OPENAI_API_KEY is not set");
     const base = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
     return { url: `${base}/chat/completions`, key };
   }

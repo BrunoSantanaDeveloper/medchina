@@ -1,4 +1,4 @@
-import { StructuredOutputError } from "@flyee/ai/errors";
+import { AiConfigurationError, StructuredOutputError } from "@flyee/ai/errors";
 import {
   type AssistantConfig,
   type ChatMessage,
@@ -51,7 +51,7 @@ export class OpenRouterProvider implements ChatProvider {
 
   async *streamChat(config: AssistantConfig, messages: ChatMessage[], onUsage?: UsageSink): AsyncGenerator<string> {
     const key = process.env.OPENROUTER_API_KEY;
-    if (!key) throw new Error("OPENROUTER_API_KEY is not set");
+    if (!key) throw new AiConfigurationError("OPENROUTER_API_KEY is not set");
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       // A bare fetch has NO timeout: a hung provider held the serverless
@@ -130,7 +130,7 @@ export class OpenRouterProvider implements ChatProvider {
     onUsage?: UsageSink,
   ): Promise<unknown> {
     const key = process.env.OPENROUTER_API_KEY;
-    if (!key) throw new Error("OPENROUTER_API_KEY is not set");
+    if (!key) throw new AiConfigurationError("OPENROUTER_API_KEY is not set");
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       // A bare fetch has NO timeout: a hung provider held the serverless

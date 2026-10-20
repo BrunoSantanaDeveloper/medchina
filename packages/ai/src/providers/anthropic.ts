@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import { StructuredOutputError } from "@flyee/ai/errors";
+import { AiConfigurationError, StructuredOutputError } from "@flyee/ai/errors";
 import { ANTHROPIC_SCHEMA_LIMITS, anthropicSchemaComplexity, toAnthropicJsonSchema } from "@flyee/ai/strict-schema";
 import {
   type AiEffort,
@@ -201,7 +201,7 @@ export class AnthropicProvider implements ChatProvider {
 
   private client(timeout: number) {
     const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new Error("ANTHROPIC_API_KEY is not set");
+    if (!key) throw new AiConfigurationError("ANTHROPIC_API_KEY is not set");
     // The SDK retries 408/409/429/5xx/529 by itself; the signal handed to each
     // request (when there is one) bounds the whole thing, retries included.
     return new Anthropic({ apiKey: key, timeout, maxRetries: 2 });
