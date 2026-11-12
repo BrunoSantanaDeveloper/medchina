@@ -23,6 +23,7 @@ sentence that is not there will not be said on stage.
 | `public-deck.tsx`                 | `/palestra/publica`: the slides for the public (from `/china`) — no presenter, teleprompter, export or sync; receives already-stripped slides as props                                                                                                         |
 | `deck-fit.ts`                     | The fit rule, shared by the stage and the exporter                                                                                                                                                                                                             |
 | `deck-mode.ts`                    | Tells a view whether it renders on stage or on a PDF page                                                                                                                                                                                                      |
+| `deck-media.tsx`                  | Media more than one deck shows: the asset probe (`useAssetAvailable`) and the running product clip (`AmbientShot`) — also used by the product demo (`components/product-demo`, `/demonstracao`)                                                                |
 | `../../app/palestra/palestra.css` | The deck's design system                                                                                                                                                                                                                                       |
 
 ## Which design system this is

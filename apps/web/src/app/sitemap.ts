@@ -36,7 +36,9 @@ const MARKETING_ROUTES = [
   //   without a session; it carries the full teleprompter and stage directions;
   // - `/palestra/publica` — the same slides without the speaker notes, the
   //   attachment /china links to (/china is the indexed narrative);
-  // - `/pitch` — the investor deck.
+  // - `/pitch` — the investor deck;
+  // - `/demonstracao` — the three-slide product demo, material that is shown or
+  //   forwarded (the indexed story of the product is the home).
 ];
 
 /**

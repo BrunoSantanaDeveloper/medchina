@@ -1,0 +1,135 @@
+/*
+  The product demo (/demonstracao) adds to the congress deck's system; it never
+  redefines it.
+
+  Everything structural — the 1280×720 canvas, the chrome, the motto row, the
+  flow cards, the evidence card, the principle rows, the QR frame, the export
+  pages — comes from `palestra.css`. What lives here is the little this deck
+  composes differently: the brand row on the cover, taller captures on the flow
+  slide, and the right column of the last slide ending on the way in.
+*/
+
+/* ------------------------------------------------------------------ */
+/* 01 · what it is                                                     */
+/* ------------------------------------------------------------------ */
+
+/* The logo and the one-line definition share a row above the brand line: the
+   first slide is also the cover, and a stranger has to know what this is
+   before reading the promise. */
+.demo-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.demo-brand .deck-eyebrow {
+  margin: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--edge);
+}
+
+.demo-motto {
+  margin-top: 24px;
+}
+
+/* Names what the three rows are, since the eyebrow is spent on the definition. */
+.demo-label {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* 02 · how it works                                                   */
+/* ------------------------------------------------------------------ */
+
+/* The captures ARE the demonstration here, so they get more height than the
+   congress deck's thumbnails. */
+.demo-flow .deck-flow-shot {
+  height: 172px;
+}
+
+/* The capture's own edge, unfaded, where the step's button sits on it. */
+.demo-flow .demo-shot--edge::after {
+  display: none;
+}
+
+.demo-notes {
+  margin-top: 16px;
+}
+
+.demo-notes .deck-note p {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ */
+/* 03 · who decides                                                    */
+/* ------------------------------------------------------------------ */
+
+.demo-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.demo-side .deck-principle {
+  padding: 12px 14px;
+}
+
+.demo-side .deck-principle strong {
+  font-size: 15.5px;
+}
+
+.demo-side .deck-principle p {
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* The way in, at the foot of the column: the last slide is the one that stays
+   on screen, so it carries the address and a QR the room can scan. */
+.demo-cta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: auto;
+  padding: 12px 16px 12px 12px;
+  border: 1px solid rgba(8, 103, 97, 0.28);
+  border-radius: 16px;
+  background: var(--jade-soft);
+}
+
+.demo-cta .deck-qr {
+  width: 104px;
+  height: 104px;
+  padding: 7px;
+  border-radius: 12px;
+}
+
+.demo-cta strong {
+  display: block;
+  font-family: "TT Chocolates", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.demo-cta a {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--jade-deep);
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.demo-cta p {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+}
