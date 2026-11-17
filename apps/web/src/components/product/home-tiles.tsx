@@ -9,8 +9,14 @@ import { cn } from "@/lib/utils";
 
 /**
  * The template's quick-action card, verbatim: a full-height tinted icon
- * column (w-16, rounded-2xl, `-light/10` tint), a semibold title and a
- * one-line description in body size. Four of these share a row on desktop.
+ * column (w-16, rounded-2xl, `-light/10` tint), a semibold title and, only
+ * when it says something the name does not, one line in body size. Four of
+ * these share a row on desktop.
+ *
+ * A shortcut is its icon and its name (the owner, 2026-11-09): a line that
+ * repeats the name in other words ("Agenda" over "Próximos atendimentos") is
+ * read on every visit for nothing, so it is left out. Keep one only where it
+ * says what the shortcut unlocks or a state it stands in.
  */
 export function QuickActionTile({
   href,
@@ -24,7 +30,8 @@ export function QuickActionTile({
   icon: React.ReactNode;
   tone: TileTone;
   title: string;
-  description: string;
+  /** One line under the title, only when it says what the name does not (what it unlocks, a state). */
+  description?: string;
 }) {
   const style = TILE_TONE[tone];
   return (
@@ -39,9 +46,11 @@ export function QuickActionTile({
         <Typography variant="subtitle2" component="p" className="leading-5">
           {title}
         </Typography>
-        <Typography variant="body1" className="text-text-secondary line-clamp-1 leading-5">
-          {description}
-        </Typography>
+        {description ? (
+          <Typography variant="body1" className="text-text-secondary line-clamp-1 leading-5">
+            {description}
+          </Typography>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -36,6 +36,7 @@ import PatientEditDialog from "@/components/product/patient-edit-dialog";
 import ScheduleDialog from "@/components/product/schedule-dialog";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import IllustrationLaunch from "@/icons/illustrations/illustration-launch";
 import NiArchive from "@/icons/nexture/ni-archive";
 import NiArrowHistory from "@/icons/nexture/ni-arrow-history";
 import NiBadgeCheck from "@/icons/nexture/ni-badge-check";
@@ -618,10 +619,11 @@ export default function PacienteFicha() {
             </Typography>
             {timelineItems.length === 0 ? (
               <EmptyState
-                icon={<NiClipboard />}
+                illustration={<IllustrationLaunch />}
+                titleAs="h3"
+                framed={false}
                 title={t("patient-timeline-empty-title")}
                 description={t("patient-timeline-empty-body")}
-                className="border-none py-8"
               />
             ) : (
               <Timeline>

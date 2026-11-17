@@ -1,5 +1,5 @@
 "use client";
-import { captureSignupAttribution } from "./actions";
+import { captureSignupAttribution } from "../attribution-actions";
 import { useFormik } from "formik";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";

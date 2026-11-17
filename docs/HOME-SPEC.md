@@ -958,6 +958,15 @@ Apresentar com clareza que:
 
 Na opção anual, mostrar a vantagem somente quando a política comercial estiver aprovada.
 
+## 20.5 Modo campanha (implementado em 2026-11-17)
+
+A seção tem **dois modos**, e qual deles vale é dado, não deploy: `platform_settings.campaign_offer.show_on_home`, marcado em `/admin/billing → Offers`.
+
+- **Desligado (padrão)** — o catálogo descrito acima: Gratuito, Assistente e Pro vindos de `plans`, todos os botões abrindo conta gratuita. É o estado da porta de entrada do site e o que o público orgânico deve encontrar.
+- **Ligado** — os cartões do catálogo dão lugar aos da campanha: preço de campanha, preço de tabela riscado ao lado e botão indo para o **checkout**, não para o cadastro gratuito. O título, a linha de apoio e os selos de confiança trocam junto (§20.2/§20.3 descrevem o modo catálogo; o modo campanha usa `offerTitle`/`offerLead` de `home-copy/<locale>.ts`), porque "conta gratuita", "trial iniciado por você" e "sem cartão" são o oposto do que um cartão de campanha faz. No lugar entram dois selos derivados de dado real — a garantia de `platform_settings.guarantee` e o prazo da própria oferta, este só quando existe.
+
+A troca é **somente de apresentação**: preço, nome, descrição e benefícios continuam vindo da mesma linha de `plans` que o checkout cobra (§21.9). E ela só acontece quando a oferta é realmente vendável — fechada, vencida ou com slug inválido, a home volta ao catálogo sozinha, para que um erro de digitação nunca deixe a página sem seção de preços.
+
 ## 20.5 Card — Gratuito
 
 **Nome:** Medchina Gratuito

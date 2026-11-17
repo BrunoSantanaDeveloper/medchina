@@ -8,7 +8,7 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiArchive from "@/icons/nexture/ni-archive";
+import IllustrationStorage from "@/icons/illustrations/illustration-storage";
 import NiDownloadCloud from "@/icons/nexture/ni-download-cloud";
 import { createClient } from "@flyee/auth/client";
 
@@ -287,7 +287,8 @@ export default function BackupsAdmin() {
           }
           noRowsOverlay={
             <EmptyState
-              icon={<NiArchive size="medium" />}
+              layout="row"
+              illustration={<IllustrationStorage />}
               title="Nenhum backup ainda"
               description="Cada execução exporta todas as tabelas para o bucket privado de backups. Rode uma agora ou espere a rotina noturna — ela precisa de DATABASE_URL e SUPABASE_SERVICE_ROLE_KEY configuradas."
               action={{ label: "Rodar backup agora", onClick: handleRunNow }}

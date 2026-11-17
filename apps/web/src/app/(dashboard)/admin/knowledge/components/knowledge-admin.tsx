@@ -24,9 +24,9 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import IllustrationDatabase from "@/icons/illustrations/illustration-database";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
-import NiBook from "@/icons/nexture/ni-book";
-import NiDocumentFull from "@/icons/nexture/ni-document-full";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import NiRefresh from "@/icons/nexture/ni-refresh";
@@ -511,7 +511,8 @@ export default function KnowledgeAdmin() {
           }
           noRowsOverlay={
             <EmptyState
-              icon={<NiBook size="medium" />}
+              layout="row"
+              illustration={<IllustrationDatabase />}
               title="Nenhuma coleção ainda"
               description="Uma coleção agrupa os documentos que um assistente consulta. Crie uma e depois adicione documentos — eles são divididos em trechos e indexados automaticamente."
               action={{ label: "Nova coleção", onClick: () => setCollectionForm(EMPTY_COLLECTION) }}
@@ -554,7 +555,8 @@ export default function KnowledgeAdmin() {
           }
           noRowsOverlay={
             <EmptyState
-              icon={<NiDocumentFull size="medium" />}
+              layout="row"
+              illustration={<IllustrationDocumentation />}
               title="Nenhum documento ainda"
               description="Adicione o conteúdo e ele é dividido em trechos e indexado automaticamente."
               action={{ label: "Novo documento", onClick: () => setDocumentForm(EMPTY_DOCUMENT) }}

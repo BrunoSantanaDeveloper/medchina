@@ -8,6 +8,7 @@ import { Box, Button, Card, CardContent, Tab, Tabs, Typography } from "@mui/mate
 
 import ConsultationStatusChip from "@/components/product/consultation-status-chip";
 import EmptyState from "@/components/product/empty-state";
+import IllustrationPlatforms from "@/icons/illustrations/illustration-platforms";
 import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
 import NiChevronLeftSmall from "@/icons/nexture/ni-chevron-left-small";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
@@ -136,11 +137,12 @@ export default function WeekSchedule({
           <Typography className="mb-5">{sentence(current.long)}</Typography>
           {current.items.length === 0 ? (
             <EmptyState
-              icon={<NiCalendarClock />}
+              illustration={<IllustrationPlatforms />}
+              titleAs="h3"
+              framed={false}
               title={t("agenda-empty-title")}
               description={t("home-today-empty-body")}
               action={{ label: t("home-schedule-cta"), href: scheduleHref }}
-              className="border-none py-6"
             />
           ) : (
             <Box className="flex flex-col gap-4">

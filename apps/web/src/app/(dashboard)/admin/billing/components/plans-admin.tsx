@@ -21,7 +21,7 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { CurrencyField } from "@/components/product/fields";
-import NiMoney from "@/icons/nexture/ni-money";
+import IllustrationAnalytics from "@/icons/illustrations/illustration-analytics";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
@@ -311,7 +311,8 @@ export default function PlansAdmin() {
           }
           noRowsOverlay={
             <EmptyState
-              icon={<NiMoney size="medium" />}
+              layout="row"
+              illustration={<IllustrationAnalytics />}
               title="Nenhum plano ainda"
               description="O catálogo de planos é o que um consultório pode comprar — preço, período, trial e os limites que cada nível libera."
               action={{ label: "Novo plano", onClick: () => openEdit() }}

@@ -8,6 +8,8 @@ import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Grid, Ty
 
 import ActivationProgress from "@/components/product/activation-progress";
 import { QuickActionTile } from "@/components/product/home-tiles";
+import InfoHint from "@/components/product/info-hint";
+import SectionTitle from "@/components/product/section-title";
 import { TILE_TONE } from "@/components/product/tile-tone";
 import NiAi from "@/icons/nexture/ni-ai";
 import NiBook from "@/icons/nexture/ni-book";
@@ -177,57 +179,53 @@ export default function GettingStartedPage() {
 
   return (
     <Box className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-      <Box className="flex flex-col gap-2">
+      {/* The page opens on its title; what it is for sits behind the "i"
+          beside it (the owner, 2026-11-09), read once and not on every visit. */}
+      <Box className="flex flex-row flex-wrap items-center gap-x-2 gap-y-1">
         <Typography variant="h1" component="h1" className="mb-0">
           {t("getting-title")}
         </Typography>
-        <Typography variant="body1" className="text-text-secondary max-w-3xl">
-          {t("getting-subtitle")}
-        </Typography>
+        <InfoHint label={t("getting-subtitle")} placement="bottom-start" className="self-center" />
       </Box>
 
       <Card component="section" aria-labelledby="getting-preparation-title">
         <CardContent className="flex flex-col gap-5">
-          <Box className="flex flex-row items-start justify-between gap-3">
-            <Box>
-              <Typography variant="h4" component="h2" id="getting-preparation-title" className="mb-0">
-                {t("getting-preparation-title")}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary">
-                {t("getting-preparation-body")}
-              </Typography>
-            </Box>
-            <ActivationProgress
-              done={countDone(preparation)}
-              total={preparation.length}
-              size={42}
-              label={t("getting-progress", { done: countDone(preparation), total: preparation.length })}
-              className="flex-none"
-            />
-          </Box>
+          <SectionTitle
+            id="getting-preparation-title"
+            variant="h4"
+            title={t("getting-preparation-title")}
+            description={t("getting-preparation-body")}
+            action={
+              <ActivationProgress
+                done={countDone(preparation)}
+                total={preparation.length}
+                size={42}
+                label={t("getting-progress", { done: countDone(preparation), total: preparation.length })}
+                className="flex-none"
+              />
+            }
+          />
           <StepList steps={preparation} actionLabel={t("getting-open-step")} />
         </CardContent>
       </Card>
 
       <Card component="section" aria-labelledby="getting-consultation-title">
         <CardContent className="flex flex-col gap-5">
-          <Box className="flex flex-row items-start justify-between gap-3">
-            <Box>
-              <Typography variant="h4" component="h2" id="getting-consultation-title" className="mb-0">
-                {t("getting-consultation-title")}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary">
-                {t("getting-consultation-body")}
-              </Typography>
-            </Box>
-            <ActivationProgress
-              done={countDone(consultation)}
-              total={consultation.length}
-              size={42}
-              label={t("getting-progress", { done: countDone(consultation), total: consultation.length })}
-              className="flex-none"
-            />
-          </Box>
+          <SectionTitle
+            id="getting-consultation-title"
+            variant="h4"
+            title={t("getting-consultation-title")}
+            description={t("getting-consultation-body")}
+            action={
+              <ActivationProgress
+                done={countDone(consultation)}
+                total={consultation.length}
+                size={42}
+                label={t("getting-progress", { done: countDone(consultation), total: consultation.length })}
+                className="flex-none"
+              />
+            }
+          />
           <StepList steps={consultation} actionLabel={t("getting-open-step")} />
           {/* Recording is not a separate track: it is three more rows for
               whoever records. Someone who has not said so is shown the way to
@@ -268,13 +266,8 @@ export default function GettingStartedPage() {
             >
               <NiAi size="medium" />
             </span>
-            <Typography variant="h6" component="h2" className="mb-0">
-              {t("getting-library-title")}
-            </Typography>
+            <SectionTitle variant="h6" title={t("getting-library-title")} description={t("getting-library-body")} />
           </Box>
-          <Typography variant="body2" className="text-text-secondary max-w-2xl">
-            {t("getting-library-body")}
-          </Typography>
           <Button
             LinkComponent={Link}
             href={LIBRARY_HREF}

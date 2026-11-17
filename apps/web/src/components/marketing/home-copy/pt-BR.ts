@@ -353,6 +353,25 @@ export const homeCopyPtBR = {
     },
     defaultEyebrow: "Plano",
     defaultCta: "Criar conta grátis",
+    /**
+     * A seção quando a campanha assume a home (`show_on_home` em
+     * /admin/billing → Ofertas). O gratuito e o trial saem dos cards, então o
+     * texto em volta deles também precisa sair: a linha e os selos de confiança
+     * do catálogo vendem conta gratuita e "sem cartão", exatamente o oposto do
+     * que estes cards fazem. O que fica no lugar é derivado de dado real — a
+     * garantia da própria configuração, o prazo da própria oferta.
+     */
+    offerEyebrow: "Condição de campanha",
+    offerCta: "Assinar agora",
+    offerTitle: "A condição desta campanha.\n**Pelo preço desta página, enquanto ela estiver aberta.**",
+    offerLead:
+      "A conta gratuita e o teste do Pro continuam existindo — eles só não são o caminho daqui. Nesta página você assina direto o plano que quer.",
+    offerTrustAria: "Condições desta oferta",
+    offerTrustGuarantee: "{days} dias de garantia",
+    offerTrustDeadline: "Condição válida até {date}",
+    offerAssuranceTitle: "{days} dias de garantia.",
+    offerAssuranceDetail:
+      "Se não fizer sentido para a sua prática, você pede o reembolso em até {days} dias e recebe o valor de volta.",
     included: "O que está incluído",
     assuranceTitle: "Você começa a testar quando começa a trabalhar.",
     assuranceDetail:

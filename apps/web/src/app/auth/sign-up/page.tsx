@@ -161,6 +161,20 @@ export default function Page() {
       });
       if (error) return false;
       if (data.session) {
+        // Where the campaign attribution is actually written for an e-mail
+        // sign-up. The callback that was supposed to do it only runs when the
+        // project demands an e-mail confirmation, and it does not: `signUp`
+        // returns a session and this line navigates away, so every signup since
+        // 10/08 reached the workspace with no origin at all.
+        //
+        // A route and not a server action: an action POSTs to the page it was
+        // called from, and the middleware redirects `/auth/sign-up` away as
+        // soon as a session exists — which is exactly now. That 307 reaches
+        // React as a broken action result and kills the submit.
+        //
+        // Before the navigation, and never allowed to break it: the attribution
+        // is a report, the sign-up is the sale.
+        await fetch("/api/attribution/capture", { method: "POST" }).catch(() => undefined);
         const destination = data.user ? await resolvePostAuthDestination(supabase, data.user.id) : DEFAULTS.appRoot;
         router.push(next ?? destination);
         router.refresh();

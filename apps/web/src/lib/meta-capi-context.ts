@@ -4,6 +4,9 @@ import { gaClientIdFromCookie } from "./ga4-mp";
 import type { MetaClientContext } from "./meta-capi";
 import { cookies, headers } from "next/headers";
 
+import { COOKIE_KEYS } from "@/constants";
+import { buildFbc } from "@/lib/meta-click";
+
 /**
  * Pulls the Meta match signals out of the CURRENT request so a server-side
  * CAPI event attributes to the same visitor the browser Pixel saw:
@@ -19,7 +22,12 @@ export async function getMetaClientContext(eventSourceUrl?: string | null): Prom
   const clientIp = forwardedFor ? forwardedFor.split(",")[0]?.trim() || null : null;
   return {
     fbp: cookieStore.get("_fbp")?.value ?? null,
-    fbc: cookieStore.get("_fbc")?.value ?? null,
+    // The Pixel's own `_fbc` first, ALWAYS: it is the authoritative value and
+    // carries the Pixel's own subdomain index. Only when it is missing do we
+    // build one from the click id the middleware captured — which is the case
+    // whenever a blocker or tracking prevention stopped the Pixel from ever
+    // running, and the reason real ad clicks were reaching Meta unmatched.
+    fbc: cookieStore.get("_fbc")?.value ?? buildFbc(cookieStore.get(COOKIE_KEYS.fbclid)?.value),
     clientIp,
     clientUserAgent: headerStore.get("user-agent"),
     eventSourceUrl: eventSourceUrl ?? null,

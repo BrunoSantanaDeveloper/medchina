@@ -70,6 +70,14 @@ export const COOKIE_KEYS = {
   // credited to the campaign that brought it. httpOnly; 14 days, the same
   // window the billing webhook accepts (migration 0113).
   lastCampaign: `${storagePrefix}-campanha`,
+  // The Meta ad-click id (`?fbclid=`), captured FIRST touch by the middleware
+  // so a server-side conversion can still name the click when the Pixel never
+  // ran. It is NOT Meta's own `_fbc`: writing a cookie by that name would
+  // collide with the Pixel's (same name, different scope) and `cookies().get`
+  // would then return whichever of the two it pleased. We keep the raw id under
+  // our own prefix and BUILD `fb.1.<ms>.<fbclid>` at event time, so the Pixel's
+  // real `_fbc` always wins when it exists. httpOnly: only the server reads it.
+  fbclid: `${storagePrefix}-fbclid`,
 };
 
 export const SESSION_STORAGE_KEYS = {

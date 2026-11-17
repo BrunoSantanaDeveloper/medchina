@@ -18,8 +18,8 @@
     {
       "name": "EmptyState",
       "from": "@/components/product/empty-state",
-      "props": "icon, title, description?, action?, secondaryAction?, className?",
-      "use": "Every zero-data view: icon + why it is empty + the ONE next action. Never a bare 'no data'."
+      "props": "icon?, illustration? (an @/icons/illustrations/* element), title, description?, action?, secondaryAction?, className?, titleAs? (h2 | h3 | h4), layout? (stack | row), framed?",
+      "use": "Every zero-data view: what is empty + why + the ONE next action. Never a bare 'no data'. A section or a list with nothing in it is never left as empty space (the owner, 2026-11-09): give it an `illustration` (the template's line drawings in @/icons/illustrations, drawn in the secondary hue, with the nudge outlined), `layout=\"row\"` for a short band across the page and `framed={false}` inside a card or a grid that frames it already; inside a card whose title is the h2, pass titleAs=\"h3\". Pick the drawing by the subject, one per region of a screen: accounts for people (the patient list), launch for the first record (a patient with no consultation), documentation for papers and a search with no result (the library, the acervo, protocols), storage for what is archived or cancelled, platforms for the calendar (the agenda, the week), integrate for connected apps. A state of permission, of something unavailable or of a failed read keeps its `icon`. The empty state is where a definition teaches: what a section is may be said in full here, and only behind an \"i\" once it holds something."
     },
     {
       "name": "UsageMeter",
@@ -48,8 +48,8 @@
     {
       "name": "QuickActionTile",
       "from": "@/components/product/home-tiles",
-      "props": "href, icon, tone, title, description",
-      "use": "A shortcut: full-height tinted icon column (w-16) + title + one-line description. Four across, never two columns."
+      "props": "href, icon, tone, title, description?",
+      "use": "A shortcut: full-height tinted icon column (w-16) + title. Four across, never two columns. A shortcut is its icon and its name (the owner, 2026-11-09): a line under the title only when it says what the name does not (what it unlocks, a state), never one that repeats the name in other words (the home's row has none)."
     },
     {
       "name": "TILE_TONE",
@@ -72,8 +72,20 @@
     {
       "name": "InfoHint",
       "from": "@/components/product/info-hint",
-      "props": "label/title",
-      "use": "A definition attached to a number. A bare Tooltip on a non-focusable Box disappears on touch and for keyboards — use this instead."
+      "props": "label, placement?, className?",
+      "use": "What a title, a number or a chip is, behind an \"i\" a person opens when she wants (a bare Tooltip on a non-focusable Box disappears on touch and for keyboards; this is a real button). 200 characters at most, in every language (kept by lib/i18n/hint-budget.test.ts). SectionTitle and ConsultationStepHeader draw it themselves from their `description`; a page's own h1 puts its definition in one beside it. Never for what must be read before acting: clinical safety text (the PRD §10.11 disclaimer, a draft is not a prescription, a blank field is never a negative), a consequence, a legal note, personal data and the instructions on a patient's own page stay in sight."
+    },
+    {
+      "name": "SectionTitle",
+      "from": "@/components/product/section-title",
+      "props": "id?, title, description? (behind the i), detail? (a line in sight), chip?, action?, as? (h2 | h3 | h4), variant? (h4 | h5 | h6 | subtitle2), className?",
+      "use": "The heading of a section or of a card: its title, what it is FOR behind the \"i\" beside it (`description`, 200 characters at most), where it stands (`chip`) and its own action at the right (`action`: a button, a progress ring). Never a heading with a paragraph under it read on every visit (the owner, 2026-11-09). `detail` is the one line in sight, only for state or data that tells the thing apart (how many a list holds, who a person is) or for what must be read before acting (a consequence, a legal or clinical safety note, that the AI may err, personal data). A definition that only repeats the title is dropped, and a sentence that says how to use the screen is replaced by what shows it (a chevron, a link). Ported from the sibling platform's SectionTitle; with no CardTitle here, it heads cards too (beside a TILE_TONE icon when the card leads with one)."
+    },
+    {
+      "name": "ConsultationStepHeader",
+      "from": "@/components/product/consultation-step-header",
+      "props": "step?, icon, title, description? (behind the i), detail? (in sight), status?, statusLabel?, trailing?",
+      "use": "The head of each assistant card of the consultation (record → interpret → plan, and their supporting cards): numbered badge, icon, title and the step's state. When to use the step and what it builds on is `description`, behind the \"i\"; `detail` stays in sight only for a clinical safety rule or a consequence of acting there (the anamnesis says a blank is never a negative; the hypotheses say tongue and pulse are her observations). One \"i\" per title: an operational note joins the description instead of a second \"i\" at the end of the row."
     },
     {
       "name": "WeekSchedule",

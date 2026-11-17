@@ -7,7 +7,7 @@ import { type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiFingerprint from "@/icons/nexture/ni-fingerprint";
+import IllustrationAccess from "@/icons/illustrations/illustration-access";
 import { createClient } from "@flyee/auth/client";
 
 type AccessRow = {
@@ -181,7 +181,8 @@ export default function AccessEventsAdmin() {
           loading={!loaded}
           noRowsOverlay={
             <EmptyState
-              icon={<NiFingerprint size="medium" />}
+              layout="row"
+              illustration={<IllustrationAccess />}
               title="Nenhum acesso registrado ainda"
               description="Toda nova sessão cai aqui automaticamente (trigger em auth.sessions, migração 0016). Se há acessos acontecendo e nada aparece, aplique a migração."
               className="border-none"

@@ -10,7 +10,7 @@ import { slugify } from "@/app/(dashboard)/admin/help/components/help-categories
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { LOCALES } from "@/constants";
-import NiDocumentFull from "@/icons/nexture/ni-document-full";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiPen from "@/icons/nexture/ni-pen";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
@@ -395,7 +395,8 @@ export default function BlogPostsAdmin() {
               </Typography>
             ) : (
               <EmptyState
-                icon={<NiDocumentFull size="medium" />}
+                layout="row"
+                illustration={<IllustrationDocumentation />}
                 title="Nenhum post ainda"
                 description="Os posts publicados aqui aparecem na página pública /blog — anúncios, guias, ideias sobre o produto."
                 action={{ label: "Novo post", onClick: () => setForm(EMPTY_FORM) }}

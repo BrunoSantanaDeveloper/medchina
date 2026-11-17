@@ -10,6 +10,7 @@ import { Alert, Box, Button, Card, CardContent, Chip, IconButton, Menu, MenuItem
 import EmptyState from "@/components/product/empty-state";
 import { StatTile } from "@/components/product/home-tiles";
 import MetricBars from "@/components/product/metric-bars";
+import IllustrationPlatforms from "@/icons/illustrations/illustration-platforms";
 import NiArchive from "@/icons/nexture/ni-archive";
 import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiEllipsisVertical from "@/icons/nexture/ni-ellipsis-vertical";
@@ -138,7 +139,7 @@ export default function EventsList() {
         <Card>
           <CardContent>
             <EmptyState
-              icon={<NiPresentation size="large" />}
+              illustration={<IllustrationPlatforms />}
               title="Nenhum evento ainda"
               description="Crie o primeiro. Ele nasce em rascunho, e a página só abre quando você publicar."
               action={{ label: "Criar evento", onClick: () => setCreating(true) }}
@@ -187,7 +188,7 @@ export default function EventsList() {
             <Card>
               <CardContent>
                 <EmptyState
-                  icon={<NiPresentation size="large" />}
+                  illustration={<IllustrationPlatforms />}
                   title={EMPTY_FILTER[active].title}
                   description={EMPTY_FILTER[active].description}
                   action={

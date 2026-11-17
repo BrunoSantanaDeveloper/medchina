@@ -17,6 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 
+import SectionTitle from "@/components/product/section-title";
 import { createClient } from "@flyee/auth/client";
 
 type Factor = { id: string; friendly_name?: string | null; status: string };
@@ -103,12 +104,8 @@ export default function TwoFactorCard() {
     <Grid size={12}>
       <Card component="section">
         <CardContent className="flex flex-col gap-4">
-          <Typography variant="h5" component="h2" className="card-title">
-            {t("security-two-factor-title")}
-          </Typography>
-          <Typography variant="body1" className="text-text-secondary">
-            {t("security-two-factor-body")}
-          </Typography>
+          {/* What the second step is, is read once: behind the "i" (the owner, 2026-11-09). */}
+          <SectionTitle title={t("security-two-factor-title")} description={t("security-two-factor-body")} />
 
           {verifiedFactors.map((factor) => (
             <Box key={factor.id} className="flex flex-row items-center gap-2">

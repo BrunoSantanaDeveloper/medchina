@@ -587,7 +587,9 @@ export default function HypothesesPanel({
           step={locked ? undefined : stepNumber}
           icon={<NiClipboard size="medium" />}
           title={locked ? t("hypotheses-locked-title") : t("hypotheses-title")}
-          hint={t("hypotheses-step-hint")}
+          // In sight, never behind the "i": tongue and pulse are her own
+          // observations, and without them the reading is partial (PRD §10.3).
+          detail={t("hypotheses-step-hint")}
           status={locked ? undefined : stepStatus}
           statusLabel={
             stepStatus

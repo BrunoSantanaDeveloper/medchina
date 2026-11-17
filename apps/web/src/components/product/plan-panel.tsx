@@ -707,7 +707,7 @@ export default function PlanPanel({
           step={stepNumber}
           icon={<NiListCheck size="medium" />}
           title={t("plan-title")}
-          hint={t("plan-step-hint")}
+          description={t("plan-step-hint")}
           status={plan?.staleAt ? "stale" : plan?.status === "validated" ? "done" : plan ? "in_progress" : undefined}
           statusLabel={
             plan?.staleAt

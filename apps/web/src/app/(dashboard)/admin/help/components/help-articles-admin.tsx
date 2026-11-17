@@ -10,7 +10,7 @@ import { Field, SelectField } from "@/app/(dashboard)/admin/billing/components/c
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { LOCALES } from "@/constants";
-import NiDocumentFull from "@/icons/nexture/ni-document-full";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiPen from "@/icons/nexture/ni-pen";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
@@ -396,7 +396,8 @@ export default function HelpArticlesAdmin() {
               </Typography>
             ) : (
               <EmptyState
-                icon={<NiDocumentFull size="medium" />}
+                layout="row"
+                illustration={<IllustrationDocumentation />}
                 title="Nenhum artigo de ajuda ainda"
                 description="Escreva o primeiro artigo que as profissionais vão encontrar em /help — comece pela pergunta que o suporte mais responde."
                 action={{ label: "Novo artigo", onClick: () => setForm(EMPTY_FORM) }}

@@ -15,6 +15,8 @@ type OfferConfig = {
   plan_slug: string;
   /** Second price offered beside the first. Empty = one price only. */
   annual_plan_slug: string;
+  /** Whether the public home swaps its catalogue plans for this offer. */
+  show_on_home: boolean;
   compare_plan_slug: string;
   /** ISO string, or "" for no deadline. */
   deadline: string;
@@ -24,6 +26,7 @@ const EMPTY: OfferConfig = {
   enabled: false,
   plan_slug: "",
   annual_plan_slug: "",
+  show_on_home: false,
   compare_plan_slug: "",
   deadline: "",
 };
@@ -38,7 +41,14 @@ function toLocalInput(iso: string): string {
 }
 
 /**
- * The offer a paid campaign announces on `/assinar`.
+ * The offer a paid campaign announces on `/assinar` — and, optionally, on the
+ * public home.
+ *
+ * The two surfaces are two switches, not one. "Oferta aberta" decides whether
+ * the campaign SELLS: it opens `/assinar` and it is the rule `startCheckout`
+ * enforces. "A home também vende" decides whether the site's front door swaps
+ * its catalogue prices for the campaign — and that door is trial-first by
+ * design, so turning a campaign on must never rewrite it by accident.
  *
  * One plan, one optional anchor, one optional deadline — and nothing else,
  * because everything else a campaign needs is already data: the price and the
@@ -76,6 +86,7 @@ export default function CampaignOfferAdmin() {
       enabled: value.enabled === true,
       plan_slug: typeof value.plan_slug === "string" ? value.plan_slug : "",
       annual_plan_slug: typeof value.annual_plan_slug === "string" ? value.annual_plan_slug : "",
+      show_on_home: value.show_on_home === true,
       compare_plan_slug: typeof value.compare_plan_slug === "string" ? value.compare_plan_slug : "",
       deadline: typeof value.deadline === "string" ? value.deadline : "",
     });
@@ -99,6 +110,7 @@ export default function CampaignOfferAdmin() {
         enabled: config.enabled,
         plan_slug: config.plan_slug.trim(),
         annual_plan_slug: config.annual_plan_slug.trim(),
+        show_on_home: config.show_on_home,
         compare_plan_slug: config.compare_plan_slug.trim(),
         deadline: config.deadline || null,
       },
@@ -113,6 +125,7 @@ export default function CampaignOfferAdmin() {
         enabled: config.enabled,
         plan_slug: config.plan_slug.trim(),
         annual_plan_slug: config.annual_plan_slug.trim(),
+        show_on_home: config.show_on_home,
         compare_plan_slug: config.compare_plan_slug.trim(),
         deadline: config.deadline || null,
       },
@@ -127,9 +140,16 @@ export default function CampaignOfferAdmin() {
     enabled: config.enabled,
     plan_slug: config.plan_slug,
     annual_plan_slug: config.annual_plan_slug,
+    show_on_home: config.show_on_home,
     compare_plan_slug: config.compare_plan_slug,
     deadline: config.deadline || null,
   });
+  // The home only swaps when the offer is ALSO sellable: a checked box over a
+  // closed campaign has to read as "the home is back on the catalogue", which
+  // is what the page itself does, instead of promising a swap that never
+  // happens.
+  const homeSells = state.showOnHome && !state.closed;
+  const previewLabel = homeSells ? "/assinar e home" : "/assinar";
 
   return (
     <Box className="flex flex-col gap-4">
@@ -156,7 +176,31 @@ export default function CampaignOfferAdmin() {
         />
       </RowLine>
 
-      <OfferPreview plans={plans} planSlug={config.plan_slug} compareSlug={config.compare_plan_slug} label="/assinar" />
+      <RowLine>
+        <RowText
+          primary={homeSells ? "A home vende esta oferta" : "A home mostra os planos de catálogo"}
+          secondary={
+            state.showOnHome && state.closed
+              ? "Marcado, mas a oferta está fechada: a home segue no catálogo até a oferta abrir."
+              : homeSells
+                ? "Os preços da home passam a ser os desta oferta e os botões vão para o checkout, não para a conta gratuita."
+                : "Os preços da home seguem o catálogo e os botões abrem conta gratuita."
+          }
+        />
+        <Chip
+          label={homeSells ? "oferta" : "catálogo"}
+          size="small"
+          color={homeSells ? "primary" : "grey"}
+          variant="outlined"
+        />
+      </RowLine>
+
+      <OfferPreview
+        plans={plans}
+        planSlug={config.plan_slug}
+        compareSlug={config.compare_plan_slug}
+        label={previewLabel}
+      />
       {/* Read separately because the annual line is where the audio quota goes
           wrong: the franchise is spent inside ONE billing cycle, so a yearly
           row needs twelve times the monthly figure, and copying the monthly
@@ -166,7 +210,7 @@ export default function CampaignOfferAdmin() {
           plans={plans}
           planSlug={config.annual_plan_slug}
           compareSlug={config.compare_plan_slug}
-          label="/assinar (segundo preço)"
+          label={`${previewLabel} (segundo preço)`}
         />
       ) : null}
 
@@ -179,6 +223,16 @@ export default function CampaignOfferAdmin() {
           />
         }
         label="Oferta aberta (desmarque para fechar — NÃO desative o plano)"
+      />
+      <FormControlLabel
+        control={
+          <Checkbox
+            size="small"
+            checked={config.show_on_home}
+            onChange={(event) => setConfig({ ...config, show_on_home: event.target.checked })}
+          />
+        }
+        label="A home também vende esta oferta (substitui os planos de catálogo e o convite à conta gratuita)"
       />
       <Field
         label="Slug do plano da campanha (o plano que os anúncios vendem)"
@@ -210,7 +264,7 @@ export default function CampaignOfferAdmin() {
 
       {saved && (
         <Alert severity="success" className="neutral bg-background-paper/60!">
-          Salvo. A landing page e a trava do checkout seguem isso na hora.
+          Salvo. A landing page, a home e a trava do checkout seguem isso na hora.
         </Alert>
       )}
       {error && (

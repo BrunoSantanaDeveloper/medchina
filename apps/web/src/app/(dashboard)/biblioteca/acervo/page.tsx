@@ -20,6 +20,7 @@ import {
 } from "@mui/material";
 
 import EmptyState from "@/components/product/empty-state";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiBook from "@/icons/nexture/ni-book";
 import NiSearch from "@/icons/nexture/ni-search";
 import { normalizePatientName as normalize } from "@/lib/patients";
@@ -268,7 +269,8 @@ export default function Acervo() {
 
               {filtered.length === 0 ? (
                 <EmptyState
-                  icon={<NiSearch />}
+                  illustration={<IllustrationDocumentation />}
+                  framed={false}
                   title={t("acervo-empty-title")}
                   description={t("acervo-empty-body")}
                   action={{ label: t("acervo-clear-filters"), onClick: clearFilters }}

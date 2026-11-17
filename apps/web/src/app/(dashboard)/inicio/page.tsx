@@ -21,6 +21,7 @@ import ConsultationStatusChip from "@/components/product/consultation-status-chi
 import ConversionOfferCard from "@/components/product/conversion-offer-card";
 import HomeEmptyBanner from "@/components/product/home-empty-banner";
 import { QuickActionTile, StatTile } from "@/components/product/home-tiles";
+import InfoHint from "@/components/product/info-hint";
 import OnboardingChecklistCard from "@/components/product/onboarding-checklist-card";
 import type { TileTone } from "@/components/product/tile-tone";
 import WeekSchedule, { dayKey, type ScheduleItem } from "@/components/product/week-schedule";
@@ -39,41 +40,38 @@ import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
 import { remoteError, remoteLoading, type RemoteState, remoteSuccess } from "@flyee/clinical";
 
-/** Home shortcuts: short tile label + one-line hint (the command-palette copy
- * is written for a wide list and gets clamped in a 4-up grid); the href comes
- * from the shared PRODUCT_ACTIONS registry so the two never disagree. */
+/** Home shortcuts: a short tile label (the command-palette copy is written for
+ * a wide list and gets clamped in a 4-up grid); the href comes from the shared
+ * PRODUCT_ACTIONS registry so the two never disagree. A shortcut is its icon
+ * and its name: the line under each one only repeated the name (the owner,
+ * 2026-11-09), and she reads this row on every visit. */
 const QUICK_ACTIONS: {
   id: ProductActionId;
   labelKey: string;
-  hintKey: string;
   icon: React.ReactNode;
   tone: TileTone;
 }[] = [
   {
     id: "new-patient",
     labelKey: "home-quick-new-patient",
-    hintKey: "home-quick-new-patient-hint",
     icon: <NiUsers size="large" />,
     tone: "accent-2",
   },
   {
     id: "new-appointment",
     labelKey: "home-quick-new-appointment",
-    hintKey: "home-quick-new-appointment-hint",
     icon: <NiCalendarClock size="large" />,
     tone: "primary",
   },
   {
     id: "agenda",
     labelKey: "home-quick-agenda",
-    hintKey: "home-quick-agenda-hint",
     icon: <NiCalendar size="large" />,
     tone: "accent-1",
   },
   {
     id: "library",
     labelKey: "home-quick-library",
-    hintKey: "home-quick-library-hint",
     icon: <NiBook size="large" />,
     tone: "accent-4",
   },
@@ -342,7 +340,6 @@ export default function Inicio() {
                 icon={action.icon}
                 tone={action.tone}
                 title={t(action.labelKey)}
-                description={t(action.hintKey)}
               />
             </Grid>
           );
@@ -391,13 +388,14 @@ export default function Inicio() {
                 aria-label={t("home-overdue-title", { count: data!.overdue.length })}
               >
                 <Box className="flex flex-col gap-2">
-                  <Box>
-                    <Typography variant="subtitle2">
+                  {/* What "left behind" means, and that each one is resolved in
+                      the agenda, is read once: behind the "i". Every row says
+                      it with its own "Resolver". */}
+                  <Box className="flex flex-row items-center gap-1">
+                    <Typography variant="subtitle2" className="mb-0">
                       {t("home-overdue-title", { count: data!.overdue.length })}
                     </Typography>
-                    <Typography variant="body2" className="text-text-secondary">
-                      {t("home-overdue-body")}
-                    </Typography>
+                    <InfoHint label={t("home-overdue-body")} placement="bottom-start" className="self-center" />
                   </Box>
                   {data!.overdue.map((consultation) => {
                     const instant = new Date(consultation.scheduledFor ?? consultation.startedAt);

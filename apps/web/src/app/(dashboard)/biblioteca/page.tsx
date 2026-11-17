@@ -28,6 +28,7 @@ import {
 import EmptyState from "@/components/product/empty-state";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiBinEmpty from "@/icons/nexture/ni-bin-empty";
 import NiBook from "@/icons/nexture/ni-book";
 import NiPen from "@/icons/nexture/ni-pen";
@@ -436,14 +437,15 @@ export default function Biblioteca() {
             <Card component="section">
               <CardContent>
                 <EmptyState
-                  icon={<NiBook />}
+                  illustration={<IllustrationDocumentation />}
+                  framed={false}
                   title={
                     casePatient
                       ? t("library-case-empty-title", { name: casePatient.fullName })
                       : t("library-empty-title")
                   }
                   description={casePatient ? t("library-case-empty-body") : t("library-empty-body")}
-                  className="border-0 py-8"
+                  className="pb-6"
                 />
                 <Box className="mx-auto flex max-w-xl flex-col gap-2">
                   {(casePatient ? CASE_STARTER_KEYS : STARTER_KEYS).map((key) => (

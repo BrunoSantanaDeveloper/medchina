@@ -240,15 +240,20 @@ export default function PlansGrid({
             <Typography variant="h5" component="h2" className="card-title">
               {offerPlan ? t("billing-offer-title") : t("billing-plans-title")}
             </Typography>
-            <Typography variant="body2" className="text-text-secondary">
-              {offerPlan ? t("billing-offer-body") : t("billing-plans-body")}
-            </Typography>
+            {/* Only what must be read before paying stays under the title: when
+                the reserved terms take effect. "Compare the plans" was the grid
+                below saying itself (the owner, 2026-11-09). */}
+            {offerPlan && (
+              <Typography variant="body2" className="text-text-secondary">
+                {t("billing-offer-body")}
+              </Typography>
+            )}
             {/* The trial is the alternative to paying today. It belongs on the
                 shopping screen — but for someone who arrived to complete terms
                 already agreed it reads as a reason to postpone, so it moves
                 into the "other plans" block she can open at any moment. */}
             {!offerPlan && (
-              <Typography variant="body2" className="text-text-secondary mt-2 leading-6">
+              <Typography variant="body2" className="text-text-secondary leading-6">
                 {trialParams ? t("billing-trial-explanation", trialParams) : t("billing-trial-explanation-generic")}
               </Typography>
             )}

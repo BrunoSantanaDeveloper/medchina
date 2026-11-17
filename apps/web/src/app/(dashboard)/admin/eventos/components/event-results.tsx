@@ -8,6 +8,7 @@ import EmptyState from "@/components/product/empty-state";
 import { StatTile } from "@/components/product/home-tiles";
 import InfoHint from "@/components/product/info-hint";
 import MetricBars, { type MetricBarItem } from "@/components/product/metric-bars";
+import IllustrationAccounts from "@/icons/illustrations/illustration-accounts";
 import NiChartLineBar from "@/icons/nexture/ni-chart-line-bar";
 import NiMoney from "@/icons/nexture/ni-money";
 import NiScreen from "@/icons/nexture/ni-screen";
@@ -118,7 +119,7 @@ export default function EventResultsView({
         <Card>
           <CardContent>
             <EmptyState
-              icon={<NiUsers size="large" />}
+              illustration={<IllustrationAccounts />}
               title="Ninguém se inscreveu ainda"
               description={
                 event.state === "rascunho"

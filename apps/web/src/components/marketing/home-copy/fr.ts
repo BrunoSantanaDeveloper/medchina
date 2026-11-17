@@ -337,6 +337,17 @@ export const homeCopy: HomeCopy = {
     },
     defaultEyebrow: "Offre",
     defaultCta: "Créer un compte gratuit",
+    offerEyebrow: "Prix de campagne",
+    offerCta: "S'abonner maintenant",
+    offerTitle: "Voici la condition de cette campagne.\n**Au prix de cette page, tant qu'elle est ouverte.**",
+    offerLead:
+      "Le compte gratuit et l'essai Pro existent toujours — ils ne sont simplement pas le chemin d'ici. Sur cette page, vous souscrivez directement au plan que vous voulez.",
+    offerTrustAria: "Conditions de cette offre",
+    offerTrustGuarantee: "{days} jours de garantie",
+    offerTrustDeadline: "Offre valable jusqu'au {date}",
+    offerAssuranceTitle: "{days} jours de garantie.",
+    offerAssuranceDetail:
+      "Si cela ne convient pas à votre pratique, vous demandez le remboursement sous {days} jours et récupérez votre argent.",
     included: "Ce qui est inclus",
     assuranceTitle: "L'essai commence quand le travail commence.",
     assuranceDetail:

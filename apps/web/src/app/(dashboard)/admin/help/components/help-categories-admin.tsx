@@ -9,8 +9,8 @@ import { Field, SelectField } from "@/app/(dashboard)/admin/billing/components/c
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { LOCALES } from "@/constants";
+import IllustrationSupport from "@/icons/illustrations/illustration-support";
 import NiPen from "@/icons/nexture/ni-pen";
-import NiQuestionHexagon from "@/icons/nexture/ni-question-hexagon";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -325,7 +325,8 @@ export default function HelpCategoriesAdmin() {
               </Typography>
             ) : (
               <EmptyState
-                icon={<NiQuestionHexagon size="medium" />}
+                layout="row"
+                illustration={<IllustrationSupport />}
                 title="Nenhuma categoria de ajuda ainda"
                 description="As categorias agrupam os artigos da página pública /help. Comece pelos dois ou três assuntos que as profissionais mais perguntam."
                 action={{ label: "Nova categoria", onClick: () => setForm(EMPTY_FORM) }}

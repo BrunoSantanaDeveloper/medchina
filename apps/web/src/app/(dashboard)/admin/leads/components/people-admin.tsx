@@ -9,6 +9,8 @@ import DataTable from "@/components/data-grid/data-table";
 import ConfirmActionDialog from "@/components/product/confirm-action-dialog";
 import EmptyState from "@/components/product/empty-state";
 import { StatTile } from "@/components/product/home-tiles";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
+import IllustrationEmail from "@/icons/illustrations/illustration-email";
 import NiArrowInDown from "@/icons/nexture/ni-arrow-in-down";
 import NiBinFull from "@/icons/nexture/ni-bin-full";
 import NiChevronDownSmall from "@/icons/nexture/ni-chevron-down-small";
@@ -368,7 +370,8 @@ export default function PeopleAdmin() {
         }
         noRowsOverlay={
           <EmptyState
-            icon={<NiUsers size="large" />}
+            layout="row"
+            illustration={filter === "all" && !selectedEvent ? <IllustrationEmail /> : <IllustrationDocumentation />}
             title={filter === "all" && !selectedEvent ? "Ninguém se inscreveu ainda" : "Ninguém neste recorte"}
             description={
               filter === "all" && !selectedEvent

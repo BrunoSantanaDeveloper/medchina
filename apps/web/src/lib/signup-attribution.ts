@@ -26,7 +26,12 @@ export async function persistSignupAttribution(orgId: string): Promise<void> {
     if (!attribution) return;
 
     const service = createServiceClient();
-    await service.from("signup_attribution").upsert(
+    // The RESULT is read, not just awaited. supabase-js does not throw on a
+    // database error, it resolves with `{ error }` — so the try/catch below
+    // never saw a failed constraint, a missing grant or a rejected value, and
+    // the row silently did not exist. A measurement gap that cannot be noticed
+    // is worse than one that can: this is the only place that can report it.
+    const { error } = await service.from("signup_attribution").upsert(
       {
         org_id: orgId,
         origem: attribution.origem ?? null,
@@ -41,6 +46,9 @@ export async function persistSignupAttribution(orgId: string): Promise<void> {
       },
       { onConflict: "org_id", ignoreDuplicates: true },
     );
+    // No identifiers, no campaign values: the log says THAT a write failed and
+    // why, never who it was about.
+    if (error) console.warn("signup_attribution_write_failed", { code: error.code, message: error.message });
   } catch {
     // Attribution is a report, not a guarantee. Losing one row is a gap in a
     // chart; failing here would be a professional who cannot finish signing up.

@@ -19,7 +19,6 @@ import {
 
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
-import InfoHint from "@/components/product/info-hint";
 import { type PersistedWebRecording, useRecordingSession } from "@/components/product/recording-session-provider";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import NiCheckSquare from "@/icons/nexture/ni-check-square";
@@ -1118,11 +1117,11 @@ export default function ConsultationRecorder({
             step={undefined}
             icon={<NiMicrophone size="medium" />}
             title={t("recorder-title")}
-            hint={t("recorder-step-hint")}
-            // Operational detail (server confirmation, plan tier) sits behind an
-            // info affordance, anchored to the title it qualifies. On its own
-            // line it read as a stray icon belonging to nothing.
-            trailing={<InfoHint label={t("recorder-note")} className="ml-auto" />}
+            // What the card is for and its operational detail (server
+            // confirmation, plan tier) share ONE "i", beside the title it
+            // qualifies: two of them in one row read as icons belonging to
+            // nothing.
+            description={t("recorder-step-hint")}
           />
           {/* A capture left open by a reload or a refused microphone blocks every
             new one at the server. Never a dead end: state it and offer the exit. */}

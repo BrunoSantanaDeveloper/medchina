@@ -16,9 +16,10 @@ export const GUARANTEE_MINIMUM_DAYS = 7;
  * promising 7 days while the system counts 5 is the kind of drift that turns a
  * risk-reversal promise into a complaint.
  *
- * Deliberately has no admin console: extending a legal commitment should be a
- * deliberate act, and shortening it below the statutory floor is impossible by
- * construction.
+ * Written in `/admin/billing → Garantia`. Shortening it below the statutory
+ * floor is impossible by construction: the console refuses it and this reader
+ * clamps it anyway, so neither a console bug nor a hand-edited row can publish
+ * a promise the law would void.
  */
 export async function getGuaranteeDays(): Promise<number> {
   const supabase = createAnonClient();

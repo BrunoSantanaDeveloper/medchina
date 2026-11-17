@@ -1,6 +1,6 @@
 import "./clinical-source-home.css";
 
-import { getDisplayPlans } from "./plans";
+import { getCampaignDisplayPlans, getDisplayPlans } from "./plans";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
@@ -8,6 +8,8 @@ import { getTranslations } from "next-intl/server";
 import ClinicalSourceHome from "@/components/marketing/clinical-source-home";
 import { getHomeCopy } from "@/components/marketing/home-copy";
 import { COOKIE_KEYS } from "@/constants";
+import { getCampaignOffer } from "@/lib/campaign-offer";
+import { getGuaranteeDays } from "@/lib/guarantee";
 import { resolveRequestLocale } from "@/lib/locale-request";
 import { normalizeCouponCode } from "@/lib/offer-link";
 import { resolvePublicCoupon } from "@flyee/billing/public";
@@ -57,11 +59,52 @@ export default async function Home({
     normalizeCouponCode(typeof params.cupom === "string" ? params.cupom : null) ??
     normalizeCouponCode(cookieStore.get(COOKIE_KEYS.offerCoupon)?.value);
   const coupon = requestedCoupon ? await resolvePublicCoupon(requestedCoupon) : null;
-  const plans = await getDisplayPlans(coupon);
+
+  /**
+   * The campaign takes the pricing section over, when it is told to.
+   *
+   * Two switches, not one: `enabled` opens `/assinar` and is what the checkout
+   * enforces; `show_on_home` decides whether the home — the trial-first front
+   * door, where every button opens a free account — also sells it. Starting a
+   * campaign must not silently rewrite the page the organic audience lands on.
+   *
+   * It falls back to the catalogue whenever the offer cannot actually be sold
+   * (closed, or a slug matching no active plan), so a mistyped slug can never
+   * leave the home with an empty pricing section.
+   *
+   * The coupon path is left alone: a visitor who arrived with a code still sees
+   * the code's price. Campaign and coupon are two different promises and the
+   * one she was shown is the one she followed.
+   */
+  const campaignOffer = await getCampaignOffer();
+  const campaignPlans = campaignOffer?.showOnHome && !coupon ? await getCampaignDisplayPlans(campaignOffer) : [];
+  const selling = campaignPlans.length > 0;
+  const plans = selling ? campaignPlans : await getDisplayPlans(coupon);
+
+  /**
+   * What the section can still say truthfully once the free card and the trial
+   * card are gone. Both are real state — the guarantee from its own setting,
+   * the deadline from the offer's own row — and the deadline is formatted HERE
+   * because the home is a client component: a date formatted in the browser
+   * would not match the one the server rendered.
+   */
+  const offer = selling
+    ? {
+        guaranteeDays: await getGuaranteeDays(),
+        deadlineLabel: campaignOffer?.deadline
+          ? new Intl.DateTimeFormat(locale, {
+              day: "2-digit",
+              month: "long",
+              timeZone: "America/Sao_Paulo",
+            }).format(new Date(campaignOffer.deadline))
+          : null,
+      }
+    : null;
 
   return (
     <ClinicalSourceHome
       plans={plans}
+      offer={offer}
       copy={copy}
       locale={locale}
       autoSwitched={autoSwitched}

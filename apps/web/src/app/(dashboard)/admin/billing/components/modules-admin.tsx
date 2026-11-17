@@ -21,9 +21,9 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
 import { CurrencyField } from "@/components/product/fields";
+import IllustrationIntegrate from "@/icons/illustrations/illustration-integrate";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
-import NiPuzzle from "@/icons/nexture/ni-puzzle";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -242,7 +242,8 @@ export default function ModulesAdmin() {
           }
           noRowsOverlay={
             <EmptyState
-              icon={<NiPuzzle size="medium" />}
+              layout="row"
+              illustration={<IllustrationIntegrate />}
               title="Nenhum módulo ainda"
               description="Um módulo é um adicional vendido em cima de um plano — um recurso extra que o consultório liga sem trocar de nível."
               action={{ label: "Novo módulo", onClick: () => openEdit() }}

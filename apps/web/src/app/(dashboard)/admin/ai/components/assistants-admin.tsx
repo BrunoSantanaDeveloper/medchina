@@ -23,7 +23,7 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiAi from "@/icons/nexture/ni-ai";
+import IllustrationLaunch from "@/icons/illustrations/illustration-launch";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { recordAudit } from "@/lib/audit";
@@ -313,7 +313,8 @@ export default function AssistantsAdmin() {
           }
           noRowsOverlay={
             <EmptyState
-              icon={<NiAi size="medium" />}
+              layout="row"
+              illustration={<IllustrationLaunch />}
               title="Nenhum assistente ainda"
               description="Um assistente é um modelo mais suas instruções de sistema — o contrato de comportamento que toda conversa com ele obedece. Crie um para disponibilizá-lo no aplicativo."
               action={{ label: "Novo assistente", onClick: () => openEdit() }}

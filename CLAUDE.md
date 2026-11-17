@@ -49,6 +49,7 @@ Prontuário inteligente e assistente clínico para Medicina Tradicional Chinesa.
 - Icons: Phosphor set via the tsconfig alias (`@/icons/nexture/*` → `src/icons/phosphor/*`; fallback stubs re-export Nexture — replace incrementally).
 - Display font: TT Chocolates (commercial, `apps/web/src/fonts/tt-chocolates/`, weights 500/700/800 wired as `--font-display` in the root layout).
 - Clinical safety: AI output is always a draft for professional review; never word UI/copy as autonomous diagnosis/prescription; red only for risk/error; prices/limits come from configurable data.
+- **Finish the work you were given.** Carry each task to its end, and diagnose an ordinary obstacle (an error, a timeout, a locked file, a failing tool) and work through it. Stop only where these rules name a stop: the one step a person must take, a secret, a decision that is the user's, and what a rule protects. Confirmation before a risky or irreversible action still holds. Close with a recap that stands on its own: what you found and what you did.
 
 ## Shared Claude/Codex harness
 

@@ -18,8 +18,8 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import IllustrationConfigure from "@/icons/illustrations/illustration-configure";
 import NiBug from "@/icons/nexture/ni-bug";
-import NiExclamationHexagon from "@/icons/nexture/ni-exclamation-hexagon";
 import { createClient } from "@flyee/auth/client";
 
 type FailureRow = {
@@ -224,7 +224,8 @@ export default function ProcessingFailuresAdmin() {
           loading={!loaded}
           noRowsOverlay={
             <EmptyState
-              icon={<NiExclamationHexagon size="medium" />}
+              layout="row"
+              illustration={<IllustrationConfigure />}
               title="Nenhuma falha de processamento"
               description="Gravações cujo pipeline de IA falhou (transcrição, extração ou aplicação) aparecem aqui com o erro cru do provedor — nada para investigar agora."
               className="border-none"

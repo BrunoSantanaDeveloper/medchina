@@ -17,6 +17,17 @@ export type CampaignOffer = {
    * to know WHICH is the default, and a list would make that positional.
    */
   annualPlanSlug: string | null;
+  /**
+   * Whether the PUBLIC HOME shows this offer in place of its ordinary plans.
+   *
+   * A separate switch from `enabled`, and the separation is the point. `enabled`
+   * decides whether the campaign SELLS — it opens `/assinar` and it is what the
+   * checkout enforces. This one decides whether the offer also takes over the
+   * home, which is the site's trial-first front door: every button there opens
+   * a free account, by design. Turning the campaign on must not silently
+   * rewrite the page the organic audience lands on.
+   */
+  showOnHome: boolean;
   /** Table plan whose price is struck through as the anchor. Optional. */
   comparePlanSlug: string | null;
   /** When the condition stops being sold. Null = no deadline. */
@@ -29,6 +40,7 @@ export type CampaignOfferSetting = {
   enabled?: boolean;
   plan_slug?: string | null;
   annual_plan_slug?: string | null;
+  show_on_home?: boolean;
   compare_plan_slug?: string | null;
   deadline?: string | null;
 };
@@ -76,6 +88,9 @@ export function resolveCampaignOffer(value: CampaignOfferSetting | null | undefi
     // Never the same row twice: a console typo pointing both fields at one
     // plan would otherwise render the identical price as two choices.
     annualPlanSlug: annualSlug && annualSlug !== planSlug ? annualSlug : null,
+    // Strict `true`, like `enabled`: a missing key is a home that was never
+    // asked to change, and the front door is not something to flip by accident.
+    showOnHome: value?.show_on_home === true,
     comparePlanSlug: compareSlug || null,
     deadline: deadlineValid ? deadlineValid.toISOString() : null,
     closed: reason !== "open",

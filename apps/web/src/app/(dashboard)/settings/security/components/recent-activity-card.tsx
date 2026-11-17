@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Box, Card, CardContent, Chip, Grid, Typography } from "@mui/material";
 
 import { describeAgent } from "@/app/(dashboard)/admin/audit/components/access-events-admin";
+import SectionTitle from "@/components/product/section-title";
 import { createClient } from "@flyee/auth/client";
 
 type AccessRow = {
@@ -54,12 +55,8 @@ export default function RecentActivityCard() {
     <Grid size={12}>
       <Card component="section">
         <CardContent className="flex flex-col gap-4">
-          <Typography variant="h5" component="h2" className="card-title">
-            {t("security-recent-title")}
-          </Typography>
-          <Typography variant="body1" className="text-text-secondary">
-            {t("security-recent-body")}
-          </Typography>
+          {/* What to look for here is read once: behind the "i" (the owner, 2026-11-09). */}
+          <SectionTitle title={t("security-recent-title")} description={t("security-recent-body")} />
           {loaded && !rows.length && (
             <Typography variant="body2" className="text-text-secondary">
               {t("security-recent-empty")}

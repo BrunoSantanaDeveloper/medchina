@@ -8,7 +8,7 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 import { Field, SelectField } from "@/app/(dashboard)/admin/billing/components/catalog-shared";
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiAnnouncement from "@/icons/nexture/ni-announcement";
+import IllustrationEmail from "@/icons/illustrations/illustration-email";
 import NiPen from "@/icons/nexture/ni-pen";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
@@ -391,7 +391,8 @@ export default function AnnouncementsAdmin() {
               </Typography>
             ) : (
               <EmptyState
-                icon={<NiAnnouncement size="medium" />}
+                layout="row"
+                illustration={<IllustrationEmail />}
                 title="Nenhum anúncio ainda"
                 description="Publique uma mensagem e toda profissional logada vê o aviso no topo da tela até dispensar — janelas de manutenção, novidades, mudanças de política."
                 action={{ label: "Novo anúncio", onClick: () => setForm(EMPTY_FORM) }}

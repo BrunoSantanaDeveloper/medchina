@@ -7,15 +7,15 @@ site; the money-funnel events that happen inside the app are sent server-side.
 
 ## Where things live
 
-| Concern | File |
-|---|---|
-| Pixel + GA4 base scripts, **SSR, opt-out** | `apps/web/src/components/consent/marketing-trackers.tsx` |
-| Browser event helpers (`track`, `trackPageView`, opt-out) | `apps/web/src/lib/analytics.ts` |
-| SPA PageView on marketing routes | `apps/web/src/components/consent/marketing-analytics.tsx` |
-| One-shot event from a server page (e.g. ViewContent) | `apps/web/src/components/consent/track-event.tsx` |
-| Cookie notice (opt-out; renders only when a tracker is configured) | `apps/web/src/components/consent/cookie-consent.tsx` |
-| Server-side Meta Conversions API | `apps/web/src/lib/meta-capi.ts` (+ `meta-capi-context.ts`) |
-| Server-side GA4 Measurement Protocol | `apps/web/src/lib/ga4-mp.ts` (+ `getGaClientId` in `meta-capi-context.ts`) |
+| Concern                                                            | File                                                                       |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Pixel + GA4 base scripts, **SSR, opt-out**                         | `apps/web/src/components/consent/marketing-trackers.tsx`                   |
+| Browser event helpers (`track`, `trackPageView`, opt-out)          | `apps/web/src/lib/analytics.ts`                                            |
+| SPA PageView on marketing routes                                   | `apps/web/src/components/consent/marketing-analytics.tsx`                  |
+| One-shot event from a server page (e.g. ViewContent)               | `apps/web/src/components/consent/track-event.tsx`                          |
+| Cookie notice (opt-out; renders only when a tracker is configured) | `apps/web/src/components/consent/cookie-consent.tsx`                       |
+| Server-side Meta Conversions API                                   | `apps/web/src/lib/meta-capi.ts` (+ `meta-capi-context.ts`)                 |
+| Server-side GA4 Measurement Protocol                               | `apps/web/src/lib/ga4-mp.ts` (+ `getGaClientId` in `meta-capi-context.ts`) |
 
 The client Pixel/GA4 mount ONLY in the marketing layout. The dashboard layout
 mounts neither the banner nor any tracker (see the comment in
@@ -71,7 +71,7 @@ Split by where the event physically happens:
 | `Lead` → GA4 `generate_lead` | every live-event page (`content_name: <event slug>`), only when a number registers for that event for the FIRST time (a repeat fires nothing), with `eventID` = the registration id. `track(event, props, { eventId, ga4Name })` passes the id to the Pixel as `{ eventID }` |
 
 **Why `Lead` is browser-only (2026-09-26).** The legitimate-interest posture
-below covers the transactions of *account holders*; someone who registers for
+below covers the transactions of _account holders_; someone who registers for
 the live event is not one. Sending `Lead` server-side too means extending that
 posture in the three texts (cookie notice, `privacy-7`, `cookies-4`) with a new
 `CONSENT_VERSION` in the same commit, and adding the phone key (`ph`) to
@@ -98,15 +98,15 @@ invoice including renewals.
 
 **Server (GA4 Measurement Protocol — same call sites, mirrors the events above)**
 
-| Meta event | GA4 event | params |
-|---|---|---|
-| `CompleteRegistration` | `sign_up` | `method` |
-| `Activated` | `activated` | — |
-| `StartTrial` | `start_trial` | — |
-| `TrialExpiring` | `trial_expiring` | — |
-| `InitiateCheckout` | `begin_checkout` | `currency`, `value` |
-| `Purchase` | `purchase` | `currency`, `value`, `transaction_id` |
-| `Subscribe` | `subscribe` | `currency`, `value` |
+| Meta event             | GA4 event        | params                                |
+| ---------------------- | ---------------- | ------------------------------------- |
+| `CompleteRegistration` | `sign_up`        | `method`                              |
+| `Activated`            | `activated`      | —                                     |
+| `StartTrial`           | `start_trial`    | —                                     |
+| `TrialExpiring`        | `trial_expiring` | —                                     |
+| `InitiateCheckout`     | `begin_checkout` | `currency`, `value`                   |
+| `Purchase`             | `purchase`       | `currency`, `value`, `transaction_id` |
+| `Subscribe`            | `subscribe`      | `currency`, `value`                   |
 
 Each GA4 event is stitched to the visitor's web session via the `_ga` cookie
 `client_id`. **No `client_id` → no GA4 event** — which is both required by the
@@ -122,6 +122,7 @@ DISABLED (the sign-up page then gets an immediate session and skips the
 callback), add a server touchpoint on that path too.
 
 ### Purchase match enrichment (implemented — migrations 0051 + 0052)
+
 The `Purchase` webhook has no browser, so the tracking signals are captured at
 checkout time instead: `startCheckout` reads the marketing-site `_fbp`/`_fbc`
 cookies and the GA4 `_ga` `client_id` (same origin, no in-app tracker) plus
@@ -134,6 +135,7 @@ moment), so a plain checkout never wipes a stored row. With this, you may also
 tick Email/`_fbp`/`_fbc`/IP on the Purchase event in the CAPI setup wizard.
 
 ### Last-touch campaign on the Purchase (implemented — migration 0112)
+
 First touch lives in `signup_attribution` (0086) and never changes. The campaign
 that brought an EXISTING account back to buy — the `/china` CTA, the room or the
 recording of `/lei-15345` — travels in the link (`origem` + `utm_*`, allowlisted
@@ -167,6 +169,7 @@ link or the cookie clears the stored one: it IS the last touch, and a purchase
 weeks after an event must not be credited to it.
 
 ### Fast-follow (optional)
+
 - Add a predicted value to `StartTrial` (the Pro plan price) for value-based ad
   optimization.
 
@@ -183,27 +186,43 @@ trial-first model converts on the TRIAL sequence, not generic nurture).
   unsubscribe (`/api/public/unsubscribe`, `profiles.email_unsubscribe_token`,
   migration 0056). Needs Inngest + Resend to run/send (no inline fallback).
 - **Remarketing audiences** (built by hand in Meta Ads Manager from the events
-  above): *signed up not activated* = `CompleteRegistration` AND NOT `Activated`;
-  *activated not paying* = `Activated`/`StartTrial` AND NOT `Purchase`/`Subscribe`;
-  *trial expiring* = the `TrialExpiring` event; **exclude** `Purchase`/`Subscribe`
+  above): _signed up not activated_ = `CompleteRegistration` AND NOT `Activated`;
+  _activated not paying_ = `Activated`/`StartTrial` AND NOT `Purchase`/`Subscribe`;
+  _trial expiring_ = the `TrialExpiring` event; **exclude** `Purchase`/`Subscribe`
   (payers) and recent `StartTrial` without `Purchase` (active trials) from
   acquisition campaigns.
+
+## Atribuição de cadastro — por que a tabela ficou vazia de 10/08 a 17/11
+
+`signup_attribution` teve **zero linhas desde que o recurso existe**, mesmo com o código escrito e as contas sendo criadas. Três defeitos, nesta ordem de importância:
+
+**1. A gravação nunca era chamada.** `persistSignupAttribution` só rodava em `/auth/callback` e em `/auth/complete-profile`. O callback só existe quando o projeto Supabase exige confirmação de e-mail, e ele **não exige**: medido no banco, as 30 contas confirmam em 1 segundo. Então `signUp` devolve sessão, a página navega direto para `next`, e o callback nunca acontece. O comentário do próprio arquivo dizia "o caminho de e-mail é coberto por /auth/callback" — era a suposição errada que custou todas as linhas.
+
+Hoje a gravação sai de `POST /api/attribution/capture`, chamado pela página de cadastro assim que a sessão existe. **É rota e não server action**, e o motivo é específico: uma server action posta na própria página, e o middleware redireciona `/auth/sign-up` no instante em que há sessão ("quem está logado não precisa da tela de cadastro"). Isso devolvia 307 onde o React esperava o resultado da action, e o formulário morria com "resposta inesperada do servidor" — conta criada, navegação perdida. Observado num navegador real antes de trocar a abordagem.
+
+**2. O erro do upsert era engolido.** `supabase-js` não lança em erro de banco, devolve `{ error }` — então o `try/catch` nunca via constraint recusada, permissão faltando ou valor inválido. Agora o resultado é lido e um `console.warn("signup_attribution_write_failed")` registra código e mensagem, sem nenhum identificador.
+
+**3. O `_fbc` nunca era criado.** O código só LIA o cookie do Pixel. Mas o Pixel não roda sempre: navegador com prevenção de rastreamento ou bloqueador recusa `connect.facebook.net` antes de qualquer requisição (medido em produção: `ERR_BLOCKED_BY_CLIENT`), e o checkout é server action sem navegador nenhum. Por isso 0 de 5 checkouts tinham `_fbc` enquanto 4 tinham `_fbp`: o `_fbp` o Pixel cria em qualquer pageview, o `_fbc` exige o clique.
+
+Agora o middleware captura o `fbclid` da URL no primeiro toque, sob cookie próprio (`lib/meta-click.ts`), e `getMetaClientContext` monta `fb.1.<ms>.<fbclid>` **só quando o `_fbc` do Pixel não existe** — o Pixel sempre vence. O cookie NÃO se chama `_fbc` de propósito: esse nome é do Pixel, que o escopa no domínio registrável; um nosso, host-only, faria `cookies().get("_fbc")` devolver um dos dois ao acaso.
+
+**O que foi provado em navegador real, contra banco local:** o link marcado grava os três cookies (atribuição, campanha e clique), e o cadastro pelo caminho real passa a gravar `signup_attribution` com os quatro `utm_*` e o `landing_path`. **O que não foi provado:** o passo do checkout, porque o provedor de pagamento não inicializa no ambiente local (`no_provider_configured`) e a gravação de `meta_attribution` acontece depois da chamada dele.
 
 ## Configuration — where to get each value
 
 Set these in Vercel (and `apps/web/.env` for local). All are optional; leaving
 them empty disables tracking with no errors.
 
-- **`NEXT_PUBLIC_META_PIXEL_ID`** — Meta Events Manager → *Data sources* → your
+- **`NEXT_PUBLIC_META_PIXEL_ID`** — Meta Events Manager → _Data sources_ → your
   dataset → the **Pixel ID** (a numeric id). Public by design.
-- **`META_CAPI_TOKEN`** — same dataset → *Settings* → *Conversions API* →
+- **`META_CAPI_TOKEN`** — same dataset → _Settings_ → _Conversions API_ →
   **Generate access token**. Server-only secret; never expose it.
-- **`META_CAPI_TEST_EVENT_CODE`** *(optional)* — Events Manager → *Test events*
+- **`META_CAPI_TEST_EVENT_CODE`** _(optional)_ — Events Manager → _Test events_
   tab shows a `TESTxxxxx` code; set it temporarily to watch events arrive live,
   then remove it.
-- **`NEXT_PUBLIC_GA4_ID`** — Google Analytics → *Admin* → *Data streams* → your
+- **`NEXT_PUBLIC_GA4_ID`** — Google Analytics → _Admin_ → _Data streams_ → your
   **Web** stream → **Measurement ID**, format `G-XXXXXXXXXX`. Public by design.
-- **`GA4_API_SECRET`** — same Web stream → *Measurement Protocol API secrets* →
+- **`GA4_API_SECRET`** — same Web stream → _Measurement Protocol API secrets_ →
   **Create**. Server-only secret; powers the server-side GA4 conversions.
 
 ## Verifying

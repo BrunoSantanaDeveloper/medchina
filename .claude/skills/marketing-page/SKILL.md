@@ -99,6 +99,13 @@ A page can follow every rule below and still look like a beginner site if it is 
 - **Responsive:** mobile-first — the base layout is the phone; breakpoints only add columns/space. No horizontal scroll at 375px. Verify 375/768/1440.
 - **Routes:** a new public page must be added to `PUBLIC_PREFIXES` in `apps/web/src/middleware.ts` and to `apps/web/src/app/sitemap.ts`, and export its own `metadata`/`generateMetadata`.
 
+**Lessons from production** (each one shipped broken once; keep them in every project):
+
+- **No loading boundary above a public page**: neither an `app/loading.tsx` nor a `<Suspense>` in the root layout. Each signed-in area keeps its own boundary in its own layout. Failure this prevents: the response started before `notFound()` or `redirect()` ran, so a missing page answered 200 (with `noindex`) and a moved one got a meta refresh instead of a real redirect.
+- **Decided before the first paint**: anything a public page decides in the browser and shows above the fold (the colour-mode class first of all) is decided from `<head>` before the first paint, never after hydration. Failure this prevents: the page flashed and shifted as it switched to what the browser decided late.
+- **Hues on icons, bars and fills; words in text colours**: a palette hue rarely reaches 4.5:1 as small text on a light ground. Failure this prevents: tinted words that looked fine on a designer's screen failed contrast.
+- **A missing value hides its line**, and **content that could not be read is never shown as an empty list**: a help centre or a blog whose read failed says so, with a retry. Failure this prevents: a placeholder read as data, and a failed read read as a site with nothing to say.
+
 ## SEO & discoverability (every page earns its ranking)
 
 The template already ships the technical layer — `sitemap.ts`, `robots.ts`, the shared Open Graph image, `Organization`/`WebSite` JSON-LD in the marketing layout, and `FAQPage`/`Product` JSON-LD emitted automatically by `Faq`/`PricingSection`. The committed per-page search direction (target term + intent per page) lives in `docs/SEO.md` — read it the way you read `docs/DESIGN.md`. Your job on each page is the on-page layer:
@@ -174,6 +181,8 @@ Rules:
 - Only through `<Reveal>` (`components/marketing/reveal.tsx`) or a GSAP `useGSAP` block in a client component. Transforms + `autoAlpha` only — never animate width/height/top/left.
 - Wrap in `gsap.matchMedia()` honoring `prefers-reduced-motion: reduce` (static and fully visible). Degrade heavy scroll animation on touch devices.
 - Durations/easing/distance come from the motion tokens. ScrollTrigger plays once, near-viewport start.
+- **What the visitor already sees is left alone.** A `<Reveal>` animates only a block that is still out of sight when the page hydrates; a block already on screen at that moment stays as it is, never hidden to be animated back in. Failure this prevents: a script can only start after hydration, so on a phone a reveal hid the text the visitor was already reading and brought it back seconds late.
+- **Nothing animates forever.** Chromium produces a main-thread frame for every tick of a running animation while any IntersectionObserver is watching something (link prefetching always is), so an endless ambient loop keeps a phone working on an idle page. Give ambient motion an end: a finite `repeat` on a GSAP tween (never `repeat: -1`), an iteration count on a CSS animation, settling after a few cycles. Failure this prevents: an idle page kept a phone's main thread busy for as long as it stayed open.
 - For GSAP API details, defer to the installed `gsap-*` skills (`.claude/skills/gsap-*`).
 
 ## Before finishing

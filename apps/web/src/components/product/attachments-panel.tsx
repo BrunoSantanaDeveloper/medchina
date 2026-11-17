@@ -19,7 +19,6 @@ import {
 import ConsultationStepHeader from "@/components/product/consultation-step-header";
 import DialogHeader from "@/components/product/dialog-header";
 import GateNotice from "@/components/product/gate-notice";
-import InfoHint from "@/components/product/info-hint";
 import NiAi from "@/icons/nexture/ni-ai";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
 import NiPaperclip from "@/icons/nexture/ni-paperclip";
@@ -247,12 +246,13 @@ export default function AttachmentsPanel({
         {/* Documents and photos are supporting material, not a step of the
             reasoning: numbering this "2" put it in a tie with Hipóteses and
             made the sequence read as guidance that had lost count. The chain
-            the numbers describe is record → interpret → plan. */}
+            the numbers describe is record → interpret → plan. The line that
+            only repeated the title is gone; what to know before sending sits
+            behind the "i" beside it. */}
         <ConsultationStepHeader
           icon={<NiPaperclip size="medium" />}
           title={t("attachments-title")}
-          hint={t("attachments-hint")}
-          trailing={<InfoHint label={t("attachments-note")} className="ml-auto" />}
+          description={t("attachments-note")}
         />
 
         <input

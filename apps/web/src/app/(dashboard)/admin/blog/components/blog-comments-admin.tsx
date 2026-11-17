@@ -7,9 +7,10 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import IllustrationConfigure from "@/icons/illustrations/illustration-configure";
+import IllustrationSupport from "@/icons/illustrations/illustration-support";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiCross from "@/icons/nexture/ni-cross";
-import NiMessages from "@/icons/nexture/ni-messages";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -213,7 +214,8 @@ export default function BlogCommentsAdmin() {
           loading={!loaded}
           noRowsOverlay={
             <EmptyState
-              icon={<NiMessages size="medium" />}
+              layout="row"
+              illustration={status === "pending" ? <IllustrationConfigure /> : <IllustrationSupport />}
               title={
                 status === "pending"
                   ? "Nada esperando revisão"

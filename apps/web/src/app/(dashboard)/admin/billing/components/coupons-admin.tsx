@@ -20,9 +20,9 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import IllustrationLaunch from "@/icons/illustrations/illustration-launch";
 import NiPen from "@/icons/nexture/ni-pen";
 import NiPlus from "@/icons/nexture/ni-plus";
-import NiTicket from "@/icons/nexture/ni-ticket";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -240,7 +240,8 @@ export default function CouponsAdmin() {
           }
           noRowsOverlay={
             <EmptyState
-              icon={<NiTicket size="medium" />}
+              layout="row"
+              illustration={<IllustrationLaunch />}
               title="Nenhum cupom ainda"
               description="Um cupom dá desconto num plano no checkout — percentual ou valor fixo, com limite de resgates e data de validade opcionais."
               action={{ label: "Novo cupom", onClick: () => openEdit() }}

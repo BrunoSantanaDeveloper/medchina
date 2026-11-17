@@ -484,6 +484,7 @@ function PresenceExperience({ copy }: { copy: HomeCopy["presence"] }) {
 
 export default function ClinicalSourceHome({
   plans,
+  offer,
   couponNotice,
   copy,
   locale,
@@ -491,6 +492,16 @@ export default function ClinicalSourceHome({
 }: {
   /** Live catalog from packages/billing, already formatted by the server page. */
   plans: PublicPlanDisplay[];
+  /**
+   * Present only when `plans` ARE the campaign offer (`show_on_home`).
+   *
+   * What it carries is what the section can honestly say once the free card and
+   * the trial card are gone: the guarantee, from its own setting, and the
+   * deadline, from the offer's own row — both already formatted on the server,
+   * because this is a client component and a date formatted here would not
+   * match the one the server rendered.
+   */
+  offer?: { guaranteeDays: number; deadlineLabel: string | null } | null;
   /** Confirmation that a campaign code was recognized — or that it was not. */
   couponNotice?: { label: string; applied: boolean };
   /** This page's copy in the active language (home-copy/<locale>.ts). */
@@ -720,11 +731,24 @@ export default function ClinicalSourceHome({
         <div className="pricing-stage">
           <div className="section-heading section-heading--center">
             <p className="eyebrow eyebrow--light">{copy.pricing.eyebrow}</p>
-            <h2>{rich(copy.pricing.title)}</h2>
-            <p>{copy.pricing.lead}</p>
+            <h2>{rich(offer ? copy.pricing.offerTitle : copy.pricing.title)}</h2>
+            <p>{offer ? copy.pricing.offerLead : copy.pricing.lead}</p>
           </div>
-          <div className="pricing-trust" aria-label={copy.pricing.trustAria}>
-            {copy.pricing.trust.map((item) => (
+          {/* The catalogue's three marks sell the free account, the trial and
+              "no card" — the exact opposite of what a campaign card does. When
+              the offer takes the section over they are replaced by the two
+              facts a purchase actually has, and the deadline only appears when
+              there is one (docs/FUNIL.md: no invented scarcity). */}
+          <div className="pricing-trust" aria-label={offer ? copy.pricing.offerTrustAria : copy.pricing.trustAria}>
+            {(offer
+              ? [
+                  copy.pricing.offerTrustGuarantee.replace("{days}", String(offer.guaranteeDays)),
+                  ...(offer.deadlineLabel
+                    ? [copy.pricing.offerTrustDeadline.replace("{date}", offer.deadlineLabel)]
+                    : []),
+                ]
+              : copy.pricing.trust
+            ).map((item) => (
               <span key={item}>
                 <CheckCircle size={18} weight="fill" /> {item}
               </span>
@@ -739,8 +763,14 @@ export default function ClinicalSourceHome({
         <div className="pricing-grid">
           {plans.map((plan) => {
             const presentation = copy.pricing.plans[plan.slug as keyof HomeCopy["pricing"]["plans"]];
-            const eyebrow = presentation?.eyebrow ?? copy.pricing.defaultEyebrow;
-            const cta = presentation?.cta ?? copy.pricing.defaultCta;
+            // A campaign card is a slug the copy file has never heard of, and
+            // it must not fall back to "create a free account": that label on a
+            // paid offer is the whole reason the home never produced a single
+            // checkout. `checkoutHref` is what marks it.
+            const selling = Boolean(plan.checkoutHref);
+            const eyebrow =
+              presentation?.eyebrow ?? (selling ? copy.pricing.offerEyebrow : copy.pricing.defaultEyebrow);
+            const cta = presentation?.cta ?? (selling ? copy.pricing.offerCta : copy.pricing.defaultCta);
             const badge = presentation?.badge;
             const Icon = PLAN_ICONS[plan.slug] ?? Notebook;
             const featured = Boolean(plan.highlighted);
@@ -765,7 +795,7 @@ export default function ClinicalSourceHome({
                   <strong>{plan.price}</strong>
                   {plan.period && <small>{plan.period}</small>}
                 </div>
-                <a className={`button ${featured ? "" : "button--secondary"}`} href={signUpUrl}>
+                <a className={`button ${featured ? "" : "button--secondary"}`} href={plan.checkoutHref ?? signUpUrl}>
                   {cta}
                   <ArrowRight size={17} />
                 </a>
@@ -788,8 +818,16 @@ export default function ClinicalSourceHome({
             <ShieldCheck size={25} weight="duotone" aria-hidden="true" />
           </span>
           <span>
-            <strong>{copy.pricing.assuranceTitle}</strong>
-            <small>{copy.pricing.assuranceDetail}</small>
+            <strong>
+              {offer
+                ? copy.pricing.offerAssuranceTitle.replace("{days}", String(offer.guaranteeDays))
+                : copy.pricing.assuranceTitle}
+            </strong>
+            <small>
+              {offer
+                ? copy.pricing.offerAssuranceDetail.replace("{days}", String(offer.guaranteeDays))
+                : copy.pricing.assuranceDetail}
+            </small>
           </span>
           <a href="#duvidas">
             {copy.pricing.assuranceLink} <ArrowRight size={15} />

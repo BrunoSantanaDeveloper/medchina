@@ -23,6 +23,15 @@ export type PublicPlanDisplay = {
   originalPrice?: string;
   /** What the coupon takes off this card ("20% de desconto"). */
   discountLabel?: string;
+  /**
+   * Where this card's button goes, when it is not the ordinary free sign-up.
+   *
+   * A campaign card sells: sending it to the sign-up screen with no destination
+   * would open a free account and drop the person in the onboarding, which is
+   * the opposite of what the ad promised and the reason the checkout event
+   * never fires from the home.
+   */
+  checkoutHref?: string;
   period?: string;
   features: string[];
   highlighted?: boolean;

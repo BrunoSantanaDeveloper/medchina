@@ -7,7 +7,7 @@ import { type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiCreditCard from "@/icons/nexture/ni-credit-card";
+import IllustrationAccounts from "@/icons/illustrations/illustration-accounts";
 import { recordAudit } from "@/lib/audit";
 import { createClient } from "@flyee/auth/client";
 
@@ -432,7 +432,8 @@ export default function SubscriptionsAdmin() {
           loading={!loaded}
           noRowsOverlay={
             <EmptyState
-              icon={<NiCreditCard size="medium" />}
+              layout="row"
+              illustration={<IllustrationAccounts />}
               title="Nenhuma assinatura em andamento"
               description="Assinaturas em trial, ativas, inadimplentes e incompletas aparecem aqui conforme os consultórios começam a pagar — com o corte de acesso, a concessão de minutos e o plano cortesia em cada linha."
               className="border-none"

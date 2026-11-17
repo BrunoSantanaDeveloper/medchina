@@ -35,9 +35,13 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import AppointmentRemindersDialog from "@/components/product/appointment-reminders-dialog";
 import ConsultationBriefingDialog from "@/components/product/consultation-briefing-dialog";
 import EmptyState from "@/components/product/empty-state";
+import InfoHint from "@/components/product/info-hint";
 import { pickerLocaleText } from "@/components/product/picker-locale";
 import ScheduleDialog, { type ScheduleSeed } from "@/components/product/schedule-dialog";
 import { useCurrentOrg } from "@/hooks/use-current-org";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
+import IllustrationPlatforms from "@/icons/illustrations/illustration-platforms";
+import IllustrationStorage from "@/icons/illustrations/illustration-storage";
 import NiCalendarClock from "@/icons/nexture/ni-calendar-clock";
 import NiChevronLeft from "@/icons/nexture/ni-chevron-left";
 import NiChevronRight from "@/icons/nexture/ni-chevron-right";
@@ -773,23 +777,28 @@ export default function Agenda() {
             <CardContent>
               {/* A search that matches nothing is a different answer from an empty agenda:
                   it must offer a way back, never the "schedule one" nudge. */}
+              {/* Never a blank card: a drawing of what is empty here, unframed
+                  inside the card that frames it (the owner, 2026-11-09). */}
               {(view === "week" || view === "month") && query ? (
                 <EmptyState
-                  icon={<NiCalendarClock />}
+                  illustration={<IllustrationDocumentation />}
+                  framed={false}
                   title={t("agenda-upcoming-no-match-title")}
                   description={t("agenda-upcoming-no-match-body", { patient: patientFilter.trim() })}
                   action={{ label: t("agenda-upcoming-clear-filter"), onClick: () => setPatientFilter("") }}
                 />
               ) : view === "week" || view === "month" ? (
                 <EmptyState
-                  icon={<NiCalendarClock />}
+                  illustration={<IllustrationPlatforms />}
+                  framed={false}
                   title={t(view === "week" ? "agenda-week-empty-title" : "agenda-month-empty-title")}
                   description={t(view === "week" ? "agenda-week-empty-body" : "agenda-month-empty-body")}
                   action={{ label: t("agenda-schedule"), onClick: openNewSchedule }}
                 />
               ) : (
                 <EmptyState
-                  icon={<NiCalendarClock />}
+                  illustration={showCancelled ? <IllustrationStorage /> : <IllustrationPlatforms />}
+                  framed={false}
                   title={showCancelled ? t("agenda-no-cancelled-title") : t("agenda-empty-title")}
                   description={
                     showCancelled
@@ -850,13 +859,13 @@ export default function Agenda() {
             aria-label={t("agenda-overdue-title", { count: overdueState.data.length })}
           >
             <Box className="flex flex-col gap-2">
-              <Box>
-                <Typography variant="body2" className="font-semibold">
+              {/* What "left behind" means is read once, behind the "i": each
+                  row shows its own ways out (start, reschedule, no-show). */}
+              <Box className="flex flex-row items-center gap-1">
+                <Typography variant="body2" className="mb-0 font-semibold">
                   {t("agenda-overdue-title", { count: overdueState.data.length })}
                 </Typography>
-                <Typography variant="body2" className="text-text-secondary text-xs">
-                  {t("agenda-overdue-body")}
-                </Typography>
+                <InfoHint label={t("agenda-overdue-body")} placement="bottom-start" className="self-center" />
               </Box>
               {overdueState.data.map((appointment) => (
                 <Box key={appointment.id} className="flex flex-row flex-wrap items-center gap-x-3 gap-y-1">

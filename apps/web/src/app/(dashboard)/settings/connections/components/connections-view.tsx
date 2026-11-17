@@ -26,6 +26,7 @@ import {
 } from "@mui/material";
 
 import EmptyState from "@/components/product/empty-state";
+import IllustrationIntegrate from "@/icons/illustrations/illustration-integrate";
 import NiListCircle from "@/icons/nexture/ni-list-circle";
 import NiPlug from "@/icons/nexture/ni-plug";
 import { SCOPE_LABEL_KEYS } from "@/lib/oauth/scopes";
@@ -187,8 +188,11 @@ export default function ConnectionsView({
 
             <Grid size={12}>
               {connections.length === 0 ? (
+                // A band across the page under the card that explains the
+                // connection: the drawing beside the words.
                 <EmptyState
-                  icon={<NiPlug size="large" />}
+                  illustration={<IllustrationIntegrate />}
+                  layout="row"
                   title={t("connections-empty-title")}
                   description={t("connections-empty-body")}
                 />

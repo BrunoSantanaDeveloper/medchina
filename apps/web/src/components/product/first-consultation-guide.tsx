@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 
 import { Box, Button, Card, CardContent, Typography } from "@mui/material";
 
+import SectionTitle from "@/components/product/section-title";
 import { TILE_TONE } from "@/components/product/tile-tone";
 import NiCompass from "@/icons/nexture/ni-compass";
 import NiDocumentFull from "@/icons/nexture/ni-document-full";
@@ -86,14 +87,16 @@ export default function FirstConsultationGuide({
           >
             <NiCompass size="medium" />
           </span>
-          <Box className="min-w-0 flex-1">
-            <Typography variant="h6" component="h2" id={TITLE_ID} className="mb-0">
-              {t("first-consultation-guide-title")}
-            </Typography>
-            <Typography variant="body2" className="text-text-secondary leading-5">
-              {t("first-consultation-guide-hint")}
-            </Typography>
-          </Box>
+          {/* What the guide is, and that it leaves by itself, is read once:
+              behind the "i" (the owner, 2026-11-09). The three points below
+              are the guide itself and stay in sight. */}
+          <SectionTitle
+            id={TITLE_ID}
+            variant="h6"
+            className="min-w-0 flex-1 self-center"
+            title={t("first-consultation-guide-title")}
+            description={t("first-consultation-guide-hint")}
+          />
         </Box>
 
         <Box component="ul" className="m-0 grid list-none gap-4 p-0 md:grid-cols-3">

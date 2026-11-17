@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Alert, Box, Button, Card, CardContent, Chip, Grid, Skeleton, TextField, Typography } from "@mui/material";
 
+import SectionTitle from "@/components/product/section-title";
 import {
   insertWhatsappToken,
   normalizeWhatsappTemplate,
@@ -135,12 +136,13 @@ export default function WhatsappMessageCard() {
     <Grid size={12}>
       <Card component="section">
         <CardContent>
-          <Typography variant="h5" component="h2" className="card-title">
-            {t("whatsapp-template-title")}
-          </Typography>
-          <Typography variant="body2" className="text-text-secondary mb-4 leading-6">
-            {t("whatsapp-template-hint")}
-          </Typography>
+          {/* What the message is for is read once: behind the "i" (the owner,
+              2026-11-09). The preview below shows it resolve. */}
+          <SectionTitle
+            className="mb-4"
+            title={t("whatsapp-template-title")}
+            description={t("whatsapp-template-hint")}
+          />
 
           {status === "saved" && (
             <Alert severity="success" className="neutral bg-background-paper/60! mb-4">

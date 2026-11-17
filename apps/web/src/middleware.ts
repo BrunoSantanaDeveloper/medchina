@@ -5,6 +5,7 @@ import { COOKIE_KEYS } from "@/constants";
 import { ATTRIBUTION_COOKIE_MAX_AGE, encodeAttribution, readAttributionFromUrl } from "@/lib/attribution";
 import { encodeCampaignCookie, hasCampaign, LAST_CAMPAIGN_MAX_AGE, pickCampaignParams } from "@/lib/campaign-params";
 import { detectLocale, LOCALE_COOKIE_MAX_AGE } from "@/lib/locale-detection";
+import { encodeFbclidCookie, sanitizeFbclid } from "@/lib/meta-click";
 import { COUPON_COOKIE_MAX_AGE, COUPON_PARAM, normalizeCouponCode } from "@/lib/offer-link";
 import { IMPERSONATION_MARKER_COOKIE, parseImpersonationMarker } from "@flyee/auth";
 import { updateSession } from "@flyee/auth/middleware";
@@ -140,7 +141,15 @@ const IMPERSONATION_READONLY_API = [
  * trial and the recorder must not start behind a screen she never reached.
  */
 const WHATSAPP_CONFIRMATION = "/auth/whatsapp";
-const WHATSAPP_PENDING_ALLOWED = ["/assinatura", "/settings/billing", "/api/impersonation/exit"];
+const WHATSAPP_PENDING_ALLOWED = [
+  "/assinatura",
+  "/settings/billing",
+  "/api/impersonation/exit",
+  // Written the moment the account exists, which for a campaign sign-up is
+  // BEFORE the confirmation. Holding it here would lose the campaign of
+  // exactly the sign-ups the campaign paid for.
+  "/api/attribution/capture",
+];
 
 export async function middleware(request: NextRequest) {
   const { response, user, needsMfa, impersonating } = await updateSession(request);
@@ -178,6 +187,24 @@ export async function middleware(request: NextRequest) {
   const linkAttribution = request.cookies.has(COOKIE_KEYS.attribution)
     ? null
     : readAttributionFromUrl(request.nextUrl, request.headers.get("referer"));
+
+  /**
+   * The Meta ad-click id, captured here for the same reason as the attribution
+   * above: it rides the landing URL and nothing downstream sees that URL again.
+   *
+   * It exists because `_fbc` is the Pixel's job and the Pixel does not always
+   * run — a tracking-prevention browser or a blocker refuses
+   * `connect.facebook.net` outright (measured: ERR_BLOCKED_BY_CLIENT), and the
+   * checkout is a server action with no browser at all. Without the raw id, a
+   * server conversion from a real ad click reaches Meta with no click to match
+   * it to, which is exactly the "0 de 5 checkouts com _fbc" in the data.
+   *
+   * FIRST touch, like the attribution: a later visit through a bookmark must
+   * not overwrite the click that paid for her.
+   */
+  const linkFbclid = request.cookies.has(COOKIE_KEYS.fbclid)
+    ? null
+    : sanitizeFbclid(request.nextUrl.searchParams.get("fbclid"));
 
   /**
    * The LAST-touch campaign, the opposite rule: rewritten by every link that
@@ -234,6 +261,17 @@ export async function middleware(request: NextRequest) {
       res.cookies.set(COOKIE_KEYS.lastCampaign, encodeCampaignCookie(linkCampaign), {
         path: "/",
         maxAge: LAST_CAMPAIGN_MAX_AGE,
+        sameSite: "lax",
+        httpOnly: true,
+      });
+    }
+    if (linkFbclid) {
+      // The CLICK time, stored with the id: Meta wants the moment of the click,
+      // and a boleto confirms days later. Same 90-day window as the attribution
+      // cookie, which is also Meta's own default for `_fbc`.
+      res.cookies.set(COOKIE_KEYS.fbclid, encodeFbclidCookie(linkFbclid, Date.now()), {
+        path: "/",
+        maxAge: ATTRIBUTION_COOKIE_MAX_AGE,
         sameSite: "lax",
         httpOnly: true,
       });

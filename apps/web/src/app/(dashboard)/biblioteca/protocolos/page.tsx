@@ -26,7 +26,7 @@ import {
 import EmptyState from "@/components/product/empty-state";
 import { useCurrentOrg } from "@/hooks/use-current-org";
 import { useProfile } from "@/hooks/use-profile";
-import NiPen from "@/icons/nexture/ni-pen";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiPlus from "@/icons/nexture/ni-plus";
 import { OWN_PROTOCOLS_SLUG } from "@/lib/clinical-library";
 import { trackProductEvent } from "@/lib/product-events";
@@ -174,11 +174,11 @@ export default function Protocolos() {
             <Skeleton variant="rounded" height={200} className="rounded-3xl" />
           ) : state.status === "empty" ? (
             <EmptyState
-              icon={<NiPen />}
+              illustration={<IllustrationDocumentation />}
+              framed={false}
               title={t("protocols-empty-title")}
               description={t("protocols-empty-body")}
               action={{ label: t("protocols-new"), onClick: () => setDraft({ title: "", content: "" }) }}
-              className="border-0"
             />
           ) : (
             <Box component="ul" className="m-0 flex list-none flex-col gap-2 p-0">

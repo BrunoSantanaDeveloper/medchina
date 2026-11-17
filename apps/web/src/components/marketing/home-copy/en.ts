@@ -336,6 +336,17 @@ export const homeCopy: HomeCopy = {
     },
     defaultEyebrow: "Plan",
     defaultCta: "Create free account",
+    offerEyebrow: "Campaign price",
+    offerCta: "Subscribe now",
+    offerTitle: "This is the campaign's offer.\n**At this page's price, while it is open.**",
+    offerLead:
+      "The free account and the Pro trial still exist — they are simply not the path from here. On this page you subscribe straight to the plan you want.",
+    offerTrustAria: "Terms of this offer",
+    offerTrustGuarantee: "{days}-day money-back guarantee",
+    offerTrustDeadline: "Offer valid until {date}",
+    offerAssuranceTitle: "{days} days to change your mind.",
+    offerAssuranceDetail:
+      "If it does not fit your practice, you request a refund within {days} days and get your money back.",
     included: "What's included",
     assuranceTitle: "Your trial starts when your work starts.",
     assuranceDetail:

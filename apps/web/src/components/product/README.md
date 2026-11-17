@@ -2,7 +2,8 @@
 
 Building blocks for the authenticated app (dashboard/product screens) — the counterpart to `components/marketing/`. They exist so product screens are designed around **user goals and activation**, not defaulted to CRUD tables. See the `product-screen` skill for the full playbook.
 
-- `EmptyState` — never ship a blank zero-data view: icon + why + the ONE next action (the nudge).
+- `EmptyState` — never ship a blank zero-data view: icon + why + the ONE next action (the nudge). A list or section with nothing in it takes an `illustration` (`@/icons/illustrations/*`) instead of the icon.
+- `SectionTitle` — the heading of a section or a card: what it is for goes behind the "i" beside the title (`description`, 200 characters at most), never in a paragraph read on every visit; `detail` keeps in sight only state, data or what must be read before acting.
 - `OnboardingChecklist` — persistent activation checklist (the Mural pattern, +10% one-week retention); shows real progress, nudges the next step, survives dismissal. Steps declared in code; state from `@flyee/onboarding`.
 - `OnboardingChecklistCard` — drop-in wrapper of the above: fetches user + state itself and renders nothing when onboarding is undeclared, complete or dismissed. Mounted on the app home; safe to mount unconditionally.
 - `ActivationProgress` — completion-drive ring (Gestalt closure). The one research-backed gamification pattern — no points/badges/streaks.

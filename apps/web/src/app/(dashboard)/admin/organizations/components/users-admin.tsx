@@ -10,7 +10,7 @@ import { type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiUsers from "@/icons/nexture/ni-users";
+import IllustrationAccounts from "@/icons/illustrations/illustration-accounts";
 import { createClient } from "@flyee/auth/client";
 
 type UserRow = {
@@ -314,7 +314,8 @@ export default function UsersAdmin() {
           loading={!loaded}
           noRowsOverlay={
             <EmptyState
-              icon={<NiUsers size="medium" />}
+              layout="row"
+              illustration={<IllustrationAccounts />}
               title="Nenhuma profissional ainda"
               description="Toda conta criada pelo cadastro aparece aqui, com seus consultórios e o estado de autenticação."
               className="border-none"

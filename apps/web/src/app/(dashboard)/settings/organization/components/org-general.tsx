@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 
 import { CepField, CpfCnpjField, PhoneField } from "@/components/product/fields";
+import SectionTitle from "@/components/product/section-title";
 import { COMMON_TIMEZONES, isValidTimeZone } from "@/lib/practice-context";
 import { createClient } from "@flyee/auth/client";
 import { BR_STATES, isValidBrState, isValidCep, isValidCpfCnpj, isValidPhoneBr, onlyDigits } from "@flyee/fields";
@@ -131,14 +132,8 @@ export default function OrgGeneral({ org, onUpdated }: { org: OrgSummary; onUpda
     <Grid size={12}>
       <Card component="section">
         <CardContent className="flex flex-col gap-4">
-          <Box>
-            <Typography variant="h5" component="h2" className="card-title">
-              {t("settings-practice-card-title")}
-            </Typography>
-            <Typography variant="body2" className="text-text-secondary">
-              {t("settings-practice-card-body")}
-            </Typography>
-          </Box>
+          {/* What the card is for is read once: behind the "i" (the owner, 2026-11-09). */}
+          <SectionTitle title={t("settings-practice-card-title")} description={t("settings-practice-card-body")} />
 
           <Grid container spacing={2.5} className="max-w-3xl">
             <Grid size={{ xs: 12, sm: 7 }}>
@@ -168,12 +163,13 @@ export default function OrgGeneral({ org, onUpdated }: { org: OrgSummary; onUpda
             </Grid>
 
             <Grid size={12}>
-              <Typography variant="subtitle2" component="h3" className="mt-2">
-                {t("settings-practice-contact-title")}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary">
-                {t("settings-practice-contact-help")}
-              </Typography>
+              <SectionTitle
+                as="h3"
+                variant="subtitle2"
+                className="mt-2"
+                title={t("settings-practice-contact-title")}
+                description={t("settings-practice-contact-help")}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <PhoneField
@@ -205,12 +201,11 @@ export default function OrgGeneral({ org, onUpdated }: { org: OrgSummary; onUpda
               />
             </Grid>
 
+            {/* No line on how the CEP fills the rest: the field shows it the
+                moment it is typed, and every field below stays editable. */}
             <Grid size={12}>
               <Typography variant="subtitle2" component="h3" className="mt-2">
                 {t("settings-practice-address-title")}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary">
-                {t("settings-practice-address-help")}
               </Typography>
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>

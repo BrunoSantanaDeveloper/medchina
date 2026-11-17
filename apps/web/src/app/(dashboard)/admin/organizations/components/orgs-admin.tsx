@@ -56,8 +56,8 @@ import EmptyState from "@/components/product/empty-state";
 import { StatTile } from "@/components/product/home-tiles";
 import MetricBars from "@/components/product/metric-bars";
 import { type TileTone } from "@/components/product/tile-tone";
+import IllustrationLaunch from "@/icons/illustrations/illustration-launch";
 import NiArrowOutRight from "@/icons/nexture/ni-arrow-out-right";
-import NiBuilding from "@/icons/nexture/ni-building";
 import NiClock from "@/icons/nexture/ni-clock";
 import NiCreditCard from "@/icons/nexture/ni-credit-card";
 import NiEyeOpen from "@/icons/nexture/ni-eye-open";
@@ -1148,7 +1148,8 @@ export default function OrgsAdmin() {
           noRowsOverlay={
             filter === "all" || searching ? (
               <EmptyState
-                icon={<NiBuilding size="medium" />}
+                layout="row"
+                illustration={<IllustrationLaunch />}
                 title="Nenhuma conta ainda"
                 description="Todo cadastro com nome de consultório cria um e aparece aqui, com plano, trial e uso."
                 className="border-none"

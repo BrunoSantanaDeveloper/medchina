@@ -18,8 +18,8 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiBraces from "@/icons/nexture/ni-braces";
-import NiShieldCheck from "@/icons/nexture/ni-shield-check";
 import { createClient } from "@flyee/auth/client";
 
 type AuditRow = {
@@ -192,7 +192,8 @@ export default function AuditEventsAdmin() {
           loading={!loaded}
           noRowsOverlay={
             <EmptyState
-              icon={<NiShieldCheck size="medium" />}
+              layout="row"
+              illustration={<IllustrationDocumentation />}
               title="Nenhum evento de auditoria ainda"
               description="Eventos registrados por logAuditEvent (packages/audit) aparecem aqui — a trilha é append-only, então nada pode ser editado ou excluído."
               className="border-none"

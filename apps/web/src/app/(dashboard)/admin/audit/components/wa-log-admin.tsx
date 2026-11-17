@@ -7,7 +7,7 @@ import { type GridColDef, type GridRenderCellParams } from "@mui/x-data-grid";
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiMessages from "@/icons/nexture/ni-messages";
+import IllustrationSupport from "@/icons/illustrations/illustration-support";
 import { createClient } from "@flyee/auth/client";
 
 type WaRow = {
@@ -247,7 +247,8 @@ export default function WaLogAdmin() {
           initialColumnVisibility={{ error: false }}
           noRowsOverlay={
             <EmptyState
-              icon={<NiMessages size="medium" />}
+              layout="row"
+              illustration={<IllustrationSupport />}
               title="Nenhuma mensagem do WhatsApp ainda"
               description="Toda mensagem enviada ou recebida pelo dispatcher do WhatsApp (packages/whatsapp) fica registrada aqui com a situação de entrega."
               className="border-none"

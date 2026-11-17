@@ -334,6 +334,17 @@ export const homeCopy: HomeCopy = {
     },
     defaultEyebrow: "Tarif",
     defaultCta: "Kostenloses Konto erstellen",
+    offerEyebrow: "Aktionspreis",
+    offerCta: "Jetzt abonnieren",
+    offerTitle: "Das ist die Bedingung dieser Kampagne.\n**Zum Preis dieser Seite, solange sie offen ist.**",
+    offerLead:
+      "Das kostenlose Konto und die Pro-Testphase gibt es weiterhin — sie sind von hier aus nur nicht der Weg. Auf dieser Seite buchen Sie direkt den gewünschten Tarif.",
+    offerTrustAria: "Bedingungen dieses Angebots",
+    offerTrustGuarantee: "{days} Tage Geld-zurück-Garantie",
+    offerTrustDeadline: "Angebot gültig bis {date}",
+    offerAssuranceTitle: "{days} Tage Geld-zurück-Garantie.",
+    offerAssuranceDetail:
+      "Wenn es nicht zu Ihrer Praxis passt, fordern Sie innerhalb von {days} Tagen die Rückerstattung an und erhalten Ihr Geld zurück.",
     included: "Enthalten",
     assuranceTitle: "Der Test beginnt, wenn Ihre Arbeit beginnt.",
     assuranceDetail:

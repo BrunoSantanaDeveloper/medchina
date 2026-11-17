@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { Box, Button, Card, CardContent, Typography } from "@mui/material";
 
+import SectionTitle from "@/components/product/section-title";
 import { TILE_TONE, type TileTone } from "@/components/product/tile-tone";
 import { useAudioAllowance } from "@/hooks/use-audio-allowance";
 import { useCurrentOrg } from "@/hooks/use-current-org";
@@ -99,23 +100,23 @@ export default function AssistantBand({
   return (
     <Card component="section">
       <CardContent className="flex flex-col gap-3">
-        <Box className="flex flex-row items-start gap-3">
+        <Box className="flex flex-row items-center gap-3">
           <span
             aria-hidden
             className="bg-primary-light/10 text-primary flex h-12 w-12 flex-none items-center justify-center rounded-2xl"
           >
             <NiAi size="large" />
           </span>
-          <Box className="min-w-0">
-            <Typography variant="h5" component="h2" className="card-title mb-0">
-              {t("assistant-band-title")}
-            </Typography>
-            {/* The differentiator in one line — and it is the CAPTURE, not the
-                chat: the chat is the easiest part of this product to copy. */}
-            <Typography variant="body1" className="text-text-secondary">
-              {hasPatients ? t("assistant-band-body") : t("assistant-band-body-empty")}
-            </Typography>
-          </Box>
+          {/* The differentiator in one line — and it is the CAPTURE, not the
+              chat: the chat is the easiest part of this product to copy. It is
+              what the band is, read once, so it sits behind the "i" (the owner,
+              2026-11-09): the title and the suggestions below claim it on every
+              visit without a paragraph. */}
+          <SectionTitle
+            className="min-w-0"
+            title={t("assistant-band-title")}
+            description={hasPatients ? t("assistant-band-body") : t("assistant-band-body-empty")}
+          />
         </Box>
 
         {/* The same tile language as the quick actions and the stats: a tinted

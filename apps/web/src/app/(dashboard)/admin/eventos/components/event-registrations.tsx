@@ -10,6 +10,8 @@ import DataTable from "@/components/data-grid/data-table";
 import ConfirmActionDialog from "@/components/product/confirm-action-dialog";
 import EmptyState from "@/components/product/empty-state";
 import { StatTile } from "@/components/product/home-tiles";
+import IllustrationAccounts from "@/icons/illustrations/illustration-accounts";
+import IllustrationDocumentation from "@/icons/illustrations/illustration-documentation";
 import NiBinFull from "@/icons/nexture/ni-bin-full";
 import NiMessageDots from "@/icons/nexture/ni-message-dots";
 import NiPhone from "@/icons/nexture/ni-phone";
@@ -334,7 +336,8 @@ export default function EventRegistrations({ event }: { event: ConsoleEvent }) {
         }
         noRowsOverlay={
           <EmptyState
-            icon={<NiUsers size="large" />}
+            layout="row"
+            illustration={filter === "all" ? <IllustrationAccounts /> : <IllustrationDocumentation />}
             title={filter === "all" ? "Nenhuma inscrição neste evento" : "Ninguém neste recorte"}
             description={
               filter === "all"

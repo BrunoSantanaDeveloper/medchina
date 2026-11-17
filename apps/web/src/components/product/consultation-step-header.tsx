@@ -4,12 +4,21 @@ import type { ReactNode } from "react";
 
 import { Box, Typography } from "@mui/material";
 
+import InfoHint from "@/components/product/info-hint";
+
 /**
  * Shared header for the consultation's assistant cards (record → interpret →
  * plan). A numbered badge + icon gives each card a place in a RECOMMENDED
- * sequence, and the hint states how it depends on the previous step — so the
- * three cards read as one ordered flow instead of three independent controls.
- * The order is a suggestion, never a hard gate (a plan can still be manual).
+ * sequence, and the "i" beside the title (`description`) says how it depends
+ * on the previous step — so the three cards read as one ordered flow instead
+ * of three independent controls. The order is a suggestion, never a hard gate
+ * (a plan can still be manual).
+ *
+ * What a card is for is read once, so it sits behind the "i" (the owner,
+ * 2026-11-09); the line under the title (`detail`) is kept for what must be
+ * read every time before acting there: a clinical safety rule (absence is
+ * never a negative, tongue and pulse are her observations), never a
+ * definition. Clinical safety text never goes behind the "i".
  */
 /**
  * Where this step stands, derived from DATA (see `deriveConsultationJourney` in
@@ -26,7 +35,8 @@ export default function ConsultationStepHeader({
   step,
   icon,
   title,
-  hint,
+  description,
+  detail,
   status,
   statusLabel,
   trailing,
@@ -40,8 +50,10 @@ export default function ConsultationStepHeader({
   step?: number;
   icon: ReactNode;
   title: string;
-  /** One line: when to use this step and what it builds on. */
-  hint?: string;
+  /** When to use this step and what it builds on, behind the "i" beside the title. At most 200 characters. */
+  description?: string;
+  /** One line under the title, shown: a clinical safety rule or a consequence of acting here. Never a definition. */
+  detail?: string;
   /**
    * Concluded / under way / outdated. Shown as a chip so the card says where it
    * stands without her having to open it — the reason a step is BLOCKED is not
@@ -70,6 +82,9 @@ export default function ConsultationStepHeader({
         <Typography variant="h6" component="h2" className="mb-0">
           {title}
         </Typography>
+        {description ? (
+          <InfoHint label={description} placement="bottom-start" className="-ml-1 flex-none self-center" />
+        ) : null}
         {(status && statusLabel) || trailing ? (
           <Box className="ml-auto flex flex-row items-center gap-1.5">
             {status && statusLabel && (
@@ -81,9 +96,9 @@ export default function ConsultationStepHeader({
           </Box>
         ) : null}
       </Box>
-      {hint && (
+      {detail && (
         <Typography variant="body2" className="text-text-secondary text-xs leading-5">
-          {hint}
+          {detail}
         </Typography>
       )}
     </Box>

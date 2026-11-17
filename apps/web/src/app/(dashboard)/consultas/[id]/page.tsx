@@ -1902,7 +1902,10 @@ export default function ConsultaPage() {
                   step={journey.steps.record.number}
                   icon={<NiDocumentFull size="medium" />}
                   title={t("consultation-anamnesis-title")}
-                  hint={
+                  // In sight, never behind the "i": what a blank field means
+                  // (never a negative) and, while recording, that the AI only
+                  // drafts for review, are the chart's safety contract.
+                  detail={
                     captureInFlight
                       ? t("consultation-anamnesis-subtitle-capturing")
                       : t("consultation-anamnesis-subtitle")

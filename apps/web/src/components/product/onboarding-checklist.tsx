@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Box, Button, Card, CardContent, Typography } from "@mui/material";
 
 import ActivationProgress from "@/components/product/activation-progress";
+import SectionTitle from "@/components/product/section-title";
 import NiCheck from "@/icons/nexture/ni-check";
 import NiChevronRightSmall from "@/icons/nexture/ni-chevron-right-small";
 import NiCompass from "@/icons/nexture/ni-compass";
@@ -51,14 +52,9 @@ export default function OnboardingChecklist({
             >
               <NiCompass />
             </span>
-            <Box>
-              <Typography variant="h5" component="h2" className="card-title mb-0">
-                {title ?? t("checklistTitle")}
-              </Typography>
-              <Typography variant="body2" className="text-text-secondary">
-                {t("checklistSubtitle")}
-              </Typography>
-            </Box>
+            {/* The progress ring already counts the steps; what the list is
+                for is read once, behind the "i" (the owner, 2026-11-09). */}
+            <SectionTitle title={title ?? t("checklistTitle")} description={t("checklistSubtitle")} />
           </Box>
           <Box className="flex flex-row items-center gap-2">
             <ActivationProgress done={progress.done} total={progress.total} />

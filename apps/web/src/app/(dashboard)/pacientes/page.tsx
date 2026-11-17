@@ -10,10 +10,10 @@ import { GridActionsCellItem, type GridColDef, type GridRenderCellParams } from 
 
 import DataTable from "@/components/data-grid/data-table";
 import EmptyState from "@/components/product/empty-state";
-import NiArchive from "@/icons/nexture/ni-archive";
+import IllustrationAccounts from "@/icons/illustrations/illustration-accounts";
+import IllustrationStorage from "@/icons/illustrations/illustration-storage";
 import NiCalendar from "@/icons/nexture/ni-calendar";
 import NiUser from "@/icons/nexture/ni-user";
-import NiUsers from "@/icons/nexture/ni-users";
 import { getProductAction } from "@/lib/product-actions";
 import { isSupabaseConfigured } from "@flyee/auth";
 import { createClient } from "@flyee/auth/client";
@@ -221,21 +221,22 @@ export default function Pacientes() {
   const noRowsOverlay = !showArchived ? (
     // Active tab with zero rows: either a brand-new workspace or everyone was
     // archived — both lead to the first-patient action (activation step 2).
+    // The grid frames the list already, so the drawing goes unframed.
     <EmptyState
-      icon={<NiUsers />}
+      illustration={<IllustrationAccounts />}
       title={t("patients-empty-title")}
       description={t("patients-empty-body")}
       action={{ label: t("patients-empty-cta"), href: NEW_PATIENT_HREF }}
       secondaryAction={{ label: t("patients-import-cta"), href: IMPORT_PATIENTS_HREF }}
-      className="border-none"
+      framed={false}
     />
   ) : (
     <EmptyState
-      icon={<NiArchive />}
+      illustration={<IllustrationStorage />}
       title={t("patients-archived-empty-title")}
       description={t("patients-archived-empty-body")}
       action={{ label: t("patients-show-active"), onClick: () => setShowArchived(false) }}
-      className="border-none"
+      framed={false}
     />
   );
 

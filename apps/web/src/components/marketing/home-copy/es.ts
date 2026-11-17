@@ -329,6 +329,17 @@ export const homeCopy: HomeCopy = {
     },
     defaultEyebrow: "Plan",
     defaultCta: "Crear cuenta gratis",
+    offerEyebrow: "Precio de campaña",
+    offerCta: "Suscribirme ahora",
+    offerTitle: "Esta es la condición de la campaña.\n**Al precio de esta página, mientras esté abierta.**",
+    offerLead:
+      "La cuenta gratuita y la prueba del Pro siguen existiendo: solo no son el camino desde aquí. En esta página te suscribes directamente al plan que quieres.",
+    offerTrustAria: "Condiciones de esta oferta",
+    offerTrustGuarantee: "{days} días de garantía",
+    offerTrustDeadline: "Condición válida hasta {date}",
+    offerAssuranceTitle: "{days} días de garantía.",
+    offerAssuranceDetail:
+      "Si no encaja en tu práctica, pides el reembolso en un plazo de {days} días y recuperas el importe.",
     included: "Qué incluye",
     assuranceTitle: "Empiezas a probar cuando empiezas a trabajar.",
     assuranceDetail:
