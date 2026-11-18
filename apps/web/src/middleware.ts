@@ -50,6 +50,10 @@ const PUBLIC_PREFIXES = [
   // (docs/FUNIL.md D10), but they must still open without a session.
   "/fundadores",
   "/assinar",
+  // The dated promotion (migration 0126): open only between its start and its
+  // end, and the page itself says so outside them — but the address answers
+  // without a session at any time.
+  "/black-friday",
   // The live events (docs/PAGINA-EVENTO.md, migration 0113): same (funil)
   // contract — noindex, out of the sitemap. The first keeps its own address;
   // every later one lives under /ao-vivo/<slug>. Plus their public API (sign-up

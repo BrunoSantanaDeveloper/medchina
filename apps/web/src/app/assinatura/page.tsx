@@ -11,9 +11,11 @@ import { getCampaignOffer } from "@/lib/campaign-offer";
 import { campaignQuery, pickCampaignParams } from "@/lib/campaign-params";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { pendingPixCharge } from "@/lib/pending-pix";
+import { ladderFacts, ladderLinesPtBR } from "@/lib/price-ladder";
+import { getPromotion } from "@/lib/promotion";
 import { brLocalDigits } from "@/lib/signup-whatsapp-shared";
 import { createClient } from "@flyee/auth/server";
-import { isPixAvailable } from "@flyee/billing";
+import { isPixAvailable, parsePricePhases } from "@flyee/billing";
 
 export const metadata: Metadata = {
   title: { absolute: "Concluir assinatura · MedChina" },
@@ -38,6 +40,13 @@ const BRL = new Intl.NumberFormat("pt-BR", {
 });
 const NUMBER = new Intl.NumberFormat("pt-BR");
 const PERIOD_SUFFIX: Record<string, string> = { yearly: "por ano", monthly: "por mês", weekly: "por semana" };
+const START_FORMAT = new Intl.DateTimeFormat("pt-BR", {
+  day: "numeric",
+  month: "long",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "America/Sao_Paulo",
+});
 
 /**
  * One screen, one job: turn a decision already made into a paid invoice.
@@ -87,8 +96,9 @@ export default async function AssinaturaPage({
     redirect(`/auth/sign-in?next=${encodeURIComponent(`/assinatura?plan=${slug}${campaignQuery(campaign)}`)}`);
   }
 
-  const [offer, guaranteeDays, pixAvailable] = await Promise.all([
+  const [offer, promotion, guaranteeDays, pixAvailable] = await Promise.all([
     getCampaignOffer(),
+    getPromotion(),
     getGuaranteeDays(),
     isPixAvailable(),
   ]);
@@ -141,7 +151,7 @@ export default async function AssinaturaPage({
   // and is reached only by the link the ads carry (migration 0085).
   const { data: planRow } = await supabase
     .from("plans")
-    .select("id, slug, name, description, period, price_cents, currency, limits, is_free")
+    .select("id, slug, name, description, period, price_cents, currency, limits, is_free, price_phases")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle();
@@ -167,6 +177,30 @@ export default async function AssinaturaPage({
   // it refuses it HERE too — not only inside `startCheckout`. Letting the form
   // render and fail on submit would spend her CPF on a condition that had
   // already ended.
+  // Same rule for the dated promotion (migration 0126), whose plan sells only
+  // between its start and its end.
+  if (promotion && promotion.planSlug === planRow.slug && promotion.closed && promotion.reason !== "not_configured") {
+    return (
+      <Shell>
+        <Typography variant="h1" component="h1" className="mb-0">
+          {promotion.reason === "not_started"
+            ? `A ${promotion.label} ainda não começou`
+            : promotion.reason === "expired"
+              ? `A ${promotion.label} terminou`
+              : "Esta condição não está aberta no momento"}
+        </Typography>
+        <Alert severity="info" className="neutral bg-background-paper/60!">
+          {promotion.reason === "not_started" && promotion.startsAt
+            ? `Ela abre em ${START_FORMAT.format(new Date(promotion.startsAt))}, horário de Brasília. Até lá, este preço não pode ser contratado.`
+            : "Fale com a gente antes de assinar qualquer outra coisa. Se você chegou dentro do prazo, resolvemos."}
+        </Alert>
+        <Button variant="contained" component={Link} href="/contato?assunto=assinar">
+          Falar com a gente
+        </Button>
+      </Shell>
+    );
+  }
+
   const named = offer?.planSlug === planRow.slug || offer?.annualPlanSlug === planRow.slug;
   if (named && offer?.closed && offer.reason !== "not_configured") {
     return (
@@ -283,6 +317,30 @@ export default async function AssinaturaPage({
   const minutes = Number((planRow.limits as Record<string, number> | null)?.audio_minutes ?? 0);
   const periodSuffix = planRow.period ? (PERIOD_SUFFIX[planRow.period] ?? "por ciclo") : "por ciclo";
 
+  // A plan with a price ladder (migration 0126) shows the WHOLE ladder before
+  // the payment: the first price alone is half the contract (Decreto
+  // 7.962/2013 art. 4, the summary before contracting). The anchor is the
+  // promotion's table plan, read only to name it ("o preço de tabela do Pro").
+  const pricePhases = parsePricePhases(planRow.price_phases);
+  let scheduleLines: string[] | null = null;
+  if (pricePhases) {
+    const anchorSlug = promotion && promotion.planSlug === planRow.slug ? promotion.comparePlanSlug : null;
+    const { data: anchorRow } = anchorSlug
+      ? await supabase.from("plans").select("name, period, price_cents").eq("slug", anchorSlug).maybeSingle()
+      : { data: null };
+    const facts = ladderFacts(
+      { priceCents: Number(planRow.price_cents), period: (planRow.period as string | null) ?? null, pricePhases },
+      anchorRow
+        ? {
+            name: anchorRow.name as string,
+            period: (anchorRow.period as string | null) ?? null,
+            priceCents: Number(anchorRow.price_cents),
+          }
+        : null,
+    );
+    scheduleLines = ladderLinesPtBR(facts, (planRow.period as string | null) ?? null, BRL);
+  }
+
   return (
     <Shell wide>
       <Box className="flex justify-center">
@@ -293,7 +351,12 @@ export default async function AssinaturaPage({
         orgId={orgId}
         planId={planRow.id as string}
         planName={planRow.name as string}
-        priceLabel={`${BRL.format(Number(planRow.price_cents) / 100)} ${periodSuffix}`}
+        priceLabel={
+          scheduleLines
+            ? `${BRL.format(Number(planRow.price_cents) / 100)} hoje`
+            : `${BRL.format(Number(planRow.price_cents) / 100)} ${periodSuffix}`
+        }
+        scheduleLines={scheduleLines}
         minutesLabel={minutes > 0 ? `${NUMBER.format(minutes)} minutos de áudio ${periodSuffix}` : null}
         guaranteeDays={guaranteeDays}
         priceCents={Number(planRow.price_cents)}

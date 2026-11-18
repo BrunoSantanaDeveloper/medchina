@@ -7,6 +7,7 @@ import FoundersAdmin from "./components/founders-admin";
 import GuaranteeAdmin from "./components/guarantee-admin";
 import ModulesAdmin from "./components/modules-admin";
 import PlansAdmin from "./components/plans-admin";
+import PromotionAdmin from "./components/promotion-admin";
 import SubscriptionsAdmin from "./components/subscriptions-admin";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -112,6 +113,15 @@ export default function AdminBilling() {
                         </Typography>
                       </Box>
                       <CampaignOfferAdmin />
+                    </Box>
+                    <Box className="flex flex-col gap-3">
+                      <Box>
+                        <Typography variant="subtitle1">Promoção com data · /black-friday</Typography>
+                        <Typography variant="body2" className="text-text-secondary">
+                          Abre e fecha sozinha nas datas daqui; enquanto aberta, a home mostra a faixa e o cartão dela.
+                        </Typography>
+                      </Box>
+                      <PromotionAdmin />
                     </Box>
                     <Box className="flex flex-col gap-3">
                       <Box>

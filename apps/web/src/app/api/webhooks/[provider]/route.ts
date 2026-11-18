@@ -7,7 +7,7 @@ import { notifyUsers } from "@/lib/notifications";
 import { readSignupAttribution } from "@/lib/signup-attribution";
 import { logAuditEvent } from "@flyee/audit";
 import { createServiceClient } from "@flyee/auth/service";
-import { type BillingEvent, type BillingPeriod, getProvider } from "@flyee/billing";
+import { type BillingEvent, type BillingPeriod, getProvider, parsePricePhases, pricePhaseAfter } from "@flyee/billing";
 import { sendSubscriptionActiveEmail } from "@flyee/email";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
@@ -273,6 +273,163 @@ async function cancelSupersededAtProvider(
       });
     }
   }
+}
+
+const BRL_WHOLE = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
+/**
+ * Tells every superadmin that a subscription is still on an old price.
+ *
+ * The key carries the INVOICE, so the CONFIRMED + RECEIVED pair of one payment
+ * alerts once, and a failure that repeats on next month's invoice alerts
+ * again — a step that keeps failing is one the team must hear about every
+ * time money comes in at the wrong price.
+ */
+async function alertPricePhaseFailure(
+  supabase: ServiceClient,
+  input: {
+    subscriptionId: string;
+    orgId: string;
+    index: number;
+    priceCents: number;
+    invoiceKey: string;
+    cause: string;
+  },
+) {
+  try {
+    const { data: admins } = await supabase.from("profiles").select("id").eq("is_superadmin", true);
+    const ids = (admins ?? []).map((row) => row.id as string);
+    await notifyUsers(ids, {
+      type: "billing",
+      title: "Mudança de preço não aplicada na operadora",
+      body: `Uma assinatura com preço em fases devia passar a ${BRL_WHOLE.format(input.priceCents / 100)} e a operadora recusou (${input.cause}). Ela segue cobrando o valor anterior até alguém ajustar no painel do Asaas.`,
+      href: "/admin/billing",
+      sourceKey: `price-phase:${input.subscriptionId}:${input.index}:${input.invoiceKey}`,
+    });
+  } catch {
+    // The audit event below is the durable trail; the bell is a courtesy.
+  }
+  await logAuditEvent(supabase, {
+    orgId: input.orgId,
+    actorId: null,
+    action: "billing.price_phase_failed",
+    entityType: "subscription",
+    entityId: input.subscriptionId,
+    metadata: { phaseIndex: input.index, priceCents: input.priceCents, cause: input.cause },
+  }).catch(() => {
+    // Reconciliation of the payment already succeeded.
+  });
+}
+
+/**
+ * Moves a subscription sold with a price ladder to the step it has reached
+ * (`subscriptions.price_phases`, migration 0126).
+ *
+ * The rule: after N PAID invoices of this subscription, the next ones cost the
+ * price of the last step with `after_cycles <= N`. It runs on every paid
+ * invoice, so a step that could not be applied last month is tried again with
+ * the next payment — the comparison is against what the provider was last told
+ * (`price_phase_index`), never against the calendar.
+ *
+ * Order is provider first, database second. The provider call is idempotent
+ * (setting the same value twice changes nothing), so a database write that
+ * fails is safe to retry through the provider's resend. A REFUSAL by the
+ * provider is not retried here: the payment itself is reconciled and replaying
+ * it would re-run everything above. It is alerted instead, because the
+ * customer is then being charged less than the contract says — a loss for the
+ * business, never an overcharge for her.
+ */
+async function advancePricePhase(
+  supabase: ServiceClient,
+  sub: {
+    id: string;
+    org_id: string;
+    status: string;
+    provider_subscription_id: string | null;
+    price_phases?: unknown;
+    price_phase_index?: number | null;
+  },
+  event: Extract<BillingEvent, { type: "payment_succeeded" }>,
+) {
+  const phases = parsePricePhases(sub.price_phases);
+  const providerSubscriptionId = event.providerSubscriptionId ?? sub.provider_subscription_id;
+  if (!phases || !providerSubscriptionId || sub.status === "canceled") return;
+
+  const { count, error: countError } = await supabase
+    .from("invoices")
+    .select("id", { count: "exact", head: true })
+    .eq("subscription_id", sub.id)
+    .eq("status", "paid");
+  if (countError) throw new Error("price_phase_count_failed");
+
+  // The base price never matters here: only steps move the provider.
+  const target = pricePhaseAfter(0, phases, count ?? 0);
+  const current = Number(sub.price_phase_index ?? 0);
+  if (target.index <= current) return;
+
+  const invoiceKey = `${event.provider}:${event.providerInvoiceId}`;
+  const provider = getProvider(event.provider);
+  if (!provider.updateSubscriptionPrice) {
+    await alertPricePhaseFailure(supabase, {
+      subscriptionId: sub.id,
+      orgId: sub.org_id,
+      index: target.index,
+      priceCents: target.priceCents,
+      invoiceKey,
+      cause: "operadora sem troca de preço",
+    });
+    return;
+  }
+
+  try {
+    await provider.updateSubscriptionPrice(providerSubscriptionId, target.priceCents);
+  } catch (error) {
+    console.error("billing_price_phase_failed", {
+      provider: event.provider,
+      subscriptionId: sub.id,
+      phaseIndex: target.index,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    const status = (error as { status?: number } | null)?.status;
+    await alertPricePhaseFailure(supabase, {
+      subscriptionId: sub.id,
+      orgId: sub.org_id,
+      index: target.index,
+      priceCents: target.priceCents,
+      invoiceKey,
+      cause: status ? `HTTP ${status}` : "erro de rede",
+    });
+    return;
+  }
+
+  // `lt` keeps the write monotonic under a concurrent delivery of the same
+  // payment: the loser updates nothing, and the trigger refuses going down.
+  const { error: updateError } = await supabase
+    .from("subscriptions")
+    .update({ price_phase_index: target.index })
+    .eq("id", sub.id)
+    .lt("price_phase_index", target.index);
+  if (updateError) throw new Error("price_phase_update_failed");
+
+  await logAuditEvent(supabase, {
+    orgId: sub.org_id,
+    actorId: null,
+    action: "billing.price_phase_applied",
+    entityType: "subscription",
+    entityId: sub.id,
+    metadata: { phaseIndex: target.index, priceCents: target.priceCents, paidCycles: count ?? 0 },
+  }).catch(() => {
+    // The provider and the row already agree; the trail is not worth a replay.
+  });
+
+  // She agreed to this price when she bought, and she still hears it from us
+  // before the charge arrives — the invoice that pays now is the one BEFORE
+  // the new price.
+  await notifyOrg(supabase, sub.org_id, {
+    title: `Seu plano passa a ${BRL_WHOLE.format(target.priceCents / 100)} por mês`,
+    body: `Como na condição que você contratou, a próxima fatura já vem com o valor de ${BRL_WHOLE.format(target.priceCents / 100)}. Nada muda no seu plano nem no que ele inclui.`,
+    href: "/settings/billing",
+  });
 }
 
 /** How many days the dunning window lasts, as configured (migration 0054). */
@@ -549,6 +706,10 @@ async function handleEvent(supabase: ServiceClient, event: BillingEvent) {
           if (creditError) throw new Error("credit_reconciliation_failed");
         }
       }
+
+      // A price ladder (migration 0126) moves on PAID invoices only, so it is
+      // evaluated right after this one is recorded as paid.
+      if (sub) await advancePricePhase(supabase, sub, event);
 
       // A paid invoice heals a past_due subscription — and closes the dunning
       // window with it, so a later failure starts counting from scratch

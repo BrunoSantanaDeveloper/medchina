@@ -42,6 +42,7 @@ export default function CheckoutForm({
   planId,
   planName,
   priceLabel,
+  scheduleLines = null,
   minutesLabel,
   guaranteeDays,
   canManage,
@@ -56,6 +57,12 @@ export default function CheckoutForm({
   planId: string;
   planName: string;
   priceLabel: string;
+  /**
+   * The whole price ladder of a plan sold in phases (migration 0126), one line
+   * per stretch. Null for a single price. Its presence also means the plan
+   * takes no coupon: the server refuses the combination, so none is sent.
+   */
+  scheduleLines?: string[] | null;
   minutesLabel: string | null;
   guaranteeDays: number;
   canManage: boolean;
@@ -119,7 +126,9 @@ export default function CheckoutForm({
 
     // The campaign code the middleware captured on the click, before sign-up
     // and e-mail confirmation stripped the query string.
-    const coupon = readCouponCookie(COOKIE_KEYS.offerCoupon);
+    // A plan sold in phases takes no coupon (startCheckout refuses it), so a
+    // code left in the cookie by another link is not sent at all.
+    const coupon = scheduleLines ? "" : readCouponCookie(COOKIE_KEYS.offerCoupon);
     const result = await startCheckout({
       orgId,
       planId,
@@ -263,6 +272,17 @@ export default function CheckoutForm({
           <Typography variant="h4" component="p" className="mb-0">
             {priceLabel}
           </Typography>
+          {scheduleLines && scheduleLines.length > 0 && (
+            <Box
+              component="ul"
+              className="m-0 flex list-none flex-col gap-1 p-0 text-sm"
+              aria-label="Valor de cada mês"
+            >
+              {scheduleLines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </Box>
+          )}
           <Box component="ul" className="text-text-secondary m-0 flex list-none flex-col gap-1 p-0 text-sm">
             {minutesLabel && (
               <li className="flex items-center gap-1">
@@ -295,6 +315,11 @@ export default function CheckoutForm({
       {error === "coupon_invalid" && (
         <Alert severity="warning">O cupom do seu link não vale mais. Recarregue a página para seguir sem ele.</Alert>
       )}
+      {error === "coupon_not_combinable" && (
+        <Alert severity="info" className="neutral bg-background-paper/60!">
+          Esta condição não se combina com cupom. Recarregue a página para seguir com o preço dela.
+        </Alert>
+      )}
       {error === "suspended" && <Alert severity="error">Esta conta está suspensa. Fale com a gente.</Alert>}
       {error === "pix_unavailable" && (
         <Alert severity="info" className="neutral bg-background-paper/60!">
@@ -309,6 +334,7 @@ export default function CheckoutForm({
           "billing_profile_required",
           "offer_closed",
           "coupon_invalid",
+          "coupon_not_combinable",
           "suspended",
           "pix_unavailable",
         ].includes(error) && (

@@ -1,7 +1,9 @@
 import { getLocale, getTranslations } from "next-intl/server";
 
+import type { HomeCopy } from "@/components/marketing/home-copy/pt-BR";
 import { PublicPlanDisplay } from "@/components/marketing/pricing-section";
 import type { CampaignOffer } from "@/lib/campaign-offer";
+import type { SellablePromotion } from "@/lib/promotion-server";
 import { getPlanBySlug, listPublicPlans, type PublicPlan } from "@flyee/billing/public";
 import { applyDiscount, type CheckoutCoupon } from "@flyee/billing/types";
 
@@ -207,4 +209,67 @@ export async function getCampaignDisplayPlans(offer: CampaignOffer | null): Prom
   // The default line leads, as it does on /assinar: it is the lower barrier,
   // and the second cycle is the upgrade standing next to it.
   return [toCard(plan, true), ...(annualPlan ? [toCard(annualPlan, false)] : [])];
+}
+
+/** Fills `{name}` placeholders of a home-copy template. */
+export function fillCopy(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/gu, (match, key: string) => (key in values ? String(values[key]) : match));
+}
+
+/**
+ * The promotion's card for the home (migration 0126): ONE card, the plan the
+ * promotion sells, with the struck table price, the discount of its first
+ * months, the whole ladder and the condition under the button.
+ *
+ * Every number comes from `sellable.facts` — the same derivation the
+ * /black-friday page prints — and every word from the home's copy file in the
+ * active language, so the home and the offer page cannot quote different
+ * prices for the same promotion.
+ */
+export async function getPromotionDisplayPlans(
+  sellable: SellablePromotion,
+  copy: HomeCopy["pricing"],
+): Promise<PublicPlanDisplay[]> {
+  const [t, locale] = await Promise.all([getTranslations("marketing"), getLocale()]);
+  const { plan, facts, promotion } = sellable;
+  const money = new Intl.NumberFormat(locale, { style: "currency", currency: plan.currency, maximumFractionDigits: 0 });
+  const price = (cents: number) => money.format(cents / 100);
+  const cycles = facts.introCycles ?? 1;
+  const values = { label: promotion.label, plan: plan.name, price: price(facts.firstPriceCents), cycles };
+
+  return [
+    {
+      slug: plan.slug,
+      name: plan.name,
+      description: plan.description ?? undefined,
+      price: price(facts.firstPriceCents),
+      originalPrice: facts.anchorCents ? price(facts.anchorCents) : undefined,
+      discountLabel: facts.maxDiscountPercent
+        ? fillCopy(copy.promoDiscount, { value: facts.maxDiscountPercent, cycles })
+        : undefined,
+      period: plan.period ? t(`pricing-period-${plan.period}`) : undefined,
+      features: planFeatures(plan, t),
+      highlighted: true,
+      checkoutHref: `/auth/sign-up?next=${encodeURIComponent(`/assinatura?plan=${plan.slug}`)}`,
+      eyebrow: fillCopy(copy.promoEyebrow, values),
+      ctaLabel: fillCopy(copy.promoCta, values),
+      ladder: {
+        title: copy.promoLadderTitle,
+        lines: facts.schedule.map((stretch) =>
+          stretch.toCycle === null
+            ? fillCopy(copy.promoLadderOpen, { from: stretch.fromCycle, price: price(stretch.priceCents) })
+            : fillCopy(copy.promoLadderRange, {
+                from: stretch.fromCycle,
+                to: stretch.toCycle,
+                price: price(stretch.priceCents),
+              }),
+        ),
+      },
+      condition: fillCopy(copy.promoCondition, values),
+      // The first price IS the offer open to everyone while the home carries
+      // it; the structured data says so, as for the campaign card.
+      priceAmount: facts.firstPriceCents / 100,
+      priceCurrency: plan.currency,
+    },
+  ];
 }

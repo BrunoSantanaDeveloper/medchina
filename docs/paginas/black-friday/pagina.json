@@ -1,0 +1,187 @@
+{
+  "format_version": 1,
+  "name": "black-friday",
+  "type": "planos",
+  "created_at": "2026-11-17",
+  "url": "/black-friday",
+  "language": "pt-BR",
+  "product": {
+    "name": "MedChina Pro",
+    "what": "Prontuário e assistente clínico para terapeutas de Medicina Tradicional Chinesa: grava a consulta com autorização da paciente e prepara a anamnese na estrutura da MTC para a revisão da profissional."
+  },
+  "audience": "Terapeutas de MTC (acupuntura, auriculoterapia, moxabustão, ventosa, dietoterapia) que chegam por anúncio da Black Friday, pela faixa da home ou por link no WhatsApp; parte já tem conta gratuita.",
+  "main_purchase": "Assinatura mensal do Pro na condição da Black Friday (plano pro-black, cobrado pelo Asaas).",
+  "cta_text": "Assinar o Pro na Black Friday",
+  "secondary_cta_text": null,
+  "decline_text": null,
+  "offer": {
+    "price": "R$ 99 hoje e por mês nos 3 primeiros meses",
+    "installments": null,
+    "reference_price": "R$ 299 por mês, o preço de tabela do Pro (plano pro, cobrado hoje no catálogo)",
+    "recurrence": "mensal; abre no único período oferecido",
+    "renewal_price": "R$ 197 por mês do 4º ao 12º mês; R$ 299 por mês do 13º em diante (preço de tabela do Pro)",
+    "guarantee_days": 30,
+    "deadline": "2026-11-27T23:59:59-03:00 (início 2026-11-18T00:00:00-03:00)",
+    "plans": [
+      {
+        "slug": "pro-black",
+        "name": "Pro",
+        "period": "mensal",
+        "price": "R$ 99 (ciclos 1–3), R$ 197 (4–12), R$ 299 (13 em diante)"
+      }
+    ],
+    "recommended_plan": "pro-black",
+    "trial_days": null,
+    "cancellation": "Sem fidelidade e sem multa: cancela pelo painel quando quiser, mantém o acesso até o fim do mês pago; reembolso integral em 30 dias."
+  },
+  "payment": {
+    "one_click": false,
+    "provider": "Asaas (cartão ou PIX), checkout próprio em /assinatura"
+  },
+  "api": {
+    "docs_url": null,
+    "rate_limit": null
+  },
+  "headline": {
+    "chosen": "Termine o dia sem prontuário para escrever.",
+    "options": [
+      "Termine o dia sem prontuário para escrever.",
+      "Atenda olhando para a paciente. A anamnese chega pronta para você revisar.",
+      "Enquanto você atende, a anamnese se organiza na estrutura da MTC.",
+      "“Enquanto eu digito, perco o que ela está me mostrando.”",
+      "Língua, pulso e queixa no lugar certo, sem você digitar durante a consulta."
+    ]
+  },
+  "figures": [
+    {
+      "name": "faixa",
+      "section": "Faixa do topo",
+      "object": "faixa quase preta com o nome do evento em camelo",
+      "says": "há uma promoção com data"
+    },
+    {
+      "name": "topo",
+      "section": "Topo",
+      "object": "\"Black Friday\" enorme, pílula camelo do desconto, preço grande, botão menta, contador em caixas e a foto da profissional usando o MedChina no computador e no celular",
+      "says": "desconto grande, com prazo, num produto que se usa no consultório"
+    },
+    {
+      "name": "escada",
+      "section": "A condição inteira",
+      "object": "doze barras (3 baixas, 9 médias) e uma tracejada para o 13º mês em diante, com a linha tracejada do preço de tabela por cima",
+      "says": "barato no começo, depois mais, nunca acima do preço de tabela"
+    },
+    {
+      "name": "fluxo",
+      "section": "Como funciona",
+      "object": "três telas reais do produto com uma paciente fictícia",
+      "says": "o produto existe e funciona"
+    },
+    {
+      "name": "inclusos",
+      "section": "O que está incluso",
+      "object": "quatro cartões com ícones de microfone, brilho, envio e arquivo",
+      "says": "o que vem no plano"
+    },
+    {
+      "name": "garantia",
+      "section": "Garantia",
+      "object": "escudo grande ao lado do texto",
+      "says": "dá para desistir"
+    },
+    {
+      "name": "fundadora",
+      "section": "Quem construiu",
+      "object": "retrato da fundadora",
+      "says": "uma pessoa da área está por trás"
+    },
+    {
+      "name": "final",
+      "section": "Último chamado",
+      "object": "faixa escura com um botão branco",
+      "says": "o último chamado"
+    }
+  ],
+  "visual": {
+    "direction": "A Black Friday entra por cima da landing de sempre do MedChina: topo quase preto com o jade da marca por baixo, pílula camelo do desconto, botão menta e a escada de preços como figura própria, porque o preço muda no 4º e no 13º mês.",
+    "chosen": [
+      "mancha_desfocada",
+      "vidro",
+      "tres_cartoes_iguais"
+    ]
+  },
+  "brand": {
+    "colors": [
+      "#086761 (jade)",
+      "#063b39 (jade escuro)",
+      "#1ec9a4 (menta)",
+      "#151b1a (tinta)",
+      "#fbfaf6 (marfim)",
+      "#d2a571 (camelo, derivado do secundário #c09362 para contraste no escuro)"
+    ],
+    "fonts": [
+      "TT Chocolates (títulos)",
+      "Mulish (texto)"
+    ],
+    "source": "apps/web/src/app/(marketing)/clinical-source-home.css (Landing DS) e packages/design-tokens/css/green.css; docs/DESIGN.md"
+  },
+  "demo": {
+    "kind": "tela",
+    "shows": "a profissional atendendo com o MedChina aberto no computador e no celular",
+    "action": "gravar a consulta",
+    "result": "a anamnese organizada para revisão (mostrada na seção Como funciona, em telas reais)",
+    "left_out": "a IA preparando hipóteses ao vivo",
+    "real_today": true,
+    "sample_data": "paciente fictícia nas telas do fluxo",
+    "animated": false,
+    "selector": ".bf-hero-stage img"
+  },
+  "claims": [
+    {
+      "text": "R$ 99 por mês nos 3 primeiros meses, R$ 197 do 4º ao 12º",
+      "origin": "decisão da dona do produto (outubro), confirmada em 2026-11-17; plano pro-black, migração 0126"
+    },
+    {
+      "text": "R$ 299 por mês do 13º em diante, o preço de tabela do Pro",
+      "origin": "decisão da dona em 2026-11-17 (volta ao preço de tabela); lido da linha `pro` em plans"
+    },
+    {
+      "text": "Black Friday de 18/11 0h a 27/11 23h59 (Brasília)",
+      "origin": "pedido da dona em 2026-11-17 (início 18/11, até a data da Black Friday); platform_settings.promotion, migração 0126"
+    },
+    {
+      "text": "66% OFF nos 3 primeiros meses",
+      "origin": "conta: (299 − 99) / 299 = 66,9%, arredondado para baixo (lib/price-ladder.ts)"
+    },
+    {
+      "text": "R$ 2.070 no primeiro ano em vez de R$ 3.588; R$ 1.518 a menos",
+      "origin": "conta: 3 × 99 + 9 × 197 = 2.070; 12 × 299 = 3.588 (lib/price-ladder.ts, testado)"
+    },
+    {
+      "text": "30 dias de garantia",
+      "origin": "platform_settings.guarantee (migração 0107), lido por getGuaranteeDays"
+    },
+    {
+      "text": "6.000 minutos de áudio por mês",
+      "origin": "plans.limits.audio_minutes da linha pro, copiado para pro-black"
+    },
+    {
+      "text": "Biografia da fundadora",
+      "origin": "texto já publicado em /assinar"
+    },
+    {
+      "text": "Terapeuta desde 2017 (biografia da fundadora)",
+      "origin": "texto já publicado em /assinar e /fundadores, escrito com a fundadora"
+    }
+  ],
+  "notes": [
+    "Só o Pro entra na Black (decisão da dona em 2026-11-17): um cartão só. O Assistente (R$ 199) ao lado de um Pro a R$ 197 do 4º mês em diante não faria sentido.",
+    "O preço muda em fases e o billing não sabia fazer isso: foi implementado (migração 0126, webhook) e o checkout mostra a escada inteira antes de pagar.",
+    "Contador com data escrita, em dias/horas/minutos, igual para todos; não foi feito o teste A/B com e sem contador do modelo: fica como sugestão para a medição.",
+    "Faixa estática, sem letreiro correndo (movimento_sem_fim).",
+    "vidro: é o cabeçalho do layout de (funil), o mesmo da home (Landing DS, docs/DESIGN.md); não é desta página.",
+    "tres_cartoes_iguais: a seção Como funciona são três passos reais do produto com três telas reais, a mesma seção da /assinar; o conteúdo vem mesmo em três passos de peso igual.",
+    "plan_highlighted: a página vende um plano só; os três preços sem risco (R$ 99, R$ 197, R$ 299) são os degraus da mesma assinatura, não planos a comparar.",
+    "supplier_identified: o rodapé de (funil) traz razão social, CNPJ, cidade (Goiânia, GO) e e-mail; o endereço completo não está no projeto e não foi inventado — fica para a dona informar."
+  ]
+}

@@ -44,6 +44,20 @@ export type PublicPlanDisplay = {
    */
   priceAmount?: number;
   priceCurrency?: string;
+  /**
+   * A card sold by a dated promotion (migration 0126) names itself and its
+   * button from the promotion ("Black Friday", "Assinar o Pro na Black
+   * Friday"); without these, the home falls back to its campaign wording.
+   */
+  eyebrow?: string;
+  ctaLabel?: string;
+  /**
+   * The whole price ladder, one line per stretch, and the condition printed
+   * under the button. A card whose price changes after N months shows both,
+   * because its big number alone is only the first months of the contract.
+   */
+  ladder?: { title: string; lines: string[] };
+  condition?: string;
 };
 
 /**

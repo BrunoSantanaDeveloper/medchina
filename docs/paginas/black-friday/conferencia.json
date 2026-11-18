@@ -1,0 +1,193 @@
+{
+  "format_version": 1,
+  "page": "black-friday",
+  "type": "planos",
+  "audited_at": "2026-11-17T21:55:03.761Z",
+  "url": "http://localhost:3005/black-friday",
+  "input_kind": "url",
+  "full_reading": true,
+  "summary": {
+    "ok": 19,
+    "atencao": 2,
+    "nao_conferido": 0
+  },
+  "items": [
+    {
+      "id": "supplier_identified",
+      "label": "Quem vende identificado",
+      "weight": "lei",
+      "status": "atencao",
+      "detail": "Não achei na página: o endereço físico.",
+      "fix": "Mostre no rodapé o nome da empresa, o CNPJ (ou o CPF), o endereço e um contato."
+    },
+    {
+      "id": "plan_highlighted",
+      "label": "Um plano em destaque",
+      "weight": "venda",
+      "status": "atencao",
+      "detail": "Nenhum plano aparece em destaque, como recomendado ou mais escolhido.",
+      "fix": "Destaque o plano que serve à maioria, com um selo como Recomendado e um contorno diferente."
+    },
+    {
+      "id": "reference_price_true",
+      "label": "O preço riscado é o preço real",
+      "weight": "lei",
+      "status": "ok",
+      "detail": "O preço riscado (R$ 299, R$ 3.588) bate com o preço de referência registrado.",
+      "fix": null
+    },
+    {
+      "id": "renewal_shown",
+      "label": "A renovação escrita",
+      "weight": "lei",
+      "status": "ok",
+      "detail": "A página diz a renovação e a periodicidade.",
+      "fix": null
+    },
+    {
+      "id": "promo_terms_shown",
+      "label": "A data e as regras da promoção",
+      "weight": "lei",
+      "status": "ok",
+      "detail": "A promoção diz até quando vale: \"Até 27 de novembro\".",
+      "fix": null
+    },
+    {
+      "id": "claims_have_origin",
+      "label": "Os números e as urgências têm origem",
+      "weight": "lei",
+      "status": "ok",
+      "detail": "O número da página tem a origem registrada.",
+      "fix": null
+    },
+    {
+      "id": "placeholder_data",
+      "label": "Nenhum dado de exemplo esquecido",
+      "weight": "lei",
+      "status": "ok",
+      "detail": "Nenhum dado de exemplo esquecido no texto da página.",
+      "fix": null
+    },
+    {
+      "id": "legal_lines",
+      "label": "As linhas legais",
+      "weight": "lei",
+      "status": "ok",
+      "detail": "Política de privacidade, termos e arrependimento aparecem na página.",
+      "fix": null
+    },
+    {
+      "id": "cancel_terms_shown",
+      "label": "Como cancelar e se há fidelidade",
+      "weight": "confianca",
+      "status": "ok",
+      "detail": "A página diz como cancelar ou se há fidelidade.",
+      "fix": null
+    },
+    {
+      "id": "ai_defaults",
+      "label": "Os vícios de IA",
+      "weight": "confianca",
+      "status": "ok",
+      "detail": "Só aparecem os padrões escolhidos de propósito.",
+      "fix": null
+    },
+    {
+      "id": "off_brand",
+      "label": "As cores e as letras da marca",
+      "weight": "confianca",
+      "status": "ok",
+      "detail": "As cores com matiz e as letras da página estão na marca.",
+      "fix": null
+    },
+    {
+      "id": "cards_no_holes",
+      "label": "Nenhum cartão com um buraco",
+      "weight": "venda",
+      "status": "ok",
+      "detail": "Nenhum cartão alto tem um buraco no meio.",
+      "fix": null
+    },
+    {
+      "id": "prices_first_screen",
+      "label": "Os preços na primeira tela",
+      "weight": "venda",
+      "status": "ok",
+      "detail": "O primeiro preço (R$ 99) aparece na primeira tela do computador.",
+      "fix": null
+    },
+    {
+      "id": "controls_fit",
+      "label": "O texto cabe nos botões",
+      "weight": "venda",
+      "status": "ok",
+      "detail": "O texto cabe em todos os botões, no computador e no celular.",
+      "fix": null
+    },
+    {
+      "id": "images_light",
+      "label": "Imagens leves",
+      "weight": "venda",
+      "status": "ok",
+      "detail": "As imagens vêm no tamanho em que aparecem e pesam menos de 500 KB.",
+      "fix": null
+    },
+    {
+      "id": "h1_present",
+      "label": "Um título principal (h1)",
+      "weight": "acesso",
+      "status": "ok",
+      "detail": "O título principal está marcado: \"Termine o dia sem prontuário para escrever.\".",
+      "fix": null
+    },
+    {
+      "id": "mobile_fits",
+      "label": "Nada passa da largura do celular",
+      "weight": "acesso",
+      "status": "ok",
+      "detail": "Nada passa da largura do celular.",
+      "fix": null
+    },
+    {
+      "id": "text_legible",
+      "label": "Texto legível no celular",
+      "weight": "acesso",
+      "status": "ok",
+      "detail": "No celular, 1% do texto fica abaixo de 12 px, e nenhum preço ou botão.",
+      "fix": null
+    },
+    {
+      "id": "tap_targets",
+      "label": "Botões e links fáceis de tocar",
+      "weight": "acesso",
+      "status": "ok",
+      "detail": "Os 16 alvos de toque têm ao menos 24 px, ou espaço em volta.",
+      "fix": null
+    },
+    {
+      "id": "contrast_ok",
+      "label": "O contraste do texto",
+      "weight": "acesso",
+      "status": "ok",
+      "detail": "Os 37 pares de texto e fundo medidos passam. 9 ficaram de fora por estarem sobre imagem ou degradê: olhe nas fotos.",
+      "fix": null
+    },
+    {
+      "id": "images_alt",
+      "label": "Imagens com texto alternativo",
+      "weight": "acesso",
+      "status": "ok",
+      "detail": "Todas as imagens têm texto alternativo.",
+      "fix": null
+    }
+  ],
+  "film": {
+    "sheets": [
+      "docs/paginas/black-friday/filme/desktop.jpg",
+      "docs/paginas/black-friday/filme/mobile.jpg",
+      "docs/paginas/black-friday/filme/reduced.jpg"
+    ],
+    "error": null
+  },
+  "not_checked": "A conferência mede regras. Ela não vê se a página se entende nem se o texto vende: isso se responde olhando as fotos."
+}

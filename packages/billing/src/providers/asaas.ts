@@ -520,6 +520,31 @@ export class AsaasProvider implements PaymentProvider {
     await asaasFetch(`/subscriptions/${providerSubscriptionId}`, { method: "DELETE" });
   }
 
+  /**
+   * The next step of a price ladder (migration 0126).
+   *
+   * `updatePendingPayments: true` is the half that matters: Asaas generates a
+   * subscription's next charge ahead of its due date, so by the time the 3rd
+   * invoice is paid the 4th may already exist at the old value. Without the
+   * flag the change would only reach the 5th, and she would be charged a cycle
+   * the page said would cost something else.
+   *
+   * Two things the docs say and this code cannot check by itself, so the caller
+   * treats a refusal as an alert for the team rather than a retry loop: on a
+   * CREDIT CARD subscription Asaas only accepts a new value when the account
+   * has card tokenization enabled — in production that is requested from the
+   * Asaas account manager — and the update schema of the reference does not
+   * list `value` although its prose describes changing it (verify in the
+   * sandbox before the first step falls due).
+   */
+  async updateSubscriptionPrice(providerSubscriptionId: string, priceCents: number): Promise<void> {
+    if (!Number.isInteger(priceCents) || priceCents <= 0) throw new Error("asaas_invalid_subscription_price");
+    await asaasFetch(`/subscriptions/${providerSubscriptionId}`, {
+      method: "PUT",
+      body: JSON.stringify({ value: priceCents / 100, updatePendingPayments: true }),
+    });
+  }
+
   // Asaas supports an endDate on the subscription. It stops future charge
   // generation while the already paid period remains available in MedChina.
   async scheduleCancellation(

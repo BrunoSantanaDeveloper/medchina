@@ -3028,6 +3028,104 @@ h2 em {
   color: rgba(6, 59, 57, 0.74);
 }
 
+/* ---------- A dated promotion on the home (migration 0126) ----------
+   The strip above the header and, on the promotion's card, the condition and
+   the price ladder under the button. On the coral featured card every text
+   colour below stays on the jade-dark family, which is what holds 4.5:1 there;
+   the struck price and its discount badge get the same treatment, since the
+   grey they carry elsewhere does not read on coral. */
+
+.promo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 14px;
+  padding: 9px 16px;
+  background: #0d1514;
+  color: #f3f7f5;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+}
+
+.promo-strip strong {
+  color: #d2a571;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.promo-strip-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--mint);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.promo-strip:hover .promo-strip-cta {
+  color: #3fdcba;
+}
+
+/* One card (a promotion that sells one plan) keeps a card's width instead of
+   stretching across the whole section. */
+.pricing-grid:has(> .price-card:only-child) {
+  grid-template-columns: minmax(0, 560px);
+  justify-content: center;
+}
+
+.plan-condition {
+  margin: 12px 0 0;
+  color: #4f5d5a;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.plan-ladder {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(6, 59, 57, 0.16);
+  border-radius: 14px;
+}
+
+.plan-ladder strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.plan-ladder ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.price-card--featured .plan-condition,
+.price-card--featured .plan-ladder ul {
+  color: rgba(6, 59, 57, 0.88);
+}
+
+.price-card--featured .plan-ladder {
+  border-color: rgba(6, 59, 57, 0.22);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.price-card--featured .plan-was {
+  color: rgba(6, 59, 57, 0.82);
+}
+
+.price-card--featured .plan-discount {
+  background: #fff5ef;
+  color: var(--jade-dark);
+}
+
 .price-card .button {
   width: 100%;
   min-height: 50px;

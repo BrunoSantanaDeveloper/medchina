@@ -1,5 +1,5 @@
 import { createServiceClient } from "@flyee/auth/service";
-import type { CheckoutCoupon } from "./types";
+import { type CheckoutCoupon, parsePricePhases, type PricePhase } from "./types";
 
 /**
  * Plan fields safe to expose on public (unauthenticated) pages — no provider
@@ -20,6 +20,12 @@ export type PublicPlan = {
   sort: number;
   /** The anchor card of the pricing grids — chosen in /admin/billing (0124). */
   isHighlighted: boolean;
+  /**
+   * The price ladder (migration 0126), or null for a single price. When set,
+   * `priceCents` is only what the FIRST cycles cost — a page that prints it
+   * alone is printing half the contract. Use `priceSchedule` from the types.
+   */
+  pricePhases: PricePhase[] | null;
 };
 
 /**
@@ -41,7 +47,7 @@ export async function listPublicPlans(): Promise<PublicPlan[] | null> {
   const { data, error } = await supabase
     .from("plans")
     .select(
-      "slug, name, description, kind, period, price_cents, currency, credit_amount, trial_days, is_free, limits, sort, is_highlighted",
+      "slug, name, description, kind, period, price_cents, currency, credit_amount, trial_days, is_free, limits, sort, is_highlighted, price_phases",
     )
     .eq("is_active", true)
     // Add-ons (à-la-carte packs) are not tiers: on a public pricing page they
@@ -69,6 +75,7 @@ export async function listPublicPlans(): Promise<PublicPlan[] | null> {
     limits: (row.limits ?? {}) as Record<string, number>,
     sort: row.sort,
     isHighlighted: row.is_highlighted === true,
+    pricePhases: parsePricePhases(row.price_phases),
   }));
 }
 
@@ -96,7 +103,7 @@ export async function getPlanBySlug(slug: string): Promise<PublicPlan | null> {
   const { data, error } = await supabase
     .from("plans")
     .select(
-      "slug, name, description, kind, period, price_cents, currency, credit_amount, trial_days, is_free, limits, sort, is_highlighted",
+      "slug, name, description, kind, period, price_cents, currency, credit_amount, trial_days, is_free, limits, sort, is_highlighted, price_phases",
     )
     .eq("slug", slug.trim())
     .eq("is_active", true)
@@ -118,6 +125,7 @@ export async function getPlanBySlug(slug: string): Promise<PublicPlan | null> {
     limits: (data.limits ?? {}) as Record<string, number>,
     sort: data.sort,
     isHighlighted: data.is_highlighted === true,
+    pricePhases: parsePricePhases(data.price_phases),
   };
 }
 

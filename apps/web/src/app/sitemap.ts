@@ -32,6 +32,7 @@ const MARKETING_ROUTES = [
   // - the offer pages `/fundadores` and `/assinar` — decision D10 of
   //   docs/FUNIL.md: a limited price that ranks on Google stops being an offer
   //   and becomes the price;
+  // - `/black-friday` — the dated promotion (migration 0126), same reason;
   // - `/palestra` — the speaker's instrument, opened by the congress AV machine
   //   without a session; it carries the full teleprompter and stage directions;
   // - `/palestra/publica` — the same slides without the speaker notes, the

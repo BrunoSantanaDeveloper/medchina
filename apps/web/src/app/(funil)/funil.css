@@ -51,7 +51,9 @@
   padding-top: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   color: #728b85;
-  font-size: 11px;
+  /* 12px, not 11: the seller's identification and contact must stay legible
+     on a phone (the conversion-pages audit flagged the e-mail at 11px). */
+  font-size: 12px;
   line-height: 1.6;
 }
 

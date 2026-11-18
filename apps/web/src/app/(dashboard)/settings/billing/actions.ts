@@ -12,9 +12,17 @@ import { getGaClientId, getMetaClientContext } from "@/lib/meta-capi-context";
 import { normalizeCouponCode } from "@/lib/offer-link";
 import { resolvePaymentChoice } from "@/lib/payment-choice";
 import { pendingPixCharge } from "@/lib/pending-pix";
+import { PROMOTION_KEY, type PromotionSetting, resolvePromotion } from "@/lib/promotion";
 import { createClient } from "@flyee/auth/server";
 import { createServiceClient } from "@flyee/auth/service";
-import { type CheckoutPlan, defaultProvider, getProvider, type PaymentMethod, type PixCharge } from "@flyee/billing";
+import {
+  type CheckoutPlan,
+  defaultProvider,
+  getProvider,
+  parsePricePhases,
+  type PaymentMethod,
+  type PixCharge,
+} from "@flyee/billing";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 async function requireOrgManager(orgId: string) {
@@ -183,9 +191,10 @@ async function offerBlock(
   planSlug: string,
 ): Promise<string | null> {
   try {
-    const [founders, campaign] = await Promise.all([
+    const [founders, campaign, promotion] = await Promise.all([
       supabase.rpc("founders_offer"),
       supabase.from("platform_settings").select("value").eq("key", CAMPAIGN_OFFER_KEY).maybeSingle(),
+      supabase.from("platform_settings").select("value").eq("key", PROMOTION_KEY).maybeSingle(),
     ]);
 
     if (!founders.error && founders.data) {
@@ -204,6 +213,14 @@ async function offerBlock(
       // `not_configured` names the absence of a campaign, not a closed one:
       // the plan is then an ordinary catalogue plan and sells normally.
       if (named && offer.closed && offer.reason !== "not_configured") return offer.reason;
+    }
+
+    // The dated promotion (migration 0126): its plan sells only between the
+    // start and the end the page prints — before the start as much as after the
+    // end, so a link shared early cannot buy the price a day ahead.
+    if (!promotion.error) {
+      const offer = resolvePromotion((promotion.data?.value ?? null) as PromotionSetting | null);
+      if (offer.planSlug === planSlug && offer.closed && offer.reason !== "not_configured") return offer.reason;
     }
 
     return null;
@@ -418,6 +435,18 @@ export async function startCheckout(input: {
       }
     }
 
+    // A plan sold with a price ladder (migration 0126) has two extra rules,
+    // both about keeping the contract the page printed:
+    //  - no coupon: a coupon is written into the provider's subscription value,
+    //    and the first step of the ladder would overwrite it in silence;
+    //  - only a provider that can change a live subscription's price, or the
+    //    ladder would stop at the first step without anyone noticing.
+    const pricePhases = parsePricePhases(planRow.price_phases);
+    if (pricePhases && coupon) {
+      logBillingFailure("coupon_not_combinable", { orgId: input.orgId, plan: planRow.slug });
+      return { error: "coupon_not_combinable" };
+    }
+
     const plan: CheckoutPlan = {
       id: planRow.id,
       slug: planRow.slug,
@@ -450,6 +479,10 @@ export async function startCheckout(input: {
     const provider = defaultProvider();
     if (!provider) {
       logBillingFailure("no_provider_configured", { orgId: input.orgId });
+      return { error: "unavailable" };
+    }
+    if (pricePhases && !getProvider(provider).updateSubscriptionPrice) {
+      logBillingFailure("phased_plan_unsupported", { orgId: input.orgId, plan: planRow.slug, provider });
       return { error: "unavailable" };
     }
     const service = createServiceClient();

@@ -485,6 +485,7 @@ function PresenceExperience({ copy }: { copy: HomeCopy["presence"] }) {
 export default function ClinicalSourceHome({
   plans,
   offer,
+  promoStrip,
   couponNotice,
   copy,
   locale,
@@ -501,7 +502,19 @@ export default function ClinicalSourceHome({
    * because this is a client component and a date formatted here would not
    * match the one the server rendered.
    */
-  offer?: { guaranteeDays: number; deadlineLabel: string | null } | null;
+  offer?: {
+    guaranteeDays: number;
+    deadlineLabel: string | null;
+    /** A dated promotion's own title and lead, already filled on the server. */
+    title?: string;
+    lead?: string;
+  } | null;
+  /**
+   * The dated promotion's strip above the header (migration 0126): the event,
+   * the entry price and the end date, linking to the promotion's page. Null
+   * whenever the promotion is closed — it leaves with the promotion.
+   */
+  promoStrip?: { text: string; cta: string; aria: string; href: string } | null;
   /** Confirmation that a campaign code was recognized — or that it was not. */
   couponNotice?: { label: string; applied: boolean };
   /** This page's copy in the active language (home-copy/<locale>.ts). */
@@ -513,6 +526,14 @@ export default function ClinicalSourceHome({
   return (
     <main id="inicio" className="clinical-source-home">
       {autoSwitched && <HomeLanguageNotice copy={copy.language} defaultLocaleName={copy.language.names["pt-BR"]} />}
+      {promoStrip && (
+        <a className="promo-strip" href={promoStrip.href} aria-label={promoStrip.aria}>
+          <span>{rich(promoStrip.text)}</span>
+          <span className="promo-strip-cta">
+            {promoStrip.cta} <ArrowRight size={15} aria-hidden="true" />
+          </span>
+        </a>
+      )}
       <HomeHeader
         copy={copy.nav}
         links={[
@@ -731,8 +752,8 @@ export default function ClinicalSourceHome({
         <div className="pricing-stage">
           <div className="section-heading section-heading--center">
             <p className="eyebrow eyebrow--light">{copy.pricing.eyebrow}</p>
-            <h2>{rich(offer ? copy.pricing.offerTitle : copy.pricing.title)}</h2>
-            <p>{offer ? copy.pricing.offerLead : copy.pricing.lead}</p>
+            <h2>{rich(offer ? (offer.title ?? copy.pricing.offerTitle) : copy.pricing.title)}</h2>
+            <p>{offer ? (offer.lead ?? copy.pricing.offerLead) : copy.pricing.lead}</p>
           </div>
           {/* The catalogue's three marks sell the free account, the trial and
               "no card" — the exact opposite of what a campaign card does. When
@@ -769,8 +790,11 @@ export default function ClinicalSourceHome({
             // checkout. `checkoutHref` is what marks it.
             const selling = Boolean(plan.checkoutHref);
             const eyebrow =
-              presentation?.eyebrow ?? (selling ? copy.pricing.offerEyebrow : copy.pricing.defaultEyebrow);
-            const cta = presentation?.cta ?? (selling ? copy.pricing.offerCta : copy.pricing.defaultCta);
+              plan.eyebrow ??
+              presentation?.eyebrow ??
+              (selling ? copy.pricing.offerEyebrow : copy.pricing.defaultEyebrow);
+            const cta =
+              plan.ctaLabel ?? presentation?.cta ?? (selling ? copy.pricing.offerCta : copy.pricing.defaultCta);
             const badge = presentation?.badge;
             const Icon = PLAN_ICONS[plan.slug] ?? Notebook;
             const featured = Boolean(plan.highlighted);
@@ -799,6 +823,19 @@ export default function ClinicalSourceHome({
                   {cta}
                   <ArrowRight size={17} />
                 </a>
+                {/* A price that changes after N months is printed whole, right
+                    under the button that buys it (migration 0126). */}
+                {plan.condition && <p className="plan-condition">{plan.condition}</p>}
+                {plan.ladder && (
+                  <div className="plan-ladder">
+                    <strong>{plan.ladder.title}</strong>
+                    <ul>
+                      {plan.ladder.lines.map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div className="plan-includes">
                   <strong>{copy.pricing.included}</strong>
                   <ul>

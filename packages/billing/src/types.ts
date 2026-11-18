@@ -31,6 +31,97 @@ export type PaymentMethod = "credit_card" | "pix";
  */
 export const MAX_INSTALLMENTS = 5;
 
+/**
+ * One step of a plan's price ladder (`plans.price_phases`, migration 0126):
+ * after `afterCycles` PAID cycles, the plan costs `priceCents`.
+ *
+ * The plan's own `priceCents` is what the cycles BEFORE the first step cost,
+ * which is why the checkout needs nothing new: it charges `priceCents` as it
+ * always did, and the billing webhook moves the provider to the next price
+ * when the paid-invoice count reaches a step.
+ */
+export interface PricePhase {
+  afterCycles: number;
+  priceCents: number;
+}
+
+/**
+ * Reads `plans.price_phases` / `subscriptions.price_phases` as stored.
+ *
+ * The database already refuses a malformed ladder (`price_phases_valid`), so
+ * this only translates the snake-case JSON — and answers null for anything it
+ * cannot read rather than inventing a step. Null means "a single price".
+ */
+export function parsePricePhases(value: unknown): PricePhase[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const phases: PricePhase[] = [];
+  let previous = 0;
+  for (const raw of value) {
+    const step = raw as { after_cycles?: unknown; price_cents?: unknown } | null;
+    const afterCycles = Number(step?.after_cycles);
+    const priceCents = Number(step?.price_cents);
+    if (!Number.isInteger(afterCycles) || !Number.isInteger(priceCents)) return null;
+    if (afterCycles <= previous || priceCents < 0) return null;
+    phases.push({ afterCycles, priceCents });
+    previous = afterCycles;
+  }
+  return phases;
+}
+
+/**
+ * The price a subscription should be on once `paidCycles` invoices are paid.
+ *
+ * `index` counts the steps reached (0 = still on the base price) and is what
+ * `subscriptions.price_phase_index` stores once the provider has accepted it.
+ */
+export function pricePhaseAfter(
+  basePriceCents: number,
+  phases: PricePhase[] | null,
+  paidCycles: number,
+): { index: number; priceCents: number } {
+  let index = 0;
+  let priceCents = basePriceCents;
+  for (const phase of phases ?? []) {
+    if (paidCycles < phase.afterCycles) break;
+    index += 1;
+    priceCents = phase.priceCents;
+  }
+  return { index, priceCents };
+}
+
+/**
+ * The ladder as the customer reads it: which cycles cost what.
+ *
+ * "Ciclos 1–3: R$ 99 · 4–12: R$ 197 · do 13º em diante: R$ 299" — the last
+ * stretch has no end (`toCycle: null`). One function feeds every surface that
+ * prints the condition (the offer page, the home card, the checkout summary),
+ * so none of them can describe a ladder the webhook would not charge.
+ */
+export function priceSchedule(
+  basePriceCents: number,
+  phases: PricePhase[] | null,
+): { fromCycle: number; toCycle: number | null; priceCents: number }[] {
+  const stretches: { fromCycle: number; toCycle: number | null; priceCents: number }[] = [];
+  let fromCycle = 1;
+  let priceCents = basePriceCents;
+  for (const phase of phases ?? []) {
+    stretches.push({ fromCycle, toCycle: phase.afterCycles, priceCents });
+    fromCycle = phase.afterCycles + 1;
+    priceCents = phase.priceCents;
+  }
+  stretches.push({ fromCycle, toCycle: null, priceCents });
+  return stretches;
+}
+
+/** What the ladder charges over its first `cycles` cycles, in cents. */
+export function scheduleTotalCents(basePriceCents: number, phases: PricePhase[] | null, cycles: number): number {
+  let total = 0;
+  for (let cycle = 1; cycle <= cycles; cycle += 1) {
+    total += pricePhaseAfter(basePriceCents, phases, cycle - 1).priceCents;
+  }
+  return total;
+}
+
 export interface CheckoutPlan {
   id: string;
   slug: string;
@@ -234,6 +325,16 @@ export interface PaymentProvider {
   /** Undo a previously scheduled cancellation while the subscription is still active. */
   resumeSubscription(providerSubscriptionId: string): Promise<void>;
   cancelSubscription(providerSubscriptionId: string): Promise<void>;
+  /**
+   * Moves a live subscription to a new recurring price — the next step of a
+   * price ladder (`plans.price_phases`, migration 0126).
+   *
+   * Applies to the charges not yet paid, including one the provider already
+   * generated for the coming cycle; never to a paid one. Optional: a provider
+   * without it cannot sell a plan with phases, and the checkout refuses that
+   * combination before any money moves (`phased_plan_unsupported`).
+   */
+  updateSubscriptionPrice?(providerSubscriptionId: string, priceCents: number): Promise<void>;
   /**
    * A hosted page where the customer updates the card behind a live
    * subscription. Returns null when the provider has no such surface (Asaas

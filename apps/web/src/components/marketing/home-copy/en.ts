@@ -347,6 +347,19 @@ export const homeCopy: HomeCopy = {
     offerAssuranceTitle: "{days} days to change your mind.",
     offerAssuranceDetail:
       "If it does not fit your practice, you request a refund within {days} days and get your money back.",
+    promoStripAria: "Promotion running",
+    promoStrip: "__{label}__ · {plan} at {price} a month for the first {cycles} months · until {date}",
+    promoStripCta: "See the offer",
+    promoTitle: "{label} at MedChina.\n**{plan} at {price} a month for the first {cycles} months.**",
+    promoLead:
+      "An offer with an end date, and the price of every month settled on the day you subscribe. The free account still exists; here you subscribe straight to {plan}.",
+    promoEyebrow: "{label}",
+    promoDiscount: "{value}% off for the first {cycles} months",
+    promoCta: "Subscribe to {plan} for {label}",
+    promoLadderTitle: "Price of each month",
+    promoLadderRange: "Months {from} to {to}: {price} a month",
+    promoLadderOpen: "From month {from}: {price} a month",
+    promoCondition: "You pay {price} today. Monthly, no lock-in: cancel whenever you want from your account.",
     included: "What's included",
     assuranceTitle: "Your trial starts when your work starts.",
     assuranceDetail:

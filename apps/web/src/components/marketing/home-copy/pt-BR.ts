@@ -372,6 +372,24 @@ export const homeCopyPtBR = {
     offerAssuranceTitle: "{days} dias de garantia.",
     offerAssuranceDetail:
       "Se não fizer sentido para a sua prática, você pede o reembolso em até {days} dias e recebe o valor de volta.",
+    /**
+     * A promoção com data (migração 0126, hoje a Black Friday): a faixa no
+     * topo da home e o cartão do plano dela na seção de preços. Os valores
+     * entre chaves vêm da própria promoção e do plano — nada aqui é número.
+     */
+    promoStripAria: "Promoção em andamento",
+    promoStrip: "__{label}__ · {plan} a {price} por mês nos {cycles} primeiros meses · até {date}",
+    promoStripCta: "Ver a oferta",
+    promoTitle: "{label} no MedChina.\n**{plan} a {price} por mês nos {cycles} primeiros meses.**",
+    promoLead:
+      "Uma condição com data para acabar e com o valor de cada mês decidido no dia em que você assina. A conta gratuita continua existindo; aqui você assina direto o {plan}.",
+    promoEyebrow: "{label}",
+    promoDiscount: "{value}% off nos {cycles} primeiros meses",
+    promoCta: "Assinar o {plan} na {label}",
+    promoLadderTitle: "Valor de cada mês",
+    promoLadderRange: "Meses {from} a {to}: {price} por mês",
+    promoLadderOpen: "A partir do mês {from}: {price} por mês",
+    promoCondition: "Hoje você paga {price}. Mensal, sem fidelidade: cancele quando quiser pelo painel.",
     included: "O que está incluído",
     assuranceTitle: "Você começa a testar quando começa a trabalhar.",
     assuranceDetail:

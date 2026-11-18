@@ -1,6 +1,6 @@
 import "./clinical-source-home.css";
 
-import { getCampaignDisplayPlans, getDisplayPlans } from "./plans";
+import { fillCopy, getCampaignDisplayPlans, getDisplayPlans, getPromotionDisplayPlans } from "./plans";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
@@ -12,6 +12,8 @@ import { getCampaignOffer } from "@/lib/campaign-offer";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { resolveRequestLocale } from "@/lib/locale-request";
 import { normalizeCouponCode } from "@/lib/offer-link";
+import { getPromotion } from "@/lib/promotion";
+import { resolveSellablePromotion } from "@/lib/promotion-server";
 import { resolvePublicCoupon } from "@flyee/billing/public";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -76,10 +78,42 @@ export default async function Home({
    * the code's price. Campaign and coupon are two different promises and the
    * one she was shown is the one she followed.
    */
+  /**
+   * A dated promotion (migration 0126) goes before the campaign: for its few
+   * days it is the best open price, and the campaign comes back by itself the
+   * moment the promotion closes, because both are read against the clock here.
+   * Same coupon rule as the campaign: a visitor who followed a code sees the
+   * code's price.
+   */
+  const promotion = await getPromotion();
+  const promo = promotion?.showOnHome && !coupon ? await resolveSellablePromotion(promotion) : null;
+  const promoPlans = promo ? await getPromotionDisplayPlans(promo, copy.pricing) : [];
+
   const campaignOffer = await getCampaignOffer();
-  const campaignPlans = campaignOffer?.showOnHome && !coupon ? await getCampaignDisplayPlans(campaignOffer) : [];
-  const selling = campaignPlans.length > 0;
-  const plans = selling ? campaignPlans : await getDisplayPlans(coupon);
+  const campaignPlans =
+    promoPlans.length === 0 && campaignOffer?.showOnHome && !coupon ? await getCampaignDisplayPlans(campaignOffer) : [];
+  const selling = promoPlans.length > 0 || campaignPlans.length > 0;
+  const plans =
+    promoPlans.length > 0 ? promoPlans : campaignPlans.length > 0 ? campaignPlans : await getDisplayPlans(coupon);
+
+  const promoEnd = promo?.promotion.endsAt
+    ? new Intl.DateTimeFormat(locale, { day: "2-digit", month: "long", timeZone: "America/Sao_Paulo" }).format(
+        new Date(promo.promotion.endsAt),
+      )
+    : null;
+  const promoValues = promo
+    ? {
+        label: promo.promotion.label,
+        plan: promo.plan.name,
+        price: new Intl.NumberFormat(locale, {
+          style: "currency",
+          currency: promo.plan.currency,
+          maximumFractionDigits: 0,
+        }).format(promo.facts.firstPriceCents / 100),
+        cycles: promo.facts.introCycles ?? 1,
+        date: promoEnd ?? "",
+      }
+    : null;
 
   /**
    * What the section can still say truthfully once the free card and the trial
@@ -91,13 +125,21 @@ export default async function Home({
   const offer = selling
     ? {
         guaranteeDays: await getGuaranteeDays(),
-        deadlineLabel: campaignOffer?.deadline
-          ? new Intl.DateTimeFormat(locale, {
-              day: "2-digit",
-              month: "long",
-              timeZone: "America/Sao_Paulo",
-            }).format(new Date(campaignOffer.deadline))
-          : null,
+        deadlineLabel: promoValues
+          ? promoEnd
+          : campaignOffer?.deadline
+            ? new Intl.DateTimeFormat(locale, {
+                day: "2-digit",
+                month: "long",
+                timeZone: "America/Sao_Paulo",
+              }).format(new Date(campaignOffer.deadline))
+            : null,
+        ...(promoValues
+          ? {
+              title: fillCopy(copy.pricing.promoTitle, promoValues),
+              lead: fillCopy(copy.pricing.promoLead, promoValues),
+            }
+          : {}),
       }
     : null;
 
@@ -108,6 +150,16 @@ export default async function Home({
       copy={copy}
       locale={locale}
       autoSwitched={autoSwitched}
+      promoStrip={
+        promoValues
+          ? {
+              text: fillCopy(copy.pricing.promoStrip, promoValues),
+              cta: copy.pricing.promoStripCta,
+              aria: copy.pricing.promoStripAria,
+              href: "/black-friday",
+            }
+          : null
+      }
       couponNotice={
         requestedCoupon
           ? coupon

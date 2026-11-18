@@ -1,0 +1,619 @@
+/*
+ * /black-friday — the dated promotion page (migration 0126).
+ *
+ * Built in the Landing DS (docs/DESIGN.md): it composes the DS classes the
+ * other offer pages use (.section, .offer-flow, .offer-includes,
+ * .offer-guarantee, .offer-founder, .faq-*, .final-cta) and only defines here
+ * what this page genuinely adds — the dark campaign hero, the strip, the price
+ * ladder figure, the countdown and the sticky bar.
+ *
+ * The campaign wears its own face OVER the brand, as in the Hostinger model:
+ * a near-black hero with the brand's jade underneath, a camel pill for the
+ * discount (camel is the brand's warmth accent) and mint for the action. Red
+ * stays reserved for risk and failure (PRD §16.1), so no red here, and every
+ * text/background pair below was chosen for ≥ 4.5:1.
+ */
+
+.bf-page {
+  --bf-night: #0d1514;
+  --bf-camel: #d2a571;
+  --bf-on-dark: #f3f7f5;
+  --bf-on-dark-soft: rgba(243, 247, 245, 0.8);
+}
+
+/* ---------- The strip ---------- */
+
+.bf-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 18px;
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--bf-night);
+  color: var(--bf-on-dark);
+  font-size: 0.92rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.bf-strip strong {
+  color: var(--bf-camel);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.bf-strip span + span::before {
+  content: "·";
+  margin-right: 18px;
+  color: var(--bf-camel);
+}
+
+/* ---------- The hero ---------- */
+
+.bf-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 44px 0 56px;
+  background:
+    radial-gradient(ellipse 70% 60% at 85% 10%, rgba(30, 201, 164, 0.16), transparent 60%),
+    linear-gradient(165deg, var(--bf-night) 0%, var(--jade-dark) 100%);
+  color: var(--bf-on-dark);
+}
+
+.bf-hero-inner {
+  display: grid;
+  gap: 36px;
+  width: min(100% - 32px, 1240px);
+  margin: 0 auto;
+}
+
+.bf-event {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 18px;
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: clamp(2.9rem, 1.6rem + 5.4vw, 5.8rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
+}
+
+.bf-event span {
+  color: var(--bf-camel);
+  font-family: "Mulish", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.bf-hero h1 {
+  margin: 0 0 14px;
+  color: var(--bf-on-dark);
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: clamp(1.75rem, 1.2rem + 1.9vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.bf-hero h1 em {
+  color: var(--mint);
+  font-style: normal;
+}
+
+.bf-lead {
+  max-width: 560px;
+  margin: 0 0 26px;
+  color: var(--bf-on-dark-soft);
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
+/* The offer box: everything the decision needs, in reading order. */
+.bf-offer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 560px;
+  padding: 24px;
+  border: 1px solid rgba(243, 247, 245, 0.16);
+  border-radius: 24px;
+  background: rgba(243, 247, 245, 0.06);
+}
+
+.bf-offer-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.bf-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bf-camel);
+  color: var(--bf-night);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.bf-pill small {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.bf-was {
+  color: var(--bf-on-dark-soft);
+  font-size: 0.95rem;
+}
+
+.bf-was s {
+  color: var(--bf-on-dark);
+  font-weight: 700;
+  text-decoration-thickness: 2px;
+}
+
+.bf-price {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0;
+}
+
+.bf-price strong {
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: clamp(3.4rem, 2.4rem + 4vw, 5rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+.bf-price span {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 6px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.bf-price small {
+  color: var(--bf-on-dark-soft);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* The action on dark ground is mint with dark text: jade on near-black would
+   disappear, and white on mint fails contrast. */
+.bf-offer .button,
+.bf-sticky .button {
+  border-color: var(--mint);
+  background: var(--mint);
+  color: var(--bf-night);
+  font-weight: 800;
+}
+
+.bf-offer .button:hover,
+.bf-sticky .button:hover {
+  border-color: #3fdcba;
+  background: #3fdcba;
+  box-shadow: 0 14px 30px rgba(30, 201, 164, 0.22);
+}
+
+.bf-offer .button {
+  width: 100%;
+}
+
+.bf-condition {
+  margin: 0;
+  color: var(--bf-on-dark-soft);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.bf-guarantee {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--bf-on-dark);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.bf-guarantee svg {
+  color: var(--mint);
+}
+
+.bf-hero .bf-signin {
+  color: var(--bf-on-dark-soft);
+}
+
+.bf-hero .bf-signin a {
+  color: var(--bf-on-dark);
+}
+
+.bf-hero-stage img {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  margin: 0 auto;
+  aspect-ratio: 4 / 5;
+  border-radius: 28px;
+  object-fit: cover;
+  object-position: top center;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+}
+
+.bf-hero .hero-actions {
+  margin-top: 8px;
+}
+
+@media (min-width: 980px) {
+  .bf-hero {
+    padding: 64px 0 80px;
+  }
+
+  .bf-hero-inner {
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    align-items: center;
+    gap: 56px;
+  }
+}
+
+/* ---------- The countdown ---------- */
+
+.bf-countdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.bf-countdown-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.bf-countdown--dark .bf-countdown-label {
+  color: var(--bf-on-dark-soft);
+}
+
+.bf-countdown-units {
+  display: flex;
+  gap: 8px;
+}
+
+.bf-countdown-unit {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(243, 247, 245, 0.1);
+}
+
+.bf-countdown-unit strong {
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.bf-countdown-unit small {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.bf-countdown--light .bf-countdown-unit {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ---------- The price ladder ---------- */
+
+.bf-ladder {
+  max-width: 880px;
+  margin: 8px auto 0;
+}
+
+.bf-ladder-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  /* 30px above for the table-price label, 30px below for the month labels;
+     the bars' percentages are of the 200px between them, and the anchor line
+     is placed with the same arithmetic (see LadderFigure). */
+  height: 260px;
+  padding: 30px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.bf-ladder-bar {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 10px 10px 4px 4px;
+}
+
+.bf-ladder-bar small {
+  position: absolute;
+  bottom: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bf-ladder-bar--0,
+.bf-ladder-key--0::before {
+  background: var(--mint);
+}
+
+.bf-ladder-bar--1,
+.bf-ladder-key--1::before {
+  background: var(--jade);
+}
+
+.bf-ladder-bar--2,
+.bf-ladder-key--2::before {
+  background: var(--jade-dark);
+}
+
+/* Month 13 onward: open-ended, drawn as an outline — it is the price she goes
+   back to, not a price of the promotion. */
+.bf-ladder-bar--after,
+.bf-ladder-key--after::before {
+  border: 2px dashed var(--muted);
+  background: repeating-linear-gradient(-45deg, rgba(98, 112, 109, 0.12) 0 6px, transparent 6px 12px);
+}
+
+.bf-ladder-anchor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  border-top: 2px dashed var(--muted);
+  pointer-events: none;
+}
+
+.bf-ladder-anchor span {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--ivory);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.bf-ladder-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 28px;
+  margin-top: 26px;
+}
+
+.bf-ladder-key {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bf-ladder-key::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+}
+
+.bf-ladder-key strong {
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.bf-ladder-key small {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* On a phone, thirteen month labels do not fit: keep the ones where the
+   price changes, plus the last month of the first year. */
+@media (max-width: 640px) {
+  .bf-ladder-chart {
+    gap: 3px;
+    height: 200px;
+  }
+
+  .bf-ladder-bar small {
+    display: none;
+  }
+
+  .bf-ladder-anchor + .bf-ladder-bar small,
+  .bf-ladder-bar--0 + .bf-ladder-bar--1 small,
+  .bf-ladder-bar--1 + .bf-ladder-bar--2 small,
+  .bf-ladder-bar--after small {
+    display: block;
+  }
+}
+
+.bf-year {
+  display: grid;
+  gap: 12px;
+  max-width: 880px;
+  margin: 34px auto 0;
+}
+
+.bf-year div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+}
+
+.bf-year dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.bf-year dd {
+  margin: 0;
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.bf-year dd s {
+  color: var(--muted);
+  text-decoration-thickness: 2px;
+}
+
+.bf-year .bf-year-save {
+  border-color: var(--jade-soft);
+  background: var(--jade-soft);
+}
+
+.bf-year .bf-year-save dt,
+.bf-year .bf-year-save dd {
+  color: var(--jade-dark);
+}
+
+@media (min-width: 820px) {
+  .bf-year {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .bf-year div {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ---------- The sticky bar ---------- */
+
+.bf-sticky {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--bf-night);
+  color: var(--bf-on-dark);
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.18);
+  transform: translateY(110%);
+  transition: transform 0.25s ease;
+}
+
+.bf-sticky.is-visible {
+  transform: translateY(0);
+}
+
+/* Room on the right for the floating support button, which owns that corner. */
+.bf-sticky-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  width: min(100%, 1240px);
+  margin: 0 auto;
+  padding-right: 72px;
+}
+
+.bf-sticky-price {
+  display: flex;
+  flex-direction: column;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.bf-sticky-price strong {
+  font-family: "TT Chocolates", "Mulish", sans-serif;
+  font-size: 1.35rem;
+}
+
+.bf-sticky-price small {
+  color: var(--bf-on-dark-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  /* The support button keeps the right corner, so the label has ~290px:
+     a tighter button keeps "Assinar o Pro na Black Friday" on one line. */
+  .bf-sticky .button {
+    width: 100%;
+    gap: 6px;
+    padding: 0 12px;
+    font-size: 0.875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bf-sticky {
+    transition: none;
+  }
+
+  .bf-offer .button:hover,
+  .bf-sticky .button:hover {
+    transform: none;
+  }
+}
+
+/* The closed state keeps the hero's face, with the way forward only. */
+.bf-hero--closed .bf-hero-copy .hero-actions {
+  margin-top: 18px;
+}
+
+/* The final call's eyebrow carries the deadline on this page, and the DS
+   eyebrow tint over jade measures 4.1:1; this one reaches 5.7:1. */
+.bf-page .final-cta .eyebrow--light {
+  color: #e3efec;
+}
+
+/* Long section titles wrap evenly instead of leaving one word alone. */
+.bf-page .section-heading h2 {
+  text-wrap: balance;
+}
+
+/* Four "included" cards sit 2 × 2: in the shared three-column grid the
+   fourth one hung alone on a second row. */
+.bf-page .offer-includes:has(> article:nth-child(4):last-child) {
+  max-width: 780px;
+}
+
+/* On a phone the strip stacks: a separator dot at the start of a wrapped line
+   reads as a stray mark. */
+@media (max-width: 640px) {
+  .bf-strip {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bf-strip span + span::before {
+    content: none;
+  }
+}
