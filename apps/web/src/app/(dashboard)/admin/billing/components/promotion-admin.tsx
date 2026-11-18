@@ -1,6 +1,6 @@
 "use client";
 
-import { Field, RowLine, RowText } from "./catalog-shared";
+import { Field, RowLine, RowText, SelectField } from "./catalog-shared";
 import { useCallback, useEffect, useState } from "react";
 
 import { Alert, Box, Button, Checkbox, Chip, FormControlLabel } from "@mui/material";
@@ -28,6 +28,8 @@ type PlanRow = {
   period: string | null;
   price_cents: number;
   is_active: boolean;
+  is_free: boolean;
+  is_addon: boolean;
   price_phases: unknown;
 };
 
@@ -48,6 +50,33 @@ function toLocalInput(iso: string): string {
   if (Number.isNaN(date.getTime())) return "";
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
+const PER: Record<string, string> = { monthly: "/mês", yearly: "/ano", weekly: "/semana" };
+
+/**
+ * The catalogue as choices: paid, active, sellable plans, each with its price
+ * and whether it has a ladder — so the operator picks a ROW instead of typing
+ * a slug (a page slug and a price typed here made the promotion silently sell
+ * nothing). A saved value that names no plan stays visible, marked, so the
+ * mistake is seen rather than replaced.
+ */
+function planOptions(plans: PlanRow[], current: string, emptyLabel: string) {
+  const sellable = plans.filter((row) => row.is_active && !row.is_free && !row.is_addon);
+  const options = [
+    { value: "", label: emptyLabel },
+    ...sellable.map((row) => ({
+      value: row.slug,
+      label: `${row.name} · ${row.slug} · ${BRL.format(row.price_cents / 100)}${
+        row.period ? (PER[row.period] ?? "") : ""
+      }${parsePricePhases(row.price_phases) ? " · preço em fases" : ""}`,
+    })),
+  ];
+  if (current && !sellable.some((row) => row.slug === current)) {
+    options.push({ value: current, label: `${current} — não é um plano ativo, escolha outro` });
+  }
+  return options;
 }
 
 const brasilia = (iso: string | null) =>
@@ -71,16 +100,25 @@ export default function PromotionAdmin() {
   const [config, setConfig] = useState<PromotionConfig>(EMPTY);
   const [rawValue, setRawValue] = useState<Record<string, unknown>>({});
   const [plans, setPlans] = useState<PlanRow[]>([]);
+  // A failed read is NOT an empty catalogue: shown as "no plan with that slug"
+  // it sends the operator hunting for a typo when the cause is elsewhere (for
+  // instance a database without migration 0126, where `price_phases` does not
+  // exist and the whole select fails).
+  const [planError, setPlanError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: setting }, { data: planRows }] = await Promise.all([
+    const [{ data: setting }, { data: planRows, error: planReadError }] = await Promise.all([
       supabase.from("platform_settings").select("value").eq("key", PROMOTION_KEY).maybeSingle(),
-      supabase.from("plans").select("slug, name, period, price_cents, is_active, price_phases"),
+      supabase
+        .from("plans")
+        .select("slug, name, period, price_cents, is_active, is_free, is_addon, price_phases")
+        .order("price_cents", { ascending: true }),
     ]);
+    setPlanError(planReadError ? planReadError.message : null);
     const value = (setting?.value ?? {}) as PromotionSetting;
     setRawValue((setting?.value ?? {}) as Record<string, unknown>);
     setConfig({
@@ -103,6 +141,18 @@ export default function PromotionAdmin() {
   const save = async () => {
     setError(null);
     setSaved(false);
+    // The two plan fields name catalogue rows, and a value that names nothing
+    // fails silently on the public pages (the page just shows "closed"). So the
+    // form refuses it here, where the operator can still fix it.
+    const chosen = plans.find((row) => row.slug === config.plan_slug.trim());
+    if (!chosen || !chosen.is_active || chosen.is_free) {
+      setError("Escolha na lista o plano pago e ativo que a promoção vende.");
+      return;
+    }
+    if (config.compare_plan_slug.trim() && !plans.some((row) => row.slug === config.compare_plan_slug.trim())) {
+      setError("O plano de âncora tem que ser um plano da lista (ou Nenhum).");
+      return;
+    }
     const supabase = createClient();
     const next = {
       enabled: config.enabled,
@@ -149,28 +199,34 @@ export default function PromotionAdmin() {
       )
     : [];
 
+  // "Selling" needs BOTH the window and a plan the checkout can sell — the same
+  // two conditions the page and the home check (`resolveSellablePromotion`).
+  const sellablePlan = Boolean(plan && plan.is_active && !plan.is_free);
+  const selling = !state.closed && sellablePlan;
   const statusLine =
-    state.reason === "not_configured"
-      ? "Informe o plano e o fim da promoção (o início é opcional, e precisa ser antes do fim)."
-      : state.reason === "disabled"
-        ? "A promoção existe, mas está desligada: /black-friday mostra o estado fechado."
-        : state.reason === "not_started"
-          ? `Abre em ${brasilia(state.startsAt)} (Brasília). Até lá, o checkout recusa o plano.`
-          : state.reason === "expired"
-            ? "O prazo terminou: o checkout recusa o plano e a home voltou ao normal."
-            : `Vendendo até ${brasilia(state.endsAt)} (Brasília).`;
+    !state.closed && !sellablePlan
+      ? "A janela está aberta, mas o plano escolhido não existe ou está inativo: a página mostra o estado fechado e a home não muda."
+      : state.reason === "not_configured"
+        ? "Informe o plano e o fim da promoção (o início é opcional, e precisa ser antes do fim)."
+        : state.reason === "disabled"
+          ? "A promoção existe, mas está desligada: /black-friday mostra o estado fechado."
+          : state.reason === "not_started"
+            ? `Abre em ${brasilia(state.startsAt)} (Brasília). Até lá, o checkout recusa o plano.`
+            : state.reason === "expired"
+              ? "O prazo terminou: o checkout recusa o plano e a home voltou ao normal."
+              : `Vendendo até ${brasilia(state.endsAt)} (Brasília).`;
 
   return (
     <Box className="flex flex-col gap-4">
       <RowLine>
         <RowText
-          primary={state.closed ? "/black-friday mostra o estado fechado" : "/black-friday está vendendo"}
+          primary={selling ? "/black-friday está vendendo" : "/black-friday mostra o estado fechado"}
           secondary={statusLine}
         />
         <Chip
-          label={state.closed ? state.reason : "aberta"}
+          label={selling ? "aberta" : state.closed ? state.reason : "sem plano"}
           size="small"
-          color={state.closed ? "grey" : "success"}
+          color={selling ? "success" : "grey"}
           variant="outlined"
         />
       </RowLine>
@@ -178,9 +234,15 @@ export default function PromotionAdmin() {
       <RowLine>
         <RowText
           primary={
-            plan ? `${plan.name} · ${plan.slug}${plan.is_active ? "" : " (inativo)"}` : "Nenhum plano com esse slug"
+            plan
+              ? `${plan.name} · ${plan.slug}${plan.is_active ? "" : " (inativo)"}`
+              : config.plan_slug.trim()
+                ? `Não existe plano "${config.plan_slug.trim()}"`
+                : "Nenhum plano escolhido"
           }
-          secondary={plan ? ladder.join(" · ") : "A página e a home só vendem quando o slug casa com um plano ativo."}
+          secondary={
+            plan ? ladder.join(" · ") : "Escolha o plano na lista abaixo: a página e a home só vendem um plano ativo."
+          }
         />
         <Chip
           label={plan && parsePricePhases(plan.price_phases) ? "preço em fases" : "preço único"}
@@ -215,14 +277,24 @@ export default function PromotionAdmin() {
         value={config.label}
         onChange={(value) => setConfig({ ...config, label: value })}
       />
-      <Field
-        label="Slug do plano da promoção"
-        value={config.plan_slug}
+      {planError ? (
+        <Alert severity="error" className="neutral bg-background-paper/60!">
+          Não consegui ler os planos: {planError}
+          {planError.includes("price_phases")
+            ? " — a coluna price_phases não existe neste banco: a migração 0126 ainda não foi aplicada aqui."
+            : ""}
+        </Alert>
+      ) : null}
+      <SelectField
+        label="Plano que a promoção vende"
+        value={config.plan_slug.trim()}
+        options={planOptions(plans, config.plan_slug.trim(), "Escolha um plano")}
         onChange={(value) => setConfig({ ...config, plan_slug: value })}
       />
-      <Field
-        label="Slug do plano de âncora (preço de tabela riscado — vazio para nenhum)"
-        value={config.compare_plan_slug}
+      <SelectField
+        label="Plano de âncora (o preço de tabela que aparece riscado)"
+        value={config.compare_plan_slug.trim()}
+        options={planOptions(plans, config.compare_plan_slug.trim(), "Nenhum (sem preço riscado)")}
         onChange={(value) => setConfig({ ...config, compare_plan_slug: value })}
       />
       <Field

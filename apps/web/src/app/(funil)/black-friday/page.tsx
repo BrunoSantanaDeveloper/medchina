@@ -125,6 +125,12 @@ export default async function BlackFridayPage({
   const ctaLabel = `Assinar o ${plan.name} na ${sellable.promotion.label}`;
   const sentence = ladderSentencePtBR(facts, plan.period);
   const intro = facts.introCycles ?? 1;
+  // The line under the hero button, in the owner's words (2026-11-18). The
+  // numbers still come from the plan's ladder; the whole ladder, including
+  // the price from the 13th month on, stays in the figure and the FAQ below.
+  const heroCondition = secondPriceCents
+    ? `${money(facts.firstPriceCents)} nos primeiros ${intro} meses, após ${money(secondPriceCents)} por mês até completar 1 ano no plano ${plan.name}.`
+    : sentence;
   const deadline = deadlineWords(endsAt);
   const startWords = sellable.promotion.startsAt ? DAY_MONTH.format(new Date(sellable.promotion.startsAt)) : null;
   const audioMinutes = Number(plan.limits?.audio_minutes ?? 0);
@@ -185,7 +191,7 @@ export default async function BlackFridayPage({
               </p>
               <OfferCta href={checkoutHref} label={ctaLabel} position="hero" page="black-friday" />
               <p className="bf-condition">
-                {sentence} Mensal, no cartão ou no PIX, sem fidelidade: você cancela quando quiser pelo painel.
+                {heroCondition} Mensal, no cartão ou no PIX, sem fidelidade: você cancela quando quiser pelo painel.
               </p>
               <p className="bf-guarantee">
                 <ShieldCheck size={17} weight="fill" aria-hidden="true" /> {guaranteeDays} dias de garantia, com
