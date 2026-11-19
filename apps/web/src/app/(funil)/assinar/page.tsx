@@ -1,6 +1,7 @@
 import OfferPriceChoice, { type PriceOption } from "../components/offer-price-choice";
 import OfferTestimonials from "../components/offer-testimonials";
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import TrackEvent from "@/components/consent/track-event";
 import { getCampaignOffer } from "@/lib/campaign-offer";
@@ -8,6 +9,7 @@ import { resolveSellableCampaign } from "@/lib/campaign-offer-server";
 import { campaignQuery, pickCampaignParams } from "@/lib/campaign-params";
 import { getGuaranteeDays } from "@/lib/guarantee";
 import { HERO_IMAGE, OFFER_ANGLES, resolveAngle } from "@/lib/offer-angles";
+import { getSellablePromotion } from "@/lib/promotion-server";
 import { getPlanBySlug } from "@flyee/billing/public";
 import {
   ArrowRight,
@@ -88,7 +90,27 @@ export default async function AssinarPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [params, offer, guaranteeDays] = await Promise.all([searchParams, getCampaignOffer(), getGuaranteeDays()]);
+  const [params, promotion] = await Promise.all([searchParams, getSellablePromotion()]);
+
+  // While a dated promotion is SELLING (migration 0126 — the Black Friday), this
+  // page hands its visitors to the promotion's page, with every query parameter
+  // (utm_*, fbclid…) so the campaign that brought them is still credited. The
+  // condition is the one /black-friday itself uses to decide it sells, so a
+  // visitor is never sent to a closed promotion, and the two pages can never
+  // send someone back and forth. When the promotion closes, this page comes
+  // back by itself. Ads should still point straight at /black-friday: with the
+  // root `loading.tsx`, a redirect from a page reaches the browser as a 200
+  // followed by a client-side redirect, which humans follow and crawlers may not.
+  if (promotion) {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      for (const item of Array.isArray(value) ? value : value !== undefined ? [value] : []) query.append(key, item);
+    }
+    const qs = query.toString();
+    redirect(`/black-friday${qs ? `?${qs}` : ""}`);
+  }
+
+  const [offer, guaranteeDays] = await Promise.all([getCampaignOffer(), getGuaranteeDays()]);
   const angleSlug = resolveAngle(params.utm_content);
   const angle = OFFER_ANGLES[angleSlug];
 
