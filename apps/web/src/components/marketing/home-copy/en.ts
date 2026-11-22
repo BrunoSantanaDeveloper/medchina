@@ -360,6 +360,17 @@ export const homeCopy: HomeCopy = {
     promoLadderRange: "Months {from} to {to}: {price} a month",
     promoLadderOpen: "From month {from}: {price} a month",
     promoCondition: "You pay {price} today. Monthly, no lock-in: cancel whenever you want from your account.",
+    promoCtaShort: "See the {label} offer",
+    promoHeroNote: "{plan} at {price} a month for the first {cycles} months · until {date}",
+    promoFreeLink: "Not subscribing yet? Create a free account",
+    promoFinalEyebrow: "{label} · until {date}",
+    promoFinalTitle:
+      "{plan} at {price} a month for the first {cycles} months. **If it does not fit, you have {days} days.**",
+    promoFinalBullets: [
+      "{days}-day guarantee",
+      "No lock-in: cancel from your account",
+      "Your data exportable at any time",
+    ],
     included: "What's included",
     assuranceTitle: "Your trial starts when your work starts.",
     assuranceDetail:

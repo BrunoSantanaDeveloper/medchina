@@ -3035,6 +3035,23 @@ h2 em {
    the struck price and its discount badge get the same treatment, since the
    grey they carry elsewhere does not read on coral. */
 
+/* During a promotion the free account stays reachable from the hero, one
+   quiet link under the offer's line instead of the primary button. */
+.hero-free-link {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.hero-free-link a {
+  color: #52615e;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.hero-free-link a:hover {
+  color: var(--jade);
+}
+
 .promo-strip {
   display: flex;
   flex-wrap: wrap;

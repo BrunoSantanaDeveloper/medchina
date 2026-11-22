@@ -390,6 +390,21 @@ export const homeCopyPtBR = {
     promoLadderRange: "Meses {from} a {to}: {price} por mês",
     promoLadderOpen: "A partir do mês {from}: {price} por mês",
     promoCondition: "Hoje você paga {price}. Mensal, sem fidelidade: cancele quando quiser pelo painel.",
+    /**
+     * Enquanto a promoção está aberta, os chamados da home (cabeçalho, topo,
+     * dúvidas e fim) levam à oferta; a conta gratuita continua a um link.
+     */
+    promoCtaShort: "Ver a oferta da {label}",
+    promoHeroNote: "{plan} a {price} por mês nos {cycles} primeiros meses · até {date}",
+    promoFreeLink: "Ainda não vai assinar? Crie uma conta gratuita",
+    promoFinalEyebrow: "{label} · até {date}",
+    promoFinalTitle:
+      "{plan} a {price} por mês nos {cycles} primeiros meses. **Se não fizer sentido, você tem {days} dias.**",
+    promoFinalBullets: [
+      "{days} dias de garantia",
+      "Sem fidelidade: cancele pelo painel",
+      "Seus dados exportáveis a qualquer momento",
+    ],
     included: "O que está incluído",
     assuranceTitle: "Você começa a testar quando começa a trabalhar.",
     assuranceDetail:

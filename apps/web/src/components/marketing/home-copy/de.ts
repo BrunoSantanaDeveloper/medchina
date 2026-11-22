@@ -358,6 +358,17 @@ export const homeCopy: HomeCopy = {
     promoLadderRange: "Monate {from} bis {to}: {price} pro Monat",
     promoLadderOpen: "Ab Monat {from}: {price} pro Monat",
     promoCondition: "Heute zahlen Sie {price}. Monatlich, ohne Mindestlaufzeit: jederzeit im Konto kündbar.",
+    promoCtaShort: "Zum {label}-Angebot",
+    promoHeroNote: "{plan} für {price} pro Monat in den ersten {cycles} Monaten · bis {date}",
+    promoFreeLink: "Noch nicht abonnieren? Kostenloses Konto erstellen",
+    promoFinalEyebrow: "{label} · bis {date}",
+    promoFinalTitle:
+      "{plan} für {price} pro Monat in den ersten {cycles} Monaten. **Wenn es nicht passt, haben Sie {days} Tage.**",
+    promoFinalBullets: [
+      "{days} Tage Geld-zurück-Garantie",
+      "Ohne Mindestlaufzeit: im Konto kündbar",
+      "Ihre Daten jederzeit exportierbar",
+    ],
     included: "Enthalten",
     assuranceTitle: "Der Test beginnt, wenn Ihre Arbeit beginnt.",
     assuranceDetail:

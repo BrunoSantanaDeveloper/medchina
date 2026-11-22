@@ -362,6 +362,17 @@ export const homeCopy: HomeCopy = {
     promoLadderOpen: "À partir du mois {from} : {price} par mois",
     promoCondition:
       "Vous payez {price} aujourd'hui. Mensuel, sans engagement : résiliez quand vous voulez depuis votre espace.",
+    promoCtaShort: "Voir l'offre {label}",
+    promoHeroNote: "{plan} à {price} par mois les {cycles} premiers mois · jusqu'au {date}",
+    promoFreeLink: "Pas encore prêt à vous abonner ? Créez un compte gratuit",
+    promoFinalEyebrow: "{label} · jusqu'au {date}",
+    promoFinalTitle:
+      "{plan} à {price} par mois les {cycles} premiers mois. **Si cela ne vous convient pas, vous avez {days} jours.**",
+    promoFinalBullets: [
+      "Garantie de {days} jours",
+      "Sans engagement : résiliez depuis votre espace",
+      "Vos données exportables à tout moment",
+    ],
     included: "Ce qui est inclus",
     assuranceTitle: "L'essai commence quand le travail commence.",
     assuranceDetail:

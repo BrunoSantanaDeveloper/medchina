@@ -486,6 +486,7 @@ export default function ClinicalSourceHome({
   plans,
   offer,
   promoStrip,
+  promoHome,
   couponNotice,
   copy,
   locale,
@@ -515,6 +516,22 @@ export default function ClinicalSourceHome({
    * whenever the promotion is closed — it leaves with the promotion.
    */
   promoStrip?: { text: string; cta: string; aria: string; href: string } | null;
+  /**
+   * While the dated promotion is open, the home's calls to action lead to it
+   * instead of to the free account (header, hero, FAQ and final call), and the
+   * free account stays one quiet link away. Every string is already filled on
+   * the server; null whenever the promotion is closed, so the home goes back
+   * to trial-first by itself.
+   */
+  promoHome?: {
+    href: string;
+    cta: string;
+    heroNote: string;
+    freeLink: string;
+    finalEyebrow: string;
+    finalTitle: string;
+    finalBullets: string[];
+  } | null;
   /** Confirmation that a campaign code was recognized — or that it was not. */
   couponNotice?: { label: string; applied: boolean };
   /** This page's copy in the active language (home-copy/<locale>.ts). */
@@ -543,7 +560,7 @@ export default function ClinicalSourceHome({
           { href: "#planos", label: copy.nav.plans },
         ]}
         signInHref={signInUrl}
-        cta={{ href: signUpUrl, label: copy.nav.signUp }}
+        cta={promoHome ? { href: promoHome.href, label: promoHome.cta } : { href: signUpUrl, label: copy.nav.signUp }}
         language={{ copy: copy.language, locale }}
       />
 
@@ -554,16 +571,27 @@ export default function ClinicalSourceHome({
             <h1 id="hero-title">{rich(copy.hero.title)}</h1>
             <p className="hero-lead">{copy.hero.lead}</p>
             <div className="hero-actions">
-              <a className="button" href={signUpUrl}>
-                {copy.hero.ctaPrimary} <ArrowRight size={18} />
+              <a className="button" href={promoHome?.href ?? signUpUrl}>
+                {promoHome?.cta ?? copy.hero.ctaPrimary} <ArrowRight size={18} />
               </a>
               <a className="button button--secondary" href="#como-funciona">
                 <Play size={17} weight="fill" /> {copy.hero.ctaSecondary}
               </a>
             </div>
-            <p className="hero-guarantee">
-              <CheckCircle size={16} weight="fill" /> {copy.hero.guarantee}
-            </p>
+            {promoHome ? (
+              <>
+                <p className="hero-guarantee">
+                  <Tag size={16} weight="fill" aria-hidden="true" /> {promoHome.heroNote}
+                </p>
+                <p className="hero-free-link">
+                  <a href={signUpUrl}>{promoHome.freeLink}</a>
+                </p>
+              </>
+            ) : (
+              <p className="hero-guarantee">
+                <CheckCircle size={16} weight="fill" /> {copy.hero.guarantee}
+              </p>
+            )}
             <ul className="hero-trust" aria-label={copy.hero.trustAria}>
               <li>
                 <ShieldCheck size={19} weight="duotone" /> {copy.hero.trust[0]}
@@ -877,8 +905,8 @@ export default function ClinicalSourceHome({
           <p className="eyebrow">{copy.faq.eyebrow}</p>
           <h2>{copy.faq.title}</h2>
           <p>{copy.faq.lead}</p>
-          <a href={signUpUrl}>
-            {copy.faq.cta} <ArrowRight size={16} />
+          <a href={promoHome?.href ?? signUpUrl}>
+            {promoHome?.cta ?? copy.faq.cta} <ArrowRight size={16} />
           </a>
         </div>
         <div className="faq-list">
@@ -896,19 +924,25 @@ export default function ClinicalSourceHome({
 
       <section className="final-cta">
         <div>
-          <p className="eyebrow eyebrow--light">{copy.finalCta.eyebrow}</p>
-          <h2>{rich(copy.finalCta.title)}</h2>
-          <p>{copy.finalCta.lead}</p>
+          <p className="eyebrow eyebrow--light">{promoHome?.finalEyebrow ?? copy.finalCta.eyebrow}</p>
+          <h2>{rich(promoHome?.finalTitle ?? copy.finalCta.title)}</h2>
+          {promoHome ? null : <p>{copy.finalCta.lead}</p>}
           <div className="hero-actions">
-            <a className="button button--light" href={signUpUrl}>
-              {copy.finalCta.ctaPrimary} <ArrowRight size={18} />
+            <a className="button button--light" href={promoHome?.href ?? signUpUrl}>
+              {promoHome?.cta ?? copy.finalCta.ctaPrimary} <ArrowRight size={18} />
             </a>
-            <a className="text-link-light" href="#como-funciona">
-              {copy.finalCta.ctaSecondary}
-            </a>
+            {promoHome ? (
+              <a className="text-link-light" href={signUpUrl}>
+                {promoHome.freeLink}
+              </a>
+            ) : (
+              <a className="text-link-light" href="#como-funciona">
+                {copy.finalCta.ctaSecondary}
+              </a>
+            )}
           </div>
           <ul>
-            {copy.finalCta.bullets.map((bullet) => (
+            {(promoHome?.finalBullets ?? copy.finalCta.bullets).map((bullet) => (
               <li key={bullet}>
                 <Check size={17} /> {bullet}
               </li>

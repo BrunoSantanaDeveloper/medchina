@@ -150,6 +150,21 @@ export default async function Home({
       copy={copy}
       locale={locale}
       autoSwitched={autoSwitched}
+      promoHome={
+        promoValues && offer
+          ? {
+              href: "/black-friday",
+              cta: fillCopy(copy.pricing.promoCtaShort, promoValues),
+              heroNote: fillCopy(copy.pricing.promoHeroNote, promoValues),
+              freeLink: copy.pricing.promoFreeLink,
+              finalEyebrow: fillCopy(copy.pricing.promoFinalEyebrow, promoValues),
+              finalTitle: fillCopy(copy.pricing.promoFinalTitle, { ...promoValues, days: offer.guaranteeDays }),
+              finalBullets: copy.pricing.promoFinalBullets.map((bullet) =>
+                fillCopy(bullet, { ...promoValues, days: offer.guaranteeDays }),
+              ),
+            }
+          : null
+      }
       promoStrip={
         promoValues
           ? {

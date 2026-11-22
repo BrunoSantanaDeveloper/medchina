@@ -353,6 +353,16 @@ export const homeCopy: HomeCopy = {
     promoLadderRange: "Meses {from} a {to}: {price} al mes",
     promoLadderOpen: "Desde el mes {from}: {price} al mes",
     promoCondition: "Hoy pagas {price}. Mensual, sin permanencia: cancela cuando quieras desde el panel.",
+    promoCtaShort: "Ver la oferta de {label}",
+    promoHeroNote: "{plan} a {price} al mes los primeros {cycles} meses · hasta el {date}",
+    promoFreeLink: "¿Todavía no te vas a suscribir? Crea una cuenta gratuita",
+    promoFinalEyebrow: "{label} · hasta el {date}",
+    promoFinalTitle: "{plan} a {price} al mes los primeros {cycles} meses. **Si no encaja, tienes {days} días.**",
+    promoFinalBullets: [
+      "{days} días de garantía",
+      "Sin permanencia: cancela desde el panel",
+      "Tus datos exportables en cualquier momento",
+    ],
     included: "Qué incluye",
     assuranceTitle: "Empiezas a probar cuando empiezas a trabajar.",
     assuranceDetail:

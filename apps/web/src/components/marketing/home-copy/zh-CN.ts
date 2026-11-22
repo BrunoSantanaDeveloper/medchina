@@ -354,6 +354,12 @@ export const homeCopy: HomeCopy = {
     promoLadderRange: "第 {from} 至 {to} 个月：每月 {price}",
     promoLadderOpen: "第 {from} 个月起：每月 {price}",
     promoCondition: "今天支付 {price}。按月付费，无最低期限：可随时在账户中取消。",
+    promoCtaShort: "查看 {label} 优惠",
+    promoHeroNote: "{plan} 前 {cycles} 个月每月 {price} · 截止 {date}",
+    promoFreeLink: "暂不订阅？创建免费账户",
+    promoFinalEyebrow: "{label} · 截止 {date}",
+    promoFinalTitle: "{plan} 前 {cycles} 个月每月 {price}。**如果不适合，您有 {days} 天时间。**",
+    promoFinalBullets: ["{days} 天退款保证", "无最低期限：可在账户中取消", "您的数据随时可导出"],
     included: "包含内容",
     assuranceTitle: "开始工作时，试用才开始。",
     assuranceDetail:
